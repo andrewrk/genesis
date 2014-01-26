@@ -4,12 +4,14 @@
 #include "lv2selectorwindow.h"
 #include "soundengine.h"
 
+#include "project.h"
+#include "projectwindow.h"
+
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow)
 {
 	ui->setupUi(this);
-	ui->actionExit->setShortcut(QKeySequence(Qt::ALT, Qt::Key_F4));
 }
 
 MainWindow::~MainWindow()
@@ -31,4 +33,16 @@ void MainWindow::on_actionLv2PluginBrowser_triggered()
 		lv2Window = new Lv2SelectorWindow(this);
 	lv2Window->hide();
 	lv2Window->show();
+}
+
+void MainWindow::on_actionQuit_triggered()
+{
+	this->close();
+}
+
+void MainWindow::on_actionNewProject_triggered()
+{
+	Project *project = new Project();
+	ProjectWindow *window = new ProjectWindow(project, this);
+	window->show();
 }

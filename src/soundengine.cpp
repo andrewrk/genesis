@@ -34,7 +34,9 @@ void SoundEngine::initialize()
 
 int SoundEngine::openDefaultOutput()
 {
-	// hardcoded stereo, hardcoded 44100 sample rate
+	// TODO don't hardcode stereo
+	// TODO don't hardcode 44100 sample rate
+	// TODO have more control over the latency value here
 	PaError err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, paFramesPerBufferUnspecified, callback, NULL);
 	if (err != paNoError) {
 		stream = NULL;

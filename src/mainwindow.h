@@ -20,6 +20,10 @@ public:
 private slots:
 	void on_actionLv2PluginBrowser_triggered();
 
+	void on_actionQuit_triggered();
+
+	void on_actionNewProject_triggered();
+
 private:
 	Ui::MainWindow *ui;
 };

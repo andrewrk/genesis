@@ -19,17 +19,22 @@ SOURCES += \
     src/main.cpp \
     src/lv2selectorwindow.cpp \
     src/soundmodule.cpp \
-    src/soundengine.cpp
+    src/soundengine.cpp \
+    src/project.cpp \
+    src/projectwindow.cpp
 
 HEADERS  += \
     src/mainwindow.h \
     src/lv2selectorwindow.h \
     src/soundmodule.h \
-    src/soundengine.h
+    src/soundengine.h \
+    src/project.h \
+    src/projectwindow.h
 
 FORMS    += \
     src/mainwindow.ui \
-    src/lv2selectorwindow.ui
+    src/lv2selectorwindow.ui \
+    src/projectwindow.ui
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG += lilv-0

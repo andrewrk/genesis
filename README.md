@@ -7,6 +7,11 @@
  * Take full advantage of multiple cores.
  * Sample-accurate mixing.
  * Eventually merge with [LMMS](https://github.com/LMMS/lmms)
+ * Never require the user to restart the program
+ * Let's get these things right the first time around:
+   - Undo/redo
+   - Ability to edit multiple projects at once. Mix and match
+   - Support for N audio channels instead of hardcoded stereo
 
 ## Design
 

@@ -6,12 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>586</width>
+    <height>315</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Genesis</string>
+  </property>
+  <property name="dockOptions">
+   <set>QMainWindow::AllowTabbedDocks</set>
   </property>
   <widget class="QWidget" name="centralWidget"/>
   <widget class="QMenuBar" name="menuBar">
@@ -19,15 +22,16 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>400</width>
+     <width>586</width>
      <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_Project">
     <property name="title">
-     <string>&amp;Project</string>
+     <string>&amp;genesis</string>
     </property>
-    <addaction name="actionExit"/>
+    <addaction name="actionNewProject"/>
+    <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menu_Tools">
     <property name="title">
@@ -38,10 +42,12 @@
    <addaction name="menu_Project"/>
    <addaction name="menu_Tools"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
-  <action name="actionExit">
+  <action name="actionQuit">
    <property name="text">
-    <string>E&amp;xit</string>
+    <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+W</string>
    </property>
   </action>
   <action name="actionLv2PluginBrowser">
@@ -50,6 +56,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+L</string>
+   </property>
+  </action>
+  <action name="actionNewProject">
+   <property name="text">
+    <string>&amp;New Project</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
    </property>
   </action>
  </widget>
