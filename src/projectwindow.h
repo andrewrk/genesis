@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QUndoStack>
 #include <QUndoView>
+#include <QList>
 
 #include "project.h"
 
@@ -19,6 +20,9 @@ public:
     explicit ProjectWindow(Project *project, QWidget *parent = 0);
 	~ProjectWindow();
 
+
+    void updateSampleRateUi();
+
 private:
 	Ui::ProjectWindow *ui;
 
@@ -26,6 +30,14 @@ private:
 
     QUndoStack *undoStack;
     QUndoView *undoView;
+
+    QList<QAction *> sampleRateActions;
+
+
+private slots:
+    void changeSampleRate();
+
+    void updateUndoRedoMenuText();
 
 };
 

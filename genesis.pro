@@ -20,14 +20,16 @@ SOURCES += \
     src/lv2selectorwindow.cpp \
     src/soundengine.cpp \
     src/projectwindow.cpp \
-    src/project.cpp
+    src/project.cpp \
+    src/changesampleratecommand.cpp
 
 HEADERS  += \
     src/mainwindow.h \
     src/lv2selectorwindow.h \
     src/soundengine.h \
     src/projectwindow.h \
-    src/project.h
+    src/project.h \
+    src/changesampleratecommand.h
 
 FORMS    += \
     src/mainwindow.ui \
