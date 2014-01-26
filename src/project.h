@@ -5,6 +5,7 @@
 
 #include "module.h"
 #include "event.h"
+#include "parameter.h"
 
 #include <QMap>
 #include <QSet>
@@ -20,12 +21,17 @@ public:
     int getSampleRate() const { return sampleRate; }
     void setSampleRate(int rate);
 
+    void addRootModule(Module *module);
+
 private:
     int sampleRate;
     int channelLayout;
 
+    Parameter tempo;
+
     QSet<Module *> rootModules;
 
+    // indexed by sample frame index
     QMap<int, Event*> events;
 };
 

@@ -17,7 +17,7 @@
  * Multiplayer support. Each person can simultaneously edit different sections.
  * Backend decoupled from the UI. Someone should be able to depend only
    on a C library and headlessly synthesize music.
- * Eventually merge with [LMMS](https://github.com/LMMS/lmms)
+ * Friends with [LMMS](https://github.com/LMMS/lmms)
 
 ## Installation
 
@@ -68,6 +68,14 @@ An LV2 plugin acts as a Module.
 
 An Event can be one of these types:
 
- * Automation - this describes a parameter to modulate
+ * Automation - this describes a Parameter to modulate
  * Notes - "midi" data
  * Sample
+
+### Parameter
+
+A Parameter is automatable. A Parameter has these fields:
+
+ * minimum value
+ * maximum value
+ * default value

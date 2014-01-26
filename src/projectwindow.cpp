@@ -174,3 +174,8 @@ void ProjectWindow::on_actionRedo_triggered()
 {
     undoStack->redo();
 }
+
+void ProjectWindow::on_actionTogglePlayback_triggered()
+{
+
+}

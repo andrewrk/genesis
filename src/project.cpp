@@ -1,6 +1,7 @@
 #include "project.h"
 
-Project::Project()
+Project::Project() :
+    tempo("Tempo")
 {
     sampleRate = 44100;
     channelLayout = GENESIS_CH_LAYOUT_STEREO;

@@ -26,7 +26,8 @@ SOURCES += \
     src/channel_layout.c \
     src/changechannellayoutcommand.cpp \
     src/module.cpp \
-    src/event.cpp
+    src/event.cpp \
+    src/parameter.cpp
 
 HEADERS  += \
     src/mainwindow.h \
@@ -39,7 +40,8 @@ HEADERS  += \
     src/channel_layout.h \
     src/changechannellayoutcommand.h \
     src/module.h \
-    src/event.h
+    src/event.h \
+    src/parameter.h
 
 FORMS    += \
     src/mainwindow.ui \
