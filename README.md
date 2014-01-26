@@ -10,7 +10,7 @@
 
 ## Design
 
-### Module
+### SoundModule
 
 A "module" is a generic processor. It can have any number of input and output
 ports. Here is a list of types of ports:

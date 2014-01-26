@@ -15,6 +15,8 @@ public:
 	explicit MainWindow(QWidget *parent = 0);
 	~MainWindow();
 
+	void begin();
+
 private slots:
 	void on_actionLv2PluginBrowser_triggered();
 

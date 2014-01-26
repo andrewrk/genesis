@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "lv2selectorwindow.h"
+#include "soundengine.h"
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
@@ -14,6 +15,12 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
 	delete ui;
+}
+
+void MainWindow::begin()
+{
+	SoundEngine::initialize();
+	SoundEngine::openDefaultOutput();
 }
 
 static Lv2SelectorWindow *lv2Window = NULL;
