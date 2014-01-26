@@ -22,6 +22,7 @@ public:
 
 
     void updateSampleRateUi();
+    void updateChannelLayoutUi();
 
 private:
 	Ui::ProjectWindow *ui;
@@ -32,10 +33,12 @@ private:
     QUndoView *undoView;
 
     QList<QAction *> sampleRateActions;
+    QList<QAction *> channelLayoutActions;
 
 
 private slots:
     void changeSampleRate();
+    void changeChannelLayout();
 
     void updateUndoRedoMenuText();
 

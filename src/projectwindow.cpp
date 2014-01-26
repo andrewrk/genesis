@@ -2,6 +2,9 @@
 #include "ui_projectwindow.h"
 
 #include "changesampleratecommand.h"
+#include "changechannellayoutcommand.h"
+
+#include "channel_layout.h"
 
 static const int sampleRateCount = 7;
 static const int sampleRates[sampleRateCount] = {
@@ -12,6 +15,37 @@ static const int sampleRates[sampleRateCount] = {
     88200,
     96000,
     352800,
+};
+
+static const int chLayoutCount = 27;
+static const uint64_t chLayouts[chLayoutCount] = {
+    GENESIS_CH_LAYOUT_MONO,
+    GENESIS_CH_LAYOUT_STEREO,
+    GENESIS_CH_LAYOUT_2POINT1,
+    GENESIS_CH_LAYOUT_2_1,
+    GENESIS_CH_LAYOUT_SURROUND,
+    GENESIS_CH_LAYOUT_3POINT1,
+    GENESIS_CH_LAYOUT_4POINT0,
+    GENESIS_CH_LAYOUT_4POINT1,
+    GENESIS_CH_LAYOUT_2_2,
+    GENESIS_CH_LAYOUT_QUAD,
+    GENESIS_CH_LAYOUT_5POINT0,
+    GENESIS_CH_LAYOUT_5POINT1,
+    GENESIS_CH_LAYOUT_5POINT0_BACK,
+    GENESIS_CH_LAYOUT_5POINT1_BACK,
+    GENESIS_CH_LAYOUT_6POINT0,
+    GENESIS_CH_LAYOUT_6POINT0_FRONT,
+    GENESIS_CH_LAYOUT_HEXAGONAL,
+    GENESIS_CH_LAYOUT_6POINT1,
+    GENESIS_CH_LAYOUT_6POINT1_BACK,
+    GENESIS_CH_LAYOUT_6POINT1_FRONT,
+    GENESIS_CH_LAYOUT_7POINT0,
+    GENESIS_CH_LAYOUT_7POINT0_FRONT,
+    GENESIS_CH_LAYOUT_7POINT1,
+    GENESIS_CH_LAYOUT_7POINT1_WIDE,
+    GENESIS_CH_LAYOUT_7POINT1_WIDE_BACK,
+    GENESIS_CH_LAYOUT_OCTAGONAL,
+    GENESIS_CH_LAYOUT_STEREO_DOWNMIX,
 };
 
 ProjectWindow::ProjectWindow(Project *project, QWidget *parent) :
@@ -41,6 +75,21 @@ ProjectWindow::ProjectWindow(Project *project, QWidget *parent) :
     ui->menuSampleRate->addActions(sampleRateActions);
     updateSampleRateUi();
 
+    for (int i = 0; i < chLayoutCount; i += 1) {
+        uint64_t layout = chLayouts[i];
+        int channelCount = genesis_get_channel_layout_nb_channels(layout);
+        QAction *action = new QAction(tr("%1 (%2 channels)").arg(
+                                          genesis_get_channel_layout_string(layout),
+                                          QString::number(channelCount)), this);
+        action->setData(QVariant((qlonglong)layout));
+        action->setCheckable(true);
+        channelLayoutActions.append(action);
+        ok = connect(action, SIGNAL(triggered()), this, SLOT(changeChannelLayout()));
+        Q_ASSERT(ok);
+    }
+    ui->menuChannelLayout->addActions(channelLayoutActions);
+    updateChannelLayoutUi();
+
     ok = connect(undoStack, SIGNAL(canRedoChanged(bool)), this, SLOT(updateUndoRedoMenuText()));
     Q_ASSERT(ok);
     ok = connect(undoStack, SIGNAL(canUndoChanged(bool)), this, SLOT(updateUndoRedoMenuText()));
@@ -66,6 +115,15 @@ void ProjectWindow::updateSampleRateUi()
     }
 }
 
+void ProjectWindow::updateChannelLayoutUi()
+{
+    uint64_t projectLayout = project->getChannelLayout();
+    foreach (QAction *action, channelLayoutActions) {
+        uint64_t actionLayout = action->data().value<uint64_t>();
+        action->setChecked(actionLayout == projectLayout);
+    }
+}
+
 void ProjectWindow::changeSampleRate()
 {
     QAction *action = (QAction *) sender();
@@ -73,6 +131,15 @@ void ProjectWindow::changeSampleRate()
     if (rate == project->getSampleRate()) return;
     undoStack->push(new ChangeSampleRateCommand(rate, project, this));
     updateSampleRateUi();
+}
+
+void ProjectWindow::changeChannelLayout()
+{
+    QAction *action = (QAction *) sender();
+    uint64_t layout = action->data().value<uint64_t>();
+    if (layout == project->getChannelLayout()) return;
+    undoStack->push(new ChangeChannelLayoutCommand(layout, project, this));
+    updateChannelLayoutUi();
 }
 
 void ProjectWindow::updateUndoRedoMenuText()

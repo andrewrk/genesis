@@ -87,14 +87,8 @@ extern "C"
  */
 uint64_t genesis_get_channel_layout(const char *name);
 
-/**
- * Return a description of a channel layout.
- * If nb_channels is <= 0, it is guessed from the channel_layout.
- *
- * @param buf put here the string containing the channel layout
- * @param buf_size size in bytes of the buffer
- */
-void genesis_get_channel_layout_string(char *buf, int buf_size, int nb_channels, uint64_t channel_layout);
+/* Return a description of a channel layout */
+const char *genesis_get_channel_layout_string(uint64_t channel_layout);
 
 /**
  * Return the number of channels in the channel layout.

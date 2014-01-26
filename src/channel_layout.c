@@ -194,3 +194,38 @@ uint64_t genesis_channel_layout_extract_channel(uint64_t channel_layout, int ind
     return 0;
 }
 
+
+
+const char *genesis_get_channel_layout_string(uint64_t channel_layout)
+{
+    switch(channel_layout) {
+        case GENESIS_CH_LAYOUT_MONO: return "Mono";
+        case GENESIS_CH_LAYOUT_STEREO: return "Stereo";
+        case GENESIS_CH_LAYOUT_2POINT1: return "2.1";
+        case GENESIS_CH_LAYOUT_2_1: return "2_1";
+        case GENESIS_CH_LAYOUT_SURROUND: return "Surround";
+        case GENESIS_CH_LAYOUT_3POINT1: return "3.1";
+        case GENESIS_CH_LAYOUT_4POINT0: return "4.0";
+        case GENESIS_CH_LAYOUT_4POINT1: return "4.1";
+        case GENESIS_CH_LAYOUT_2_2: return "2_2";
+        case GENESIS_CH_LAYOUT_QUAD: return "Quad";
+        case GENESIS_CH_LAYOUT_5POINT0: return "5.0";
+        case GENESIS_CH_LAYOUT_5POINT1: return "5.1";
+        case GENESIS_CH_LAYOUT_5POINT0_BACK: return "5.0 Back";
+        case GENESIS_CH_LAYOUT_5POINT1_BACK: return "5.1 Back";
+        case GENESIS_CH_LAYOUT_6POINT0: return "6.0";
+        case GENESIS_CH_LAYOUT_6POINT0_FRONT: return "6.0 Front";
+        case GENESIS_CH_LAYOUT_HEXAGONAL: return "Hexagonal";
+        case GENESIS_CH_LAYOUT_6POINT1: return "6.1";
+        case GENESIS_CH_LAYOUT_6POINT1_BACK: return "6.1 Back";
+        case GENESIS_CH_LAYOUT_6POINT1_FRONT: return "6.1 Front";
+        case GENESIS_CH_LAYOUT_7POINT0: return "7.0";
+        case GENESIS_CH_LAYOUT_7POINT0_FRONT: return "7.0 Front";
+        case GENESIS_CH_LAYOUT_7POINT1: return "7.1";
+        case GENESIS_CH_LAYOUT_7POINT1_WIDE: return "7.1 Wide";
+        case GENESIS_CH_LAYOUT_7POINT1_WIDE_BACK: return "7.1 Wide Back";
+        case GENESIS_CH_LAYOUT_OCTAGONAL: return "Octagonal";
+        case GENESIS_CH_LAYOUT_STEREO_DOWNMIX: return "Stereo Downmix";
+    }
+    return "Custom";
+}

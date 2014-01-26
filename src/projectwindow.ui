@@ -35,19 +35,16 @@
       <string>Sample Rate</string>
      </property>
     </widget>
-    <widget class="QMenu" name="menuChannel_Layout">
+    <widget class="QMenu" name="menuChannelLayout">
      <property name="title">
       <string>Channel Layout</string>
      </property>
-     <addaction name="actionMono"/>
-     <addaction name="actionStereo"/>
-     <addaction name="actionSurround51"/>
     </widget>
     <addaction name="actionNew"/>
     <addaction name="actionClose"/>
     <addaction name="separator"/>
     <addaction name="menuSampleRate"/>
-    <addaction name="menuChannel_Layout"/>
+    <addaction name="menuChannelLayout"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -104,21 +101,6 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Z</string>
-   </property>
-  </action>
-  <action name="actionMono">
-   <property name="text">
-    <string>Mono (1 channel)</string>
-   </property>
-  </action>
-  <action name="actionStereo">
-   <property name="text">
-    <string>Stereo (2 channels)</string>
-   </property>
-  </action>
-  <action name="actionSurround51">
-   <property name="text">
-    <string>5.1 Surround Sound (6 channels)</string>
    </property>
   </action>
  </widget>
