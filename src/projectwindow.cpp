@@ -1,12 +1,14 @@
 #include "projectwindow.h"
 #include "ui_projectwindow.h"
 
-ProjectWindow::ProjectWindow(GenesisProject *project, QWidget *parent) :
+ProjectWindow::ProjectWindow(Project *project, QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::ProjectWindow),
     project(project)
 {
 	ui->setupUi(this);
+
+    ui->menuView->addAction(ui->undoRedoDock->toggleViewAction());
 
     undoStack = new QUndoStack(this);
 
@@ -18,5 +20,5 @@ ProjectWindow::ProjectWindow(GenesisProject *project, QWidget *parent) :
 ProjectWindow::~ProjectWindow()
 {
 	delete ui;
-    genesis_project_close(project);
+    delete project;
 }

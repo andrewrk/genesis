@@ -20,14 +20,14 @@ SOURCES += \
     src/lv2selectorwindow.cpp \
     src/soundengine.cpp \
     src/projectwindow.cpp \
-    src/project.c
+    src/project.cpp
 
 HEADERS  += \
     src/mainwindow.h \
     src/lv2selectorwindow.h \
     src/soundengine.h \
-    src/project.h \
-    src/projectwindow.h
+    src/projectwindow.h \
+    src/project.h
 
 FORMS    += \
     src/mainwindow.ui \

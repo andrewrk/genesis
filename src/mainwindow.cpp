@@ -42,7 +42,7 @@ void MainWindow::on_actionQuit_triggered()
 
 void MainWindow::on_actionNewProject_triggered()
 {
-    GenesisProject *project = genesis_project_new();
+    Project *project = new Project();
     ProjectWindow *window = new ProjectWindow(project, this);
     window->show();
 }

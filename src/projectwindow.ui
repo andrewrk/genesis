@@ -26,28 +26,28 @@
      <height>20</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menu_Project">
+   <widget class="QMenu" name="menuProject">
     <property name="title">
      <string>&amp;Project</string>
     </property>
     <addaction name="actionNew"/>
     <addaction name="actionClose"/>
    </widget>
-   <widget class="QMenu" name="menu_Edit">
+   <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>&amp;Edit</string>
     </property>
     <addaction name="actionUndo"/>
     <addaction name="actionRedo"/>
    </widget>
-   <widget class="QMenu" name="menu_View">
+   <widget class="QMenu" name="menuView">
     <property name="title">
      <string>&amp;View</string>
     </property>
    </widget>
-   <addaction name="menu_Project"/>
-   <addaction name="menu_Edit"/>
-   <addaction name="menu_View"/>
+   <addaction name="menuProject"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuView"/>
   </widget>
   <widget class="QDockWidget" name="undoRedoDock">
    <property name="windowTitle">
