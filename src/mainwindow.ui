@@ -37,6 +37,7 @@
     <property name="title">
      <string>&amp;Tools</string>
     </property>
+    <addaction name="actionPreferences"/>
     <addaction name="actionLv2PluginBrowser"/>
    </widget>
    <addaction name="menu_Project"/>
@@ -64,6 +65,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+N</string>
+   </property>
+  </action>
+  <action name="actionPreferences">
+   <property name="text">
+    <string>&amp;Preferences...</string>
    </property>
   </action>
  </widget>

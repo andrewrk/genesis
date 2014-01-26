@@ -24,6 +24,8 @@ private slots:
 
 	void on_actionNewProject_triggered();
 
+    void on_actionPreferences_triggered();
+
 private:
 	Ui::MainWindow *ui;
 };

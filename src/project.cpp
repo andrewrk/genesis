@@ -3,10 +3,10 @@
 Project::Project()
 {
     sampleRate = 44100;
-    channelLayout = Stereo;
+    channelLayout = GENESIS_CH_LAYOUT_STEREO;
 }
 
-void Project::setChannelLayout(int layout)
+void Project::setChannelLayout(uint64_t layout)
 {
     channelLayout = layout;
 }

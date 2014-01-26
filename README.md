@@ -5,6 +5,7 @@
  * Fast but not over-optimized. Waste no CPU cycles, but do not add
    unnecessary complexity for the sake of speed.
  * Take full advantage of multiple cores.
+ * When there is a tradeoff between speed and memory, sacrifice memory.
  * Sample-accurate mixing.
  * Never require the user to restart the program
  * Let's get these things right the first time around:

@@ -21,7 +21,9 @@ SOURCES += \
     src/soundengine.cpp \
     src/projectwindow.cpp \
     src/project.cpp \
-    src/changesampleratecommand.cpp
+    src/changesampleratecommand.cpp \
+    src/preferenceswindow.cpp \
+    src/channel_layout.c
 
 HEADERS  += \
     src/mainwindow.h \
@@ -29,12 +31,15 @@ HEADERS  += \
     src/soundengine.h \
     src/projectwindow.h \
     src/project.h \
-    src/changesampleratecommand.h
+    src/changesampleratecommand.h \
+    src/preferenceswindow.h \
+    src/channel_layout.h
 
 FORMS    += \
     src/mainwindow.ui \
     src/lv2selectorwindow.ui \
-    src/projectwindow.ui
+    src/projectwindow.ui \
+    src/preferenceswindow.ui
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG += lilv-0

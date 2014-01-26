@@ -1,19 +1,15 @@
 #ifndef PROJECT_H
 #define PROJECT_H
 
+#include "channel_layout.h"
+
 class Project
 {
 public:
     Project();
 
-    enum ChannelLayout {
-        Mono,
-        Stereo,
-        Surround51,
-    };
-
-    int getChannelLayout() const { return channelLayout; }
-    void setChannelLayout(int layout);
+    uint64_t getChannelLayout() const { return channelLayout; }
+    void setChannelLayout(uint64_t layout);
 
     int getSampleRate() const { return sampleRate; }
     void setSampleRate(int rate);
