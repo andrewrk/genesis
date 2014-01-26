@@ -1,10 +1,18 @@
-#ifndef PROJECT_H
-#define PROJECT_H
+#ifndef GENESIS_PROJECT_H
+#define GENESIS_PROJECT_H
 
-class Project
+#ifdef __cplusplus
+extern "C"
 {
-public:
-	Project();
-};
+#endif /* __cplusplus */
 
-#endif // PROJECT_H
+struct GenesisProject;
+
+struct GenesisProject *genesis_project_new(void);
+void genesis_project_close(struct GenesisProject *project);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif // GENESIS_PROJECT_H

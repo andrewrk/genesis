@@ -16,16 +16,16 @@ class ProjectWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit ProjectWindow(Project *project, QWidget *parent = 0);
+    explicit ProjectWindow(GenesisProject *project, QWidget *parent = 0);
 	~ProjectWindow();
 
 private:
 	Ui::ProjectWindow *ui;
 
-	Project *project;
+    GenesisProject *project;
 
-	QUndoStack *undoStack;
-	QUndoView *undoView;
+    QUndoStack *undoStack;
+    QUndoView *undoView;
 
 };
 

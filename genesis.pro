@@ -18,15 +18,13 @@ SOURCES += \
     src/mainwindow.cpp \
     src/main.cpp \
     src/lv2selectorwindow.cpp \
-    src/soundmodule.cpp \
     src/soundengine.cpp \
-    src/project.cpp \
-    src/projectwindow.cpp
+    src/projectwindow.cpp \
+    src/project.c
 
 HEADERS  += \
     src/mainwindow.h \
     src/lv2selectorwindow.h \
-    src/soundmodule.h \
     src/soundengine.h \
     src/project.h \
     src/projectwindow.h

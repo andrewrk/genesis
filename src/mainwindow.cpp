@@ -11,18 +11,18 @@ MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow)
 {
-	ui->setupUi(this);
+    ui->setupUi(this);
 }
 
 MainWindow::~MainWindow()
 {
-	delete ui;
+    delete ui;
 }
 
 void MainWindow::begin()
 {
-	SoundEngine::initialize();
-	SoundEngine::openDefaultOutput();
+    SoundEngine::initialize();
+    SoundEngine::openDefaultOutput();
 }
 
 static Lv2SelectorWindow *lv2Window = NULL;
@@ -37,12 +37,12 @@ void MainWindow::on_actionLv2PluginBrowser_triggered()
 
 void MainWindow::on_actionQuit_triggered()
 {
-	this->close();
+    this->close();
 }
 
 void MainWindow::on_actionNewProject_triggered()
 {
-	Project *project = new Project();
-	ProjectWindow *window = new ProjectWindow(project, this);
-	window->show();
+    GenesisProject *project = genesis_project_new();
+    ProjectWindow *window = new ProjectWindow(project, this);
+    window->show();
 }
