@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Project</string>
   </property>
   <property name="dockOptions">
    <set>QMainWindow::AllowTabbedDocks</set>
@@ -58,8 +58,17 @@
      <string>&amp;View</string>
     </property>
    </widget>
+   <widget class="QMenu" name="menuP_layback">
+    <property name="title">
+     <string>P&amp;layback</string>
+    </property>
+    <addaction name="actionTogglePlayback"/>
+    <addaction name="actionStop"/>
+    <addaction name="actionRestartPlayback"/>
+   </widget>
    <addaction name="menuProject"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuP_layback"/>
    <addaction name="menuView"/>
   </widget>
   <widget class="QDockWidget" name="undoRedoDock">
@@ -101,6 +110,30 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Z</string>
+   </property>
+  </action>
+  <action name="actionTogglePlayback">
+   <property name="text">
+    <string>Toggle &amp;Playback</string>
+   </property>
+   <property name="shortcut">
+    <string>Space</string>
+   </property>
+  </action>
+  <action name="actionStop">
+   <property name="text">
+    <string>&amp;Stop</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Space</string>
+   </property>
+  </action>
+  <action name="actionRestartPlayback">
+   <property name="text">
+    <string>&amp;Restart Playback</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+Space</string>
    </property>
   </action>
  </widget>

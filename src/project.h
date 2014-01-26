@@ -3,6 +3,12 @@
 
 #include "channel_layout.h"
 
+#include "module.h"
+#include "event.h"
+
+#include <QMap>
+#include <QSet>
+
 class Project
 {
 public:
@@ -17,6 +23,10 @@ public:
 private:
     int sampleRate;
     int channelLayout;
+
+    QSet<Module *> rootModules;
+
+    QMap<int, Event*> events;
 };
 
 #endif // PROJECT_H

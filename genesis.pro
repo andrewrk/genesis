@@ -24,7 +24,9 @@ SOURCES += \
     src/changesampleratecommand.cpp \
     src/preferenceswindow.cpp \
     src/channel_layout.c \
-    src/changechannellayoutcommand.cpp
+    src/changechannellayoutcommand.cpp \
+    src/module.cpp \
+    src/event.cpp
 
 HEADERS  += \
     src/mainwindow.h \
@@ -35,7 +37,9 @@ HEADERS  += \
     src/changesampleratecommand.h \
     src/preferenceswindow.h \
     src/channel_layout.h \
-    src/changechannellayoutcommand.h
+    src/changechannellayoutcommand.h \
+    src/module.h \
+    src/event.h
 
 FORMS    += \
     src/mainwindow.ui \

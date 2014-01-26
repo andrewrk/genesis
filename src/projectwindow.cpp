@@ -61,6 +61,8 @@ ProjectWindow::ProjectWindow(Project *project, QWidget *parent) :
 
     undoView = new QUndoView(undoStack);
     ui->undoRedoDock->setWidget(undoView);
+    ui->undoRedoDock->hide();
+    updateUndoRedoMenuText();
 
     bool ok;
     for (int i = 0; i < sampleRateCount; i += 1) {
@@ -98,6 +100,7 @@ ProjectWindow::ProjectWindow(Project *project, QWidget *parent) :
     Q_ASSERT(ok);
     ok = connect(undoStack, SIGNAL(undoTextChanged(QString)), this, SLOT(updateUndoRedoMenuText()));
     Q_ASSERT(ok);
+
 }
 
 ProjectWindow::~ProjectWindow()
@@ -148,4 +151,26 @@ void ProjectWindow::updateUndoRedoMenuText()
     ui->actionRedo->setText(tr("&Redo %1").arg(undoStack->redoText()));
     ui->actionUndo->setEnabled(undoStack->canUndo());
     ui->actionRedo->setEnabled(undoStack->canRedo());
+}
+
+void ProjectWindow::on_actionNew_triggered()
+{
+    Project *project = new Project();
+    ProjectWindow *window = new ProjectWindow(project, (QWidget*)this->parent());
+    window->show();
+}
+
+void ProjectWindow::on_actionClose_triggered()
+{
+    this->close();
+}
+
+void ProjectWindow::on_actionUndo_triggered()
+{
+    undoStack->undo();
+}
+
+void ProjectWindow::on_actionRedo_triggered()
+{
+    undoStack->redo();
 }

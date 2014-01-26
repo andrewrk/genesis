@@ -42,6 +42,10 @@ private slots:
 
     void updateUndoRedoMenuText();
 
+    void on_actionNew_triggered();
+    void on_actionClose_triggered();
+    void on_actionUndo_triggered();
+    void on_actionRedo_triggered();
 };
 
 #endif // PROJECTWINDOW_H

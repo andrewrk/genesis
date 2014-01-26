@@ -44,8 +44,9 @@ A Project has the following data:
  * sample rate, aka frames per second
  * channel count. mono, stereo, surround sound, etc.
 
-A Project has a root Module node. This is the "master mixer track".
-From here you can trace child nodes and discover every Module.
+A Project has a set of root Module nodes. Root Module nodes have no parents.
+They typically will output to the main sound output. Usually a Project will
+have only one root Module. It would be the "master mixer" output.
 
 A Project has an ordered list of Events. They are indexed by frame index.
 Another way of saying this is that an Event occurs at a specific frame.
