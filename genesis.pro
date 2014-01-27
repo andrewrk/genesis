@@ -18,7 +18,6 @@ SOURCES += \
     src/mainwindow.cpp \
     src/main.cpp \
     src/lv2selectorwindow.cpp \
-    src/soundengine.cpp \
     src/projectwindow.cpp \
     src/project.cpp \
     src/changesampleratecommand.cpp \
@@ -27,12 +26,15 @@ SOURCES += \
     src/changechannellayoutcommand.cpp \
     src/module.cpp \
     src/event.cpp \
-    src/parameter.cpp
+    src/parameter.cpp \
+    src/buffer.cpp \
+    src/playbackmodule.cpp \
+    src/port.cpp \
+    src/lv2module.cpp
 
 HEADERS  += \
     src/mainwindow.h \
     src/lv2selectorwindow.h \
-    src/soundengine.h \
     src/projectwindow.h \
     src/project.h \
     src/changesampleratecommand.h \
@@ -41,7 +43,11 @@ HEADERS  += \
     src/changechannellayoutcommand.h \
     src/module.h \
     src/event.h \
-    src/parameter.h
+    src/parameter.h \
+    src/buffer.h \
+    src/playbackmodule.h \
+    src/port.h \
+    src/lv2module.h
 
 FORMS    += \
     src/mainwindow.ui \

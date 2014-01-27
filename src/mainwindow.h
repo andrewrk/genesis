@@ -16,6 +16,7 @@ public:
 	~MainWindow();
 
 	void begin();
+    void createNewProject();
 
 private slots:
 	void on_actionLv2PluginBrowser_triggered();

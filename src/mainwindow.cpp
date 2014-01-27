@@ -2,7 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "lv2selectorwindow.h"
-#include "soundengine.h"
+#include "playbackmodule.h"
 #include "preferenceswindow.h"
 
 #include "project.h"
@@ -20,9 +20,25 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+
+void MainWindow::createNewProject()
+{
+    Project *project = new Project();
+
+    // add a PlaybackModule to the project so that we can hear the sound coming out
+    PlaybackModule *playbackModule = new PlaybackModule(
+                project->getSampleRate(), project->getChannelLayout(),
+                PlaybackModule::defaultOutputDeviceIndex());
+    project->addRootModule(playbackModule);
+
+    ProjectWindow *window = new ProjectWindow(project, this);
+    window->show();
+}
+
+
 void MainWindow::begin()
 {
-    SoundEngine::initialize();
+    PlaybackModule::initialize();
 }
 
 static Lv2SelectorWindow *lv2Window = NULL;
@@ -42,9 +58,7 @@ void MainWindow::on_actionQuit_triggered()
 
 void MainWindow::on_actionNewProject_triggered()
 {
-    Project *project = new Project();
-    ProjectWindow *window = new ProjectWindow(project, this);
-    window->show();
+    createNewProject();
 }
 
 static PreferencesWindow *prefWindow = NULL;

@@ -6,6 +6,8 @@
 
 #include "channel_layout.h"
 
+#include "mainwindow.h"
+
 static const int sampleRateCount = 7;
 static const int sampleRates[sampleRateCount] = {
     8000,
@@ -55,7 +57,7 @@ ProjectWindow::ProjectWindow(Project *project, QWidget *parent) :
 {
 	ui->setupUi(this);
 
-    ui->menuView->addAction(ui->undoRedoDock->toggleViewAction());
+    ui->menuDock->addAction(ui->undoRedoDock->toggleViewAction());
 
     undoStack = new QUndoStack(this);
 
@@ -155,9 +157,8 @@ void ProjectWindow::updateUndoRedoMenuText()
 
 void ProjectWindow::on_actionNew_triggered()
 {
-    Project *project = new Project();
-    ProjectWindow *window = new ProjectWindow(project, (QWidget*)this->parent());
-    window->show();
+    MainWindow *mainWindow = (MainWindow *)this->parent();
+    mainWindow->createNewProject();
 }
 
 void ProjectWindow::on_actionClose_triggered()
@@ -178,4 +179,11 @@ void ProjectWindow::on_actionRedo_triggered()
 void ProjectWindow::on_actionTogglePlayback_triggered()
 {
 
+}
+
+void ProjectWindow::on_actionMainWindow_triggered()
+{
+    MainWindow *mainWindow = (MainWindow *)this->parent();
+    mainWindow->hide();
+    mainWindow->show();
 }

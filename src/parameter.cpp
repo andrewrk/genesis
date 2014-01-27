@@ -3,7 +3,6 @@
 Parameter::Parameter(QString name) :
     name(name)
 {
-
 }
 
 Parameter::Parameter(QString name, float min, float max, float defaultValue) :

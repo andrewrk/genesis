@@ -27,27 +27,10 @@
        <string>&amp;Audio</string>
       </attribute>
       <layout class="QFormLayout" name="formLayout">
-       <item row="1" column="0">
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>&amp;Backend</string>
-         </property>
-         <property name="buddy">
-          <cstring>backendDropdown</cstring>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="backendDropdown"/>
-       </item>
-       <item row="5" column="1">
-        <widget class="QLabel" name="backendErrLabel">
-         <property name="text">
-          <string>error string</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
+       <property name="fieldGrowthPolicy">
+        <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+       </property>
+       <item row="2" column="0">
         <widget class="QLabel" name="label_2">
          <property name="text">
           <string>&amp;Latency</string>
@@ -57,7 +40,7 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
+       <item row="2" column="1">
         <widget class="QSlider" name="latencySlider">
          <property name="minimum">
           <number>1</number>
@@ -73,20 +56,17 @@
          </property>
         </widget>
        </item>
-       <item row="4" column="1">
+       <item row="3" column="1">
         <widget class="QLabel" name="latencyValueLabel">
          <property name="text">
           <string>5ms (x frames)</string>
          </property>
         </widget>
        </item>
-       <item row="6" column="0">
-        <widget class="QPushButton" name="refreshBackendsBtn">
+       <item row="4" column="1">
+        <widget class="QLabel" name="backendErrLabel">
          <property name="text">
-          <string>&amp;Refresh</string>
-         </property>
-         <property name="autoDefault">
-          <bool>false</bool>
+          <string>error string</string>
          </property>
         </widget>
        </item>

@@ -47,6 +47,7 @@ private slots:
     void on_actionUndo_triggered();
     void on_actionRedo_triggered();
     void on_actionTogglePlayback_triggered();
+    void on_actionMainWindow_triggered();
 };
 
 #endif // PROJECTWINDOW_H

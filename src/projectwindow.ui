@@ -57,8 +57,15 @@
     <property name="title">
      <string>&amp;View</string>
     </property>
+    <widget class="QMenu" name="menuDock">
+     <property name="title">
+      <string>&amp;Dock</string>
+     </property>
+    </widget>
+    <addaction name="menuDock"/>
+    <addaction name="actionMainWindow"/>
    </widget>
-   <widget class="QMenu" name="menuP_layback">
+   <widget class="QMenu" name="menuPlayback">
     <property name="title">
      <string>P&amp;layback</string>
     </property>
@@ -68,7 +75,7 @@
    </widget>
    <addaction name="menuProject"/>
    <addaction name="menuEdit"/>
-   <addaction name="menuP_layback"/>
+   <addaction name="menuPlayback"/>
    <addaction name="menuView"/>
   </widget>
   <widget class="QDockWidget" name="undoRedoDock">
@@ -134,6 +141,14 @@
    </property>
    <property name="shortcut">
     <string>Shift+Space</string>
+   </property>
+  </action>
+  <action name="actionMainWindow">
+   <property name="text">
+    <string>&amp;Main Window</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+M</string>
    </property>
   </action>
  </widget>

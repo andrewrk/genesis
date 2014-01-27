@@ -12,7 +12,6 @@ public:
     void setMin(float min);
     void setMax(float max);
     void setDefault(float value);
-
     void setInt(bool value);
 private:
     float min = 0.0f;
@@ -20,6 +19,7 @@ private:
     float defaultValue = 0.5f;
     QString name;
     bool isInt = false;
+
 };
 
 #endif // PARAMETER_H
