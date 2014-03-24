@@ -22,10 +22,18 @@ public:
 private slots:
 	void on_pluginList_itemSelectionChanged();
 
+    void on_pushButton_clicked();
+
+    void on_filterText_textChanged(const QString &arg1);
+
 private:
 	Ui::Lv2SelectorWindow *ui;
 
 	LilvWorld *world;
+
+    void listPlugins(QString filter);
+
+
 };
 
 #endif // LV2SELECTORWINDOW_H
