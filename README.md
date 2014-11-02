@@ -28,11 +28,10 @@
 
 ### Compilation
 
-```
-mkdir build
-cd build
-qmake ../genesis.pro
-make
+Install [rust](http://rust-lang.org) and cargo, and then:
+
+```sh
+cargo build
 ```
 
 ## Design
