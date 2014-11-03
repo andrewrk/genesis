@@ -3,3 +3,8 @@
 name = "genesis"
 version = "0.0.1"
 authors = ["Andrew Kelley <superjoe30@gmail.com>"]
+
+[dependencies.rgtk]
+git = "https://github.com/andrewrk/rgtk"
+rev = "rust-nightly"
+features = ["GTK_3_12"]

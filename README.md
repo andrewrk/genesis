@@ -23,15 +23,15 @@
 
 ### Dependencies
 
- * liblilv-dev
- * portaudio19-dev - PortAudio 2.0
+ * [rust](http://rust-lang.org) and cargo
+ * PortAudio 19
+ * GTK+
+ * Rust and cargo
 
-### Compilation
+### Building and Running
 
-Install [rust](http://rust-lang.org) and cargo, and then:
-
-```sh
-cargo build
+```
+cargo run
 ```
 
 ## Design
