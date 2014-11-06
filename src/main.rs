@@ -5,7 +5,7 @@ use rgtk::Connect;
 use rgtk::GtkWindowTrait;
 use rgtk::GtkContainerTrait;
 use rgtk::GtkWidgetTrait;
-use rgtk::gtk::signals::{DeleteEvent};
+use rgtk::gtk::signals::{DeleteEvent, Clicked};
 
 fn main() {
     gtk::init();
@@ -21,7 +21,12 @@ fn main() {
         true
     }));
 
-    let button = gtk::Button::new_with_label("Click me!").unwrap();
+    let button = gtk::Button::new_with_label("Click me").unwrap();
+    Connect::connect(&button, Clicked::new(|| {
+        println!("clicked");
+    }));
+
+
     window.add(&button);
     window.show_all();
 

@@ -2,11 +2,11 @@
 name = "genesis"
 version = "0.0.1"
 dependencies = [
- "rgtk 0.0.1 (git+https://github.com/andrewrk/rgtk?ref=rust-nightly)",
+ "rgtk 0.0.1 (git+https://github.com/jeremyletang/rgtk)",
 ]
 
 [[package]]
 name = "rgtk"
 version = "0.0.1"
-source = "git+https://github.com/andrewrk/rgtk?ref=rust-nightly#49b6afc29428df24bbd4bfec5e231e7f795cfe31"
+source = "git+https://github.com/jeremyletang/rgtk#212b872e1ecbdf8adc36b9509d22287968fd5715"
 

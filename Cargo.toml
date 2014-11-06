@@ -5,6 +5,5 @@ version = "0.0.1"
 authors = ["Andrew Kelley <superjoe30@gmail.com>"]
 
 [dependencies.rgtk]
-git = "https://github.com/andrewrk/rgtk"
-rev = "rust-nightly"
+git = "https://github.com/jeremyletang/rgtk"
 features = ["GTK_3_12"]
