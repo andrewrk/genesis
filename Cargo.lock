@@ -2,27 +2,75 @@
 name = "genesis"
 version = "0.0.1"
 dependencies = [
- "sdl2 0.0.17 (git+https://github.com/AngryLawyer/rust-sdl2)",
+ "gl 0.0.5 (git+https://github.com/bjz/gl-rs)",
+ "glfw 0.0.1 (git+https://github.com/bjz/glfw-rs)",
 ]
 
 [[package]]
-name = "pkg-config"
-version = "0.1.4"
+name = "gl"
+version = "0.0.5"
+source = "git+https://github.com/bjz/gl-rs#230e6c9ed611cddfcb6682dee9686471d54863d0"
+dependencies = [
+ "gl_common 0.0.3 (git+https://github.com/bjz/gl-rs)",
+ "gl_generator 0.0.12 (git+https://github.com/bjz/gl-rs)",
+]
+
+[[package]]
+name = "gl_common"
+version = "0.0.3"
+source = "git+https://github.com/bjz/gl-rs#230e6c9ed611cddfcb6682dee9686471d54863d0"
+
+[[package]]
+name = "gl_generator"
+version = "0.0.12"
+source = "git+https://github.com/bjz/gl-rs#230e6c9ed611cddfcb6682dee9686471d54863d0"
+dependencies = [
+ "gl_common 0.0.3 (git+https://github.com/bjz/gl-rs)",
+ "khronos_api 0.0.5 (git+https://github.com/bjz/gl-rs)",
+ "log 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xml-rs 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "glfw"
+version = "0.0.1"
+source = "git+https://github.com/bjz/glfw-rs#ff5780b06b0e5cd2f1198b4891e55f8fdac6a4d9"
+dependencies = [
+ "glfw-sys 3.0.4 (git+https://github.com/servo/glfw?branch=cargo-3.0.4)",
+ "log 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "semver 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "glfw-sys"
+version = "3.0.4"
+source = "git+https://github.com/servo/glfw?branch=cargo-3.0.4#765dace7e4125b87c764f5ac0e7a80eae5c550b2"
+
+[[package]]
+name = "khronos_api"
+version = "0.0.5"
+source = "git+https://github.com/bjz/gl-rs#230e6c9ed611cddfcb6682dee9686471d54863d0"
+
+[[package]]
+name = "log"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "regex 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "regex"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "sdl2"
-version = "0.0.17"
-source = "git+https://github.com/AngryLawyer/rust-sdl2#32b5df94f0e29805b7087d7b49ef9699e85d5640"
-dependencies = [
- "sdl2-sys 0.0.16 (git+https://github.com/AngryLawyer/rust-sdl2)",
-]
+name = "semver"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "sdl2-sys"
-version = "0.0.16"
-source = "git+https://github.com/AngryLawyer/rust-sdl2#32b5df94f0e29805b7087d7b49ef9699e85d5640"
-dependencies = [
- "pkg-config 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
-]
+name = "xml-rs"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 

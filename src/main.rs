@@ -1,26 +1,35 @@
-extern crate sdl2;
+extern crate gl;
+extern crate glfw;
 
-use sdl2::video::{WindowPos, Window, OPENGL};
-use sdl2::event::{Event, poll_event};
+use glfw::{Context, OpenGlProfileHint, WindowHint, WindowMode};
 
 fn main() {
-    sdl2::init(sdl2::INIT_VIDEO);
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    let window = match Window::new("genesis",
-                                   WindowPos::PosCentered, WindowPos::PosCentered,
-                                   640, 480, OPENGL)
-    {
-        Ok(window) => window,
-        Err(err) => panic!("failed to create window: {}", err),
-    };
+    glfw.window_hint(WindowHint::ContextVersion(3, 2));
+    glfw.window_hint(WindowHint::OpenglForwardCompat(true));
+    glfw.window_hint(WindowHint::OpenglProfile(OpenGlProfileHint::Core));
 
-    loop {
-        match poll_event() {
-            Event::Quit(_) => break,
-            Event::None => continue,
-            _ => continue,
-        }
+    let (window, _) = glfw.create_window(800, 600, "genesis", WindowMode::Windowed)
+        .expect("Failed to create GLFW window.");
+
+    // must make context current before calling gl::load_with
+    window.make_current();
+
+    gl::load_with(|s| window.get_proc_address(s));
+
+    while !window.should_close() {
+        glfw.poll_events();
+
+        clear_screen();
+
+        window.swap_buffers();
     }
+}
 
-    sdl2::quit();
+fn clear_screen() {
+    unsafe {
+        gl::ClearColor(0.3, 0.3, 0.3, 1.0);
+        gl::Clear(gl::COLOR_BUFFER_BIT);
+    }
 }
