@@ -1,7 +1,7 @@
 extern crate sdl2;
 
 use sdl2::video::{WindowPos, Window, OPENGL};
-use sdl2::timer::delay;
+use sdl2::event::{Event, poll_event};
 
 fn main() {
     sdl2::init(sdl2::INIT_VIDEO);
@@ -14,8 +14,13 @@ fn main() {
         Err(err) => panic!("failed to create window: {}", err),
     };
 
-    window.show();
-    delay(3000);
+    loop {
+        match poll_event() {
+            Event::Quit(_) => break,
+            Event::None => continue,
+            _ => continue,
+        }
+    }
 
     sdl2::quit();
 }
