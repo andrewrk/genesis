@@ -23,16 +23,19 @@
 
 ### Dependencies
 
- * [rust](http://rust-lang.org) and cargo
- * PortAudio 19
- * GTK+
- * Rust and cargo
+ * [rust](http://rust-lang.org)
+ * GLFW
 
 ### Building and Running
 
 ```
 cargo run
 ```
+
+## Roadmap
+
+ 0. Open an audio file with libav.
+ 0. Display the waveform of the audio file in the display.
 
 ## Design
 
