@@ -4,6 +4,5 @@ name = "genesis"
 version = "0.0.1"
 authors = ["Andrew Kelley <superjoe30@gmail.com>"]
 
-[dependencies.rgtk]
-git = "https://github.com/jeremyletang/rgtk"
-features = ["GTK_3_12"]
+[dependencies.sdl2]
+git = "https://github.com/AngryLawyer/rust-sdl2"

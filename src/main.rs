@@ -1,34 +1,21 @@
-extern crate rgtk;
+extern crate sdl2;
 
-use rgtk::gtk;
-use rgtk::Connect;
-use rgtk::GtkWindowTrait;
-use rgtk::GtkContainerTrait;
-use rgtk::GtkWidgetTrait;
-use rgtk::gtk::signals::{DeleteEvent, Clicked};
+use sdl2::video::{WindowPos, Window, OPENGL};
+use sdl2::timer::delay;
 
 fn main() {
-    gtk::init();
+    sdl2::init(sdl2::INIT_VIDEO);
 
-    let mut window = gtk::Window::new(gtk::window_type::TopLevel).unwrap();
-    window.set_title("Genesis Sound Editor");
-    window.set_border_width(10);
-    window.set_window_position(gtk::window_position::Center);
-    window.set_default_size(350, 70);
+    let window = match Window::new("genesis",
+                                   WindowPos::PosCentered, WindowPos::PosCentered,
+                                   640, 480, OPENGL)
+    {
+        Ok(window) => window,
+        Err(err) => panic!("failed to create window: {}", err),
+    };
 
-    Connect::connect(&window, DeleteEvent::new(|_| {
-        gtk::main_quit();
-        true
-    }));
+    window.show();
+    delay(3000);
 
-    let button = gtk::Button::new_with_label("Click me").unwrap();
-    Connect::connect(&button, Clicked::new(|| {
-        println!("clicked");
-    }));
-
-
-    window.add(&button);
-    window.show_all();
-
-    gtk::main();
+    sdl2::quit();
 }
