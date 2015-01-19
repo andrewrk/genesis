@@ -21,10 +21,10 @@
 
 ## Installation
 
-### Dependencies
+### System Dependencies
 
  * [rust](http://rust-lang.org)
- * GLFW
+ * libgroove
 
 ### Building and Running
 

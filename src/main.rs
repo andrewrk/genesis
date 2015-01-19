@@ -1,32 +1,37 @@
-extern crate gl;
-extern crate glfw;
+extern crate gfx;
+extern crate glutin;
 
-use glfw::{Context, OpenGlProfileHint, WindowHint, WindowMode};
+use gfx::{Device, DeviceHelper};
 
 fn main() {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+    let window = glutin::Window::new().unwrap();
+    window.set_title("genesis");
+    unsafe { window.make_current() }
+    let (w, h) = window.get_inner_size().unwrap();
 
-    glfw.window_hint(WindowHint::ContextVersion(3, 2));
-    glfw.window_hint(WindowHint::OpenglForwardCompat(true));
-    glfw.window_hint(WindowHint::OpenglProfile(OpenGlProfileHint::Core));
+    let mut device = gfx::GlDevice::new(|s| window.get_proc_address(s));
+    let mut renderer = device.create_renderer();
 
-    let (mut window, _) = glfw.create_window(800, 600, "genesis", WindowMode::Windowed)
-        .expect("Failed to create GLFW window.");
+    renderer.clear(
+        gfx::ClearData {
+            color: [0.3, 0.3, 0.3, 1.0],
+            depth: 1.0,
+            stencil: 0,
+        },
+        gfx::COLOR,
+        &gfx::Frame::new(w as u16, h as u16)
+    );
 
-    gl::load_with(|s| window.get_proc_address(s));
-
-    while !window.should_close() {
-        glfw.poll_events();
-
-        clear_screen();
-
+    'main: loop {
+        for event in window.poll_events() {
+            match event {
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape))
+                    => break 'main,
+                glutin::Event::Closed => break 'main,
+                _ => {},
+            }
+        }
+        device.submit(renderer.as_buffer());
         window.swap_buffers();
-    }
-}
-
-fn clear_screen() {
-    unsafe {
-        gl::ClearColor(0.3, 0.3, 0.3, 1.0);
-        gl::Clear(gl::COLOR_BUFFER_BIT);
     }
 }
