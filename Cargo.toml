@@ -8,7 +8,7 @@ authors = ["Andrew Kelley <superjoe30@gmail.com>"]
 git = "https://github.com/bjz/gl-rs"
 
 [dependencies.groove]
-git = "https://github.com/andrewrk/rust-groove"
+git = "https://github.com/andrewrk/groove-rs"
 
 [dependencies.glutin]
 git = "https://github.com/tomaka/glutin"

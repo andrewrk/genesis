@@ -5,7 +5,7 @@ dependencies = [
  "gfx 0.1.0 (git+https://github.com/gfx-rs/gfx-rs)",
  "gl 0.0.5 (git+https://github.com/bjz/gl-rs)",
  "glutin 0.0.4-pre (git+https://github.com/tomaka/glutin)",
- "groove 0.0.1 (git+https://github.com/andrewrk/rust-groove)",
+ "groove 0.0.1 (git+https://github.com/andrewrk/groove-rs)",
 ]
 
 [[package]]
@@ -47,8 +47,9 @@ dependencies = [
 [[package]]
 name = "device"
 version = "0.1.0"
-source = "git+https://github.com/gfx-rs/gfx-rs#3fe536eb5deff01d5c6b5f6bc03c17b5db793963"
+source = "git+https://github.com/gfx-rs/gfx-rs#990f9c90e4142a7fb22472f3a2a9e032eebce7d4"
 dependencies = [
+ "bitflags 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_gl 0.1.0 (git+https://github.com/gfx-rs/gfx_gl.git)",
  "log 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -61,7 +62,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "gfx"
 version = "0.1.0"
-source = "git+https://github.com/gfx-rs/gfx-rs#3fe536eb5deff01d5c6b5f6bc03c17b5db793963"
+source = "git+https://github.com/gfx-rs/gfx-rs#990f9c90e4142a7fb22472f3a2a9e032eebce7d4"
 dependencies = [
  "device 0.1.0 (git+https://github.com/gfx-rs/gfx-rs)",
  "gfx_macros 0.1.0 (git+https://github.com/gfx-rs/gfx-rs)",
@@ -83,7 +84,7 @@ dependencies = [
 [[package]]
 name = "gfx_macros"
 version = "0.1.0"
-source = "git+https://github.com/gfx-rs/gfx-rs#3fe536eb5deff01d5c6b5f6bc03c17b5db793963"
+source = "git+https://github.com/gfx-rs/gfx-rs#990f9c90e4142a7fb22472f3a2a9e032eebce7d4"
 
 [[package]]
 name = "gl"
@@ -145,7 +146,7 @@ dependencies = [
 [[package]]
 name = "groove"
 version = "0.0.1"
-source = "git+https://github.com/andrewrk/rust-groove#14db06f2c426ff867a7b3d522c37f6fd6e47526e"
+source = "git+https://github.com/andrewrk/groove-rs#8aa9c07860aac7f6e9b1b2a83dac739969232555"
 dependencies = [
  "lazy_static 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -186,7 +187,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "render"
 version = "0.1.0"
-source = "git+https://github.com/gfx-rs/gfx-rs#3fe536eb5deff01d5c6b5f6bc03c17b5db793963"
+source = "git+https://github.com/gfx-rs/gfx-rs#990f9c90e4142a7fb22472f3a2a9e032eebce7d4"
 dependencies = [
  "device 0.1.0 (git+https://github.com/gfx-rs/gfx-rs)",
  "log 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
