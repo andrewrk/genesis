@@ -4,9 +4,6 @@ name = "genesis"
 version = "0.0.1"
 authors = ["Andrew Kelley <superjoe30@gmail.com>"]
 
-[dependencies.gl]
-git = "https://github.com/bjz/gl-rs"
-
 [dependencies.groove]
 git = "https://github.com/andrewrk/groove-rs"
 
