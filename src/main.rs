@@ -95,6 +95,7 @@ fn main() {
 
     window.make_current();
 
+    glfw.set_swap_interval(0);
     glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
     window.set_key_polling(true);
 
