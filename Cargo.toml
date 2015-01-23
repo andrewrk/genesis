@@ -7,11 +7,12 @@ authors = ["Andrew Kelley <superjoe30@gmail.com>"]
 [dependencies.groove]
 git = "https://github.com/andrewrk/groove-rs"
 
-[dependencies.gfx]
-git = "https://github.com/gfx-rs/gfx-rs"
+[dependencies.glium]
+git = "https://github.com/tomaka/glium"
 
-[dependencies.gfx_macros]
-git = "https://github.com/gfx-rs/gfx-rs"
+[dependencies.glium_macros]
+git = "https://github.com/tomaka/glium"
 
-[dependencies.glfw]
-git = "https://github.com/bjz/glfw-rs/"
+[dependencies.glutin]
+git = "https://github.com/tomaka/glutin"
+

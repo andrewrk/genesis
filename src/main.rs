@@ -1,74 +1,33 @@
 #![allow(unstable)]
 #![feature(plugin)]
 
-extern crate gfx;
+#[plugin]
+extern crate glium_macros;
+
+extern crate glutin;
 
 #[macro_use]
-#[plugin]
-extern crate gfx_macros;
+extern crate glium;
 
-extern crate glfw;
 extern crate groove;
 
-use gfx::{DeviceHelper, ToSlice};
-use glfw::Context;
+use glium::Surface;
+use glium::DisplayBuild;
 use std::vec::Vec;
 use std::option::Option;
 use std::result::Result;
 use std::thread::Thread;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::io::timer;
+use std::time::Duration;
 
 #[vertex_format]
 #[derive(Copy)]
 struct Vertex {
-    #[name = "a_Pos"]
-    pos: [f32; 2],
-
-    #[name = "a_Color"]
+    position: [f32; 2],
     color: [f32; 3],
 }
-
-static VERTEX_SRC: gfx::ShaderSource<'static> = shaders! {
-glsl_120: b"
-    #version 120
-    attribute vec2 a_Pos;
-    attribute vec3 a_Color;
-    varying vec4 v_Color;
-    void main() {
-        v_Color = vec4(a_Color, 1.0);
-        gl_Position = vec4(a_Pos, 0.0, 1.0);
-    }
-",
-glsl_150: b"
-    #version 150 core
-    in vec2 a_Pos;
-    in vec3 a_Color;
-    out vec4 v_Color;
-    void main() {
-        v_Color = vec4(a_Color, 1.0);
-        gl_Position = vec4(a_Pos, 0.0, 1.0);
-    }
-"
-};
-
-static FRAGMENT_SRC: gfx::ShaderSource<'static> = shaders! {
-glsl_120: b"
-    #version 120
-    varying vec4 v_Color;
-    void main() {
-        gl_FragColor = v_Color;
-    }
-",
-glsl_150: b"
-    #version 150 core
-    in vec4 v_Color;
-    out vec4 o_Color;
-    void main() {
-        o_Color = v_Color;
-    }
-"
-};
 
 fn main() {
     let mut stderr = &mut std::io::stderr();
@@ -84,65 +43,83 @@ fn main() {
 
     let waveform = Waveform::new(input_path);
 
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-    glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
-    glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
-    glfw.window_hint(glfw::WindowHint::OpenglProfile(glfw::OpenGlProfileHint::Core));
 
-    let (mut window, events) = glfw
-        .create_window(640, 480, "genesis", glfw::WindowMode::Windowed)
-        .expect("Failed to create GLFW window.");
+    // building the display, ie. the main object
+    let display = glutin::WindowBuilder::new()
+        .with_title(String::from_str("genesis"))
+        .build_glium()
+        .unwrap();
 
-    window.make_current();
+    // building the vertex buffer, which contains all the vertices that we will draw
+    let vertex_buffer = glium::VertexBuffer::new(&display,
+            vec![
+                Vertex { position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
+                Vertex { position: [ 0.0,  0.5], color: [0.0, 0.0, 1.0] },
+                Vertex { position: [ 0.5, -0.5], color: [1.0, 0.0, 0.0] },
+            ]);
 
-    glfw.set_swap_interval(0);
-    glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
-    window.set_key_polling(true);
+    // building the index buffer
+    let index_buffer = glium::IndexBuffer::new(&display,
+        glium::index_buffer::TrianglesList(vec![0u16, 1, 2]));
 
-    let (w, h) = window.get_framebuffer_size();
-    let frame = gfx::Frame::new(w as u16, h as u16);
+    // compiling shaders and linking them together
+    let program = glium::Program::from_source(&display,
+        // vertex shader
+        "
+            #version 110
+            uniform mat4 matrix;
+            attribute vec2 position;
+            attribute vec3 color;
+            varying vec3 vColor;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0) * matrix;
+                vColor = color;
+            }
+        ",
 
-    let mut device = gfx::GlDevice::new(|s| window.get_proc_address(s));
+        // fragment shader
+        "
+            #version 110
+            varying vec3 vColor;
+            void main() {
+                gl_FragColor = vec4(vColor, 1.0);
+            }
+        ",
 
-    let vertex_data = [
-        Vertex { pos: [ -0.5, -0.5 ], color: [1.0, 0.0, 0.0] },
-        Vertex { pos: [  0.5, -0.5 ], color: [0.0, 1.0, 0.0] },
-        Vertex { pos: [  0.0,  0.5 ], color: [0.0, 0.0, 1.0] },
-    ];
+        // geometry shader
+        None)
+        .unwrap();
 
-    let mesh = device.create_mesh(&vertex_data);
-    let slice = mesh.to_slice(gfx::PrimitiveType::TriangleList);
+    'main: loop {
+        // building the uniforms
+        let uniforms = uniform! {
+            matrix: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0f32]
+                    ]
+        };
 
-    let program = device.link_program(VERTEX_SRC.clone(), FRAGMENT_SRC.clone()).unwrap();
+        // drawing a frame
+        let mut target = display.draw();
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        target.draw(&vertex_buffer, &index_buffer, &program, &uniforms,
+                    &std::default::Default::default()).unwrap();
+        target.finish();
 
-    let mut graphics = gfx::Graphics::new(device);
-    let batch: gfx::batch::RefBatch<(), ()> = graphics.make_batch(
-        &program, &mesh, slice, &gfx::DrawState::new()).unwrap();
+        // sleeping for some time in order not to use up too much CPU
+        timer::sleep(Duration::milliseconds(17));
 
-    let clear_data = gfx::ClearData {
-        color: [0.3, 0.3, 0.3, 1.0],
-        depth: 1.0,
-        stencil: 0,
-    };
-
-    while !window.should_close() {
-        glfw.poll_events();
-
-        for (_, event) in glfw::flush_messages(&events) {
+        // polling and handling the events received by the window
+        for event in display.poll_events() {
             match event {
-                glfw::WindowEvent::Key(glfw::Key::Escape, _, glfw::Action::Press, _) =>
-                    window.set_should_close(true),
-                _ => {},
+                glutin::Event::Closed => break 'main,
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape))
+                    => break 'main,
+                _ => (),
             }
         }
-
-        graphics.clear(clear_data, gfx::COLOR, &frame);
-        graphics.draw(&batch, &(), &frame);
-        graphics.end_frame();
-
-        waveform.read().unwrap().display();
-
-        window.swap_buffers();
     }
 }
 
