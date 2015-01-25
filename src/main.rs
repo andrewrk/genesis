@@ -11,6 +11,8 @@ extern crate glium;
 
 extern crate groove;
 
+mod text;
+
 use glium::Surface;
 use glium::DisplayBuild;
 use std::vec::Vec;
@@ -19,15 +21,6 @@ use std::result::Result;
 use std::thread::Thread;
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::io::timer;
-use std::time::Duration;
-
-#[vertex_format]
-#[derive(Copy)]
-struct Vertex {
-    position: [f32; 2],
-    color: [f32; 3],
-}
 
 fn main() {
     let mut stderr = &mut std::io::stderr();
@@ -51,12 +44,21 @@ fn main() {
         .unwrap();
 
     // building the vertex buffer, which contains all the vertices that we will draw
-    let vertex_buffer = glium::VertexBuffer::new(&display,
+    let vertex_buffer = {
+        #[vertex_format]
+        #[derive(Copy)]
+        struct Vertex {
+            position: [f32; 2],
+            color: [f32; 3],
+        }
+
+        glium::VertexBuffer::new(&display,
             vec![
                 Vertex { position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
                 Vertex { position: [ 0.0,  0.5], color: [0.0, 0.0, 1.0] },
                 Vertex { position: [ 0.5, -0.5], color: [1.0, 0.0, 0.0] },
-            ]);
+        ]);
+    };
 
     // building the index buffer
     let index_buffer = glium::IndexBuffer::new(&display,
@@ -91,6 +93,16 @@ fn main() {
         .unwrap();
 
     'main: loop {
+        // polling and handling the events received by the window
+        for event in display.poll_events() {
+            match event {
+                glutin::Event::Closed => break 'main,
+                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape))
+                    => break 'main,
+                _ => (),
+            }
+        }
+
         // building the uniforms
         let uniforms = uniform! {
             matrix: [
@@ -105,21 +117,9 @@ fn main() {
         let mut target = display.draw();
         target.clear_color(0.0, 0.0, 0.0, 0.0);
         target.draw(&vertex_buffer, &index_buffer, &program, &uniforms,
-                    &std::default::Default::default()).unwrap();
+                    &std::default::Default::default()).ok().unwrap();
+        label.draw(target);
         target.finish();
-
-        // sleeping for some time in order not to use up too much CPU
-        timer::sleep(Duration::milliseconds(17));
-
-        // polling and handling the events received by the window
-        for event in display.poll_events() {
-            match event {
-                glutin::Event::Closed => break 'main,
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape))
-                    => break 'main,
-                _ => (),
-            }
-        }
     }
 }
 
@@ -196,6 +196,6 @@ impl Waveform {
     }
 
     fn display(&self) {
-        //println!("waveform display");
+        println!("waveform display");
     }
 }

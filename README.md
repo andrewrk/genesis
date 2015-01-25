@@ -25,6 +25,7 @@
 
  * [rust](http://rust-lang.org)
  * libgroove
+ * FreeType
 
 ### Building and Running
 
