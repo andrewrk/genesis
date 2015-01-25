@@ -10,17 +10,23 @@ extern crate glutin;
 extern crate glium;
 
 extern crate groove;
+extern crate nalgebra;
 
 mod text;
 
 use glium::Surface;
 use glium::DisplayBuild;
+use glium::uniforms::IntoUniformValue;
+
 use std::vec::Vec;
 use std::option::Option;
 use std::result::Result;
 use std::thread::Thread;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::default::Default;
+
+use nalgebra::{Iso3, Pnt3, Mat4, ToHomogeneous};
 
 fn main() {
     let mut stderr = &mut std::io::stderr();
@@ -57,7 +63,7 @@ fn main() {
                 Vertex { position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
                 Vertex { position: [ 0.0,  0.5], color: [0.0, 0.0, 1.0] },
                 Vertex { position: [ 0.5, -0.5], color: [1.0, 0.0, 0.0] },
-        ]);
+        ])
     };
 
     // building the index buffer
@@ -92,6 +98,12 @@ fn main() {
         None)
         .unwrap();
 
+    let mut text_renderer = text::TextRenderer::new(&display);
+    let face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
+        .ok().expect("failed to load font");
+    let mut label = text_renderer.create_label(&face, 16, "abcdefghijklmnoppppp");
+    label.update();
+
     'main: loop {
         // polling and handling the events received by the window
         for event in display.poll_events() {
@@ -103,22 +115,24 @@ fn main() {
             }
         }
 
-        // building the uniforms
-        let uniforms = uniform! {
-            matrix: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0f32]
-                    ]
+        let matrix: Iso3<f32> = nalgebra::one();
+        let uniforms = {
+            #[uniforms]
+            struct TriangleUniforms<'a> {
+                matrix: Mat4<f32>,
+            }
+            TriangleUniforms {
+                matrix: matrix.to_homogeneous(),
+            }
         };
 
         // drawing a frame
         let mut target = display.draw();
         target.clear_color(0.0, 0.0, 0.0, 0.0);
         target.draw(&vertex_buffer, &index_buffer, &program, &uniforms,
-                    &std::default::Default::default()).ok().unwrap();
-        label.draw(target);
+                    &Default::default()).ok().unwrap();
+        label.draw(&mut target, &matrix);
+        waveform.read().unwrap().draw();
         target.finish();
     }
 }
@@ -195,7 +209,7 @@ impl Waveform {
         waveform_arc
     }
 
-    fn display(&self) {
-        println!("waveform display");
+    fn draw(&self) {
+        //println!("waveform display");
     }
 }
