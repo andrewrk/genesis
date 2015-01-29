@@ -12,7 +12,7 @@ use std::default::Default;
 use std::cmp::{Eq, PartialEq};
 use std::hash::Hash;
 use std::collections::hash_map::{Hasher, Entry};
-use std::num::SignedInt;
+use std::num::{SignedInt, Float};
 
 use math3d::{Vector3, Matrix4};
 
@@ -20,17 +20,20 @@ use glium::texture::UncompressedFloatFormat;
 use glium::texture::ClientFormat;
 use glium::uniforms::IntoUniformValue;
 use glium::Surface;
+use glium::index_buffer::TriangleStrip;
 
 use self::freetype::glyph::Glyph;
 use self::freetype::bitmap_glyph::BitmapGlyph;
 use self::freetype::bitmap::PixelMode;
 use self::freetype::bitmap::Bitmap;
 use self::freetype::render_mode::RenderMode;
+use self::freetype::face::KerningMode::KerningDefault;
 
 #[uniforms]
 struct Uniforms<'a> {
     matrix: [[f32; 4]; 4],
     texture: &'a glium::texture::Texture2d,
+    color: [f32; 4],
 }
 
 #[derive(Eq, PartialEq, Hash, Copy)]
@@ -44,12 +47,13 @@ struct CacheValue {
     texture: glium::texture::Texture2d,
     glyph: Glyph,
     bitmap_glyph: BitmapGlyph,
+    glyph_index: u32,
 }
 
 #[vertex_format]
 #[derive(Copy)]
 struct Vertex {
-    position: [f32; 2],
+    position: [f32; 3],
     tex_coords: [f32; 2],
 }
 
@@ -57,39 +61,32 @@ pub struct TextRenderer<'a> {
     library: freetype::Library,
     display: &'a glium::Display,
     cache: HashMap<CacheKey<'a>, Rc<Box<CacheValue>>>,
-    vertex_buffer: glium::VertexBuffer<Vertex>,
     index_buffer: glium::IndexBuffer,
     program: glium::Program,
 }
 
+
 impl<'a> TextRenderer<'a> {
     pub fn new(display: &'a glium::Display) -> TextRenderer<'a> {
-        let vertex_buffer = glium::VertexBuffer::new(display, vec![
-                    Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] },
-                    Vertex { position: [-1.0,  1.0], tex_coords: [0.0, 1.0] },
-                    Vertex { position: [ 1.0,  1.0], tex_coords: [1.0, 1.0] },
-                    Vertex { position: [ 1.0, -1.0], tex_coords: [1.0, 0.0] }
-                ]);
-
-        let index_buffer = glium::IndexBuffer::new(display,
-            glium::index_buffer::TriangleStrip(vec![1 as u16, 2, 0, 3]));
+        let index_buffer = glium::IndexBuffer::new(display, TriangleStrip(vec![0 as u16, 1, 2, 3]));
 
         let program = glium::Program::from_source(display, r"
             #version 110
             uniform mat4 matrix;
-            attribute vec2 position;
+            attribute vec3 position;
             attribute vec2 tex_coords;
             varying vec2 v_tex_coords;
             void main() {
-                gl_Position = matrix * vec4(position, 0.0, 1.0);
+                gl_Position = matrix * vec4(position, 1.0);
                 v_tex_coords = tex_coords;
             }
         ", r"
             #version 110
             uniform sampler2D texture;
+            uniform vec4 color;
             varying vec2 v_tex_coords;
             void main() {
-                gl_FragColor = texture2D(texture, v_tex_coords);
+                gl_FragColor = vec4(1.0, 1.0, 1.0, texture2D(texture, v_tex_coords).a) * color;
             }
         ", None).unwrap();
 
@@ -97,10 +94,9 @@ impl<'a> TextRenderer<'a> {
         TextRenderer {
             library: library,
             display: display,
-            vertex_buffer: vertex_buffer,
-            index_buffer: index_buffer,
             program: program,
             cache: HashMap::new(),
+            index_buffer: index_buffer,
         }
     }
 
@@ -108,15 +104,23 @@ impl<'a> TextRenderer<'a> {
         self.library.new_face(path, 0)
     }
 
-    pub fn create_label(&'a mut self, face: &'a freetype::Face, size: isize, text: &'a str) -> Label {
+    pub fn create_label(&'a mut self, face: &'a freetype::Face) -> Label {
         let texture = glium::texture::Texture2d::new_empty(self.display,
             UncompressedFloatFormat::U8U8U8U8, 16, 16);
+        let vertex_buffer = glium::VertexBuffer::new(self.display, vec![
+            Vertex { position: [ 0.0,          0.0,           0.0], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 0.0,          16.0 as f32, 0.0], tex_coords: [0.0, 1.0] },
+            Vertex { position: [ 16.0 as f32, 1.0,           0.0], tex_coords: [1.0, 0.0] },
+            Vertex { position: [ 16.0 as f32, 16.0 as f32, 0.0], tex_coords: [1.0, 1.0] }
+        ]);
         Label {
             renderer: self,
             face: face,
-            text: text,
-            size: size,
+            text: String::from_str("label"),
+            size: 16,
             texture: texture,
+            color: [1.0, 1.0, 1.0, 1.0],
+            vertex_buffer: vertex_buffer,
         }
     }
 
@@ -124,17 +128,19 @@ impl<'a> TextRenderer<'a> {
         match self.cache.entry(key) {
             Entry::Occupied(entry) => entry.into_mut().clone(),
             Entry::Vacant(entry) => {
+                key.face.set_char_size(0, key.size * 64, 0, 0).unwrap();
                 let glyph_index = key.face.get_char_index(key.ch as usize);
-                key.face.load_glyph(glyph_index, freetype::face::DEFAULT).unwrap();
-                let glyph = key.face.glyph().get_glyph().unwrap();
-                let bitmap_glyph = glyph.to_bitmap(RenderMode::Normal,
-                                                   Option::None).unwrap();
-                let bitmap = TexturableBitmap::new(bitmap_glyph.bitmap());
-                let texture = glium::texture::Texture2d::new(self.display, bitmap);
+                key.face.load_glyph(glyph_index, freetype::face::RENDER).unwrap();
+                let glyph_slot = key.face.glyph();
+                let glyph = glyph_slot.get_glyph().unwrap();
+                let bitmap_glyph = glyph.to_bitmap(RenderMode::Normal, Option::None).unwrap();
+                let texturable_bitmap = TexturableBitmap::new(bitmap_glyph.bitmap());
+                let texture = glium::texture::Texture2d::new(self.display, texturable_bitmap);
                 let cache_value = Rc::new(Box::new(CacheValue {
                     texture: texture,
                     glyph: glyph,
                     bitmap_glyph: bitmap_glyph,
+                    glyph_index: glyph_index,
                 }));
                 entry.insert(cache_value).clone()
             },
@@ -144,10 +150,12 @@ impl<'a> TextRenderer<'a> {
 
 pub struct Label<'a> {
     renderer: &'a mut TextRenderer<'a>,
-    text: &'a str,
+    text: String,
     face: &'a freetype::Face,
     size: isize,
     texture: glium::texture::Texture2d,
+    color: [f32; 4],
+    vertex_buffer: glium::VertexBuffer<Vertex>,
 }
 
 impl<'a> Label<'a> {
@@ -155,7 +163,7 @@ impl<'a> Label<'a> {
         self.face = face;
     }
 
-    pub fn set_text(&'a mut self, text: &'a str) {
+    pub fn set_text(&mut self, text: String) {
         self.text = text;
     }
 
@@ -163,14 +171,18 @@ impl<'a> Label<'a> {
         self.size = size;
     }
 
-    pub fn update(&mut self) {
-        self.face.set_char_size(0, self.size * 64, 0, 0).unwrap();
+    pub fn set_color(&mut self, red: f32, green: f32, blue: f32, alpha: f32) {
+        self.color = [red, green, blue, alpha];
+    }
 
+    pub fn update(&mut self) {
         // one pass to determine width and height
-        let mut x: i32 = 0;
-        let mut y: i32 = 0;
-        let mut width: u32 = 0;
-        let mut height: u32 = 0;
+        let mut pen_x: f32 = 0.0;
+        let mut pen_y: f32 = 0.0;
+        let mut previous_glyph_index = 0;
+        let mut first = true;
+        let mut width: f32 = 0.0;
+        let mut height: f32 = 0.0;
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
@@ -178,19 +190,48 @@ impl<'a> Label<'a> {
                 ch: ch,
             };
             let cache_entry = self.renderer.get_cache_entry(key);
-            let maybe_new_width = (x + cache_entry.bitmap_glyph.left()) as u32;
-            let maybe_new_height = (y + cache_entry.bitmap_glyph.top()) as u32;
-            width = if maybe_new_width > width {maybe_new_width} else {width};
-            height = if maybe_new_height > height {maybe_new_height} else {height};
-            x += (cache_entry.glyph.advance_x() >> 16) as i32;
-            y += (cache_entry.glyph.advance_y() >> 16) as i32;
+
+            if first {
+                first = false;
+                let kerning = self.face.get_kerning(previous_glyph_index,
+                                                       cache_entry.glyph_index,
+                                                       KerningDefault).unwrap();
+                pen_x += (kerning.x as f32) / 64.0;
+            }
+
+            let bmp_start_left = cache_entry.bitmap_glyph.left() as f32;
+            let bmp_start_top = cache_entry.bitmap_glyph.top() as f32;
+            let bitmap = cache_entry.bitmap_glyph.bitmap();
+            let bmp_width = bitmap.width() as f32;
+            let bmp_height = bitmap.rows() as f32;
+            let right = (pen_x + bmp_start_left + bmp_width).ceil();
+            let top = (pen_y + bmp_start_top + bmp_height).ceil();
+
+            width = if right > width {right} else {width};
+            height = if top > height {top} else {height};
+
+            previous_glyph_index = cache_entry.glyph_index;
+            pen_x += (cache_entry.glyph.advance_x() as f32) / 65536.0;
+            pen_y += (cache_entry.glyph.advance_y() as f32) / 65536.0;
         }
+
         self.texture = glium::texture::Texture2d::new_empty(self.renderer.display,
-            UncompressedFloatFormat::U8U8U8U8, width, height);
+            UncompressedFloatFormat::U8U8U8U8, width as u32, height as u32);
+
+        self.vertex_buffer = glium::VertexBuffer::new(self.renderer.display, vec![
+            Vertex { position: [ 0.0,   0.0,    0.0], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 0.0,   height, 0.0], tex_coords: [0.0, 1.0] },
+            Vertex { position: [ width, 0.0,    0.0], tex_coords: [1.0, 0.0] },
+            Vertex { position: [ width, height, 0.0], tex_coords: [1.0, 1.0] }
+        ]);
 
         // second pass to render to texture
-        x = 0;
-        y = 0;
+        pen_x = 0.0;
+        pen_y = 0.0;
+        previous_glyph_index = 0;
+        first = true;
+        let projection = Matrix4::ortho(0.0, width, height, 0.0);
+        println!("projection:\n{:?}", projection);
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
@@ -198,25 +239,46 @@ impl<'a> Label<'a> {
                 ch: ch,
             };
             let cache_entry = self.renderer.get_cache_entry(key);
-            let char_left = cache_entry.bitmap_glyph.left();
-            let char_top = cache_entry.bitmap_glyph.top();
-            let advance_x = (cache_entry.glyph.advance_x() >> 16) as i32;
-            let advance_y = (cache_entry.glyph.advance_x() >> 16) as i32;
+
+            if first {
+                first = false;
+                let kerning = self.face.get_kerning(previous_glyph_index,
+                                                       cache_entry.glyph_index,
+                                                       KerningDefault).unwrap();
+                pen_x += (kerning.x as f32) / 64.0;
+            }
+
+            let bmp_start_left = cache_entry.bitmap_glyph.left() as f32;
+            let bmp_start_top = cache_entry.bitmap_glyph.top() as f32;
+            let bitmap = cache_entry.bitmap_glyph.bitmap();
+            let bmp_width = bitmap.width() as f32;
+            let bmp_height = bitmap.rows() as f32;
+            let left = pen_x + bmp_start_left;
+            let top = pen_y + bmp_start_top + bmp_height;
+
+
             let texture = &cache_entry.texture;
-
-            let mut matrix = Matrix4::identity();
-            matrix.translate((x + char_left) as f32, (y - char_top) as f32, 0.0);
+            let model = Matrix4::identity().translate(left, -top, 0.0);
+            let mvp = projection.mult(&model);
             let uniforms = Uniforms {
-                matrix: *matrix.as_array(),
+                matrix: *mvp.as_array(),
                 texture: texture,
+                color: [1.0, 1.0, 1.0, 1.0],
             };
+            let vertex_buffer = glium::VertexBuffer::new(self.renderer.display, vec![
+                Vertex { position: [ 0.0,        0.0,           0.0], tex_coords: [0.0, 0.0] },
+                Vertex { position: [ 0.0,        bmp_height,    0.0], tex_coords: [0.0, 1.0] },
+                Vertex { position: [ bmp_width,  0.0,           0.0], tex_coords: [1.0, 0.0] },
+                Vertex { position: [ bmp_width,  bmp_height,    0.0], tex_coords: [1.0, 1.0] }
+            ]);
 
-            self.texture.as_surface().draw(&self.renderer.vertex_buffer, &self.renderer.index_buffer,
+            self.texture.as_surface().draw(&vertex_buffer, &self.renderer.index_buffer,
                                           &self.renderer.program, uniforms,
                                           &Default::default()).ok().unwrap();
 
-            x += advance_x;
-            y += advance_y;
+            previous_glyph_index = cache_entry.glyph_index;
+            pen_x += (cache_entry.glyph.advance_x() as f32) / 65536.0;
+            pen_y += (cache_entry.glyph.advance_y() as f32) / 65536.0;
         }
     }
 
@@ -224,8 +286,9 @@ impl<'a> Label<'a> {
         let uniforms = Uniforms {
             matrix: *matrix.as_array(),
             texture: &self.texture,
+            color: self.color,
         };
-        frame.draw(&self.renderer.vertex_buffer, &self.renderer.index_buffer,
+        frame.draw(&self.vertex_buffer, &self.renderer.index_buffer,
                    &self.renderer.program, uniforms,
                    &Default::default()).ok().unwrap();
     }

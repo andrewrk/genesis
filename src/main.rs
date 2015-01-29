@@ -1,5 +1,12 @@
-#![allow(unstable)]
+// dear rust. yes I would like to use you. thank you. -andy
 #![feature(plugin)]
+#![feature(hash)]
+#![feature(std_misc)]
+#![feature(core)]
+#![feature(io)]
+#![feature(os)]
+#![feature(path)]
+#![feature(collections)]
 
 #[plugin]
 extern crate glium_macros;
@@ -14,9 +21,9 @@ extern crate math3d;
 
 mod text;
 
-use glium::Surface;
-use glium::DisplayBuild;
-use glium::uniforms::IntoUniformValue;
+use glium::{Surface, Display, DisplayBuild};
+
+use glutin::Event;
 
 use std::vec::Vec;
 use std::option::Option;
@@ -49,92 +56,44 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    // building the vertex buffer, which contains all the vertices that we will draw
-    let vertex_buffer = {
-        #[vertex_format]
-        #[derive(Copy)]
-        struct Vertex {
-            position: [f32; 2],
-            color: [f32; 3],
-        }
-
-        glium::VertexBuffer::new(&display,
-            vec![
-                Vertex { position: [-0.5, -0.5], color: [0.0, 1.0, 0.0] },
-                Vertex { position: [ 0.0,  0.5], color: [0.0, 0.0, 1.0] },
-                Vertex { position: [ 0.5, -0.5], color: [1.0, 0.0, 0.0] },
-        ])
-    };
-
-    // building the index buffer
-    let index_buffer = glium::IndexBuffer::new(&display,
-        glium::index_buffer::TrianglesList(vec![0u16, 1, 2]));
-
-    // compiling shaders and linking them together
-    let program = glium::Program::from_source(&display,
-        // vertex shader
-        "
-            #version 110
-            uniform mat4 matrix;
-            attribute vec2 position;
-            attribute vec3 color;
-            varying vec3 vColor;
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0) * matrix;
-                vColor = color;
-            }
-        ",
-
-        // fragment shader
-        "
-            #version 110
-            varying vec3 vColor;
-            void main() {
-                gl_FragColor = vec4(vColor, 1.0);
-            }
-        ",
-
-        // geometry shader
-        None)
-        .unwrap();
-
+    let face;
     let mut text_renderer = text::TextRenderer::new(&display);
-    let face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
+    face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
         .ok().expect("failed to load font");
-    //let mut label = text_renderer.create_label(&face, 16, "abcdefghijklmnoppppp");
-    //label.update();
+    let mut label = text_renderer.create_label(&face);
+    label.set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
+    label.update();
+
+    let mut projection = recalc_projection(&display);
 
     'main: loop {
         // polling and handling the events received by the window
         for event in display.poll_events() {
             match event {
-                glutin::Event::Closed => break 'main,
-                glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape))
-                    => break 'main,
+                Event::Closed => break 'main,
+                Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => break 'main,
+                Event::Resized(_, _) => {
+                    projection = recalc_projection(&display);
+                },
                 _ => (),
             }
         }
 
-        let mut matrix = Matrix4::identity();
-        let uniforms = {
-            #[uniforms]
-            struct TriangleUniforms<'a> {
-                matrix: [[f32; 4]; 4],
-            }
-            TriangleUniforms {
-                matrix: *matrix.as_array(),
-            }
-        };
+        let model = Matrix4::identity().translate(100.0, 100.0, 0.0);
+        let mvp = projection.mult(&model);
 
         // drawing a frame
         let mut target = display.draw();
         target.clear_color(0.3, 0.3, 0.3, 1.0);
-        target.draw(&vertex_buffer, &index_buffer, &program, &uniforms,
-                    &Default::default()).ok().unwrap();
-        //label.draw(&mut target, &matrix);
+        label.draw(&mut target, &mvp);
         waveform.read().unwrap().draw();
         target.finish();
     }
+}
+
+fn recalc_projection(display: &Display) -> Matrix4 {
+    let (w, h) = display.get_framebuffer_dimensions();
+    Matrix4::ortho(0.0, w as f32, h as f32, 0.0)
 }
 
 fn print_usage(stderr: &mut std::old_io::LineBufferedWriter<std::old_io::stdio::StdWriter>, exe: &str) {
