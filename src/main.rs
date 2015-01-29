@@ -10,7 +10,7 @@ extern crate glutin;
 extern crate glium;
 
 extern crate groove;
-extern crate nalgebra;
+extern crate math3d;
 
 mod text;
 
@@ -26,10 +26,10 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::default::Default;
 
-use nalgebra::{Iso3, Pnt3, Mat4, ToHomogeneous};
+use math3d::{Matrix4, Vector3};
 
 fn main() {
-    let mut stderr = &mut std::io::stderr();
+    let mut stderr = &mut std::old_io::stderr();
     let args = std::os::args_as_bytes();
     let exe = String::from_utf8_lossy(args[0].as_slice());
 
@@ -101,8 +101,8 @@ fn main() {
     let mut text_renderer = text::TextRenderer::new(&display);
     let face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
         .ok().expect("failed to load font");
-    let mut label = text_renderer.create_label(&face, 16, "abcdefghijklmnoppppp");
-    label.update();
+    //let mut label = text_renderer.create_label(&face, 16, "abcdefghijklmnoppppp");
+    //label.update();
 
     'main: loop {
         // polling and handling the events received by the window
@@ -115,29 +115,29 @@ fn main() {
             }
         }
 
-        let matrix: Iso3<f32> = nalgebra::one();
+        let mut matrix = Matrix4::identity();
         let uniforms = {
             #[uniforms]
             struct TriangleUniforms<'a> {
-                matrix: Mat4<f32>,
+                matrix: [[f32; 4]; 4],
             }
             TriangleUniforms {
-                matrix: matrix.to_homogeneous(),
+                matrix: *matrix.as_array(),
             }
         };
 
         // drawing a frame
         let mut target = display.draw();
-        target.clear_color(0.0, 0.0, 0.0, 0.0);
+        target.clear_color(0.3, 0.3, 0.3, 1.0);
         target.draw(&vertex_buffer, &index_buffer, &program, &uniforms,
                     &Default::default()).ok().unwrap();
-        label.draw(&mut target, &matrix);
+        //label.draw(&mut target, &matrix);
         waveform.read().unwrap().draw();
         target.finish();
     }
 }
 
-fn print_usage(stderr: &mut std::io::LineBufferedWriter<std::io::stdio::StdWriter>, exe: &str) {
+fn print_usage(stderr: &mut std::old_io::LineBufferedWriter<std::old_io::stdio::StdWriter>, exe: &str) {
     let _ = write!(stderr, "Usage: {} <file>\n", exe);
 }
 

@@ -1,5 +1,4 @@
 extern crate freetype;
-extern crate nalgebra;
 
 use ::glium;
 use ::glium_macros;
@@ -13,8 +12,9 @@ use std::default::Default;
 use std::cmp::{Eq, PartialEq};
 use std::hash::Hash;
 use std::collections::hash_map::{Hasher, Entry};
+use std::num::SignedInt;
 
-use self::nalgebra::{Iso3, Vec3, Mat4, ToHomogeneous, Translation};
+use math3d::{Vector3, Matrix4};
 
 use glium::texture::UncompressedFloatFormat;
 use glium::texture::ClientFormat;
@@ -29,7 +29,7 @@ use self::freetype::render_mode::RenderMode;
 
 #[uniforms]
 struct Uniforms<'a> {
-    matrix: Mat4<f32>,
+    matrix: [[f32; 4]; 4],
     texture: &'a glium::texture::Texture2d,
 }
 
@@ -167,8 +167,10 @@ impl<'a> Label<'a> {
         self.face.set_char_size(0, self.size * 64, 0, 0).unwrap();
 
         // one pass to determine width and height
-        let mut x: f32 = 0.0;
-        let mut y: f32 = 0.0;
+        let mut x: i32 = 0;
+        let mut y: i32 = 0;
+        let mut width: u32 = 0;
+        let mut height: u32 = 0;
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
@@ -176,17 +178,19 @@ impl<'a> Label<'a> {
                 ch: ch,
             };
             let cache_entry = self.renderer.get_cache_entry(key);
-            x += (cache_entry.glyph.advance().x >> 6) as f32;
-            y += (cache_entry.glyph.advance().y >> 6) as f32;
+            let maybe_new_width = (x + cache_entry.bitmap_glyph.left()) as u32;
+            let maybe_new_height = (y + cache_entry.bitmap_glyph.top()) as u32;
+            width = if maybe_new_width > width {maybe_new_width} else {width};
+            height = if maybe_new_height > height {maybe_new_height} else {height};
+            x += (cache_entry.glyph.advance_x() >> 16) as i32;
+            y += (cache_entry.glyph.advance_y() >> 16) as i32;
         }
-        let width = x as u32;
-        let height = y as u32;
         self.texture = glium::texture::Texture2d::new_empty(self.renderer.display,
             UncompressedFloatFormat::U8U8U8U8, width, height);
 
         // second pass to render to texture
-        x = 0.0;
-        y = 0.0;
+        x = 0;
+        y = 0;
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
@@ -194,16 +198,16 @@ impl<'a> Label<'a> {
                 ch: ch,
             };
             let cache_entry = self.renderer.get_cache_entry(key);
-            let char_left = cache_entry.bitmap_glyph.left() as f32;
-            let char_top = cache_entry.bitmap_glyph.top() as f32;
-            let advance_x = (cache_entry.glyph.advance().x >> 6) as f32;
-            let advance_y = (cache_entry.glyph.advance().y >> 6) as f32;
+            let char_left = cache_entry.bitmap_glyph.left();
+            let char_top = cache_entry.bitmap_glyph.top();
+            let advance_x = (cache_entry.glyph.advance_x() >> 16) as i32;
+            let advance_y = (cache_entry.glyph.advance_x() >> 16) as i32;
             let texture = &cache_entry.texture;
 
-            let mut matrix: Iso3<f32> = nalgebra::one();
-            matrix.append_translation(&Vec3::new(x + char_left, y - char_top, 0.0));
+            let mut matrix = Matrix4::identity();
+            matrix.translate((x + char_left) as f32, (y - char_top) as f32, 0.0);
             let uniforms = Uniforms {
-                matrix: matrix.to_homogeneous(),
+                matrix: *matrix.as_array(),
                 texture: texture,
             };
 
@@ -216,9 +220,9 @@ impl<'a> Label<'a> {
         }
     }
 
-    pub fn draw(&self, frame: &mut glium::Frame, matrix: &Iso3<f32>) {
+    pub fn draw(&self, frame: &mut glium::Frame, matrix: &Matrix4) {
         let uniforms = Uniforms {
-            matrix: matrix.to_homogeneous(),
+            matrix: *matrix.as_array(),
             texture: &self.texture,
         };
         frame.draw(&self.renderer.vertex_buffer, &self.renderer.index_buffer,
@@ -251,15 +255,28 @@ impl glium::texture::Texture2dData for TexturableBitmap {
     }
 
     fn into_vec(self) -> Vec<u8> {
+        let signed_pitch = self.bitmap.pitch();
+        enum Flow {
+            Down,
+            Up,
+        }
+        let flow = if signed_pitch.is_positive() {Flow::Down} else {Flow::Up};
+        let pitch = signed_pitch.abs();
         match self.bitmap.pixel_mode() {
-            PixelMode::Gray => panic!("gray pixel mode"),
+            PixelMode::Gray => {
+                match flow {
+                    Flow::Down => {
+                        if pitch == self.bitmap.width() {
+                            return self.bitmap.buffer().to_vec();
+                        } else {
+                            panic!("unsupported pitch != width");
+                        }
+                    },
+                    Flow::Up => panic!("flow up unsupported"),
+                }
+            },
             PixelMode::Bgra => panic!("Bgra pixel mode"),
             _ => panic!("unexpected pixel mode: {:?}", self.bitmap.pixel_mode()),
-        }
-        if self.bitmap.pitch() >= 0 {
-            panic!("positive pitch");
-        } else {
-            panic!("negative pitch");
         }
     }
 

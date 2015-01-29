@@ -10,7 +10,7 @@ git = "https://github.com/andrewrk/groove-rs"
 [dependencies.glium]
 git = "https://github.com/tomaka/glium"
 default-features = false
-features = ["image", "nalgebra", "gl_read_buffer"]
+features = ["image", "gl_read_buffer"]
 
 [dependencies.glium_macros]
 git = "https://github.com/tomaka/glium"
@@ -21,5 +21,5 @@ git = "https://github.com/tomaka/glutin"
 [dependencies.freetype-rs]
 git = "https://github.com/PistonDevelopers/freetype-rs"
 
-[dependencies.nalgebra]
-git = "https://github.com/sebcrozet/nalgebra"
+[dependencies.math3d]
+git = "https://github.com/andrewrk/math3d-rs"
