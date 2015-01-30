@@ -23,3 +23,6 @@ git = "https://github.com/PistonDevelopers/freetype-rs"
 
 [dependencies.math3d]
 git = "https://github.com/andrewrk/math3d-rs"
+
+[dependencies.image]
+git = "https://github.com/PistonDevelopers/image"

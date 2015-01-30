@@ -7,6 +7,7 @@ dependencies = [
  "glium_macros 0.0.1 (git+https://github.com/tomaka/glium)",
  "glutin 0.0.4-pre (git+https://github.com/tomaka/glutin)",
  "groove 0.0.1 (git+https://github.com/andrewrk/groove-rs)",
+ "image 0.2.0-alpha.8 (git+https://github.com/PistonDevelopers/image)",
  "math3d 0.0.1 (git+https://github.com/andrewrk/math3d-rs)",
 ]
 

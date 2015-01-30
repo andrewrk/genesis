@@ -24,6 +24,7 @@ mod text;
 use glium::{Surface, Display, DisplayBuild};
 
 use glutin::Event;
+use glutin::VirtualKeyCode;
 
 use std::vec::Vec;
 use std::option::Option;
@@ -65,13 +66,32 @@ fn main() {
     label.update();
 
     let mut projection = recalc_projection(&display);
+    let mut offset_x = 100.0;
+    let mut offset_y = 100.0;
 
     'main: loop {
         // polling and handling the events received by the window
         for event in display.poll_events() {
             match event {
                 Event::Closed => break 'main,
-                Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) => break 'main,
+                Event::KeyboardInput(_, _, Some(key_code)) => {
+                    match key_code {
+                        VirtualKeyCode::Escape => break 'main,
+                        VirtualKeyCode::Left => {
+                            offset_x -= 1.0;
+                        },
+                        VirtualKeyCode::Right => {
+                            offset_x += 1.0;
+                        },
+                        VirtualKeyCode::Up => {
+                            offset_y -= 1.0;
+                        },
+                        VirtualKeyCode::Down => {
+                            offset_y += 1.0;
+                        },
+                        _ => (),
+                    }
+                },
                 Event::Resized(_, _) => {
                     projection = recalc_projection(&display);
                 },
@@ -79,7 +99,7 @@ fn main() {
             }
         }
 
-        let model = Matrix4::identity().translate(100.0, 100.0, 0.0);
+        let model = Matrix4::identity().translate(offset_x, offset_y, 0.0);
         let mvp = projection.mult(&model);
 
         // drawing a frame

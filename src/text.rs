@@ -1,4 +1,5 @@
 extern crate freetype;
+extern crate image;
 
 use ::glium;
 use ::glium_macros;
@@ -136,6 +137,14 @@ impl<'a> TextRenderer<'a> {
                 let bitmap_glyph = glyph.to_bitmap(RenderMode::Normal, Option::None).unwrap();
                 let texturable_bitmap = TexturableBitmap::new(bitmap_glyph.bitmap());
                 let texture = glium::texture::Texture2d::new(self.display, texturable_bitmap);
+
+                // debug
+                let image: image::DynamicImage = texture.read();
+                let filename = format!("debug_{}.png", key.ch);
+                let output = ::std::old_io::fs::File::create(&Path::new(filename));
+                image.save(output, image::ImageFormat::PNG).unwrap().unwrap();
+
+
                 let cache_value = Rc::new(Box::new(CacheValue {
                     texture: texture,
                     glyph: glyph,
@@ -231,7 +240,6 @@ impl<'a> Label<'a> {
         previous_glyph_index = 0;
         first = true;
         let projection = Matrix4::ortho(0.0, width, height, 0.0);
-        println!("projection:\n{:?}", projection);
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
