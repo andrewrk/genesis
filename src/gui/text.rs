@@ -30,6 +30,7 @@ use self::freetype::bitmap::PixelMode;
 use self::freetype::bitmap::Bitmap;
 use self::freetype::render_mode::RenderMode;
 use self::freetype::face::KerningMode::KerningDefault;
+pub use self::freetype::Face;
 
 #[uniforms]
 struct Uniforms<'a> {
@@ -40,7 +41,7 @@ struct Uniforms<'a> {
 
 #[derive(Eq, PartialEq, Hash, Copy)]
 struct CacheKey<'a> {
-    face: &'a freetype::Face,
+    face: &'a Face,
     size: isize,
     ch: char,
 }
@@ -131,11 +132,11 @@ impl<'a> TextRenderer<'a> {
         }
     }
 
-    pub fn load_face(&self, path: &Path) -> Result<freetype::Face, freetype::error::Error> {
+    pub fn load_face(&self, path: &Path) -> Result<Face, freetype::error::Error> {
         self.library.new_face(path, 0)
     }
 
-    pub fn create_label(&'a mut self, face: &'a freetype::Face) -> Label {
+    pub fn create_label(&'a mut self, face: &'a Face) -> Label {
         let texture = glium::texture::Texture2d::new_empty(self.display,
             UncompressedFloatFormat::U8U8U8U8, 16, 16);
         let vertex_buffer = glium::VertexBuffer::new(self.display, vec![
@@ -182,7 +183,7 @@ impl<'a> TextRenderer<'a> {
 pub struct Label<'a> {
     renderer: &'a mut TextRenderer<'a>,
     text: String,
-    face: &'a freetype::Face,
+    face: &'a Face,
     size: isize,
     texture: glium::texture::Texture2d,
     color: [f32; 4],
@@ -190,7 +191,7 @@ pub struct Label<'a> {
 }
 
 impl<'a> Label<'a> {
-    pub fn set_face(&'a mut self, face: &'a freetype::Face) {
+    pub fn set_face(&'a mut self, face: &'a Face) {
         self.face = face;
     }
 

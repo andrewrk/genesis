@@ -19,7 +19,8 @@ extern crate glium;
 extern crate groove;
 extern crate math3d;
 
-mod text;
+mod gui;
+use gui::Gui;
 
 use glium::{Surface, Display, DisplayBuild};
 
@@ -57,13 +58,10 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    let face;
-    let mut text_renderer = text::TextRenderer::new(&display);
-    face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
-        .ok().expect("failed to load font");
-    let mut label = text_renderer.create_label(&face);
-    label.set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
+    let mut gui = Gui::new(&display);
+    let mut label = gui.create_label();
     label.set_color(1.0, 1.0, 1.0, 1.0);
+    label.set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
     label.update();
 
     let mut projection = recalc_projection(&display);
@@ -107,7 +105,7 @@ fn main() {
         let mut target = display.draw();
         target.clear_color(0.3, 0.3, 0.3, 1.0);
         label.draw(&mut target, &mvp);
-        waveform.read().unwrap().draw();
+        waveform.read().unwrap().draw(&mut target, &mvp);
         target.finish();
     }
 }
@@ -189,7 +187,7 @@ impl Waveform {
         waveform_arc
     }
 
-    fn draw(&self) {
+    pub fn draw(&self, frame: &mut glium::Frame, matrix: &Matrix4) {
         //println!("waveform display");
     }
 }
