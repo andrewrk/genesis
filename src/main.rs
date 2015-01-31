@@ -19,8 +19,9 @@ extern crate glium;
 extern crate groove;
 extern crate math3d;
 
-mod gui;
-use gui::Gui;
+mod text;
+
+use text::Label;
 
 use glium::{Surface, Display, DisplayBuild};
 
@@ -58,11 +59,19 @@ fn main() {
         .build_glium()
         .unwrap();
 
-    let mut gui = Gui::new(&display);
-    let mut label = gui.create_label();
-    label.set_color(1.0, 1.0, 1.0, 1.0);
+    let face;
+    let mut text_renderer = text::TextRenderer::new(&display);
+    face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
+        .ok().expect("failed to load font");
+    let mut label = Label::new(&text_renderer, &face);
     label.set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
-    label.update();
+    label.set_color(1.0, 1.0, 1.0, 1.0);
+    label.update(&mut text_renderer);
+
+    let mut label2 = Label::new(&text_renderer, &face);
+    label2.set_text(String::from_str("hurray, font rendering!"));
+    label2.set_color(0.0, 0.0, 1.0, 1.0);
+    label2.update(&mut text_renderer);
 
     let mut projection = recalc_projection(&display);
     let mut offset_x = 100.0;
@@ -101,11 +110,15 @@ fn main() {
         let model = Matrix4::identity().translate(offset_x, offset_y, 0.0);
         let mvp = projection.mult(&model);
 
+        let model2 = Matrix4::identity().translate(200.0, 200.0, 0.0);
+        let mvp2 = projection.mult(&model2);
+
         // drawing a frame
         let mut target = display.draw();
         target.clear_color(0.3, 0.3, 0.3, 1.0);
-        label.draw(&mut target, &mvp);
-        waveform.read().unwrap().draw(&mut target, &mvp);
+        label.draw(&text_renderer, &mut target, &mvp);
+        label2.draw(&text_renderer, &mut target, &mvp2);
+        waveform.read().unwrap().draw();
         target.finish();
     }
 }
@@ -187,7 +200,7 @@ impl Waveform {
         waveform_arc
     }
 
-    pub fn draw(&self, frame: &mut glium::Frame, matrix: &Matrix4) {
+    fn draw(&self) {
         //println!("waveform display");
     }
 }
