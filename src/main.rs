@@ -34,9 +34,8 @@ use std::result::Result;
 use std::thread::Thread;
 use std::sync::Arc;
 use std::sync::RwLock;
-use std::default::Default;
 
-use math3d::{Matrix4, Vector3};
+use math3d::{Matrix4};
 
 fn main() {
     let mut stderr = &mut std::old_io::stderr();

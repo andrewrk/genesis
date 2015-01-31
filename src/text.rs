@@ -2,7 +2,6 @@ extern crate freetype;
 extern crate image;
 
 use ::glium;
-use ::glium_macros;
 
 use std::option::Option;
 use std::collections::HashMap;
@@ -10,16 +9,14 @@ use std::rc::Rc;
 use std::vec::Vec;
 use std::boxed::Box;
 use std::default::Default;
-use std::cmp::{Eq, PartialEq};
-use std::hash::Hash;
-use std::collections::hash_map::{Hasher, Entry};
+use std::cmp::{Eq};
+use std::collections::hash_map::{Entry};
 use std::num::{SignedInt, Float};
 
-use math3d::{Vector3, Matrix4};
+use math3d::{Matrix4};
 
 use glium::texture::UncompressedFloatFormat;
 use glium::texture::ClientFormat;
-use glium::uniforms::IntoUniformValue;
 use glium::Surface;
 use glium::index_buffer::TriangleStrip;
 use glium::LinearBlendingFactor;
@@ -189,17 +186,19 @@ impl<'a> Label<'a> {
         }
     }
 
-    pub fn set_face(&'a mut self, face: &'a freetype::Face) {
-        self.face = face;
-    }
-
     pub fn set_text(&mut self, text: String) {
         self.text = text;
+    }
+
+    /*
+    pub fn set_face(&'a mut self, face: &'a freetype::Face) {
+        self.face = face;
     }
 
     pub fn set_font_size(&mut self, size: isize) {
         self.size = size;
     }
+    */
 
     pub fn set_color(&mut self, red: f32, green: f32, blue: f32, alpha: f32) {
         self.color = [red, green, blue, alpha];
@@ -376,6 +375,7 @@ impl glium::texture::Texture2dData for TexturableBitmap {
     }
 
     fn from_vec(buffer: Vec<u8>, width: u32) -> Self {
-        panic!("why do we need from_vec?");
+        let x = buffer[0] as u32 + width; // to get rid of unused warning
+        panic!("why do we need from_vec? {}", x);
     }
 }
