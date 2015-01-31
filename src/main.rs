@@ -63,6 +63,7 @@ fn main() {
         .ok().expect("failed to load font");
     let mut label = text_renderer.create_label(&face);
     label.set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
+    label.set_color(1.0, 1.0, 1.0, 1.0);
     label.update();
 
     let mut projection = recalc_projection(&display);

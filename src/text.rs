@@ -22,6 +22,7 @@ use glium::texture::ClientFormat;
 use glium::uniforms::IntoUniformValue;
 use glium::Surface;
 use glium::index_buffer::TriangleStrip;
+use glium::LinearBlendingFactor;
 
 use self::freetype::glyph::Glyph;
 use self::freetype::bitmap_glyph::BitmapGlyph;
@@ -63,7 +64,9 @@ pub struct TextRenderer<'a> {
     display: &'a glium::Display,
     cache: HashMap<CacheKey<'a>, Rc<Box<CacheValue>>>,
     index_buffer: glium::IndexBuffer,
-    program: glium::Program,
+    program_gray: glium::Program,
+    program_color: glium::Program,
+    draw_params: glium::DrawParameters,
 }
 
 
@@ -71,14 +74,14 @@ impl<'a> TextRenderer<'a> {
     pub fn new(display: &'a glium::Display) -> TextRenderer<'a> {
         let index_buffer = glium::IndexBuffer::new(display, TriangleStrip(vec![0 as u16, 1, 2, 3]));
 
-        let program = glium::Program::from_source(display, r"
+        let program_gray = glium::Program::from_source(display, r"
             #version 110
             uniform mat4 matrix;
             attribute vec3 position;
             attribute vec2 tex_coords;
             varying vec2 v_tex_coords;
             void main() {
-                gl_Position = matrix * vec4(position, 1.0);
+                gl_Position = vec4(position, 1.0) * matrix;
                 v_tex_coords = tex_coords;
             }
         ", r"
@@ -87,7 +90,26 @@ impl<'a> TextRenderer<'a> {
             uniform vec4 color;
             varying vec2 v_tex_coords;
             void main() {
-                gl_FragColor = vec4(1.0, 1.0, 1.0, texture2D(texture, v_tex_coords).a) * color;
+                gl_FragColor = vec4(color.rgb, color.a * texture2D(texture, v_tex_coords));
+            }
+        ", None).unwrap();
+        let program_color = glium::Program::from_source(display, r"
+            #version 110
+            uniform mat4 matrix;
+            attribute vec3 position;
+            attribute vec2 tex_coords;
+            varying vec2 v_tex_coords;
+            void main() {
+                gl_Position = vec4(position, 1.0) * matrix;
+                v_tex_coords = tex_coords;
+            }
+        ", r"
+            #version 110
+            uniform sampler2D texture;
+            uniform vec4 color;
+            varying vec2 v_tex_coords;
+            void main() {
+                gl_FragColor = vec4(color.rgb, texture2D(texture, v_tex_coords).a * color.a);
             }
         ", None).unwrap();
 
@@ -95,9 +117,17 @@ impl<'a> TextRenderer<'a> {
         TextRenderer {
             library: library,
             display: display,
-            program: program,
+            program_color: program_color,
+            program_gray: program_gray,
             cache: HashMap::new(),
             index_buffer: index_buffer,
+            draw_params: glium::DrawParameters {
+                blending_function: Option::Some(glium::BlendingFunction::Addition{
+                    source: LinearBlendingFactor::SourceAlpha,
+                    destination: LinearBlendingFactor::OneMinusSourceAlpha,
+                }),
+                .. Default::default()
+            },
         }
     }
 
@@ -109,10 +139,10 @@ impl<'a> TextRenderer<'a> {
         let texture = glium::texture::Texture2d::new_empty(self.display,
             UncompressedFloatFormat::U8U8U8U8, 16, 16);
         let vertex_buffer = glium::VertexBuffer::new(self.display, vec![
-            Vertex { position: [ 0.0,          0.0,           0.0], tex_coords: [0.0, 0.0] },
-            Vertex { position: [ 0.0,          16.0 as f32, 0.0], tex_coords: [0.0, 1.0] },
-            Vertex { position: [ 16.0 as f32, 1.0,           0.0], tex_coords: [1.0, 0.0] },
-            Vertex { position: [ 16.0 as f32, 16.0 as f32, 0.0], tex_coords: [1.0, 1.0] }
+            Vertex { position: [ 0.0,     0.0,     0.0], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 0.0,     16.0,    0.0], tex_coords: [0.0, 1.0] },
+            Vertex { position: [ 16.0,    0.0,     0.0], tex_coords: [1.0, 0.0] },
+            Vertex { position: [ 16.0,    16.0,    0.0], tex_coords: [1.0, 1.0] }
         ]);
         Label {
             renderer: self,
@@ -137,14 +167,6 @@ impl<'a> TextRenderer<'a> {
                 let bitmap_glyph = glyph.to_bitmap(RenderMode::Normal, Option::None).unwrap();
                 let texturable_bitmap = TexturableBitmap::new(bitmap_glyph.bitmap());
                 let texture = glium::texture::Texture2d::new(self.display, texturable_bitmap);
-
-                // debug
-                let image: image::DynamicImage = texture.read();
-                let filename = format!("debug_{}.png", key.ch);
-                let output = ::std::old_io::fs::File::create(&Path::new(filename));
-                image.save(output, image::ImageFormat::PNG).unwrap().unwrap();
-
-
                 let cache_value = Rc::new(Box::new(CacheValue {
                     texture: texture,
                     glyph: glyph,
@@ -186,12 +208,14 @@ impl<'a> Label<'a> {
 
     pub fn update(&mut self) {
         // one pass to determine width and height
+        // pen_x and pen_y are on the baseline. the char can go lower than it
         let mut pen_x: f32 = 0.0;
         let mut pen_y: f32 = 0.0;
         let mut previous_glyph_index = 0;
         let mut first = true;
-        let mut width: f32 = 0.0;
-        let mut height: f32 = 0.0;
+        let mut above_size: f32 = 0.0; // pixel count above the baseline
+        let mut below_size: f32 = 0.0; // pixel count below the baseline
+        let mut bounding_width = 0.0;
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
@@ -214,24 +238,27 @@ impl<'a> Label<'a> {
             let bmp_width = bitmap.width() as f32;
             let bmp_height = bitmap.rows() as f32;
             let right = (pen_x + bmp_start_left + bmp_width).ceil();
-            let top = (pen_y + bmp_start_top + bmp_height).ceil();
-
-            width = if right > width {right} else {width};
-            height = if top > height {top} else {height};
+            let this_above_size = pen_y + bmp_start_top;
+            let this_below_size = bmp_height - this_above_size;
+            above_size = if this_above_size > above_size {this_above_size} else {above_size};
+            below_size = if this_below_size > below_size {this_below_size} else {below_size};
+            bounding_width = right;
 
             previous_glyph_index = cache_entry.glyph_index;
             pen_x += (cache_entry.glyph.advance_x() as f32) / 65536.0;
             pen_y += (cache_entry.glyph.advance_y() as f32) / 65536.0;
         }
+        let bounding_height = (above_size + below_size).ceil();
 
         self.texture = glium::texture::Texture2d::new_empty(self.renderer.display,
-            UncompressedFloatFormat::U8U8U8U8, width as u32, height as u32);
+            UncompressedFloatFormat::U8U8U8U8, bounding_width as u32, bounding_height as u32);
+        self.texture.as_surface().clear_color(0.0, 0.0, 0.0, 0.0);
 
         self.vertex_buffer = glium::VertexBuffer::new(self.renderer.display, vec![
-            Vertex { position: [ 0.0,   0.0,    0.0], tex_coords: [0.0, 0.0] },
-            Vertex { position: [ 0.0,   height, 0.0], tex_coords: [0.0, 1.0] },
-            Vertex { position: [ width, 0.0,    0.0], tex_coords: [1.0, 0.0] },
-            Vertex { position: [ width, height, 0.0], tex_coords: [1.0, 1.0] }
+            Vertex { position: [ 0.0,            0.0,             0.0], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 0.0,            bounding_height, 0.0], tex_coords: [0.0, 1.0] },
+            Vertex { position: [ bounding_width, 0.0,             0.0], tex_coords: [1.0, 0.0] },
+            Vertex { position: [ bounding_width, bounding_height, 0.0], tex_coords: [1.0, 1.0] }
         ]);
 
         // second pass to render to texture
@@ -239,7 +266,7 @@ impl<'a> Label<'a> {
         pen_y = 0.0;
         previous_glyph_index = 0;
         first = true;
-        let projection = Matrix4::ortho(0.0, width, height, 0.0);
+        let projection = Matrix4::ortho(0.0, bounding_width, 0.0, bounding_height);
         for ch in self.text.chars() {
             let key = CacheKey {
                 face: self.face,
@@ -262,16 +289,14 @@ impl<'a> Label<'a> {
             let bmp_width = bitmap.width() as f32;
             let bmp_height = bitmap.rows() as f32;
             let left = pen_x + bmp_start_left;
-            let top = pen_y + bmp_start_top + bmp_height;
-
-
-            let texture = &cache_entry.texture;
-            let model = Matrix4::identity().translate(left, -top, 0.0);
+            let top = above_size - bmp_start_top;
+            let model = Matrix4::identity().translate(left, top, 0.0);
             let mvp = projection.mult(&model);
+            let texture = &cache_entry.texture;
             let uniforms = Uniforms {
                 matrix: *mvp.as_array(),
                 texture: texture,
-                color: [1.0, 1.0, 1.0, 1.0],
+                color: [0.0, 0.0, 0.0, 1.0],
             };
             let vertex_buffer = glium::VertexBuffer::new(self.renderer.display, vec![
                 Vertex { position: [ 0.0,        0.0,           0.0], tex_coords: [0.0, 0.0] },
@@ -281,8 +306,8 @@ impl<'a> Label<'a> {
             ]);
 
             self.texture.as_surface().draw(&vertex_buffer, &self.renderer.index_buffer,
-                                          &self.renderer.program, uniforms,
-                                          &Default::default()).ok().unwrap();
+                                           &self.renderer.program_gray, uniforms,
+                                           &Default::default()).ok().unwrap();
 
             previous_glyph_index = cache_entry.glyph_index;
             pen_x += (cache_entry.glyph.advance_x() as f32) / 65536.0;
@@ -297,8 +322,8 @@ impl<'a> Label<'a> {
             color: self.color,
         };
         frame.draw(&self.vertex_buffer, &self.renderer.index_buffer,
-                   &self.renderer.program, uniforms,
-                   &Default::default()).ok().unwrap();
+                   &self.renderer.program_color, uniforms,
+                   &self.renderer.draw_params).ok().unwrap();
     }
 }
 
