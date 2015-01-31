@@ -356,7 +356,7 @@ impl glium::texture::Texture2dData for TexturableBitmap {
             Down,
             Up,
         }
-        let flow = if signed_pitch.is_positive() {Flow::Down} else {Flow::Up};
+        let flow = if signed_pitch >= 0 {Flow::Down} else {Flow::Up};
         let pitch = signed_pitch.abs();
         match self.bitmap.pixel_mode() {
             PixelMode::Gray => {
