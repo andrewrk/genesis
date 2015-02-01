@@ -131,7 +131,7 @@ dependencies = [
 [[package]]
 name = "groove"
 version = "0.0.1"
-source = "git+https://github.com/andrewrk/groove-rs#36373e975528b08306b6c85e882220b8c5af00a8"
+source = "git+https://github.com/andrewrk/groove-rs#1a56f8b6ed327da872d7c174d7ebd0d24a87b980"
 dependencies = [
  "lazy_static 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -178,7 +178,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "math3d"
 version = "0.0.1"
-source = "git+https://github.com/andrewrk/math3d-rs#c551a02765c92d3cdb3eebfafa06e17a29b315dd"
+source = "git+https://github.com/andrewrk/math3d-rs#41d990305dda1eb9c57cde6f5a4733a29047d7fa"
 
 [[package]]
 name = "num"

@@ -21,7 +21,7 @@ extern crate math3d;
 
 mod text;
 
-use text::Label;
+use text::{Label, Gui};
 
 use glium::{Surface, Display, DisplayBuild};
 
@@ -30,12 +30,16 @@ use glutin::VirtualKeyCode;
 
 use std::vec::Vec;
 use std::option::Option;
+use std::option::Option::{Some, None};
 use std::result::Result;
+use std::result::Result::{Err, Ok};
 use std::thread::Thread;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use math3d::{Matrix4};
+
+use groove::SampleFormat;
 
 fn main() {
     let mut stderr = &mut std::old_io::stderr();
@@ -49,32 +53,25 @@ fn main() {
     }
     let input_path = Path::new(args[1].as_slice());
 
-    let waveform = Waveform::new(input_path);
-
-
     // building the display, ie. the main object
     let display = glutin::WindowBuilder::new()
         .with_title(String::from_str("genesis"))
         .build_glium()
         .unwrap();
 
-    let face;
-    let mut text_renderer = text::TextRenderer::new(&display);
-    face = text_renderer.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
+    let gui = Gui::new(display.clone());
+    let open_sans_regular = gui.load_face(&Path::new("./assets/OpenSans-Regular.ttf"))
         .ok().expect("failed to load font");
-    let mut label = Label::new(&text_renderer, &face);
-    label.set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
-    label.set_color(1.0, 1.0, 1.0, 1.0);
-    label.update(&mut text_renderer);
 
-    let mut label2 = Label::new(&text_renderer, &face);
-    label2.set_text(String::from_str("hurray, font rendering!"));
-    label2.set_color(0.0, 0.0, 1.0, 1.0);
-    label2.update(&mut text_renderer);
+    let label = gui.create_label(open_sans_regular);
+    label.item().set_text(String::from_str("abcdefghijklmnopqrstuvwxyz"));
+    label.item().set_color(1.0, 1.0, 1.0, 1.0);
+    label.item().update();
 
-    let mut projection = recalc_projection(&display);
-    let mut offset_x = 100.0;
-    let mut offset_y = 100.0;
+    let label2 = gui.create_label(open_sans_regular);
+    label2.item().set_text(String::from_str("hurray, font rendering!"));
+    label2.item().set_color(0.0, 0.0, 1.0, 1.0);
+    label2.item().update();
 
     'main: loop {
         // polling and handling the events received by the window
@@ -85,121 +82,116 @@ fn main() {
                     match key_code {
                         VirtualKeyCode::Escape => break 'main,
                         VirtualKeyCode::Left => {
-                            offset_x -= 1.0;
                         },
                         VirtualKeyCode::Right => {
-                            offset_x += 1.0;
                         },
                         VirtualKeyCode::Up => {
-                            offset_y -= 1.0;
                         },
                         VirtualKeyCode::Down => {
-                            offset_y += 1.0;
                         },
                         _ => (),
                     }
                 },
-                Event::Resized(_, _) => {
-                    projection = recalc_projection(&display);
-                },
+                Event::Resized(_, _) => gui.resize(),
                 _ => (),
             }
         }
-
-        let model = Matrix4::identity().translate(offset_x, offset_y, 0.0);
-        let mvp = projection.mult(&model);
-
-        let model2 = Matrix4::identity().translate(200.0, 200.0, 0.0);
-        let mvp2 = projection.mult(&model2);
-
-        // drawing a frame
-        let mut target = display.draw();
-        target.clear_color(0.3, 0.3, 0.3, 1.0);
-        label.draw(&text_renderer, &mut target, &mvp);
-        label2.draw(&text_renderer, &mut target, &mvp2);
-        waveform.read().unwrap().draw();
-        target.finish();
+        gui.draw_frame();
     }
-}
-
-fn recalc_projection(display: &Display) -> Matrix4 {
-    let (w, h) = display.get_framebuffer_dimensions();
-    Matrix4::ortho(0.0, w as f32, h as f32, 0.0)
 }
 
 fn print_usage(stderr: &mut std::old_io::LineBufferedWriter<std::old_io::stdio::StdWriter>, exe: &str) {
     let _ = write!(stderr, "Usage: {} <file>\n", exe);
 }
 
-enum WaveformLoadState {
-    Error,
-    Spawning,
-    Opening,
-    Reading,
-    Complete,
+/*
+struct AudioChannel {
+    samples: Vec<f64>,
+    sample_rate: i32,
 }
 
-struct Waveform {
-    buffers: Vec<groove::DecodedBuffer>,
-    load_state: WaveformLoadState,
-}
-
-impl Waveform {
-    fn new(path: Path) -> Arc<RwLock<Self>> {
-        let waveform_arc = Arc::new(RwLock::new(Waveform {
-            load_state: WaveformLoadState::Spawning,
-            buffers: Vec::new(),
-        }));
-        let waveform_rw = waveform_arc.clone();
-        Thread::spawn(move || {
-            let set_load_state = |&: state: WaveformLoadState| {
-                let mut waveform = waveform_rw.write().unwrap();
-                waveform.load_state = state;
-            };
-            set_load_state(WaveformLoadState::Opening);
-            let file = match groove::File::open(&path) {
-                Option::Some(f) => f,
-                Option::None => {
-                    set_load_state(WaveformLoadState::Error);
-                    panic!("unable to open file");
-                },
-            };
-            set_load_state(WaveformLoadState::Reading);
-
-            let playlist = groove::Playlist::new();
-            let sink = groove::Sink::new();
-            sink.set_audio_format(groove::AudioFormat {
-                sample_rate: 44100,
-                channel_layout: groove::ChannelLayout::LayoutStereo,
-                sample_fmt: groove::SampleFormat {
-                    sample_type: groove::SampleType::Dbl,
-                    planar: false,
-                },
-            });
-            match sink.attach(&playlist) {
-                Result::Ok(_) => {},
-                Result::Err(_) => {
-                    set_load_state(WaveformLoadState::Error);
-                    panic!("error attaching sink");
-                }
-            }
-            playlist.append(&file, 1.0, 1.0);
-
-            loop {
-                match sink.buffer_get_blocking() {
-                    Option::Some(decoded_buffer) => {
-                        let mut waveform = waveform_rw.write().unwrap();
-                        waveform.buffers.push(decoded_buffer);
-                    },
-                    Option::None => break,
-                }
-            }
-            set_load_state(WaveformLoadState::Complete);
-        });
-        waveform_arc
-    }
-
-    fn draw(&self) {
-        //println!("waveform display");
+impl AudioChannel {
+    fn new(sample_rate: i32) -> Self {
+        AudioChannel {
+            samples: Vec::new(),
+            sample_rate: i32,
+        }
     }
 }
+
+#[derive(Copy, Debug)]
+enum AudioFileError {
+    OpenFail,
+    AttachSinkFail,
+    UnsupportedAudioFormat,
+}
+
+struct AudioFile {
+    channels: Vec<AudioChannel>,
+}
+
+impl AudioFile {
+    fn from_path(path: &Path) -> Result<Self, AudioFileError> {
+        let file = match groove::File::open(&path) {
+            Some(f) => f,
+            None => return Err(AudioFileError::OpenFail),
+        };
+        let audio_format = file.audio_format();
+        let channel_count = audio_format.channel_layout.count();
+        let channels = Vec::with_capacity(channel_count);
+        for i in 0..channel_count {
+            let audio_channel = AudioChannel::new(audio_format.sample_rate);
+            channels.push(audio_channel);
+        }
+        let playlist = groove::Playlist::new();
+        let sink = groove::Sink::new();
+        sink.disable_resample(true);
+        match sink.attach(&playlist) {
+            Ok(_) => {},
+            Err(_) => return Err(AudioFileError::AttachSinkFail),
+        }
+        playlist.append(&file, 1.0, 1.0);
+        loop {
+            match sink.buffer_get_blocking() {
+                Some(decoded_buffer) => {
+                    let sample_type = decoded_buffer.sample_format.sample_type;
+                    let planar = decoded_buffer.sample_format.planar;
+                    match (sample_type, planar) {
+                        (SampleType::Dbl, false) => {
+                            let samples = decoded_buffer.as_slice_f64();
+                            for (index, sample) in samples.iter().enumerate() {
+                                let channel_index = index % channel_count;
+                                channels[channel_index].push(sample);
+                            }
+                        },
+                        _ => return Err(AudioFileError::UnsupportedSampleFormat),
+                    }
+                },
+                None => break,
+            }
+        }
+        AudioFile {
+            channels: chanels,
+        }
+    }
+}
+
+struct AudioFileWidget {
+    audio_file_result: Result<AudioFile, AudioFileError>,
+    label: Label,
+}
+
+impl AudioFileWidget {
+    fn from_path(path: &Path) -> Self {
+        AudioFileWidget {
+            audio_file_result: AudioFile::from_path(path),
+        }
+    }
+    fn draw(&self, frame: &mut glium::Frame, matrix: &Matrix4) {
+        match self.audio_file_result {
+            Ok(audio_file) => {},
+            Err(err) => {},
+        }
+    }
+}
+*/
