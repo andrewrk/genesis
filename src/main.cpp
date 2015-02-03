@@ -1,5 +1,6 @@
 #include "util.hpp"
 #include "genesis.hpp"
+#include "gui.hpp"
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -27,20 +28,20 @@ int main(int argc, char *argv[]) {
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
 
+    // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
+    SDL_GL_SetSwapInterval(0);
+
     GLenum status = glewInit();
-    if (status != GLEW_OK) {
-        fprintf(stderr, "GLEW error: %s\n", glewGetErrorString(status));
-        panic("glew init error");
-    }
+    if (status != GLEW_OK)
+        panic("glew init error: %s", glewGetErrorString(status));
     // glewInit sometimes returns invalid enum
     GLenum err = glGetError();
     if (err != GL_NO_ERROR && err != GL_INVALID_ENUM) {
         char *string = (char *)gluErrorString(err);
-        panic(string);
+        panic("gl glew init error: %s", string);
     }
 
-    // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
-    SDL_GL_SetSwapInterval(0);
+    Gui gui;
 
     glClearColor(0.3, 0.3, 0.3, 1.0);
 

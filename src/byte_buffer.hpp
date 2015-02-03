@@ -25,6 +25,9 @@ public:
     int size() const {
         return _buffer.size() - 1;
     }
+    void resize(int size) {
+        _buffer.resize(size + 1);
+    }
     void append(const ByteBuffer &other);
     void append(const char *str);
     void append(const char *str, int size);

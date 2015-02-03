@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <GL/glew.h>
 
-void panic(const char * str) __attribute__ ((noreturn));
+void panic(const char *format, ...) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
 
 template<typename T>
 static inline T *allocate(size_t count) {
@@ -26,7 +26,7 @@ static inline void assert_no_gl_error() {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
         char *string = (char *)gluErrorString(err);
-        panic(string);
+        panic("%s\n", string);
     }
 }
 
