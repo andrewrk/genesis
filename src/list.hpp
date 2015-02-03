@@ -14,7 +14,13 @@ public:
     ~List() {
         free(_items);
     }
-
+    List<T>& operator= (const List<T> &other) {
+        resize(other._size);
+        for (int i = 0; i < _size; i += 1) {
+            _items[i] = other._items[i];
+        }
+        return *this;
+    }
     void append(T item) {
         ensure_capacity(_size + 1);
         _items[_size++] = item;
