@@ -27,6 +27,3 @@ void genesis_init() {
         panic("unable to make genesis sample path");
 }
 
-void genesis_finish() {
-
-}
