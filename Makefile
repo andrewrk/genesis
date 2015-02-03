@@ -6,10 +6,10 @@ all:
 OBJECTS = build/main.o
 
 CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
-COMPILE_CPP = clang -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
+COMPILE_CPP = g++ -nodefaultlibs -fno-exceptions -fno-rtti -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/genesis: $(OBJECTS)
-	clang -o $@ $(OBJECTS) -lm
+	gcc -o $@ $(OBJECTS) -lm
 all: build/genesis
 
 build/%.o: src/%.cpp

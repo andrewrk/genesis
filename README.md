@@ -1,11 +1,12 @@
 # Digital Audio Workstation
 
-## Manifesto
+## Status
 
- * Fast but not over-optimized. Waste no CPU cycles, but do not add
-   unnecessary complexity for the sake of speed.
+Not cool yet.
+
+## The Vision
+
  * Take full advantage of multiple cores.
- * When there is a tradeoff between speed and memory, sacrifice memory.
  * Sample-accurate mixing.
  * Never require the user to restart the program
  * Let's get these things right the first time around:
@@ -13,26 +14,31 @@
    - Ability to edit multiple projects at once. Mix and match
    - Support for N audio channels instead of hardcoded stereo
  * Tight integration with an online sample/project sharing service. Make it
-   almost easier to save it open source than to save it privately
+   almost easier to save it open source than to save it privately.
  * Multiplayer support. Each person can simultaneously edit different sections.
  * Backend decoupled from the UI. Someone should be able to depend only
    on a C library and headlessly synthesize music.
- * Friends with [LMMS](https://github.com/LMMS/lmms)
 
-## Installation
+## Contributing
 
-### System Dependencies
-
- * libgroove
- * FreeType
+genesis is programmed in a tiny subset of C++. It does not link against
+libstdc++. It's basically C except with some templates and data structures
+sprinkled here and there.
 
 ### Building and Running
 
 ```
-cargo run
+make
+./build/genesis
 ```
 
 ## Roadmap
 
- 0. Open an audio file with libav.
- 0. Display the waveform of the audio file in the display.
+ 0. Load all the audio file's channels into memory.
+ 0. Display all of the audio file's channels in a list.
+ 0. Render channels graphically.
+ 0. Ability to make a selection.
+ 0. Playback to speakers.
+ 0. Delete selection.
+ 0. Undo/Redo
+ 0. Multiplayer
