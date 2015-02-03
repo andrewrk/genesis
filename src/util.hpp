@@ -1,7 +1,7 @@
 #ifndef UTIL_HPP
 #define UTIL_HPP
 
-#include "stdlib.h"
+#include <stdlib.h>
 #include <GL/glew.h>
 
 void panic(const char * str) __attribute__ ((noreturn));

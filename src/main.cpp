@@ -1,4 +1,5 @@
 #include "util.hpp"
+#include "genesis.hpp"
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -6,12 +7,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-
-
 int main(int argc, char *argv[]) {
+    genesis_init();
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
         panic("SDL initialize");
-
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -78,5 +78,6 @@ int main(int argc, char *argv[]) {
     SDL_DestroyWindow(window);
 
     SDL_Quit();
+    genesis_finish();
     return 0;
 }

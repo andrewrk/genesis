@@ -15,13 +15,18 @@ public:
         free(_items);
     }
 
-    void add(T item) {
+    void append(T item) {
         ensure_capacity(_size + 1);
         _items[_size++] = item;
     }
+    const T & at(int index) const {
+        if (index < 0 || index >= _size)
+            panic("list: const at index out of bounds");
+        return _items[index];
+    }
     T & at(int index) {
         if (index < 0 || index >= _size)
-            panic("list index out of bounds");
+            panic("list: at index out of bounds");
         return _items[index];
     }
     int size() const {
@@ -31,6 +36,17 @@ public:
         if (_size == 0)
             panic("pop empty list");
         return _items[--_size];
+    }
+
+    void resize(int size) {
+        if (size < 0)
+            panic("negative resize");
+        ensure_capacity(size);
+        _size = size;
+    }
+
+    T *raw() const {
+        return _items;
     }
 
 private:
