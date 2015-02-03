@@ -7,10 +7,19 @@
 void panic(const char * str) __attribute__ ((noreturn));
 
 template<typename T>
-static inline T *not_null(T *thing) {
-    if (thing == NULL)
-        panic("unexpected NULL");
-    return thing;
+static inline T *allocate(size_t count) {
+    T *ptr = reinterpret_cast<T*>(malloc(count * sizeof(T)));
+    if (!ptr)
+        panic("allocate: out of memory");
+    return ptr;
+}
+
+template<typename T>
+static inline T *reallocate(T *old, size_t count) {
+    T *new_ptr = reinterpret_cast<T*>(realloc(old, count * sizeof(T)));
+    if (!new_ptr)
+        panic("reallocate: out of memory");
+    return new_ptr;
 }
 
 static inline void assert_no_gl_error() {
