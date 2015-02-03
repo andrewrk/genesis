@@ -28,7 +28,7 @@ sprinkled here and there.
 ### Building and Running
 
 ```
-sudo apt-get install libgroove-dev libglfw3-dev
+sudo apt-get install libgroove-dev libsdl2-dev libglew-dev
 make
 ./build/genesis
 ```

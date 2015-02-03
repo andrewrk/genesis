@@ -1,72 +1,76 @@
 #include "util.hpp"
 
-#include <GLFW/glfw3.h>
+#include <GL/glew.h>
+#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
-static void error_callback(int error, const char* description)
-{
-    fputs(description, stderr);
-    panic("GLFW error");
-}
 
-static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GL_TRUE);
-}
 
 int main(int argc, char *argv[]) {
-    printf("genesis\n");
-
-    glfwSetErrorCallback(error_callback);
-
-    if (!glfwInit())
-        panic("GLFW init");
-
-    GLFWwindow *window = not_null(glfwCreateWindow(1600, 900, "genesis", NULL, NULL));
-
-    glfwMakeContextCurrent(window);
-
-    // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
-    glfwSwapInterval(0);
-
-    glfwSetKeyCallback(window, key_callback);
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        panic("SDL initialize");
 
 
-    while (!glfwWindowShouldClose(window)) {
-        float ratio;
-        int width, height;
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 
-        glfwGetFramebufferSize(window, &width, &height);
-        ratio = width / (float) height;
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-        glViewport(0, 0, width, height);
-        glClear(GL_COLOR_BUFFER_BIT);
+    SDL_Window *window = SDL_CreateWindow("genesis",
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        1366, 768, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
+    if (!window)
+        panic("unable to create SDL window");
 
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(-ratio, ratio, -1.f, 1.f, 1.f, -1.f);
-        glMatrixMode(GL_MODELVIEW);
+    SDL_GLContext context = SDL_GL_CreateContext(window);
 
-        glLoadIdentity();
-        glRotatef((float) glfwGetTime() * 50.f, 0.f, 0.f, 1.f);
-
-        glBegin(GL_TRIANGLES);
-        glColor3f(1.f, 0.f, 0.f);
-        glVertex3f(-0.6f, -0.4f, 0.f);
-        glColor3f(0.f, 1.f, 0.f);
-        glVertex3f(0.6f, -0.4f, 0.f);
-        glColor3f(0.f, 0.f, 1.f);
-        glVertex3f(0.f, 0.6f, 0.f);
-        glEnd();
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+    GLenum status = glewInit();
+    if (status != GLEW_OK) {
+        fprintf(stderr, "GLEW error: %s\n", glewGetErrorString(status));
+        panic("glew init error");
+    }
+    // glewInit sometimes returns invalid enum
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR && err != GL_INVALID_ENUM) {
+        char *string = (char *)gluErrorString(err);
+        panic(string);
     }
 
-    glfwDestroyWindow(window);
+    // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
+    SDL_GL_SetSwapInterval(0);
 
-    glfwTerminate();
+    glClearColor(0.3, 0.3, 0.3, 1.0);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    bool running = true;
+    while (running) {
+    SDL_Event event;
+        while(SDL_PollEvent(&event)) {
+            switch (event.type) {
+            case SDL_KEYDOWN:
+                switch (event.key.keysym.scancode) {
+                case SDL_SCANCODE_ESCAPE:
+                    running = false;
+                    break;
+                default:
+                    break;
+                }
+                break;
+            case SDL_QUIT:
+                running = false;
+                break;
+            }
+        }
+    }
+
+    SDL_GL_DeleteContext(context);
+    SDL_DestroyWindow(window);
+
+    SDL_Quit();
     return 0;
 }

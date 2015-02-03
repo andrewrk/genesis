@@ -9,7 +9,7 @@ CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
 COMPILE_CPP = g++ -nodefaultlibs -fno-exceptions -fno-rtti -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/genesis: $(OBJECTS)
-	gcc -o $@ $(OBJECTS) -lgroove -lglfw -lm -lGL
+	gcc -o $@ $(OBJECTS) -lgroove -lSDL2 -lm -lGLEW -lGLU -lGL
 all: build/genesis
 
 build/%.o: src/%.cpp
