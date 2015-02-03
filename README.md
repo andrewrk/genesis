@@ -23,7 +23,6 @@
 
 ### System Dependencies
 
- * [rust](http://rust-lang.org)
  * libgroove
  * FreeType
 
