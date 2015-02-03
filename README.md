@@ -28,12 +28,14 @@ sprinkled here and there.
 ### Building and Running
 
 ```
+sudo apt-get install libgroove-dev libglfw3-dev
 make
 ./build/genesis
 ```
 
 ## Roadmap
 
+ 0. UI for the user to load a file.
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.
  0. Render channels graphically.

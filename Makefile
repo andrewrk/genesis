@@ -3,13 +3,13 @@ all:
 
 -include $(wildcard build/*.d)
 
-OBJECTS = build/main.o
+OBJECTS = build/main.o build/util.o
 
 CPP_FLAGS += -Ibuild -Isrc -g -Wall -Werror
 COMPILE_CPP = g++ -nodefaultlibs -fno-exceptions -fno-rtti -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/genesis: $(OBJECTS)
-	gcc -o $@ $(OBJECTS) -lm
+	gcc -o $@ $(OBJECTS) -lgroove -lglfw -lm -lGL
 all: build/genesis
 
 build/%.o: src/%.cpp
