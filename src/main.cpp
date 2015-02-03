@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
     bool running = true;
     while (running) {
-    SDL_Event event;
+        SDL_Event event;
         while(SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_KEYDOWN:
@@ -67,6 +67,11 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
+
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        SDL_GL_SwapWindow(window);
+        SDL_Delay(17);
     }
 
     SDL_GL_DeleteContext(context);
