@@ -11,7 +11,7 @@ CPP_FLAGS += -nodefaultlibs -fno-exceptions -fno-rtti -Ibuild -Isrc -g -Wall -We
 COMPILE_CPP = g++ -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/genesis: $(OBJECTS)
-	gcc -o $@ $(OBJECTS) -lfreetype -lgroove -lSDL2 -lm -lGLEW -lGLU -lGL
+	gcc -o $@ $(OBJECTS) -lfreetype -lgroove -lSDL2 -lm -lepoxy -lGLU -lGL
 all: build/genesis
 
 build/%.o: src/%.cpp

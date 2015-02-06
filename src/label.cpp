@@ -1,7 +1,8 @@
 #include "label.hpp"
 #include "gui.hpp"
 
-#include <GL/glew.h>
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
 
 
 static void ft_ok(FT_Error err) {
@@ -9,14 +10,14 @@ static void ft_ok(FT_Error err) {
         panic("freetype error");
 }
 
-Label::Label(Gui *gui) {
-    _gui = gui;
-    _width = 0;
-    _height = 0;
-    _text.init();
-    _text = String("Label");
-    _color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    _font_size = 16;
+Label::Label(Gui *gui) :
+    _gui(gui),
+    _width(0),
+    _height(0),
+    _text("Label"),
+    _color(1.0f, 1.0f, 1.0f, 1.0f),
+    _font_size(16)
+{
 
     glGenTextures(1, &_texture_id);
     glBindTexture(GL_TEXTURE_2D, _texture_id);

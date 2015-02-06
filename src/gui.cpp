@@ -105,7 +105,7 @@ void Gui::exec() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         for (int i = 0; i < _widget_list.length(); i += 1) {
-            LabelWidget *label_widget = reinterpret_cast<LabelWidget *>(_widget_list.at(i));
+            LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_widget_list.at(i));
             if (label_widget->is_visible())
                 label_widget->draw(_projection);
         }
@@ -122,7 +122,7 @@ void Gui::resize() {
 
 LabelWidget * Gui::create_label_widget() {
     LabelWidget *label_widget = allocate<LabelWidget>(1);
-    label_widget->init(this, _widget_list.length());
+    new (label_widget) LabelWidget(this, _widget_list.length());
     _widget_list.append(label_widget);
     return label_widget;
 }

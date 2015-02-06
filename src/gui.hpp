@@ -8,7 +8,8 @@
 #include "glm.hpp"
 #include "hash_map.hpp"
 
-#include <GL/glew.h>
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
 #include <SDL2/SDL.h>
 
 struct FontCacheKey {
@@ -41,14 +42,11 @@ public:
 
     LabelWidget *create_label_widget();
 
-    void remove_label_widget(LabelWidget *label_widget) {
+    void remove_widget(LabelWidget *label_widget) {
         _widget_list.swap_remove(label_widget->_gui_index);
-        destroy(label_widget);
     }
 
     FontCacheValue font_cache_entry(const FontCacheKey &key);
-
-
 
 
     GLint _attrib_tex_coord;

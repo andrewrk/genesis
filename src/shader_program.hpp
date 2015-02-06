@@ -4,7 +4,8 @@
 #include "util.hpp"
 #include "glm.hpp"
 
-#include <GL/glew.h>
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
 
 class ShaderProgram {
 public:

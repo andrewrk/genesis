@@ -2,7 +2,9 @@
 #include "genesis.hpp"
 #include "gui.hpp"
 
-#include <GL/glew.h>
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
+
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,20 +30,10 @@ int main(int argc, char *argv[]) {
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
 
-    GLenum status = glewInit();
-    if (status != GLEW_OK)
-        panic("glew init error: %s", glewGetErrorString(status));
-    // glewInit sometimes returns invalid enum
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR && err != GL_INVALID_ENUM) {
-        char *string = (char *)gluErrorString(err);
-        panic("gl glew init error: %s", string);
-    }
-
     Gui gui(window);
 
     LabelWidget *label_widget = gui.create_label_widget();
-    label_widget->set_text(String("abcdefghijklmnop andy"));
+    label_widget->set_text(String("mel abcdefghijklmnop andy"));
     label_widget->set_pos(100, 100);
 
     gui.exec();

@@ -2,7 +2,8 @@
 #define UTIL_HPP
 
 #include <stdlib.h>
-#include <GL/glew.h>
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
 
 void panic(const char *format, ...) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
 
@@ -23,18 +24,15 @@ static inline T *reallocate(T *old, size_t count) {
     return new_ptr;
 }
 
-// calls destructor
 template<typename T>
 static inline void destroy(T *ptr) {
     ptr->T::~T();
-    free(ptr);
 }
 
 static inline void assert_no_gl_error() {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
-        char *string = (char *)gluErrorString(err);
-        panic("GL error: %s\n", string);
+        panic("GL error: %d\n", (int) err);
     }
 }
 

@@ -8,7 +8,7 @@
 class Gui;
 class LabelWidget {
 public:
-    LabelWidget() : _label(gui), _gui_index(gui_index) {}
+    LabelWidget(Gui *gui, int gui_index) : _gui_index(gui_index), _label(gui) {}
     ~LabelWidget() {}
     LabelWidget(LabelWidget &copy) = delete;
 
@@ -58,6 +58,7 @@ public:
     }
 
     int _gui_index;
+
 private:
     Label _label;
     int _x;

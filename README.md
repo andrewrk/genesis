@@ -25,21 +25,17 @@ Not cool yet.
 
 ## Contributing
 
-genesis is programmed in a tiny subset of C++. It is basically C except with
-some templates and data structures sprinkled here and there:
+genesis is programmed in a tiny subset of C++:
 
  * No linking against libstdc++.
- * No `class` allowed.
- * No `new` or `delete` allowed.
- * No `public`, `private`, or `protected` allowed.
+ * No `new` or `delete` allowed, except for using "placement new" to invoke a
+   constructor.
  * No exceptions or run-time type information.
- * No constructors or destructors.
- * No structs inside structs.
 
 ### Building and Running
 
 ```
-sudo apt-get install libgroove-dev libsdl2-dev libglew-dev libglm-dev libfreetype6-dev
+sudo apt-get install libgroove-dev libsdl2-dev libepoxy-dev libglm-dev libfreetype6-dev
 make
 ./build/genesis
 ```
