@@ -6,6 +6,15 @@ Not cool yet.
 
 ## The Vision
 
+ * Safe plugins. Plugins crashing must not crash the studio.
+ * Cross-platform.
+ * Projects must work on every computer. It's not possible to have a plugin
+   that works on one person's computer and not another.
+ * Tight integration with an online sample/project sharing service. Make it
+   almost easier to save it open source than to save it privately.
+ * Multiplayer support. Each person can simultaneously edit different sections.
+ * Backend decoupled from the UI. Someone should be able to depend only
+   on a C library and headlessly synthesize music.
  * Take full advantage of multiple cores.
  * Sample-accurate mixing.
  * Never require the user to restart the program
@@ -13,11 +22,6 @@ Not cool yet.
    - Undo/redo
    - Ability to edit multiple projects at once. Mix and match
    - Support for N audio channels instead of hardcoded stereo
- * Tight integration with an online sample/project sharing service. Make it
-   almost easier to save it open source than to save it privately.
- * Multiplayer support. Each person can simultaneously edit different sections.
- * Backend decoupled from the UI. Someone should be able to depend only
-   on a C library and headlessly synthesize music.
 
 ## Contributing
 
@@ -28,7 +32,7 @@ sprinkled here and there.
 ### Building and Running
 
 ```
-sudo apt-get install libgroove-dev libsdl2-dev libglew-dev
+sudo apt-get install libgroove-dev libsdl2-dev libglew-dev libglm-dev libfreetype6-dev
 make
 ./build/genesis
 ```

@@ -3,7 +3,7 @@
 
 #include "util.hpp"
 
-template<typename K, typename V, uint32_t (*HashFunction)(K)>
+template<typename K, typename V, uint32_t (*HashFunction)(const K &key)>
 class HashMap {
 public:
     HashMap() {
@@ -45,13 +45,17 @@ public:
         return entry->value;
     }
 
-    V get(K key, V default_value) const {
+    // if the return value is false, out_value will not be touched
+    bool get(K key, V *out_value) const {
         Entry *entry = internal_get(key);
-        return entry ? entry->value : default_value;
+        if (!entry)
+            return false;
+        *out_value = entry->value;
+        return true;
     }
 
     void remove(K key) {
-        int start_index = HashFunction(key) % _capacity;
+        int start_index = key_to_index(key);
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
             int index = (start_index + roll_over) % _capacity;
             Entry *entry = &_entries[index];
@@ -104,7 +108,7 @@ private:
     }
 
     void internal_put(K key, V value) {
-        int start_index = HashFunction(key) % _capacity;
+        int start_index = key_to_index(key);
         for (int roll_over = 0, distance_from_start_index = 0;
                 roll_over < _capacity; roll_over += 1, distance_from_start_index += 1)
         {
@@ -151,7 +155,7 @@ private:
 
 
     Entry *internal_get(K key) const {
-        int start_index = HashFunction(key) % _capacity;
+        int start_index = key_to_index(key);
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
             int index = (start_index + roll_over) % _capacity;
             Entry *entry = &_entries[index];
@@ -163,6 +167,10 @@ private:
                 return entry;
         }
         return NULL;
+    }
+
+    int key_to_index(K key) const {
+        return (int)(HashFunction(key) % ((uint32_t)_capacity));
     }
 };
 

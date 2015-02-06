@@ -28,9 +28,6 @@ int main(int argc, char *argv[]) {
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
 
-    // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
-    SDL_GL_SetSwapInterval(0);
-
     GLenum status = glewInit();
     if (status != GLEW_OK)
         panic("glew init error: %s", glewGetErrorString(status));
@@ -41,39 +38,13 @@ int main(int argc, char *argv[]) {
         panic("gl glew init error: %s", string);
     }
 
-    Gui gui;
+    Gui gui(window);
 
-    glClearColor(0.3, 0.3, 0.3, 1.0);
+    LabelWidget *label_widget = gui.create_label_widget();
+    label_widget->set_text(String("abcdefghijklmnop andy"));
+    label_widget->set_pos(100, 100);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-
-    bool running = true;
-    while (running) {
-        SDL_Event event;
-        while(SDL_PollEvent(&event)) {
-            switch (event.type) {
-            case SDL_KEYDOWN:
-                switch (event.key.keysym.sym) {
-                case SDLK_ESCAPE:
-                    running = false;
-                    break;
-                default:
-                    break;
-                }
-                break;
-            case SDL_QUIT:
-                running = false;
-                break;
-            }
-        }
-
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        SDL_GL_SwapWindow(window);
-        SDL_Delay(17);
-    }
+    gui.exec();
 
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);

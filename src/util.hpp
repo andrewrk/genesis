@@ -6,6 +6,7 @@
 
 void panic(const char *format, ...) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
 
+// just use free to free this data
 template<typename T>
 static inline T *allocate(size_t count) {
     T *ptr = reinterpret_cast<T*>(malloc(count * sizeof(T)));
@@ -22,11 +23,18 @@ static inline T *reallocate(T *old, size_t count) {
     return new_ptr;
 }
 
+// calls destructor
+template<typename T>
+static inline void destroy(T *ptr) {
+    ptr->T::~T();
+    free(ptr);
+}
+
 static inline void assert_no_gl_error() {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
         char *string = (char *)gluErrorString(err);
-        panic("%s\n", string);
+        panic("GL error: %s\n", string);
     }
 }
 

@@ -1,5 +1,10 @@
 #include "string.hpp"
 
+
+String::String(const ByteBuffer &bytes) {
+    *this = decode(bytes);
+}
+
 String::String(const String &copy) {
     *this = copy;
 }
@@ -20,12 +25,12 @@ String String::decode(const ByteBuffer &bytes) {
 String String::decode(const ByteBuffer &bytes, bool &ok) {
     String str;
     ok = true;
-    for (int i = 0; i < bytes.size(); i += 1) {
+    for (int i = 0; i < bytes.length(); i += 1) {
         uint8_t byte1 = *((uint8_t*)&bytes.at(i));
         if ((0x80 & byte1) == 0) {
             str.append(byte1);
         } else if ((0xe0 & byte1) == 0xc0) {
-            if (++i >= bytes.size()) {
+            if (++i >= bytes.length()) {
                 ok = false;
                 str.append(0xfffd);
                 break;
@@ -41,7 +46,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
             uint32_t bits_byte2 = (byte2 & 0x3f);
             str.append(bits_byte2 | (bits_byte1 << 6));
         } else if ((0xf0 & byte1) == 0xe0) {
-            if (++i >= bytes.size()) {
+            if (++i >= bytes.length()) {
                 ok = false;
                 str.append(0xfffd);
                 break;
@@ -53,7 +58,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
                 continue;
             }
 
-            if (++i >= bytes.size()) {
+            if (++i >= bytes.length()) {
                 ok = false;
                 str.append(0xfffd);
                 break;
@@ -70,7 +75,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
             uint32_t bits_byte3 = (byte3 & 0x3f);
             str.append(bits_byte3 | (bits_byte2 << 6) | (bits_byte1 << 12));
         } else if ((0xf8 & byte1) == 0xf0) {
-            if (++i >= bytes.size()) {
+            if (++i >= bytes.length()) {
                 ok = false;
                 str.append(0xfffd);
                 break;
@@ -82,7 +87,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
                 continue;
             }
 
-            if (++i >= bytes.size()) {
+            if (++i >= bytes.length()) {
                 ok = false;
                 str.append(0xfffd);
                 break;
@@ -94,7 +99,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
                 continue;
             }
 
-            if (++i >= bytes.size()) {
+            if (++i >= bytes.length()) {
                 ok = false;
                 str.append(0xfffd);
                 break;
@@ -121,7 +126,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
 
 ByteBuffer String::encode() const {
     ByteBuffer result;
-    for (int i = 0; i < _chars.size(); i += 1) {
+    for (int i = 0; i < _chars.length(); i += 1) {
         uint32_t codepoint = _chars.at(i);
         if (codepoint <= 0x7f) {
             // 00000000 00000000 00000000 0xxxxxxx

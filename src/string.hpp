@@ -12,17 +12,24 @@ public:
     String() {}
     String(const String &copy);
     String& operator= (const String& other);
+    String(const ByteBuffer &bytes);
 
     static String decode(const ByteBuffer &bytes, bool &ok);
     // this one panics if the string is invalid
     static String decode(const ByteBuffer &bytes);
     ByteBuffer encode() const;
 
-    int size() const {
-        return _chars.size();
+    int length() const {
+        return _chars.length();
+    }
+    const uint32_t & at(int index) const {
+        return _chars.at(index);
+    }
+    uint32_t & at(int index) {
+        return _chars.at(index);
     }
 
-    static const int max_codepoint = 2097152;
+    static const int max_codepoint = 0x1fffff;
     void append(uint32_t c) {
         if (c > max_codepoint)
             panic("codepoint out of range");

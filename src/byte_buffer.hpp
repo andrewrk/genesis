@@ -9,7 +9,7 @@ public:
     ByteBuffer();
     ByteBuffer(const ByteBuffer & copy);
     ByteBuffer(const char * str);
-    ByteBuffer(const char * str, int size);
+    ByteBuffer(const char * str, int length);
     ~ByteBuffer() {}
     ByteBuffer& operator= (const ByteBuffer& other);
 
@@ -22,15 +22,15 @@ public:
 
     static ByteBuffer format(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
-    int size() const {
-        return _buffer.size() - 1;
+    int length() const {
+        return _buffer.length() - 1;
     }
-    void resize(int size) {
-        _buffer.resize(size + 1);
+    void resize(int length) {
+        _buffer.resize(length + 1);
     }
     void append(const ByteBuffer &other);
     void append(const char *str);
-    void append(const char *str, int size);
+    void append(const char *str, int length);
 
     int index_of_rev(char c) const;
     int index_of_rev(char c, int start) const;

@@ -28,13 +28,13 @@ int path_mkdirp(ByteBuffer path) {
 }
 
 ByteBuffer path_basename(ByteBuffer path) {
-    int pos = path.index_of_rev('/', path.size() - 2);
+    int pos = path.index_of_rev('/', path.length() - 2);
     if (pos == -1)
         panic("invalid path, separator not found");
     return path.substring(0, pos);
 }
 
 ByteBuffer path_join(ByteBuffer left, ByteBuffer right) {
-    const char *fmt_str = (left.at(left.size() - 1) == '/') ? "%s%s" : "%s/%s";
+    const char *fmt_str = (left.at(left.length() - 1) == '/') ? "%s%s" : "%s/%s";
     return ByteBuffer::format(fmt_str, left.raw(), right.raw());
 }

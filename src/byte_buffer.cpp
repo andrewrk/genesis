@@ -19,25 +19,25 @@ ByteBuffer::ByteBuffer(const ByteBuffer & copy)
     _buffer.append(0);
     append(copy);
 }
-ByteBuffer::ByteBuffer(const char * str, int size) {
+ByteBuffer::ByteBuffer(const char * str, int length) {
     _buffer.append(0);
-    append(str, size);
+    append(str, length);
 }
 
 void ByteBuffer::append(const ByteBuffer &other) {
-    append(other.raw(), other.size());
+    append(other.raw(), other.length());
 }
 
 void ByteBuffer::append(const char *str) {
     append(str, strlen(str));
 }
 
-void ByteBuffer::append(const char *str, int size) {
-    int prev_size_plus_null = _buffer.size();
-    int new_size_plus_null = prev_size_plus_null + size;
-    _buffer.resize(new_size_plus_null);
-    memcpy(_buffer.raw() + prev_size_plus_null - 1, str, size);
-    _buffer.at(new_size_plus_null - 1) = 0;
+void ByteBuffer::append(const char *str, int length) {
+    int prev_length_plus_null = _buffer.length();
+    int new_length_plus_null = prev_length_plus_null + length;
+    _buffer.resize(new_length_plus_null);
+    memcpy(_buffer.raw() + prev_length_plus_null - 1, str, length);
+    _buffer.at(new_length_plus_null - 1) = 0;
 }
 
 ByteBuffer ByteBuffer::format(const char *format, ...) {
@@ -49,11 +49,11 @@ ByteBuffer ByteBuffer::format(const char *format, ...) {
     if (ret < 0)
         panic("vsnprintf error");
 
-    int required_size = ret + 1;
+    int required_length = ret + 1;
     ByteBuffer result;
-    result._buffer.resize(required_size);
+    result._buffer.resize(required_length);
     
-    ret = vsnprintf(result._buffer.raw(), required_size, format, ap2);
+    ret = vsnprintf(result._buffer.raw(), required_length, format, ap2);
     if (ret < 0)
         panic("vsnprintf error 2");
 
@@ -64,7 +64,7 @@ ByteBuffer ByteBuffer::format(const char *format, ...) {
 }
 
 int ByteBuffer::index_of_rev(char c) const {
-    return index_of_rev(c, size() - 1);
+    return index_of_rev(c, length() - 1);
 }
 
 int ByteBuffer::index_of_rev(char c, int start) const {
@@ -76,17 +76,17 @@ int ByteBuffer::index_of_rev(char c, int start) const {
 }
 
 ByteBuffer ByteBuffer::substring(int start, int end) const {
-    if (start < 0 || start >= size())
+    if (start < 0 || start >= length())
         panic("substring start out of bounds");
-    if (end < 0 || end > size())
+    if (end < 0 || end > length())
         panic("substring end out of bounds");
     return ByteBuffer(_buffer.raw() + start, end - start);
 }
 
 ByteBuffer& ByteBuffer::operator= (const ByteBuffer& other) {
     if (this != &other) {
-        _buffer.resize(other._buffer.size());
-        memcpy(_buffer.raw(), other.raw(), _buffer.size());
+        _buffer.resize(other._buffer.length());
+        memcpy(_buffer.raw(), other.raw(), _buffer.length());
     }
     return *this;
 }
