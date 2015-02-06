@@ -9,6 +9,8 @@ String::String(const String &copy) {
     *this = copy;
 }
 
+String::String(const char *str) : String(ByteBuffer(str)) {}
+
 String& String::operator= (const String &other) {
     _chars = other._chars;
     return *this;

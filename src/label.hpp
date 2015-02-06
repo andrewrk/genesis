@@ -5,6 +5,9 @@
 #include "string.hpp"
 #include "glm.hpp"
 
+#include <epoxy/gl.h>
+#include <epoxy/glx.h>
+
 class Gui;
 
 class Label {

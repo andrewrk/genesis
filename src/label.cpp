@@ -1,5 +1,6 @@
 #include "label.hpp"
 #include "gui.hpp"
+#include "debug.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -94,7 +95,7 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
     for (int y = 0; y < source.rows; y += 1) {
         for (int x = 0; x < source.width; x += 1) {
             unsigned char alpha = source.buffer[y * pitch + x];
-            int dest_index = top * (dest_width * 4) + left * 4 + 3;
+            int dest_index = 4 * ((top + y) * dest_width + x + left) + 3;
             dest.at(dest_index) = alpha;
         }
     }

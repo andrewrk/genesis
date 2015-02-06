@@ -10,6 +10,7 @@
 class String {
 public:
     String() {}
+    String(const char *);
     String(const String &copy);
     String& operator= (const String& other);
     String(const ByteBuffer &bytes);
