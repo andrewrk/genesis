@@ -71,6 +71,10 @@ public:
         }
     }
 
+    void clear() {
+        _length = 0;
+    }
+
 private:
     T * _items;
     int _length;

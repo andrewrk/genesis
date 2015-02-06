@@ -40,6 +40,16 @@ public:
     void draw(const glm::mat4 &mvp);
 
 private:
+    struct Letter {
+        uint32_t codepoint;
+        int bitmap_left;
+        int bitmap_top;
+        int left;
+        int width;
+        int above_size;
+        int below_size; // height is above_size + below_size
+    };
+
     Gui *_gui;
     int _width;
     int _height;
@@ -53,6 +63,19 @@ private:
     int _font_size;
 
     ByteBuffer _img_buffer;
+
+    // cached from _text on update()
+    List<Letter> _letters;
+    int _padding_left;
+    int _padding_right;
+    int _padding_top;
+    int _padding_bottom;
+    glm::vec4 _background_color;
+    bool _has_background;
+
+    int _above_size;
+    int _below_size;
+
 };
 
 #endif

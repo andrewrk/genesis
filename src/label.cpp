@@ -17,7 +17,13 @@ Label::Label(Gui *gui) :
     _height(0),
     _text("Label"),
     _color(1.0f, 1.0f, 1.0f, 1.0f),
-    _font_size(16)
+    _font_size(16),
+    _padding_left(4),
+    _padding_right(4),
+    _padding_top(4),
+    _padding_bottom(4),
+    _background_color(0.788f, 0.812f, 0.886f, 1.0f),
+    _has_background(true)
 {
 
     glGenTextures(1, &_texture_id);
@@ -59,6 +65,8 @@ Label::Label(Gui *gui) :
     glVertexAttribPointer(_gui->_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
     assert_no_gl_error();
+
+    update();
 }
 
 Label::~Label() {
@@ -111,6 +119,7 @@ void Label::update() {
     float above_size = 0.0f; // pixel count above the baseline
     float below_size = 0.0f; // pixel count below the baseline
     float bounding_width = 0.0f;
+    _letters.clear();
     for (int i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
         FontCacheKey key = {_font_size, ch};
@@ -136,6 +145,16 @@ void Label::update() {
         below_size = (this_below_size > below_size) ? this_below_size : below_size;
         bounding_width = right;
 
+        _letters.append(Letter {
+                ch,
+                entry.bitmap_glyph->left,
+                entry.bitmap_glyph->top,
+                (int)(pen_x + bmp_start_left),
+                bitmap.width,
+                (int)ceilf(this_above_size),
+                (int)ceilf(this_below_size),
+        });
+
         previous_glyph_index = entry.glyph_index;
         pen_x += ((float)entry.glyph->advance.x) / 65536.0f;
         pen_y += ((float)entry.glyph->advance.y) / 65536.0f;
@@ -143,6 +162,10 @@ void Label::update() {
     }
 
     float bounding_height = ceilf(above_size + below_size);
+    _width = bounding_width;
+    _height = bounding_height;
+    _above_size = above_size;
+    _below_size = below_size;
 
     int img_buf_size =  4 * bounding_width * bounding_height;
     if (img_buf_size <= _img_buffer.length())
@@ -163,36 +186,14 @@ void Label::update() {
     assert_no_gl_error();
 
     _img_buffer.fill(0);
-
     // second pass to render bitmap
-    pen_x = 0.0f;
-    pen_y = 0.0f;
-    previous_glyph_index = 0;
-    first = true;
-    for (int i = 0; i < _text.length(); i += 1) {
-        uint32_t ch = _text.at(i);
-        FontCacheKey key = {_font_size, ch};
+    for (int i = 0; i < _letters.length(); i += 1) {
+        Letter *letter = &_letters.at(i);
+        FontCacheKey key = {_font_size, letter->codepoint};
         FontCacheValue entry = _gui->font_cache_entry(key);
-        if (!first) {
-            FT_Face face = _gui->_default_font_face;
-            FT_Vector kerning;
-            ft_ok(FT_Get_Kerning(face, previous_glyph_index, entry.glyph_index,
-                        FT_KERNING_DEFAULT, &kerning));
-            pen_x += ((float)kerning.x) / 64.0f;
-        }
-        first = false;
-
-        float bmp_start_left = (float)entry.bitmap_glyph->left;
-        float bmp_start_top = (float)entry.bitmap_glyph->top;
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
-        float left = pen_x + bmp_start_left;
-        float top = above_size - bmp_start_top;
-        copy_freetype_bitmap(bitmap, _img_buffer, left, top, bounding_width);
-
-        previous_glyph_index = entry.glyph_index;
-        pen_x += ((float)entry.glyph->advance.x) / 65536.0f;
-        pen_y += ((float)entry.glyph->advance.y) / 65536.0f;
-
+        copy_freetype_bitmap(bitmap, _img_buffer,
+                letter->left, _above_size - letter->bitmap_top, _width);
     }
 
     // send bitmap to GPU
