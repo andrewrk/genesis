@@ -25,9 +25,16 @@ Not cool yet.
 
 ## Contributing
 
-genesis is programmed in a tiny subset of C++. It does not link against
-libstdc++. It's basically C except with some templates and data structures
-sprinkled here and there.
+genesis is programmed in a tiny subset of C++. It is basically C except with
+some templates and data structures sprinkled here and there:
+
+ * No linking against libstdc++.
+ * No `class` allowed.
+ * No `new` or `delete` allowed.
+ * No `public`, `private`, or `protected` allowed.
+ * No exceptions or run-time type information.
+ * No constructors or destructors.
+ * No structs inside structs.
 
 ### Building and Running
 
