@@ -68,6 +68,12 @@ void main(void)
 }
 
 Gui::~Gui() {
+    HashMap<FontCacheKey, FontCacheValue, hash_font_key>::Iterator it = _font_cache.value_iterator();
+    while (it.has_next()) {
+        FontCacheValue entry = it.next();
+        FT_Done_Glyph(entry.glyph);
+    }
+
     FT_Done_Face(_default_font_face);
     FT_Done_FreeType(_ft_library);
 }

@@ -8,7 +8,11 @@
 class Gui;
 class LabelWidget {
 public:
-    LabelWidget(Gui *gui, int gui_index) : _gui_index(gui_index), _label(gui) {}
+    LabelWidget(Gui *gui, int gui_index) :
+        _gui_index(gui_index), _label(gui), _is_visible(true)
+    {
+        update_model();
+    }
     ~LabelWidget() {}
     LabelWidget(LabelWidget &copy) = delete;
 

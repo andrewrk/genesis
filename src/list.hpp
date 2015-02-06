@@ -65,6 +65,12 @@ public:
         return item;
     }
 
+    void fill(T value) {
+        for (int i = 0; i < _length; i += 1) {
+            _items[i] = value;
+        }
+    }
+
 private:
     T * _items;
     int _length;

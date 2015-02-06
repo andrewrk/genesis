@@ -3,6 +3,7 @@
 
 #include "list.hpp"
 #include <stdio.h>
+#include <string.h>
 
 class ByteBuffer {
 public:
@@ -39,6 +40,10 @@ public:
 
     char *raw() const {
         return _buffer.raw();
+    }
+
+    void fill(char value) {
+        memset(_buffer.raw(), value, length());
     }
 private:
     List<char> _buffer;

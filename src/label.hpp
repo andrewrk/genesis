@@ -48,6 +48,8 @@ private:
     String _text;
     glm::vec4 _color;
     int _font_size;
+
+    ByteBuffer _img_buffer;
 };
 
 #endif

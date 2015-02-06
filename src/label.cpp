@@ -81,9 +81,28 @@ void Label::draw(const glm::mat4 &mvp) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
+static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
+        int left, int top, int dest_width)
+{
+    int pitch = source.pitch;
+    if (pitch < 0)
+        panic("flow up unsupported");
+
+    if (source.pixel_mode != FT_PIXEL_MODE_GRAY)
+        panic("only 8-bit grayscale fonts supported");
+
+    for (int y = 0; y < source.rows; y += 1) {
+        for (int x = 0; x < source.width; x += 1) {
+            unsigned char alpha = source.buffer[y * pitch + x];
+            int dest_index = top * (dest_width * 4) + left * 4 + 3;
+            dest.at(dest_index) = alpha;
+        }
+    }
+}
+
 void Label::update() {
-    // one pass to determine width and height		
-    // pen_x and pen_y are on the baseline. the char can go lower than it		
+    // one pass to determine width and height
+    // pen_x and pen_y are on the baseline. the char can go lower than it
     float pen_x = 0.0f;
     float pen_y = 0.0f;
     int previous_glyph_index = 0;
@@ -124,76 +143,63 @@ void Label::update() {
 
     float bounding_height = ceilf(above_size + below_size);
 
-    panic("bounding_width: %d  bounding_height: %d", (int)bounding_width, (int)bounding_height);
+    int img_buf_size =  4 * bounding_width * bounding_height;
+    if (img_buf_size <= _img_buffer.length())
+        return;
 
-    panic("TODO");
-    /*
-        let bounding_height = (above_size + below_size).ceil();		
-		
-        self.texture = glium::texture::Texture2d::new_empty(&self.renderer.display,		
-            UncompressedFloatFormat::U8U8U8U8, bounding_width as u32, bounding_height as u32);		
-        self.texture.as_surface().clear_color(0.0, 0.0, 0.0, 0.0);		
-		
-        self.vertex_buffer = glium::VertexBuffer::new(&self.renderer.display, vec![		
-            Vertex { position: [ 0.0,            0.0,             0.0], tex_coords: [0.0, 0.0] },		
-            Vertex { position: [ 0.0,            bounding_height, 0.0], tex_coords: [0.0, 1.0] },		
-            Vertex { position: [ bounding_width, 0.0,             0.0], tex_coords: [1.0, 0.0] },		
-            Vertex { position: [ bounding_width, bounding_height, 0.0], tex_coords: [1.0, 1.0] }		
-        ]);		
-		
-        // second pass to render to texture		
-        pen_x = 0.0;		
-        pen_y = 0.0;		
-        previous_glyph_index = 0;		
-        first = true;		
-        let projection = Matrix4::ortho(0.0, bounding_width, 0.0, bounding_height);		
-        for ch in self.text.chars() {		
-            let key = CacheKey {		
-                face_index: self.face_index,		
-                size: self.size,		
-                ch: ch,		
-            };		
-            let cache_entry = self.renderer.get_cache_entry(key);		
-		
-            if first {		
-                first = false;		
-                let face_list = self.renderer.face_list.borrow();		
-                let face = &face_list[self.face_index];		
-                let kerning = face.get_kerning(previous_glyph_index,		
-                                                       cache_entry.glyph_index,		
-                                                       KerningDefault).unwrap();		
-                pen_x += (kerning.x as f32) / 64.0;		
-            }		
-		
-            let bmp_start_left = cache_entry.bitmap_glyph.left() as f32;		
-            let bmp_start_top = cache_entry.bitmap_glyph.top() as f32;		
-            let bitmap = cache_entry.bitmap_glyph.bitmap();		
-            let bmp_width = bitmap.width() as f32;		
-            let bmp_height = bitmap.rows() as f32;		
-            let left = pen_x + bmp_start_left;		
-            let top = above_size - bmp_start_top;		
-            let model = Matrix4::identity().translate(left, top, 0.0);		
-            let mvp = projection.mult(&model);		
-            let texture = &cache_entry.texture;		
-            let uniforms = Uniforms {		
-                matrix: *mvp.as_array(),		
-                texture: texture,		
-                color: [0.0, 0.0, 0.0, 1.0],		
-            };		
-            let vertex_buffer = glium::VertexBuffer::new(&self.renderer.display, vec![		
-                Vertex { position: [ 0.0,        0.0,           0.0], tex_coords: [0.0, 0.0] },		
-                Vertex { position: [ 0.0,        bmp_height,    0.0], tex_coords: [0.0, 1.0] },		
-                Vertex { position: [ bmp_width,  0.0,           0.0], tex_coords: [1.0, 0.0] },		
-                Vertex { position: [ bmp_width,  bmp_height,    0.0], tex_coords: [1.0, 1.0] }		
-            ]);		
-		
-            self.texture.as_surface().draw(&vertex_buffer, &self.renderer.index_buffer,		
-                                           &self.renderer.program_gray, uniforms,		
-                                           &Default::default()).ok().unwrap();		
-		
-            previous_glyph_index = cache_entry.glyph_index;		
-            pen_x += (cache_entry.glyph.advance_x() as f32) / 65536.0;		
-            pen_y += (cache_entry.glyph.advance_y() as f32) / 65536.0;		
-        }		
-*/
+    _img_buffer.resize(img_buf_size);
+
+    glBindVertexArray(_vertex_array);
+    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+    GLfloat vertexes[4][3] = {
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, bounding_height, 0.0f},
+        {bounding_width, 0.0f, 0.0f},
+        {bounding_width, bounding_height, 0.0f},
+    };
+    glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
+
+    assert_no_gl_error();
+
+    _img_buffer.fill(0);
+
+    // second pass to render bitmap
+    pen_x = 0.0f;
+    pen_y = 0.0f;
+    previous_glyph_index = 0;
+    first = true;
+    for (int i = 0; i < _text.length(); i += 1) {
+        uint32_t ch = _text.at(i);
+        FontCacheKey key = {_font_size, ch};
+        FontCacheValue entry = _gui->font_cache_entry(key);
+        if (!first) {
+            FT_Face face = _gui->_default_font_face;
+            FT_Vector kerning;
+            ft_ok(FT_Get_Kerning(face, previous_glyph_index, entry.glyph_index,
+                        FT_KERNING_DEFAULT, &kerning));
+            pen_x += ((float)kerning.x) / 64.0f;
+        }
+        first = false;
+
+        float bmp_start_left = (float)entry.bitmap_glyph->left;
+        float bmp_start_top = (float)entry.bitmap_glyph->top;
+        FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
+        float left = pen_x + bmp_start_left;
+        float top = above_size - bmp_start_top;
+        copy_freetype_bitmap(bitmap, _img_buffer, left, top, bounding_width);
+
+        previous_glyph_index = entry.glyph_index;
+        pen_x += ((float)entry.glyph->advance.x) / 65536.0f;
+        pen_y += ((float)entry.glyph->advance.y) / 65536.0f;
+
+    }
+
+    // send bitmap to GPU
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _texture_id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bounding_width, bounding_height,
+            0, GL_BGRA, GL_UNSIGNED_BYTE, _img_buffer.raw());
+
+    assert_no_gl_error();
+
 }

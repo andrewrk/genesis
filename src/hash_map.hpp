@@ -21,6 +21,7 @@ public:
     }
 
     void put(K key, V value) {
+        _modification_count += 1;
         internal_put(key, value);
 
         // if we get too full (80%), double the capacity
@@ -55,6 +56,7 @@ public:
     }
 
     void remove(K key) {
+        _modification_count += 1;
         int start_index = key_to_index(key);
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
             int index = (start_index + roll_over) % _capacity;
@@ -83,6 +85,44 @@ public:
         panic("key not found");
     }
 
+    class Iterator {
+    public:
+        bool has_next() const {
+            if (_inital_modification_count != _table->_modification_count)
+                panic("concurrent modification");
+            return _count < _table->size();
+        }
+        V next() {
+            if (_inital_modification_count != _table->_modification_count)
+                panic("concurrent modification");
+            for (; _index < _table->_capacity; _index++) {
+                Entry * entry = &_table->_entries[_index];
+                if (entry->used) {
+                    _index++;
+                    _count++;
+                    return entry->value;
+                }
+            }
+            panic("no next item");
+        }
+    private:
+        HashMap * _table;
+        // how many items have we returned
+        int _count = 0;
+        // iterator through the entry array
+        int _index = 0;
+        // used to detect concurrent modification
+        uint32_t _inital_modification_count;
+        Iterator(HashMap * table) :
+                _table(table), _inital_modification_count(table->_modification_count) {
+        }
+        friend HashMap;
+    };
+    // you must not modify the underlying HashMap while this iterator is still in use
+    Iterator value_iterator() {
+        return Iterator(this);
+    }
+
 private:
 
     struct Entry {
@@ -96,6 +136,8 @@ private:
     int _capacity;
     int _size;
     int _max_distance_from_start_index;
+    // this is used to detect bugs where a hashtable is edited while an iterator is running.
+    uint32_t _modification_count = 0;
 
     void init_capacity(int capacity) {
         _capacity = capacity;

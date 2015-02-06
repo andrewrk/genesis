@@ -36,4 +36,9 @@ static inline void assert_no_gl_error() {
     }
 }
 
+template<typename T>
+static inline T abs(T x) {
+    return (x < 0) ? -x : x;
+}
+
 #endif
