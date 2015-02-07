@@ -73,6 +73,7 @@ private:
     int _padding_top;
     int _padding_bottom;
     glm::vec4 _background_color;
+    glm::vec4 _selection_color;
     bool _has_background;
 
     Gui *_gui;
@@ -81,9 +82,15 @@ private:
     int _cursor_end;
     bool _select_down;
 
+    glm::mat4 _sel_model;
+    glm::mat4 _cursor_model;
+
     void update_model();
 
     int cursor_at_pos(int x, int y) const;
+    void pos_at_cursor(int index, int &x, int &y) const;
+    void get_cursor_slice(int &start, int &end) const;
+    void update_selection_model();
 };
 
 #endif

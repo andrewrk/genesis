@@ -10,6 +10,7 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _padding_top(4),
         _padding_bottom(4),
         _background_color(0.788f, 0.812f, 0.886f, 1.0f),
+        _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _has_background(true),
         _gui(gui),
         _cursor_start(-1),
@@ -26,6 +27,17 @@ void LabelWidget::draw(const glm::mat4 &projection) {
 
     glm::mat4 label_mvp = projection * _label_model;
     _label.draw(label_mvp);
+
+    if (_cursor_start != -1 && _cursor_end != -1) {
+        if (_cursor_start == _cursor_end) {
+            // draw cursor
+            glm::mat4 cursor_mvp = projection * _cursor_model;
+            _gui->fill_rect(_selection_color, cursor_mvp);
+        } else {
+            // draw selection rectangle
+            panic("selection");
+        }
+    }
 }
 
 void LabelWidget::update_model() {
@@ -57,6 +69,7 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
                 _cursor_start = index;
                 _cursor_end = index;
                 _select_down = true;
+                update_selection_model();
                 break;
             }
         case MouseActionUp:
@@ -67,19 +80,7 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
         case MouseActionMove:
             if (event.buttons.left && _select_down) {
                 _cursor_end = cursor_at_pos(event.x, event.y);
-
-                int start, end;
-                if (_cursor_start <= _cursor_end) {
-                    start = _cursor_start;
-                    end = _cursor_end + 1;
-                } else {
-                    start = _cursor_end;
-                    end = _cursor_start;
-                }
-                int len = _label.text().length();
-                end = (end > len) ? len : end;
-                String selected = _label.text().substring(start, end);
-                fprintf(stderr, "%s\n", selected.encode().raw());
+                update_selection_model();
             }
             break;
     }
@@ -89,4 +90,41 @@ int LabelWidget::cursor_at_pos(int x, int y) const {
     int inner_x = x - _padding_left;
     int inner_y = y - _padding_top;
     return _label.cursor_at_pos(inner_x, inner_y);
+}
+
+void LabelWidget::pos_at_cursor(int index, int &x, int &y) const {
+    _label.pos_at_cursor(index, x, y);
+    x += _padding_left;
+    y += _padding_top;
+}
+
+void LabelWidget::get_cursor_slice(int &start, int &end) const {
+    if (_cursor_start == _cursor_end) {
+        start = _cursor_start;
+        end = _cursor_end;
+    } else if (_cursor_start < _cursor_end) {
+        start = _cursor_start;
+        int len = _label.text().length();
+        end = _cursor_end + 1;
+        end = (end > len) ? len : end;
+    } else {
+        start = _cursor_end;
+        end = _cursor_start;
+    }
+}
+
+void LabelWidget::update_selection_model() {
+    if (_cursor_start == _cursor_end) {
+        int x, y;
+        pos_at_cursor(_cursor_start, x, y);
+        _cursor_model = glm::scale(
+                            glm::translate(
+                                glm::mat4(1.0f),
+                                glm::vec3(_left + x, _top + _padding_top, 0.0f)),
+                            glm::vec3(2.0f, _label.height(), 1.0f));;
+    } else {
+        int start, end;
+        get_cursor_slice(start, end);
+        panic("selection");
+    }
 }

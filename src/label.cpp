@@ -109,26 +109,23 @@ void Label::update() {
     float pen_x = 0.0f;
     float pen_y = 0.0f;
     int previous_glyph_index = 0;
-    bool first = true;
     Letter *prev_letter = NULL;
     float above_size = 0.0f; // pixel count above the baseline
     float below_size = 0.0f; // pixel count below the baseline
     float bounding_width = 0.0f;
-    float kerning_x = 0.0f;
+    float prev_right = 0.0f;
     _letters.clear();
     for (int i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
         FontCacheKey key = {_font_size, ch};
         FontCacheValue entry = _gui->font_cache_entry(key);
-        if (!first) {
+        if (prev_letter) {
             FT_Face face = _gui->_default_font_face;
             FT_Vector kerning;
             ft_ok(FT_Get_Kerning(face, previous_glyph_index, entry.glyph_index,
                         FT_KERNING_DEFAULT, &kerning));
-            kerning_x = ((float)kerning.x) / 64.0f;
+            float kerning_x = ((float)kerning.x) / 64.0f;
             pen_x += kerning_x;
-
-            prev_letter->right_half_kerning = (int)ceilf(kerning_x / 2.0f);
         }
 
         float bmp_start_left = (float)entry.bitmap_glyph->left;
@@ -136,26 +133,33 @@ void Label::update() {
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
         float bmp_width = bitmap.width;
         float bmp_height = bitmap.rows;
-        float right = ceilf(pen_x + bmp_start_left + bmp_width);
+        float left = pen_x + bmp_start_left;
+        float right = left + bmp_width;
         float this_above_size = pen_y + bmp_start_top;
         float this_below_size = bmp_height - this_above_size;
         above_size = (this_above_size > above_size) ? this_above_size : above_size;
         below_size = (this_below_size > below_size) ? this_below_size : below_size;
-        bounding_width = right;
+        bounding_width = ceilf(right);
+
+        int halfway_left = floorf((prev_right + left) / 2.0f);
+        if (prev_letter)
+            prev_letter->full_width = halfway_left - prev_letter->left;
 
         prev_letter = &_letters.append(Letter {
-                ch,
-                entry.bitmap_glyph->left,
-                entry.bitmap_glyph->top,
-                (int)(pen_x + bmp_start_left),
-                bitmap.width,
-                (int)ceilf(this_above_size),
-                (int)ceilf(this_below_size),
-                (int)floorf(kerning_x / 2.0f),
-                0, // set in the next iteration
+            ch,
+
+            halfway_left,
+            (int)(left - halfway_left),
+            (int)bmp_width,
+            (int)(right - halfway_left),
+
+            (int)ceilf(this_above_size),
+            (int)ceilf(this_below_size),
+            entry.bitmap_glyph->top,
         });
 
         previous_glyph_index = entry.glyph_index;
+        prev_right = right;
         pen_x += ((float)entry.glyph->advance.x) / 65536.0f;
         pen_y += ((float)entry.glyph->advance.y) / 65536.0f;
     }
@@ -192,7 +196,7 @@ void Label::update() {
         FontCacheValue entry = _gui->font_cache_entry(key);
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
         copy_freetype_bitmap(bitmap, _img_buffer,
-                letter->left, _above_size - letter->bitmap_top, _width);
+                letter->left + letter->bitmap_left, _above_size - letter->bitmap_top, _width);
     }
 
     // send bitmap to GPU
@@ -211,9 +215,23 @@ int Label::cursor_at_pos(int x, int y) const {
     for (int i = 0; i < _letters.length(); i += 1) {
         const Letter *letter = &_letters.at(i);
 
-        if (x < letter->left + letter->bitmap_left + letter->width + letter->right_half_kerning) {
+        if (x < letter->left + letter->full_width / 2)
             return i;
-        }
     }
     return _letters.length();
+}
+
+void Label::pos_at_cursor(int index, int &x, int &y) const {
+    y = _above_size;
+    if (index < 0) {
+        x = 0;
+        return;
+    }
+    if (index >= _letters.length()) {
+        const Letter *letter = &_letters.at(_letters.length() - 1);
+        x = letter->left + letter->full_width;
+        return;
+    }
+    const Letter *letter = &_letters.at(index);
+    x = letter->left;
 }

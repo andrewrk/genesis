@@ -43,21 +43,28 @@ public:
     void draw(const glm::mat4 &mvp);
 
     int cursor_at_pos(int x, int y) const;
+    void pos_at_cursor(int index, int &x, int &y) const;
+
+    int above_size() const {
+        return _above_size;
+    }
+
+    int below_size() const {
+        return _below_size;
+    }
 
 private:
     struct Letter {
         uint32_t codepoint;
-        int bitmap_left;
-        int bitmap_top;
-        int left;
-        int width;
+
+        int left; // half-way between prev letter and this one. 0 for first letter
+        int bitmap_left; // left + bitmap_left is the first pixel of the letter
+        int bitmap_width; // left + bitmap_left + bitmap_width is the last pixel of the letter
+        int full_width; // left + full_width is half-way between this letter and next
+
         int above_size;
-        int below_size; // height is above_size + below_size
-        // left - bitmap_left - left_half_kerning is halfway between this and the previous letter
-        int left_half_kerning;
-        // left + width + right_half_kerning is halfway between
-        // this and the next letter
-        int right_half_kerning;
+        int below_size;
+        int bitmap_top;
     };
 
     Gui *_gui;
