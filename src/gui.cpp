@@ -254,9 +254,9 @@ void Gui::on_mouse_motion(const MouseEvent &event) {
         Widget *widget = _widget_list.at(i);
         LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
 
-        int right = label_widget->x() + label_widget->width();
-        int bottom = label_widget->y() + label_widget->height();
-        if (event.x >= label_widget->x() && event.y >= label_widget->y() &&
+        int right = label_widget->left() + label_widget->width();
+        int bottom = label_widget->top() + label_widget->height();
+        if (event.x >= label_widget->left() && event.y >= label_widget->top() &&
             event.x < right && event.y < bottom)
         {
             label_widget->on_mouse_over(event);

@@ -26,18 +26,18 @@ public:
         _label.set_color(color);
     }
 
-    void set_pos(int x, int y) {
-        _x = x;
-        _y = y;
+    void set_pos(int new_left, int new_top) {
+        _left = new_left;
+        _top = new_top;
         update_model();
     }
 
-    int x() const {
-        return _x;
+    int left() const {
+        return _left;
     }
 
-    int y() const {
-        return _y;
+    int top() const {
+        return _top;
     }
 
     int width() const {
@@ -61,8 +61,8 @@ public:
 
 private:
     Label _label;
-    int _x;
-    int _y;
+    int _left;
+    int _top;
     glm::mat4 _label_model;
     glm::mat4 _bg_model;
 

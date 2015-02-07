@@ -26,14 +26,14 @@ void LabelWidget::draw(const glm::mat4 &projection) {
 }
 
 void LabelWidget::update_model() {
-    _label_model = glm::translate(glm::mat4(1.0f), glm::vec3((float)_x, (float)_y, 0.0f));
+    _label_model = glm::translate(glm::mat4(1.0f), glm::vec3((float)_left, (float)_top, 0.0f));
 
     float bg_width = _label.width() + _padding_left + _padding_right;
     float bg_height = _label.height() + _padding_top + _padding_bottom;
     _bg_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
-                            glm::vec3(_x - _padding_left, _y - _padding_top, 0.0f)),
+                            glm::vec3(_left - _padding_left, _top - _padding_top, 0.0f)),
                         glm::vec3(bg_width, bg_height, 0.0f));
 }
 
