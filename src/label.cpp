@@ -17,13 +17,7 @@ Label::Label(Gui *gui) :
     _height(0),
     _text("Label"),
     _color(1.0f, 1.0f, 1.0f, 1.0f),
-    _font_size(16),
-    _padding_left(4),
-    _padding_right(4),
-    _padding_top(4),
-    _padding_bottom(4),
-    _background_color(0.788f, 0.812f, 0.886f, 1.0f),
-    _has_background(true)
+    _font_size(16)
 {
 
     glGenTextures(1, &_texture_id);

@@ -63,6 +63,9 @@ public:
     GLint _primitive_uniform_mvp;
     GLint _primitive_uniform_color;
 
+    void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
+    void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
+
 private:
     SDL_Window *_window;
 
@@ -80,8 +83,6 @@ private:
 
     GLuint _primitive_vertex_array;
     GLuint _primitive_vertex_buffer;
-
-    void fill_rect(glm::vec4 color, int x, int y, int w, int h);
 
     void resize();
 };

@@ -66,12 +66,6 @@ private:
 
     // cached from _text on update()
     List<Letter> _letters;
-    int _padding_left;
-    int _padding_right;
-    int _padding_top;
-    int _padding_bottom;
-    glm::vec4 _background_color;
-    bool _has_background;
 
     int _above_size;
     int _below_size;

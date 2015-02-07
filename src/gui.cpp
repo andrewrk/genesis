@@ -171,8 +171,6 @@ void Gui::exec() {
                 label_widget->draw(_projection);
         }
 
-        fill_rect(glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), 200, 200, 200, 100);
-
         SDL_GL_SwapWindow(_window);
         SDL_Delay(17);
     }
@@ -209,14 +207,17 @@ FontCacheValue Gui::font_cache_entry(const FontCacheKey &key) {
 }
 
 
-void Gui::fill_rect(glm::vec4 color, int x, int y, int w, int h) {
+void Gui::fill_rect(const glm::vec4 &color, int x, int y, int w, int h) {
     glm::mat4 model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
                             glm::vec3(x, y, 0.0f)),
                         glm::vec3(w, h, 0.0f));
     glm::mat4 mvp = _projection * model;
+    fill_rect(color, mvp);
+}
 
+void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
     _primitive_shader_program.bind();
 
     _primitive_shader_program.set_uniform(_primitive_uniform_color, color);

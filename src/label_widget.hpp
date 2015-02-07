@@ -8,11 +8,7 @@
 class Gui;
 class LabelWidget {
 public:
-    LabelWidget(Gui *gui, int gui_index) :
-        _gui_index(gui_index), _label(gui), _is_visible(true)
-    {
-        update_model();
-    }
+    LabelWidget(Gui *gui, int gui_index);
     ~LabelWidget() {}
     LabelWidget(LabelWidget &copy) = delete;
 
@@ -52,10 +48,7 @@ public:
         return _label.height();
     }
 
-    void draw(const glm::mat4 &projection) {
-        glm::mat4 mvp = projection * _model;
-        _label.draw(mvp);
-    }
+    void draw(const glm::mat4 &projection);
 
     bool is_visible() const {
         return _is_visible;
@@ -67,11 +60,20 @@ private:
     Label _label;
     int _x;
     int _y;
-    glm::mat4 _model;
+    glm::mat4 _label_model;
+    glm::mat4 _bg_model;
+
     bool _is_visible;
-    void update_model() {
-        _model = glm::translate(glm::mat4(1), glm::vec3((float)_x, (float)_y, 0.0f));
-    }
+    int _padding_left;
+    int _padding_right;
+    int _padding_top;
+    int _padding_bottom;
+    glm::vec4 _background_color;
+    bool _has_background;
+
+    Gui *_gui;
+
+    void update_model();
 };
 
 #endif

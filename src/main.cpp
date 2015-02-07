@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     Gui gui(window);
 
     LabelWidget *label_widget = gui.create_label_widget();
-    label_widget->set_text("mel abcdefghijklmnop andy");
+    label_widget->set_text("label with background");
     label_widget->set_pos(100, 100);
 
     gui.exec();
