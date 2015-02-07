@@ -11,6 +11,7 @@
 #include <epoxy/glx.h>
 #include <SDL2/SDL.h>
 
+typedef void Widget;
 
 struct MouseEvent {
     int x;
@@ -70,6 +71,9 @@ public:
     void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
     void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
 
+
+    SDL_Cursor* _cursor_ibeam;
+    SDL_Cursor* _cursor_default;
 private:
     SDL_Window *_window;
 
@@ -81,17 +85,17 @@ private:
 
     glm::mat4 _projection;
 
-    List<void *> _widget_list;
+    List<Widget *> _widget_list;
 
     HashMap<FontCacheKey, FontCacheValue, hash_font_key> _font_cache;
 
     GLuint _primitive_vertex_array;
     GLuint _primitive_vertex_buffer;
 
-    SDL_Cursor* _cursor_ibeam;
-    SDL_Cursor* _cursor_default;
+    Widget *_mouse_over_widget;
 
     void resize();
+    void on_mouse_motion(const MouseEvent &event);
 };
 
 #endif

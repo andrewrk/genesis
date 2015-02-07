@@ -72,7 +72,8 @@ void main(void) {
 }
 
 )FRAGMENT", NULL),
-    _window(window)
+    _window(window),
+    _mouse_over_widget(NULL)
 {
     _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
     _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
@@ -110,7 +111,7 @@ void main(void) {
     ft_ok(FT_New_Face(_ft_library, "assets/OpenSans-Regular.ttf", 0, &_default_font_face));
 
 
-    _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+    _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
     _cursor_ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
 
     // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
@@ -169,8 +170,12 @@ void Gui::exec() {
                 }
                 break;
             case SDL_MOUSEMOTION:
+                MouseEvent mouse_event = {
+                    event.motion.x,
+                    event.motion.y
+                };
+                on_mouse_motion(mouse_event);
                 break;
-                //event.
             }
         }
 
@@ -240,7 +245,25 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-
 void Gui::remove_widget(LabelWidget *label_widget) {
     _widget_list.swap_remove(label_widget->_gui_index);
+}
+
+void Gui::on_mouse_motion(const MouseEvent &event) {
+    for (int i = 0; i < _widget_list.length(); i += 1) {
+        Widget *widget = _widget_list.at(i);
+        LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
+
+        int right = label_widget->x() + label_widget->width();
+        int bottom = label_widget->y() + label_widget->height();
+        if (event.x >= label_widget->x() && event.y >= label_widget->y() &&
+            event.x < right && event.y < bottom)
+        {
+            label_widget->on_mouse_over(event);
+            _mouse_over_widget = label_widget;
+        } else if (_mouse_over_widget == label_widget) {
+            label_widget->on_mouse_out(event);
+            _mouse_over_widget = NULL;
+        }
+    }
 }

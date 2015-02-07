@@ -38,9 +38,9 @@ void LabelWidget::update_model() {
 }
 
 void LabelWidget::on_mouse_over(const MouseEvent &event) {
-
+    SDL_SetCursor(_gui->_cursor_ibeam);
 }
 
 void LabelWidget::on_mouse_out(const MouseEvent &event) {
-
+    SDL_SetCursor(_gui->_cursor_default);
 }
