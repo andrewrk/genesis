@@ -74,6 +74,7 @@ private:
     int _padding_bottom;
     glm::vec4 _background_color;
     glm::vec4 _selection_color;
+    glm::vec4 _cursor_color;
     bool _has_background;
 
     Gui *_gui;

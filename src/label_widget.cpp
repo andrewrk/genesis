@@ -11,6 +11,7 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _padding_bottom(4),
         _background_color(0.788f, 0.812f, 0.886f, 1.0f),
         _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
+        _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _has_background(true),
         _gui(gui),
         _cursor_start(-1),
@@ -35,7 +36,8 @@ void LabelWidget::draw(const glm::mat4 &projection) {
             _gui->fill_rect(_selection_color, cursor_mvp);
         } else {
             // draw selection rectangle
-            panic("selection");
+            glm::mat4 sel_mvp = projection * _sel_model;
+            _gui->fill_rect(_selection_color, sel_mvp);
         }
     }
 }
@@ -99,14 +101,9 @@ void LabelWidget::pos_at_cursor(int index, int &x, int &y) const {
 }
 
 void LabelWidget::get_cursor_slice(int &start, int &end) const {
-    if (_cursor_start == _cursor_end) {
+    if (_cursor_start <= _cursor_end) {
         start = _cursor_start;
         end = _cursor_end;
-    } else if (_cursor_start < _cursor_end) {
-        start = _cursor_start;
-        int len = _label.text().length();
-        end = _cursor_end + 1;
-        end = (end > len) ? len : end;
     } else {
         start = _cursor_end;
         end = _cursor_start;
@@ -125,6 +122,12 @@ void LabelWidget::update_selection_model() {
     } else {
         int start, end;
         get_cursor_slice(start, end);
-        panic("selection");
+        int start_x, end_x;
+        _label.get_slice_dimensions(start, end, start_x, end_x);
+        _sel_model = glm::scale(
+                        glm::translate(
+                            glm::mat4(1.0f),
+                            glm::vec3(_left + _padding_left + start_x, _top + _padding_top, 0.0f)),
+                        glm::vec3(end_x - start_x, _label.height(), 1.0f));
     }
 }

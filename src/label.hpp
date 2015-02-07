@@ -44,6 +44,7 @@ public:
 
     int cursor_at_pos(int x, int y) const;
     void pos_at_cursor(int index, int &x, int &y) const;
+    void get_slice_dimensions(int start, int end, int &start_x, int &end_x) const;
 
     int above_size() const {
         return _above_size;

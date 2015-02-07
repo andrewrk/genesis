@@ -235,3 +235,15 @@ void Label::pos_at_cursor(int index, int &x, int &y) const {
     const Letter *letter = &_letters.at(index);
     x = letter->left;
 }
+
+void Label::get_slice_dimensions(int start, int end, int &start_x, int &end_x) const {
+    if (end >= _letters.length()) {
+        const Letter *end_letter = &_letters.at(_letters.length() - 1);
+        end_x = end_letter->left + end_letter->full_width;
+    } else {
+        const Letter *end_letter = &_letters.at(end);
+        end_x = end_letter->left;
+    }
+    const Letter *start_letter = &_letters.at(start);
+    start_x = start_letter->left;
+}
