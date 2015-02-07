@@ -36,6 +36,7 @@ public:
             panic("codepoint out of range");
         _chars.append(c);
     }
+    String substring(int start, int end) const;
 
 private:
     List<uint32_t> _chars;

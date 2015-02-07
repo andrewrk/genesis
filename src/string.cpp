@@ -172,3 +172,11 @@ ByteBuffer String::encode() const {
     }
     return result;
 }
+
+String String::substring(int start, int end) const {
+    String result;
+    for (int i = start; i < end; i += 1) {
+        result.append(_chars.at(i));
+    }
+    return result;
+}

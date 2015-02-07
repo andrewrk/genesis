@@ -13,9 +13,31 @@
 
 typedef void Widget;
 
+enum MouseButton {
+    MouseButtonNone,
+    MouseButtonLeft,
+    MouseButtonMiddle,
+    MouseButtonRight,
+};
+
+enum MouseAction {
+    MouseActionMove,
+    MouseActionDown,
+    MouseActionUp,
+};
+
+struct MouseButtons {
+    unsigned left   : 1;
+    unsigned middle : 1;
+    unsigned right  : 1;
+};
+
 struct MouseEvent {
     int x;
     int y;
+    MouseButton button;
+    MouseAction action;
+    MouseButtons buttons;
 };
 
 struct FontCacheKey {
@@ -95,7 +117,7 @@ private:
     Widget *_mouse_over_widget;
 
     void resize();
-    void on_mouse_motion(const MouseEvent &event);
+    void on_mouse_move(const MouseEvent &event);
 };
 
 #endif

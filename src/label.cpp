@@ -110,9 +110,11 @@ void Label::update() {
     float pen_y = 0.0f;
     int previous_glyph_index = 0;
     bool first = true;
+    Letter *prev_letter = NULL;
     float above_size = 0.0f; // pixel count above the baseline
     float below_size = 0.0f; // pixel count below the baseline
     float bounding_width = 0.0f;
+    float kerning_x = 0.0f;
     _letters.clear();
     for (int i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
@@ -123,9 +125,11 @@ void Label::update() {
             FT_Vector kerning;
             ft_ok(FT_Get_Kerning(face, previous_glyph_index, entry.glyph_index,
                         FT_KERNING_DEFAULT, &kerning));
-            pen_x += ((float)kerning.x) / 64.0f;
+            kerning_x = ((float)kerning.x) / 64.0f;
+            pen_x += kerning_x;
+
+            prev_letter->right_half_kerning = (int)ceilf(kerning_x / 2.0f);
         }
-        first = false;
 
         float bmp_start_left = (float)entry.bitmap_glyph->left;
         float bmp_start_top = (float)entry.bitmap_glyph->top;
@@ -139,7 +143,7 @@ void Label::update() {
         below_size = (this_below_size > below_size) ? this_below_size : below_size;
         bounding_width = right;
 
-        _letters.append(Letter {
+        prev_letter = &_letters.append(Letter {
                 ch,
                 entry.bitmap_glyph->left,
                 entry.bitmap_glyph->top,
@@ -147,12 +151,13 @@ void Label::update() {
                 bitmap.width,
                 (int)ceilf(this_above_size),
                 (int)ceilf(this_below_size),
+                (int)floorf(kerning_x / 2.0f),
+                0, // set in the next iteration
         });
 
         previous_glyph_index = entry.glyph_index;
         pen_x += ((float)entry.glyph->advance.x) / 65536.0f;
         pen_y += ((float)entry.glyph->advance.y) / 65536.0f;
-
     }
 
     float bounding_height = ceilf(above_size + below_size);
@@ -198,4 +203,17 @@ void Label::update() {
 
     assert_no_gl_error();
 
+}
+
+int Label::cursor_at_pos(int x, int y) const {
+    if (x < 0)
+        return 0;
+    for (int i = 0; i < _letters.length(); i += 1) {
+        const Letter *letter = &_letters.at(i);
+
+        if (x < letter->left + letter->bitmap_left + letter->width + letter->right_half_kerning) {
+            return i;
+        }
+    }
+    return _letters.length();
 }

@@ -41,11 +41,11 @@ public:
     }
 
     int width() const {
-        return _label.width();
+        return _label.width() + _padding_left + _padding_right;
     }
 
     int height() const {
-        return _label.height();
+        return _label.height() + _padding_top + _padding_bottom;
     }
 
     void draw(const glm::mat4 &projection);
@@ -56,6 +56,7 @@ public:
 
     void on_mouse_over(const MouseEvent &event);
     void on_mouse_out(const MouseEvent &event);
+    void on_mouse_move(const MouseEvent &event);
 
     int _gui_index;
 
@@ -76,7 +77,13 @@ private:
 
     Gui *_gui;
 
+    int _cursor_start;
+    int _cursor_end;
+    bool _select_down;
+
     void update_model();
+
+    int cursor_at_pos(int x, int y) const;
 };
 
 #endif

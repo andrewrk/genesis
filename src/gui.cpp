@@ -170,11 +170,45 @@ void Gui::exec() {
                 }
                 break;
             case SDL_MOUSEMOTION:
-                MouseEvent mouse_event = {
-                    event.motion.x,
-                    event.motion.y
-                };
-                on_mouse_motion(mouse_event);
+                {
+                    bool left = event.motion.state & SDL_BUTTON_LMASK;
+                    bool middle = event.motion.state & SDL_BUTTON_MMASK;
+                    bool right = event.motion.state & SDL_BUTTON_RMASK;
+                    MouseEvent mouse_event = {
+                        event.motion.x,
+                        event.motion.y,
+                        MouseButtonNone,
+                        MouseActionMove,
+                        MouseButtons {left, middle, right},
+                    };
+                    on_mouse_move(mouse_event);
+                }
+                break;
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP:
+                {
+                    MouseButton btn;
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        btn = MouseButtonLeft;
+                    } else if (event.button.button == SDL_BUTTON_MIDDLE) {
+                        btn = MouseButtonMiddle;
+                    } else if (event.button.button == SDL_BUTTON_RIGHT) {
+                        btn = MouseButtonRight;
+                    } else {
+                        break;
+                    }
+                    bool left = event.button.state & SDL_BUTTON_LMASK;
+                    bool middle = event.button.state & SDL_BUTTON_MMASK;
+                    bool right = event.button.state & SDL_BUTTON_RMASK;
+                    MouseEvent mouse_event = {
+                        event.button.x,
+                        event.button.y,
+                        btn,
+                        (event.button.type == SDL_MOUSEBUTTONDOWN) ? MouseActionDown : MouseActionUp,
+                        MouseButtons {left, middle, right},
+                    };
+                    on_mouse_move(mouse_event);
+                }
                 break;
             }
         }
@@ -249,7 +283,39 @@ void Gui::remove_widget(LabelWidget *label_widget) {
     _widget_list.swap_remove(label_widget->_gui_index);
 }
 
-void Gui::on_mouse_motion(const MouseEvent &event) {
+void Gui::on_mouse_move(const MouseEvent &event) {
+    // if we're pressing a mouse button, the mouse over widget gets the event
+    bool pressing_any_btn = (event.buttons.left || event.buttons.middle || event.buttons.right);
+    if (_mouse_over_widget) {
+        LabelWidget *mouse_over_label = reinterpret_cast<LabelWidget*>(_mouse_over_widget);
+        int right = mouse_over_label->left() + mouse_over_label->width();
+        int bottom = mouse_over_label->top() + mouse_over_label->height();
+        bool in_bounds = (event.x >= mouse_over_label->left() &&
+                event.y >= mouse_over_label->top() &&
+                event.x < right &&
+                event.y < bottom);
+
+        MouseEvent mouse_event = event;
+        mouse_event.x -= mouse_over_label->left();
+        mouse_event.y -= mouse_over_label->top();
+
+        if (in_bounds || pressing_any_btn) {
+            mouse_over_label->on_mouse_move(mouse_event);
+            return;
+        } else {
+            // not in bounds, not pressing any button
+            if (event.action == MouseActionUp) {
+                // give them the mouse up event
+                mouse_over_label->on_mouse_move(mouse_event);
+            }
+            _mouse_over_widget = NULL;
+            mouse_over_label->on_mouse_out(mouse_event);
+        }
+    }
+
+    if (_mouse_over_widget != NULL)
+        panic("expected _mouse_over_widget NULL");
+
     for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
@@ -259,11 +325,13 @@ void Gui::on_mouse_motion(const MouseEvent &event) {
         if (event.x >= label_widget->left() && event.y >= label_widget->top() &&
             event.x < right && event.y < bottom)
         {
-            label_widget->on_mouse_over(event);
+            MouseEvent mouse_event = event;
+            mouse_event.x -= label_widget->left();
+            mouse_event.y -= label_widget->top();
+
             _mouse_over_widget = label_widget;
-        } else if (_mouse_over_widget == label_widget) {
-            label_widget->on_mouse_out(event);
-            _mouse_over_widget = NULL;
+            label_widget->on_mouse_over(mouse_event);
+            label_widget->on_mouse_move(mouse_event);
         }
     }
 }

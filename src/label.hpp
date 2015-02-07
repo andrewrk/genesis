@@ -19,6 +19,9 @@ public:
     void set_text(const String &text) {
         _text = text;
     }
+    const String &text() const {
+        return _text;
+    }
     // need to call update() to make it take effect
     void set_font_size(int size) {
         _font_size = size;
@@ -39,6 +42,8 @@ public:
 
     void draw(const glm::mat4 &mvp);
 
+    int cursor_at_pos(int x, int y) const;
+
 private:
     struct Letter {
         uint32_t codepoint;
@@ -48,6 +53,11 @@ private:
         int width;
         int above_size;
         int below_size; // height is above_size + below_size
+        // left - bitmap_left - left_half_kerning is halfway between this and the previous letter
+        int left_half_kerning;
+        // left + width + right_half_kerning is halfway between
+        // this and the next letter
+        int right_half_kerning;
     };
 
     Gui *_gui;
