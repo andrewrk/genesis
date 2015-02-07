@@ -36,3 +36,11 @@ void LabelWidget::update_model() {
                             glm::vec3(_x - _padding_left, _y - _padding_top, 0.0f)),
                         glm::vec3(bg_width, bg_height, 0.0f));
 }
+
+void LabelWidget::on_mouse_over(const MouseEvent &event) {
+
+}
+
+void LabelWidget::on_mouse_out(const MouseEvent &event) {
+
+}

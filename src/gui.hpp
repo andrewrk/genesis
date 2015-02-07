@@ -4,13 +4,18 @@
 #include "shader_program.hpp"
 #include "freetype.hpp"
 #include "list.hpp"
-#include "label_widget.hpp"
 #include "glm.hpp"
 #include "hash_map.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
 #include <SDL2/SDL.h>
+
+
+struct MouseEvent {
+    int x;
+    int y;
+};
 
 struct FontCacheKey {
     int font_size;
@@ -33,6 +38,7 @@ static inline bool operator!=(FontCacheKey a, FontCacheKey b) {
 
 uint32_t hash_font_key(const FontCacheKey &k);
 
+class LabelWidget;
 class Gui {
 public:
     Gui(SDL_Window *window);
@@ -42,9 +48,7 @@ public:
 
     LabelWidget *create_label_widget();
 
-    void remove_widget(LabelWidget *label_widget) {
-        _widget_list.swap_remove(label_widget->_gui_index);
-    }
+    void remove_widget(LabelWidget *label_widget);
 
     FontCacheValue font_cache_entry(const FontCacheKey &key);
 
@@ -83,6 +87,9 @@ private:
 
     GLuint _primitive_vertex_array;
     GLuint _primitive_vertex_buffer;
+
+    SDL_Cursor* _cursor_ibeam;
+    SDL_Cursor* _cursor_default;
 
     void resize();
 };

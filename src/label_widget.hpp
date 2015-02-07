@@ -4,8 +4,8 @@
 #include "string.hpp"
 #include "label.hpp"
 #include "glm.hpp"
+#include "gui.hpp"
 
-class Gui;
 class LabelWidget {
 public:
     LabelWidget(Gui *gui, int gui_index);
@@ -53,6 +53,9 @@ public:
     bool is_visible() const {
         return _is_visible;
     }
+
+    void on_mouse_over(const MouseEvent &event);
+    void on_mouse_out(const MouseEvent &event);
 
     int _gui_index;
 

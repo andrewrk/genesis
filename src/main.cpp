@@ -1,6 +1,7 @@
 #include "util.hpp"
 #include "genesis.hpp"
 #include "gui.hpp"
+#include "label_widget.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>

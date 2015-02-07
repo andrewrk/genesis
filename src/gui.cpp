@@ -1,5 +1,6 @@
 #include "gui.hpp"
 #include "debug.hpp"
+#include "label_widget.hpp"
 
 #include <new>
 
@@ -108,6 +109,10 @@ void main(void) {
     ft_ok(FT_Init_FreeType(&_ft_library));
     ft_ok(FT_New_Face(_ft_library, "assets/OpenSans-Regular.ttf", 0, &_default_font_face));
 
+
+    _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+    _cursor_ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+
     // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
     SDL_GL_SetSwapInterval(0);
 
@@ -120,6 +125,9 @@ void main(void) {
 }
 
 Gui::~Gui() {
+    SDL_FreeCursor(_cursor_default);
+    SDL_FreeCursor(_cursor_ibeam);
+
     HashMap<FontCacheKey, FontCacheValue, hash_font_key>::Iterator it = _font_cache.value_iterator();
     while (it.has_next()) {
         FontCacheValue entry = it.next();
@@ -160,6 +168,9 @@ void Gui::exec() {
                         break;
                 }
                 break;
+            case SDL_MOUSEMOTION:
+                break;
+                //event.
             }
         }
 
@@ -178,6 +189,7 @@ void Gui::exec() {
 
 void Gui::resize() {
     SDL_GL_GetDrawableSize(_window, &_width, &_height);
+    glViewport(0, 0, _width, _height);
     _projection = glm::ortho(0.0f, (float)_width, (float)_height, 0.0f);
 }
 
@@ -226,4 +238,9 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
 
     glBindVertexArray(_primitive_vertex_array);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+
+void Gui::remove_widget(LabelWidget *label_widget) {
+    _widget_list.swap_remove(label_widget->_gui_index);
 }
