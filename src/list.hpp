@@ -22,11 +22,12 @@ public:
         }
         return *this;
     }
-    T & append(T item) {
+    void append(T item) {
         ensure_capacity(_length + 1);
         _items[_length++] = item;
-        return _items[_length];
     }
+    // remember that the pointer to this item is invalid after you
+    // modify the length of the list
     const T & at(int index) const {
         if (index < 0 || index >= _length)
             panic("list: const at index out of bounds");

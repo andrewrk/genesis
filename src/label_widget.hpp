@@ -22,10 +22,6 @@ public:
         _label.update();
     }
 
-    void set_color(glm::vec4 color) {
-        _label.set_color(color);
-    }
-
     void set_pos(int new_left, int new_top) {
         _left = new_left;
         _top = new_top;
@@ -72,6 +68,8 @@ private:
     int _padding_right;
     int _padding_top;
     int _padding_bottom;
+    glm::vec4 _text_color;
+    glm::vec4 _sel_text_color;
     glm::vec4 _background_color;
     glm::vec4 _selection_color;
     glm::vec4 _cursor_color;
@@ -85,6 +83,7 @@ private:
 
     glm::mat4 _sel_model;
     glm::mat4 _cursor_model;
+    glm::mat4 _sel_text_model;
 
     void update_model();
 

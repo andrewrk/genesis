@@ -9,6 +9,8 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _padding_right(4),
         _padding_top(4),
         _padding_bottom(4),
+        _text_color(0.0f, 0.0f, 0.0f, 1.0f),
+        _sel_text_color(1.0f, 1.0f, 1.0f, 1.0f),
         _background_color(0.788f, 0.812f, 0.886f, 1.0f),
         _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
@@ -19,7 +21,6 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _select_down(false)
 {
     update_model();
-    _label.set_color(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 }
 
 void LabelWidget::draw(const glm::mat4 &projection) {
@@ -27,7 +28,7 @@ void LabelWidget::draw(const glm::mat4 &projection) {
     _gui->fill_rect(_background_color, bg_mvp);
 
     glm::mat4 label_mvp = projection * _label_model;
-    _label.draw(label_mvp);
+    _label.draw(label_mvp, _text_color);
 
     if (_cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
@@ -38,6 +39,9 @@ void LabelWidget::draw(const glm::mat4 &projection) {
             // draw selection rectangle
             glm::mat4 sel_mvp = projection * _sel_model;
             _gui->fill_rect(_selection_color, sel_mvp);
+
+            glm::mat4 sel_text_mvp = projection * _sel_text_model;
+            _label.draw_slice(sel_text_mvp, _sel_text_color);
         }
     }
 }
@@ -122,6 +126,7 @@ void LabelWidget::update_selection_model() {
     } else {
         int start, end;
         get_cursor_slice(start, end);
+        _label.set_slice(start, end);
         int start_x, end_x;
         _label.get_slice_dimensions(start, end, start_x, end_x);
         _sel_model = glm::scale(
@@ -129,5 +134,9 @@ void LabelWidget::update_selection_model() {
                             glm::mat4(1.0f),
                             glm::vec3(_left + _padding_left + start_x, _top + _padding_top, 0.0f)),
                         glm::vec3(end_x - start_x, _label.height(), 1.0f));
+        float label_left = _left + _padding_left;
+        float label_top = _top + _padding_top;
+        _sel_text_model = glm::translate(glm::mat4(1.0f),
+                glm::vec3(label_left + start_x, label_top, 0.0f));
     }
 }

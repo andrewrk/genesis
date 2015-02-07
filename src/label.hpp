@@ -40,7 +40,7 @@ public:
         return _height;
     }
 
-    void draw(const glm::mat4 &mvp);
+    void draw(const glm::mat4 &mvp, const glm::vec4 &color);
 
     int cursor_at_pos(int x, int y) const;
     void pos_at_cursor(int index, int &x, int &y) const;
@@ -53,6 +53,9 @@ public:
     int below_size() const {
         return _below_size;
     }
+
+    void set_slice(int start, int end); // -1 for full
+    void draw_slice(const glm::mat4 &mvp, const glm::vec4 &color);
 
 private:
     struct Letter {
@@ -88,6 +91,13 @@ private:
     int _above_size;
     int _below_size;
 
+    int _render_slice_start;
+    int _render_slice_end;
+    GLuint _slice_vertex_array;
+    GLuint _slice_vertex_buffer;
+    GLuint _slice_tex_coord_buffer;
+
+    void update_render_slice();
 };
 
 #endif
