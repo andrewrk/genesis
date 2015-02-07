@@ -1,4 +1,5 @@
 #include "gui.hpp"
+#include "debug.hpp"
 
 #include <new>
 
@@ -45,13 +46,64 @@ void main(void)
 }
 
 )FRAGMENT", NULL),
+    _primitive_shader_program(R"VERTEX(
+
+#version 150 core
+
+in vec3 VertexPosition;
+
+uniform mat4 MVP;
+
+void main(void) {
+    gl_Position = MVP * vec4(VertexPosition, 1.0);
+}
+
+)VERTEX", R"FRAGMENT(
+
+#version 150 core
+
+out vec4 FragColor;
+
+uniform vec4 Color;
+
+void main(void) {
+    FragColor = Color;
+}
+
+)FRAGMENT", NULL),
     _window(window)
 {
-    _attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
-    _attrib_position = _text_shader_program.attrib_location("VertexPosition");
-    _uniform_mvp = _text_shader_program.uniform_location("MVP");
-    _uniform_tex = _text_shader_program.uniform_location("Tex");
-    _uniform_color = _text_shader_program.uniform_location("Color");
+    _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
+    _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
+    _text_uniform_mvp = _text_shader_program.uniform_location("MVP");
+    _text_uniform_tex = _text_shader_program.uniform_location("Tex");
+    _text_uniform_color = _text_shader_program.uniform_location("Color");
+
+    _primitive_attrib_position = _primitive_shader_program.attrib_location("VertexPosition");
+    _primitive_uniform_mvp = _primitive_shader_program.uniform_location("MVP");
+    _primitive_uniform_color = _primitive_shader_program.uniform_location("Color");
+
+
+    glGenVertexArrays(1, &_primitive_vertex_array);
+    glBindVertexArray(_primitive_vertex_array);
+
+    glGenBuffers(1, &_primitive_vertex_buffer);
+
+    GLfloat vertexes[4][3] = {
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f},
+        {1.0f, 0.0f, 0.0f},
+        {1.0f, 1.0f, 0.0f},
+    };
+    glBindBuffer(GL_ARRAY_BUFFER, _primitive_vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_STATIC_DRAW);
+
+
+    glEnableVertexAttribArray(_primitive_attrib_position);
+    glVertexAttribPointer(_primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    assert_no_gl_error();
+
 
     ft_ok(FT_Init_FreeType(&_ft_library));
     ft_ok(FT_New_Face(_ft_library, "assets/OpenSans-Regular.ttf", 0, &_default_font_face));
@@ -76,6 +128,9 @@ Gui::~Gui() {
 
     FT_Done_Face(_default_font_face);
     FT_Done_FreeType(_ft_library);
+
+    glDeleteBuffers(1, &_primitive_vertex_buffer);
+    glDeleteVertexArrays(1, &_primitive_vertex_array);
 }
 
 void Gui::exec() {
@@ -116,6 +171,8 @@ void Gui::exec() {
                 label_widget->draw(_projection);
         }
 
+        fill_rect(glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), 200, 200, 200, 100);
+
         SDL_GL_SwapWindow(_window);
         SDL_Delay(17);
     }
@@ -149,4 +206,23 @@ FontCacheValue Gui::font_cache_entry(const FontCacheKey &key) {
     value = FontCacheValue{glyph, bitmap_glyph, glyph_index};
     _font_cache.put(key, value);
     return value;
+}
+
+
+void Gui::fill_rect(glm::vec4 color, int x, int y, int w, int h) {
+    glm::mat4 model = glm::scale(
+                        glm::translate(
+                            glm::mat4(1.0f),
+                            glm::vec3(x, y, 0.0f)),
+                        glm::vec3(w, h, 0.0f));
+    glm::mat4 mvp = _projection * model;
+
+    _primitive_shader_program.bind();
+
+    _primitive_shader_program.set_uniform(_primitive_uniform_color, color);
+    _primitive_shader_program.set_uniform(_primitive_uniform_mvp, mvp);
+
+
+    glBindVertexArray(_primitive_vertex_array);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }

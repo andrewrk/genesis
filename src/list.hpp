@@ -14,6 +14,7 @@ public:
     ~List() {
         free(_items);
     }
+    List(List &other) = delete;
     List<T>& operator= (const List<T> &other) {
         resize(other._length);
         for (int i = 0; i < _length; i += 1) {

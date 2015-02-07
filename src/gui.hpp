@@ -49,15 +49,20 @@ public:
     FontCacheValue font_cache_entry(const FontCacheKey &key);
 
 
-    GLint _attrib_tex_coord;
-    GLint _attrib_position;
     FT_Face _default_font_face;
 
     ShaderProgram _text_shader_program;
+    GLint _text_attrib_tex_coord;
+    GLint _text_attrib_position;
+    GLint _text_uniform_mvp;
+    GLint _text_uniform_tex;
+    GLint _text_uniform_color;
 
-    GLint _uniform_mvp;
-    GLint _uniform_tex;
-    GLint _uniform_color;
+    ShaderProgram _primitive_shader_program;
+    GLint _primitive_attrib_position;
+    GLint _primitive_uniform_mvp;
+    GLint _primitive_uniform_color;
+
 private:
     SDL_Window *_window;
 
@@ -72,6 +77,11 @@ private:
     List<void *> _widget_list;
 
     HashMap<FontCacheKey, FontCacheValue, hash_font_key> _font_cache;
+
+    GLuint _primitive_vertex_array;
+    GLuint _primitive_vertex_buffer;
+
+    void fill_rect(glm::vec4 color, int x, int y, int w, int h);
 
     void resize();
 };

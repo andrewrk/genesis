@@ -1,5 +1,5 @@
-#ifndef BYTE_BUFFER
-#define BYTE_BUFFER
+#ifndef BYTE_BUFFER_HPP
+#define BYTE_BUFFER_HPP
 
 #include "list.hpp"
 #include <stdio.h>
