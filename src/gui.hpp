@@ -6,12 +6,23 @@
 #include "list.hpp"
 #include "glm.hpp"
 #include "hash_map.hpp"
+#include "string.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
 #include <SDL2/SDL.h>
 
 typedef void Widget;
+
+enum TextInputAction {
+    TextInputActionCandidate,
+    TextInputActionCommit,
+};
+
+struct TextInputEvent {
+    TextInputAction action;
+    String text;
+};
 
 enum MouseButton {
     MouseButtonNone,
@@ -71,7 +82,9 @@ public:
 
     LabelWidget *create_label_widget();
 
-    void remove_widget(LabelWidget *label_widget);
+    void remove_widget(Widget *widget);
+
+    void set_focus_widget(Widget *widget);
 
     FontCacheValue font_cache_entry(const FontCacheKey &key);
 
@@ -92,6 +105,9 @@ public:
 
     void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
     void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
+
+    void start_text_editing(int x, int y, int w, int h);
+    void stop_text_editing();
 
 
     SDL_Cursor* _cursor_ibeam;
@@ -115,9 +131,11 @@ private:
     GLuint _primitive_vertex_buffer;
 
     Widget *_mouse_over_widget;
+    Widget *_focus_widget;
 
     void resize();
     void on_mouse_move(const MouseEvent &event);
+    void on_text_input(const TextInputEvent &event);
 };
 
 #endif

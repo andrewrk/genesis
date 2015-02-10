@@ -37,6 +37,13 @@ int main(int argc, char *argv[]) {
     label_widget->set_text("label with background");
     label_widget->set_pos(100, 100);
 
+    LabelWidget *label_widget2 = gui.create_label_widget();
+    label_widget2->set_text("second label");
+    label_widget2->set_pos(200, 200);
+
+    gui.set_focus_widget(label_widget);
+    label_widget->set_selection(0, 5);
+
     gui.exec();
 
     SDL_GL_DeleteContext(context);

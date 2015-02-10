@@ -210,10 +210,8 @@ void Label::update() {
     _below_size = below_size;
 
     int img_buf_size =  4 * bounding_width * bounding_height;
-    if (img_buf_size <= _img_buffer.length())
-        return;
-
-    _img_buffer.resize(img_buf_size);
+    if (img_buf_size > _img_buffer.length())
+        _img_buffer.resize(img_buf_size);
 
     glBindVertexArray(_vertex_array);
     glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
@@ -331,4 +329,8 @@ void Label::update_render_slice() {
         {tex_end_x, 1.0f},
     };
     glBufferSubData(GL_ARRAY_BUFFER, 0, 2 * 4 * sizeof(GLfloat), coords);
+}
+
+void Label::replace_text(int start, int end, String text) {
+    _text.replace(start, end, text);
 }

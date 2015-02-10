@@ -18,7 +18,8 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _gui(gui),
         _cursor_start(-1),
         _cursor_end(-1),
-        _select_down(false)
+        _select_down(false),
+        _have_focus(false)
 {
     update_model();
 }
@@ -30,7 +31,7 @@ void LabelWidget::draw(const glm::mat4 &projection) {
     glm::mat4 label_mvp = projection * _label_model;
     _label.draw(label_mvp, _text_color);
 
-    if (_cursor_start != -1 && _cursor_end != -1) {
+    if (_have_focus && _cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
             // draw cursor
             glm::mat4 cursor_mvp = projection * _cursor_model;
@@ -139,4 +140,40 @@ void LabelWidget::update_selection_model() {
         _sel_text_model = glm::translate(glm::mat4(1.0f),
                 glm::vec3(label_left + start_x, label_top, 0.0f));
     }
+}
+
+void LabelWidget::set_selection(int start, int end) {
+    _cursor_start = clamp(0, start, _label.text().length() - 1);
+    _cursor_end = clamp(0, end, _label.text().length());
+    update_selection_model();
+    _select_down = false;
+}
+
+void LabelWidget::on_gain_focus() {
+    _have_focus = true;
+    _gui->start_text_editing(left(), top(), width(), height());
+}
+
+void LabelWidget::on_lose_focus() {
+    _have_focus = false;
+    _gui->stop_text_editing();
+}
+
+void LabelWidget::on_text_input(const TextInputEvent &event) {
+    if (event.action == TextInputActionCandidate) {
+        // 1. Need a ttf font that supports more characters
+        // 2. Support displaying this event
+        panic("TODO text editing event support");
+    }
+
+    int start, end;
+    get_cursor_slice(start, end);
+    _cursor_start = start + 1;
+    _cursor_end = _cursor_start;
+
+    _label.replace_text(start, end, event.text);
+
+    _label.update();
+    update_model();
+    update_selection_model();
 }

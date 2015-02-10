@@ -50,9 +50,18 @@ public:
         return _is_visible;
     }
 
+    void set_selection(int start, int end);
+
+    bool have_focus() {
+        return _have_focus;
+    }
+
     void on_mouse_over(const MouseEvent &event);
     void on_mouse_out(const MouseEvent &event);
     void on_mouse_move(const MouseEvent &event);
+    void on_gain_focus();
+    void on_lose_focus();
+    void on_text_input(const TextInputEvent &event);
 
     int _gui_index;
 
@@ -84,6 +93,8 @@ private:
     glm::mat4 _sel_model;
     glm::mat4 _cursor_model;
     glm::mat4 _sel_text_model;
+
+    bool _have_focus;
 
     void update_model();
 

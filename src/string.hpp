@@ -37,6 +37,9 @@ public:
         _chars.append(c);
     }
     String substring(int start, int end) const;
+    String substring(int start) const;
+
+    void replace(int start, int end, String s);
 
 private:
     List<uint32_t> _chars;

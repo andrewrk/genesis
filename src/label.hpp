@@ -57,6 +57,8 @@ public:
     void set_slice(int start, int end); // -1 for full
     void draw_slice(const glm::mat4 &mvp, const glm::vec4 &color);
 
+    void replace_text(int start, int end, String text);
+
 private:
     struct Letter {
         uint32_t codepoint;

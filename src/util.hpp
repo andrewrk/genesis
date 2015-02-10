@@ -32,4 +32,15 @@ static inline T abs(T x) {
     return (x < 0) ? -x : x;
 }
 
+template<typename T>
+static inline T clamp(T min, T value, T max) {
+    if (value < min) {
+        return min;
+    } else if (value > max) {
+        return max;
+    } else {
+        return value;
+    }
+}
+
 #endif

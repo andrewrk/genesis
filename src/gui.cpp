@@ -73,7 +73,8 @@ void main(void) {
 
 )FRAGMENT", NULL),
     _window(window),
-    _mouse_over_widget(NULL)
+    _mouse_over_widget(NULL),
+    _focus_widget(NULL)
 {
     _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
     _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
@@ -210,6 +211,24 @@ void Gui::exec() {
                     on_mouse_move(mouse_event);
                 }
                 break;
+            case SDL_TEXTEDITING:
+                {
+                    TextInputEvent text_event = {
+                        TextInputActionCandidate,
+                        String(event.edit.text),
+                    };
+                    on_text_input(text_event);
+                    break;
+                }
+            case SDL_TEXTINPUT:
+                {
+                    TextInputEvent text_event = {
+                        TextInputActionCommit,
+                        String(event.text.text),
+                    };
+                    on_text_input(text_event);
+                    break;
+                }
             }
         }
 
@@ -279,7 +298,8 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void Gui::remove_widget(LabelWidget *label_widget) {
+void Gui::remove_widget(Widget *widget) {
+    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
     _widget_list.swap_remove(label_widget->_gui_index);
 }
 
@@ -300,6 +320,8 @@ void Gui::on_mouse_move(const MouseEvent &event) {
         mouse_event.y -= mouse_over_label->top();
 
         if (in_bounds || pressing_any_btn) {
+            if (pressing_any_btn && _mouse_over_widget != _focus_widget)
+                set_focus_widget(_mouse_over_widget);
             mouse_over_label->on_mouse_move(mouse_event);
             return;
         } else {
@@ -330,8 +352,50 @@ void Gui::on_mouse_move(const MouseEvent &event) {
             mouse_event.y -= label_widget->top();
 
             _mouse_over_widget = label_widget;
+
+            if (pressing_any_btn && _mouse_over_widget != _focus_widget)
+                set_focus_widget(_mouse_over_widget);
+
             label_widget->on_mouse_over(mouse_event);
             label_widget->on_mouse_move(mouse_event);
+            return;
         }
     }
+}
+
+void Gui::set_focus_widget(Widget *widget) {
+    if (_focus_widget == widget)
+        return;
+    if (_focus_widget) {
+        LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
+        _focus_widget = NULL;
+        label_widget->on_lose_focus();
+    }
+    if (!widget)
+        return;
+    _focus_widget = widget;
+    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
+    label_widget->on_gain_focus();
+}
+
+void Gui::start_text_editing(int x, int y, int w, int h) {
+    SDL_Rect rect;
+    rect.x = x;
+    rect.y = y;
+    rect.w = w;
+    rect.h = h;
+    SDL_SetTextInputRect(&rect);
+    SDL_StartTextInput();
+}
+
+void Gui::stop_text_editing() {
+    SDL_StopTextInput();
+}
+
+void Gui::on_text_input(const TextInputEvent &event) {
+    if (!_focus_widget)
+        panic("focus widget non NULL and text input on");
+
+    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
+    label_widget->on_text_input(event);
 }

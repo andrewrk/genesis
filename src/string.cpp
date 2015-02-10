@@ -180,3 +180,18 @@ String String::substring(int start, int end) const {
     }
     return result;
 }
+
+String String::substring(int start) const {
+    return substring(start, _chars.length());
+}
+
+void String::replace(int start, int end, String s) {
+    String second_half = substring(end);
+    _chars.resize(_chars.length() + s.length() - (end - start));
+    for (int i = 0; i < s.length(); i += 1) {
+        _chars.at(start + i) = s.at(i);
+    }
+    for (int i = 0; i < second_half.length(); i += 1) {
+        _chars.at(start + s.length() + i) = second_half.at(i);
+    }
+}
