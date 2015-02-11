@@ -186,17 +186,25 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
     get_cursor_slice(start, end);
     switch (event.virt_key) {
         case VirtKeyLeft:
-            if (start == end) {
-                set_selection(start - 1, start - 1);
+            if (event.shift()) {
+                set_selection(_cursor_start, _cursor_end - 1);
             } else {
-                set_selection(start, start);
+                if (start == end) {
+                    set_selection(start - 1, start - 1);
+                } else {
+                    set_selection(start, start);
+                }
             }
             break;
         case VirtKeyRight:
-            if (start == end) {
-                set_selection(start + 1, end + 1);
+            if (event.shift()) {
+                set_selection(_cursor_start, _cursor_end + 1);
             } else {
-                set_selection(end, end);
+                if (start == end) {
+                    set_selection(start + 1, end + 1);
+                } else {
+                    set_selection(end, end);
+                }
             }
             break;
         default:

@@ -8,24 +8,13 @@
 #include "hash_map.hpp"
 #include "string.hpp"
 #include "font_size.hpp"
-#include "virt_key.hpp"
+#include "key_event.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
 #include <SDL2/SDL.h>
 
 typedef void Widget;
-
-enum KeyAction {
-    KeyActionDown,
-    KeyActionUp,
-};
-
-struct KeyEvent {
-    KeyAction action;
-    VirtKey virt_key;
-    uint16_t modifiers;
-};
 
 enum TextInputAction {
     TextInputActionCandidate,

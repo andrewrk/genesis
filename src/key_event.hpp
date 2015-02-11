@@ -1,5 +1,5 @@
-#ifndef VIRT_KEY_HPP
-#define VIRT_KEY_HPP
+#ifndef KEY_EVENT_HPP
+#define KEY_EVENT_HPP
 
 #include <SDL2/SDL.h>
 
@@ -240,5 +240,63 @@ enum VirtKey {
     VirtKeyEject = SDLK_EJECT,
     VirtKeySleep = SDLK_SLEEP,
 };
+
+enum KeyAction {
+    KeyActionDown,
+    KeyActionUp,
+};
+
+struct KeyEvent {
+    KeyAction action;
+    VirtKey virt_key;
+    uint16_t modifiers;
+
+    bool left_shift() const {
+        return modifiers & KMOD_LSHIFT;
+    }
+    bool right_shift() const {
+        return modifiers & KMOD_RSHIFT;
+    }
+    bool left_ctrl() const {
+        return modifiers & KMOD_LCTRL;
+    }
+    bool right_ctrl() const {
+        return modifiers & KMOD_RCTRL;
+    }
+    bool left_alt() const {
+        return modifiers & KMOD_LALT;
+    }
+    bool right_alt() const {
+        return modifiers & KMOD_RALT;
+    }
+    bool left_super() const {
+        return modifiers & KMOD_LGUI;
+    }
+    bool right_super() const {
+        return modifiers & KMOD_RGUI;
+    }
+    bool num_lock() const {
+        return modifiers & KMOD_NUM;
+    }
+    bool caps_lock() const {
+        return modifiers & KMOD_CAPS;
+    }
+    bool alt_gr() const {
+        return modifiers & KMOD_MODE;
+    }
+    bool ctrl() const {
+        return modifiers & KMOD_CTRL;
+    }
+    bool shift() const {
+        return modifiers & KMOD_SHIFT;
+    }
+    bool alt() const {
+        return modifiers & KMOD_ALT;
+    }
+    bool super() const {
+        return modifiers & KMOD_GUI;
+    }
+};
+
 
 #endif
