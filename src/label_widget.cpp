@@ -237,6 +237,25 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
             } else {
                 replace_text(start, end, "", 0);
             }
+            break;
+        case VirtKeyDelete:
+            if (start == end) {
+                if (event.ctrl()) {
+                    int new_start = forward_word();
+                    replace_text(start, new_start, "", 0);
+                } else {
+                    replace_text(start, end + 1, "", 0);
+                }
+            } else {
+                replace_text(start, end, "", 0);
+            }
+            break;
+        case VirtKeyHome:
+            panic("home");
+            break;
+        case VirtKeyEnd:
+            panic("end");
+            break;
         default:
             // do nothing
             break;
