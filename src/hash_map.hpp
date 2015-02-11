@@ -3,6 +3,8 @@
 
 #include "util.hpp"
 
+#include <stdint.h>
+
 template<typename K, typename V, uint32_t (*HashFunction)(const K &key)>
 class HashMap {
 public:
@@ -13,7 +15,7 @@ public:
         init_capacity(capacity);
     }
     ~HashMap() {
-        free(_entries);
+        destroy(_entries);
     }
 
     int size() const {
@@ -35,7 +37,7 @@ public:
                 if (old_entry->used)
                     internal_put(old_entry->key, old_entry->value);
             }
-            free(old_entries);
+            destroy(old_entries);
         }
     }
 

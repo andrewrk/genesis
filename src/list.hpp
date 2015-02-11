@@ -12,7 +12,7 @@ public:
         _items = allocate<T>(_capacity);
     }
     ~List() {
-        free(_items);
+        destroy(_items);
     }
     List(List &other) = delete;
     List<T>& operator= (const List<T> &other) {

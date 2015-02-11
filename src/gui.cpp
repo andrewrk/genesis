@@ -2,10 +2,8 @@
 #include "debug.hpp"
 #include "label_widget.hpp"
 
-#include <new>
-
-uint32_t hash_font_key(const FontCacheKey &k) {
-    return ((uint32_t)k.font_size) * 3U + k.codepoint * 2147483647U;
+uint32_t hash_int(const int &x) {
+    return (uint32_t) x;
 }
 
 static void ft_ok(FT_Error err) {
@@ -111,7 +109,6 @@ void main(void) {
     ft_ok(FT_Init_FreeType(&_ft_library));
     ft_ok(FT_New_Face(_ft_library, "assets/OpenSans-Regular.ttf", 0, &_default_font_face));
 
-
     _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
     _cursor_ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
 
@@ -130,10 +127,10 @@ Gui::~Gui() {
     SDL_FreeCursor(_cursor_default);
     SDL_FreeCursor(_cursor_ibeam);
 
-    HashMap<FontCacheKey, FontCacheValue, hash_font_key>::Iterator it = _font_cache.value_iterator();
+    HashMap<int, FontSize *, hash_int>::Iterator it = _font_size_cache.value_iterator();
     while (it.has_next()) {
-        FontCacheValue entry = it.next();
-        FT_Done_Glyph(entry.glyph);
+        FontSize *font_size_object = it.next();
+        destroy(font_size_object);
     }
 
     FT_Done_Face(_default_font_face);
@@ -252,30 +249,19 @@ void Gui::resize() {
 }
 
 LabelWidget * Gui::create_label_widget() {
-    LabelWidget *label_widget = allocate<LabelWidget>(1);
-    new (label_widget) LabelWidget(this, _widget_list.length());
+    LabelWidget *label_widget = create<LabelWidget>(this, _widget_list.length());
     _widget_list.append(label_widget);
     return label_widget;
 }
 
-FontCacheValue Gui::font_cache_entry(const FontCacheKey &key) {
-    FontCacheValue value;
-    if (_font_cache.get(key, &value))
-        return value;
-
-    ft_ok(FT_Set_Char_Size(_default_font_face, 0, key.font_size * 64, 0, 0));
-    FT_UInt glyph_index = FT_Get_Char_Index(_default_font_face, key.codepoint);
-    ft_ok(FT_Load_Glyph(_default_font_face, glyph_index, FT_LOAD_RENDER));
-    FT_GlyphSlot glyph_slot = _default_font_face->glyph;
-    FT_Glyph glyph;
-    ft_ok(FT_Get_Glyph(glyph_slot, &glyph));
-    ft_ok(FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, NULL, 0));
-    FT_BitmapGlyph bitmap_glyph = (FT_BitmapGlyph) glyph;
-    value = FontCacheValue{glyph, bitmap_glyph, glyph_index};
-    _font_cache.put(key, value);
-    return value;
+FontSize *Gui::get_font_size(int font_size) {
+    FontSize *font_size_object;
+    if (_font_size_cache.get(font_size, &font_size_object))
+        return font_size_object;
+    font_size_object = create<FontSize>(this, _default_font_face, font_size);
+    _font_size_cache.put(font_size, font_size_object);
+    return font_size_object;
 }
-
 
 void Gui::fill_rect(const glm::vec4 &color, int x, int y, int w, int h) {
     glm::mat4 model = glm::scale(

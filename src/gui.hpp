@@ -7,6 +7,7 @@
 #include "glm.hpp"
 #include "hash_map.hpp"
 #include "string.hpp"
+#include "font_size.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -51,26 +52,7 @@ struct MouseEvent {
     MouseButtons buttons;
 };
 
-struct FontCacheKey {
-    int font_size;
-    uint32_t codepoint;
-};
-
-struct FontCacheValue {
-    FT_Glyph glyph;
-    FT_BitmapGlyph bitmap_glyph;
-    FT_UInt glyph_index;
-};
-
-static inline bool operator==(FontCacheKey a, FontCacheKey b) {
-    return a.font_size == b.font_size && a.codepoint == b.codepoint;
-}
-
-static inline bool operator!=(FontCacheKey a, FontCacheKey b) {
-    return !(a == b);
-}
-
-uint32_t hash_font_key(const FontCacheKey &k);
+uint32_t hash_int(const int &x);
 
 class LabelWidget;
 class Gui {
@@ -86,7 +68,7 @@ public:
 
     void set_focus_widget(Widget *widget);
 
-    FontCacheValue font_cache_entry(const FontCacheKey &key);
+    FontSize *get_font_size(int font_size);
 
 
     FT_Face _default_font_face;
@@ -125,7 +107,8 @@ private:
 
     List<Widget *> _widget_list;
 
-    HashMap<FontCacheKey, FontCacheValue, hash_font_key> _font_cache;
+    // key is font size
+    HashMap<int, FontSize *, hash_int> _font_size_cache;
 
     GLuint _primitive_vertex_array;
     GLuint _primitive_vertex_buffer;
@@ -136,6 +119,7 @@ private:
     void resize();
     void on_mouse_move(const MouseEvent &event);
     void on_text_input(const TextInputEvent &event);
+
 };
 
 #endif

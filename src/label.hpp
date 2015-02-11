@@ -4,6 +4,7 @@
 #include "freetype.hpp"
 #include "string.hpp"
 #include "glm.hpp"
+#include "font_size.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -23,9 +24,8 @@ public:
         return _text;
     }
     // need to call update() to make it take effect
-    void set_font_size(int size) {
-        _font_size = size;
-    }
+    void set_font_size(int size);
+
     void set_color(glm::vec4 color) {
         _color = color;
     }
@@ -47,11 +47,11 @@ public:
     void get_slice_dimensions(int start, int end, int &start_x, int &end_x) const;
 
     int above_size() const {
-        return _above_size;
+        return _font_size->_max_above_size;
     }
 
     int below_size() const {
-        return _below_size;
+        return _font_size->_max_below_size;
     }
 
     void set_slice(int start, int end); // -1 for full
@@ -83,15 +83,12 @@ private:
 
     String _text;
     glm::vec4 _color;
-    int _font_size;
+    FontSize *_font_size;
 
     ByteBuffer _img_buffer;
 
     // cached from _text on update()
     List<Letter> _letters;
-
-    int _above_size;
-    int _below_size;
 
     int _render_slice_start;
     int _render_slice_end;
@@ -103,4 +100,3 @@ private:
 };
 
 #endif
-

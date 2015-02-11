@@ -16,10 +16,10 @@ Label::Label(Gui *gui) :
     _width(0),
     _height(0),
     _text("Label"),
-    _font_size(16),
     _render_slice_start(-1),
     _render_slice_end(-1)
 {
+    set_font_size(16);
 
     glGenTextures(1, &_texture_id);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
@@ -143,19 +143,15 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
 
 void Label::update() {
     // one pass to determine width and height
-    // pen_x and pen_y are on the baseline. the char can go lower than it
+    // pen position represents the baseline. the char can go lower than it
     float pen_x = 0.0f;
-    float pen_y = 0.0f;
     int previous_glyph_index = 0;
-    float above_size = 0.0f; // pixel count above the baseline
-    float below_size = 0.0f; // pixel count below the baseline
     float bounding_width = 0.0f;
     float prev_right = 0.0f;
     _letters.clear();
     for (int i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
-        FontCacheKey key = {_font_size, ch};
-        FontCacheValue entry = _gui->font_cache_entry(key);
+        FontCacheValue entry = _font_size->font_cache_entry(ch);
         if (_letters.length() > 0) {
             FT_Face face = _gui->_default_font_face;
             FT_Vector kerning;
@@ -166,16 +162,11 @@ void Label::update() {
         }
 
         float bmp_start_left = (float)entry.bitmap_glyph->left;
-        float bmp_start_top = (float)entry.bitmap_glyph->top;
+
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
         float bmp_width = bitmap.width;
-        float bmp_height = bitmap.rows;
         float left = pen_x + bmp_start_left;
         float right = left + bmp_width;
-        float this_above_size = pen_y + bmp_start_top;
-        float this_below_size = bmp_height - this_above_size;
-        above_size = (this_above_size > above_size) ? this_above_size : above_size;
-        below_size = (this_below_size > below_size) ? this_below_size : below_size;
         bounding_width = ceilf(right);
 
         int halfway_left = floorf((prev_right + left) / 2.0f);
@@ -192,22 +183,19 @@ void Label::update() {
             (int)bmp_width,
             (int)(right - halfway_left),
 
-            (int)ceilf(this_above_size),
-            (int)ceilf(this_below_size),
+            entry.above_size,
+            entry.below_size,
             entry.bitmap_glyph->top,
         });
 
         previous_glyph_index = entry.glyph_index;
         prev_right = right;
         pen_x += ((float)entry.glyph->advance.x) / 65536.0f;
-        pen_y += ((float)entry.glyph->advance.y) / 65536.0f;
     }
 
-    float bounding_height = ceilf(above_size + below_size);
+    float bounding_height = above_size() + below_size();
     _width = bounding_width;
     _height = bounding_height;
-    _above_size = above_size;
-    _below_size = below_size;
 
     int img_buf_size =  4 * bounding_width * bounding_height;
     if (img_buf_size > _img_buffer.length())
@@ -231,11 +219,10 @@ void Label::update() {
     // second pass to render bitmap
     for (int i = 0; i < _letters.length(); i += 1) {
         Letter *letter = &_letters.at(i);
-        FontCacheKey key = {_font_size, letter->codepoint};
-        FontCacheValue entry = _gui->font_cache_entry(key);
+        FontCacheValue entry = _font_size->font_cache_entry(letter->codepoint);
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
         copy_freetype_bitmap(bitmap, _img_buffer,
-                letter->left + letter->bitmap_left, _above_size - letter->bitmap_top, _width);
+                letter->left + letter->bitmap_left, above_size() - letter->bitmap_top, _width);
     }
 
     // send bitmap to GPU
@@ -261,7 +248,7 @@ int Label::cursor_at_pos(int x, int y) const {
 }
 
 void Label::pos_at_cursor(int index, int &x, int &y) const {
-    y = _above_size;
+    y = above_size();
     if (index < 0) {
         x = 0;
         return;
@@ -333,4 +320,8 @@ void Label::update_render_slice() {
 
 void Label::replace_text(int start, int end, String text) {
     _text.replace(start, end, text);
+}
+
+void Label::set_font_size(int size) {
+    _font_size = _gui->get_font_size(size);
 }
