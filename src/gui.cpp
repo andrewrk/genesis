@@ -395,3 +395,23 @@ void Gui::on_key_event(const KeyEvent &event) {
     LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
     label_widget->on_key_event(event);
 }
+
+void Gui::set_clipboard_string(const String &str) {
+    int err = SDL_SetClipboardText(str.encode().raw());
+    if (err)
+        fprintf(stderr, "Error setting clipboard text: %s\n", SDL_GetError());
+}
+
+String Gui::get_clipboard_string() const {
+    char* clip_text = SDL_GetClipboardText();
+    bool ok;
+    String str = String::decode(clip_text, ok);
+    SDL_free(clip_text);
+    if (!ok)
+        fprintf(stderr, "Reading invalid UTF-8 from the clipboard\n");
+    return str;
+}
+
+bool Gui::clipboard_has_string() const {
+    return SDL_HasClipboardText();
+}

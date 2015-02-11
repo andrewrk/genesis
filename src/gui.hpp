@@ -92,6 +92,9 @@ public:
     void start_text_editing(int x, int y, int w, int h);
     void stop_text_editing();
 
+    void set_clipboard_string(const String &str);
+    String get_clipboard_string() const;
+    bool clipboard_has_string() const;
 
     SDL_Cursor* _cursor_ibeam;
     SDL_Cursor* _cursor_default;

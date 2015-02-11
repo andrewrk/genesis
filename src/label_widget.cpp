@@ -268,6 +268,18 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
             if (event.ctrl())
                 select_all();
             break;
+        case VirtKeyX:
+            if (event.ctrl())
+                cut();
+            break;
+        case VirtKeyC:
+            if (event.ctrl())
+                copy();
+            break;
+        case VirtKeyV:
+            if (event.ctrl())
+                paste();
+            break;
         default:
             // do nothing
             break;
@@ -312,4 +324,26 @@ int LabelWidget::advance_word(int dir) {
 
 void LabelWidget::select_all() {
     set_selection(0, _label.text().length());
+}
+
+void LabelWidget::cut() {
+    int start, end;
+    get_cursor_slice(start, end);
+    _gui->set_clipboard_string(_label.text().substring(start, end));
+    replace_text(start, end, "", 0);
+}
+
+void LabelWidget::copy() {
+    int start, end;
+    get_cursor_slice(start, end);
+    _gui->set_clipboard_string(_label.text().substring(start, end));
+}
+
+void LabelWidget::paste() {
+    if (!_gui->clipboard_has_string())
+        return;
+    int start, end;
+    get_cursor_slice(start, end);
+    String str = _gui->get_clipboard_string();
+    replace_text(start, end, str, str.length());
 }

@@ -57,6 +57,9 @@ public:
     }
 
     void select_all();
+    void cut();
+    void copy();
+    void paste();
 
     void on_mouse_over(const MouseEvent &event);
     void on_mouse_out(const MouseEvent &event);
