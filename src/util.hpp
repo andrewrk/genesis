@@ -61,4 +61,9 @@ static inline T clamp(T min, T value, T max) {
     }
 }
 
+template <typename T, size_t n>
+constexpr size_t array_length(const T (&)[n]) {
+    return n;
+}
+
 #endif

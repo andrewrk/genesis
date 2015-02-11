@@ -103,6 +103,10 @@ private:
     void pos_at_cursor(int index, int &x, int &y) const;
     void get_cursor_slice(int &start, int &end) const;
     void update_selection_model();
+    void replace_text(int start, int end, const String &text, int cursor_modifier);
+    int backward_word();
+    int forward_word();
+    int advance_word(int dir);
 };
 
 #endif

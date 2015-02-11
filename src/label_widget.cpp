@@ -143,7 +143,7 @@ void LabelWidget::update_selection_model() {
 }
 
 void LabelWidget::set_selection(int start, int end) {
-    _cursor_start = clamp(0, start, _label.text().length() - 1);
+    _cursor_start = clamp(0, start, _label.text().length());
     _cursor_end = clamp(0, end, _label.text().length());
     update_selection_model();
     _select_down = false;
@@ -168,10 +168,17 @@ void LabelWidget::on_text_input(const TextInputEvent &event) {
 
     int start, end;
     get_cursor_slice(start, end);
-    _cursor_start = start + 1;
-    _cursor_end = _cursor_start;
+    replace_text(start, end, event.text, 1);
+}
 
-    _label.replace_text(start, end, event.text);
+void LabelWidget::replace_text(int start, int end, const String &text, int cursor_modifier) {
+    start = clamp(0, start, _label.text().length());
+    end = clamp(0, end, _label.text().length());
+
+    _label.replace_text(start, end, text);
+
+    _cursor_start = clamp(0, start + cursor_modifier, _label.text().length());
+    _cursor_end = clamp(0, start + cursor_modifier, _label.text().length());
 
     _label.update();
     update_model();
@@ -186,7 +193,13 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
     get_cursor_slice(start, end);
     switch (event.virt_key) {
         case VirtKeyLeft:
-            if (event.shift()) {
+            if (event.ctrl() && event.shift()) {
+                int new_end = backward_word();
+                set_selection(_cursor_start, new_end);
+            } else if (event.ctrl()) {
+                int new_start = backward_word();
+                set_selection(new_start, new_start);
+            } else if (event.shift()) {
                 set_selection(_cursor_start, _cursor_end - 1);
             } else {
                 if (start == end) {
@@ -197,7 +210,13 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
             }
             break;
         case VirtKeyRight:
-            if (event.shift()) {
+            if (event.ctrl() && event.shift()) {
+                int new_end = forward_word();
+                set_selection(_cursor_start, new_end);
+            } else if (event.ctrl()) {
+                int new_start = forward_word();
+                set_selection(new_start, new_start);
+            } else if (event.shift()) {
                 set_selection(_cursor_start, _cursor_end + 1);
             } else {
                 if (start == end) {
@@ -207,8 +226,55 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
                 }
             }
             break;
+        case VirtKeyBackspace:
+            if (start == end) {
+                if (event.ctrl()) {
+                    int new_start = backward_word();
+                    replace_text(new_start, start, "", 0);
+                } else {
+                    replace_text(start - 1, end, "", 0);
+                }
+            } else {
+                replace_text(start, end, "", 0);
+            }
         default:
             // do nothing
             break;
     }
+}
+
+static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
+    8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232,
+    8233, 8239, 8287, 12288};
+static bool is_whitespace(uint32_t c) {
+    for (size_t i = 0; i < array_length(whitespace); i+= 1) {
+        if (c == whitespace[i])
+            return true;
+    }
+    return false;
+}
+
+int LabelWidget::backward_word() {
+    return advance_word(-1);
+}
+
+int LabelWidget::forward_word() {
+    return advance_word(1);
+}
+
+int LabelWidget::advance_word(int dir) {
+    int init_advance = (dir > 0) ? 0 : 1;
+    int new_cursor = clamp(0, _cursor_end - init_advance, _label.text().length());
+    bool found_non_whitespace = false;
+    while ((new_cursor + dir) >= 0 && (new_cursor + dir) <= _label.text().length()) {
+        uint32_t c = _label.text().at(new_cursor);
+        if (is_whitespace(c)) {
+            if (found_non_whitespace)
+                return new_cursor + init_advance;
+        } else {
+            found_non_whitespace = true;
+        }
+        new_cursor += dir;
+    }
+    return new_cursor;
 }

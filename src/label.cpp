@@ -95,6 +95,9 @@ Label::~Label() {
 }
 
 void Label::draw(const glm::mat4 &mvp, const glm::vec4 &color) {
+    if (_text.length() == 0)
+        return;
+
     _gui->_text_shader_program.bind();
 
     _gui->_text_shader_program.set_uniform(_gui->_text_uniform_color, color);
@@ -109,6 +112,9 @@ void Label::draw(const glm::mat4 &mvp, const glm::vec4 &color) {
 }
 
 void Label::draw_slice(const glm::mat4 &mvp, const glm::vec4 &color) {
+    if (_text.length() == 0)
+        return;
+
     _gui->_text_shader_program.bind();
 
     _gui->_text_shader_program.set_uniform(_gui->_text_uniform_color, color);
@@ -142,13 +148,18 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
 }
 
 void Label::update() {
+    _letters.clear();
+    if (_text.length() == 0) {
+        _width = 0;
+        return;
+    }
+
     // one pass to determine width and height
     // pen position represents the baseline. the char can go lower than it
     float pen_x = 0.0f;
     int previous_glyph_index = 0;
     float bounding_width = 0.0f;
     float prev_right = 0.0f;
-    _letters.clear();
     for (int i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
         FontCacheValue entry = _font_size->font_cache_entry(ch);
@@ -248,6 +259,12 @@ int Label::cursor_at_pos(int x, int y) const {
 }
 
 void Label::pos_at_cursor(int index, int &x, int &y) const {
+    if (_text.length() == 0) {
+        x = 0;
+        y = 0;
+        return;
+    }
+
     y = above_size();
     if (index < 0) {
         x = 0;
@@ -281,6 +298,9 @@ void Label::set_slice(int start, int end) {
 }
 
 void Label::update_render_slice() {
+    if (_text.length() == 0)
+        return;
+
     int start, end;
     if (_render_slice_start == -1) {
         start = 0;
