@@ -177,3 +177,30 @@ void LabelWidget::on_text_input(const TextInputEvent &event) {
     update_model();
     update_selection_model();
 }
+
+void LabelWidget::on_key_event(const KeyEvent &event) {
+    if (event.action == KeyActionUp)
+        return;
+
+    int start, end;
+    get_cursor_slice(start, end);
+    switch (event.virt_key) {
+        case VirtKeyLeft:
+            if (start == end) {
+                set_selection(start - 1, start - 1);
+            } else {
+                set_selection(start, start);
+            }
+            break;
+        case VirtKeyRight:
+            if (start == end) {
+                set_selection(start + 1, end + 1);
+            } else {
+                set_selection(end, end);
+            }
+            break;
+        default:
+            // do nothing
+            break;
+    }
+}

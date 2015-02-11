@@ -28,8 +28,8 @@ Not cool yet.
 genesis is programmed in a tiny subset of C++:
 
  * No linking against libstdc++.
- * No `new` or `delete` allowed, except for using "placement new" to invoke a
-   constructor.
+ * No STL.
+ * No `new` or `delete`.
  * No exceptions or run-time type information.
 
 ### Building and Running
@@ -42,6 +42,8 @@ make
 
 ## Roadmap
 
+ 0. Make the text box support all the text editing controls you would expect
+ 0. Make the text box not auto-size
  0. UI for the user to load a file.
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.

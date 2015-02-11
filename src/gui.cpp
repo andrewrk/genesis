@@ -147,12 +147,14 @@ void Gui::exec() {
         while(SDL_PollEvent(&event)) {
             switch (event.type) {
             case SDL_KEYDOWN:
-                switch (event.key.keysym.sym) {
-                case SDLK_ESCAPE:
-                    running = false;
-                    break;
-                default:
-                    break;
+            case SDL_KEYUP:
+                {
+                    KeyEvent key_event = {
+                        (event.key.state == SDL_PRESSED) ? KeyActionDown : KeyActionUp,
+                        (VirtKey)event.key.keysym.sym,
+                        event.key.keysym.mod,
+                    };
+                    on_key_event(key_event);
                 }
                 break;
             case SDL_QUIT:
@@ -384,4 +386,12 @@ void Gui::on_text_input(const TextInputEvent &event) {
 
     LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
     label_widget->on_text_input(event);
+}
+
+void Gui::on_key_event(const KeyEvent &event) {
+    if (!_focus_widget)
+        return;
+
+    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
+    label_widget->on_key_event(event);
 }

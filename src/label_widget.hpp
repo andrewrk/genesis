@@ -62,6 +62,7 @@ public:
     void on_gain_focus();
     void on_lose_focus();
     void on_text_input(const TextInputEvent &event);
+    void on_key_event(const KeyEvent &event);
 
     int _gui_index;
 
