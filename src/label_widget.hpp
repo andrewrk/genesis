@@ -56,6 +56,8 @@ public:
         return _have_focus;
     }
 
+    void select_all();
+
     void on_mouse_over(const MouseEvent &event);
     void on_mouse_out(const MouseEvent &event);
     void on_mouse_move(const MouseEvent &event);

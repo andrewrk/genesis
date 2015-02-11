@@ -251,10 +251,22 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
             }
             break;
         case VirtKeyHome:
-            panic("home");
+            if (event.shift()) {
+                set_selection(_cursor_start, 0);
+            } else {
+                set_selection(0, 0);
+            }
             break;
         case VirtKeyEnd:
-            panic("end");
+            if (event.shift()) {
+                set_selection(_cursor_start, _label.text().length());
+            } else {
+                set_selection(_label.text().length(), _label.text().length());
+            }
+            break;
+        case VirtKeyA:
+            if (event.ctrl())
+                select_all();
             break;
         default:
             // do nothing
@@ -296,4 +308,8 @@ int LabelWidget::advance_word(int dir) {
         new_cursor += dir;
     }
     return new_cursor;
+}
+
+void LabelWidget::select_all() {
+    set_selection(0, _label.text().length());
 }
