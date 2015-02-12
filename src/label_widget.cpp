@@ -123,7 +123,6 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
                     } else {
                         int new_start = advance_word_from_index(new_end + 1, -1);
                         set_selection(_dbl_select_end, new_start);
-                        //set_selection(new_start, _dbl_select_end);
                     }
                 } else {
                     _cursor_end = new_end;
@@ -450,5 +449,6 @@ void LabelWidget::scroll_cursor_into_view() {
 
 void LabelWidget::set_placeholder_text(const String &text) {
     _placeholder_label.set_text(text);
+    _placeholder_label.update();
     update_model();
 }
