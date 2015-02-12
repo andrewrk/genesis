@@ -34,7 +34,8 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _width(100),
         _scroll_x(0),
         _placeholder_label(gui),
-        _placeholder_color(0.5f, 0.5f, 0.5f, 1.0f)
+        _placeholder_color(0.5f, 0.5f, 0.5f, 1.0f),
+        _mouse_down_dbl(false)
 {
     update_model();
 }
@@ -109,19 +110,36 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
         case MouseActionUp:
             if (event.button == MouseButtonLeft && _select_down) {
                 _select_down = false;
+                _mouse_down_dbl = false;
             }
             break;
         case MouseActionMove:
             if (event.buttons.left && _select_down) {
-                _cursor_end = cursor_at_pos(event.x + _scroll_x, event.y);
+                int new_end = cursor_at_pos(event.x + _scroll_x, event.y);
+                if (_mouse_down_dbl) {
+                    if (new_end >= _dbl_select_start) {
+                        int new_end2 = advance_word_from_index(new_end - 1,  1);
+                        set_selection(_dbl_select_start, new_end2);
+                    } else {
+                        int new_start = advance_word_from_index(new_end + 1, -1);
+                        set_selection(_dbl_select_end, new_start);
+                        //set_selection(new_start, _dbl_select_end);
+                    }
+                } else {
+                    _cursor_end = new_end;
+                }
                 scroll_cursor_into_view();
             }
             break;
         case MouseActionDbl:
-            {
+            if (event.button == MouseButtonLeft) {
                 int start = advance_word_from_index(_cursor_end + 1, -1);
                 int end = advance_word_from_index(_cursor_end - 1, 1);
                 set_selection(start, end);
+                _dbl_select_start = start;
+                _dbl_select_end = end;
+                _mouse_down_dbl = true;
+                _select_down = true;
             }
             break;
     }
@@ -187,7 +205,6 @@ void LabelWidget::set_selection(int start, int end) {
     _cursor_start = clamp(0, start, _label.text().length());
     _cursor_end = clamp(0, end, _label.text().length());
     scroll_cursor_into_view();
-    _select_down = false;
 }
 
 void LabelWidget::on_gain_focus() {
@@ -404,12 +421,12 @@ void LabelWidget::set_auto_size(bool value) {
     scroll_cursor_into_view();
 }
 
-void LabelWidget::scroll_cursor_into_view() {
+void LabelWidget::scroll_index_into_view(int char_index) {
     if (_auto_size) {
         _scroll_x = 0;
     } else {
         int x, y;
-        pos_at_cursor(_cursor_end, x, y);
+        pos_at_cursor(char_index, x, y);
 
         int cursor_too_far_right = x - (_width - _padding_right);
         if (cursor_too_far_right > 0)
@@ -425,6 +442,10 @@ void LabelWidget::scroll_cursor_into_view() {
 
     update_model();
     update_selection_model();
+}
+
+void LabelWidget::scroll_cursor_into_view() {
+    return scroll_index_into_view(_cursor_end);
 }
 
 void LabelWidget::set_placeholder_text(const String &text) {

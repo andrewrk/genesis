@@ -42,7 +42,6 @@ make
 
 ## Roadmap
 
- 0. Double clicking in a text box
  0. UI for the user to load a file.
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.

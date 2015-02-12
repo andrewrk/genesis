@@ -111,6 +111,9 @@ private:
 
     Label _placeholder_label;
     glm::vec4 _placeholder_color;
+    bool _mouse_down_dbl;
+    int _dbl_select_start;
+    int _dbl_select_end;
 
     void update_model();
 
@@ -124,6 +127,7 @@ private:
     int advance_word(int dir);
     int advance_word_from_index(int index, int dir);
     void scroll_cursor_into_view();
+    void scroll_index_into_view(int char_index);
 };
 
 #endif
