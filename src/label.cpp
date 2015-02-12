@@ -316,6 +316,8 @@ void Label::update_render_sel_slice() {
     get_render_coords(main_start_x, main_end_x);
     if (end_x > main_end_x)
         end_x = main_end_x;
+    if (start_x < main_start_x)
+        start_x = main_start_x;
 
     float width = end_x - start_x;
     float tex_start_x = ((float)start_x) / ((float)_width);

@@ -21,7 +21,7 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _select_down(false),
         _have_focus(false),
         _width(100),
-        _cursor_visible(true)
+        _scroll_x(0)
 {
     update_model();
 }
@@ -35,11 +35,9 @@ void LabelWidget::draw(const glm::mat4 &projection) {
 
     if (_have_focus && _cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
-            if (_cursor_visible) {
-                // draw cursor
-                glm::mat4 cursor_mvp = projection * _cursor_model;
-                _gui->fill_rect(_selection_color, cursor_mvp);
-            }
+            // draw cursor
+            glm::mat4 cursor_mvp = projection * _cursor_model;
+            _gui->fill_rect(_selection_color, cursor_mvp);
         } else {
             // draw selection rectangle
             glm::mat4 sel_mvp = projection * _sel_model;
@@ -57,8 +55,8 @@ void LabelWidget::update_model() {
         slice_start_x = -1;
         slice_end_x = -1;
     } else {
-        slice_start_x = 0;
-        slice_end_x = _width - _padding_left - _padding_right;
+        slice_start_x = _scroll_x;
+        slice_end_x = _scroll_x + _width - _padding_left - _padding_right;
     }
     _label.set_slice(slice_start_x, slice_end_x);
 
@@ -85,11 +83,11 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
     switch (event.action) {
         case MouseActionDown:
             if (event.button == MouseButtonLeft) {
-                int index = cursor_at_pos(event.x, event.y);
+                int index = cursor_at_pos(event.x + _scroll_x, event.y);
                 _cursor_start = index;
                 _cursor_end = index;
                 _select_down = true;
-                update_selection_model();
+                scroll_cursor_into_view();
                 break;
             }
         case MouseActionUp:
@@ -99,8 +97,8 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
             break;
         case MouseActionMove:
             if (event.buttons.left && _select_down) {
-                _cursor_end = cursor_at_pos(event.x, event.y);
-                update_selection_model();
+                _cursor_end = cursor_at_pos(event.x + _scroll_x, event.y);
+                scroll_cursor_into_view();
             }
             break;
     }
@@ -114,7 +112,7 @@ int LabelWidget::cursor_at_pos(int x, int y) const {
 
 void LabelWidget::pos_at_cursor(int index, int &x, int &y) const {
     _label.pos_at_cursor(index, x, y);
-    x += _padding_left;
+    x += _padding_left - _scroll_x;
     y += _padding_top;
 }
 
@@ -132,7 +130,6 @@ void LabelWidget::update_selection_model() {
     if (_cursor_start == _cursor_end) {
         int x, y;
         pos_at_cursor(_cursor_start, x, y);
-        _cursor_visible = x < (width() - _padding_right);
         _cursor_model = glm::scale(
                             glm::translate(
                                 glm::mat4(1.0f),
@@ -144,8 +141,13 @@ void LabelWidget::update_selection_model() {
         _label.set_sel_slice(start, end);
         int start_x, end_x;
         _label.get_slice_dimensions(start, end, start_x, end_x);
-        int max_sel_width = width() - _padding_left - _padding_right - start_x;
-        int sel_width = min(end_x - start_x, max_sel_width);
+        start_x -= _scroll_x;
+        end_x -= _scroll_x;
+        int max_end_x = width() - _padding_left - _padding_right;
+        int min_start_x = 0;
+        start_x = max(min_start_x, start_x);
+        end_x = min(max_end_x, end_x);
+        int sel_width = end_x - start_x;
         _sel_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
@@ -161,7 +163,7 @@ void LabelWidget::update_selection_model() {
 void LabelWidget::set_selection(int start, int end) {
     _cursor_start = clamp(0, start, _label.text().length());
     _cursor_end = clamp(0, end, _label.text().length());
-    update_selection_model();
+    scroll_cursor_into_view();
     _select_down = false;
 }
 
@@ -197,8 +199,7 @@ void LabelWidget::replace_text(int start, int end, const String &text, int curso
     _cursor_end = clamp(0, start + cursor_modifier, _label.text().length());
 
     _label.update();
-    update_model();
-    update_selection_model();
+    scroll_cursor_into_view();
 }
 
 void LabelWidget::on_key_event(const KeyEvent &event) {
@@ -379,13 +380,32 @@ int LabelWidget::height() const {
 void LabelWidget::set_width(int new_width) {
     _width = new_width;
     _auto_size = false;
-
-    update_model();
-    update_selection_model();
+    scroll_cursor_into_view();
 }
 
 void LabelWidget::set_auto_size(bool value) {
     _auto_size = value;
+    scroll_cursor_into_view();
+}
+
+void LabelWidget::scroll_cursor_into_view() {
+    if (_auto_size) {
+        _scroll_x = 0;
+    } else {
+        int x, y;
+        pos_at_cursor(_cursor_end, x, y);
+
+        int cursor_too_far_right = x - (width() - _padding_right - 1);
+        if (cursor_too_far_right > 0)
+            _scroll_x += cursor_too_far_right;
+
+        int cursor_too_far_left = -x + _padding_left;
+        if (cursor_too_far_left > 0)
+            _scroll_x -= cursor_too_far_left;
+
+        int max_scroll_x = _label.width() - (_width - _padding_left - _padding_right);
+        _scroll_x = clamp(0, _scroll_x, max_scroll_x);
+    }
 
     update_model();
     update_selection_model();

@@ -105,7 +105,7 @@ private:
     // used when _auto_size is false
     int _width;
 
-    bool _cursor_visible;
+    int _scroll_x;
 
     void update_model();
 
@@ -117,6 +117,7 @@ private:
     int backward_word();
     int forward_word();
     int advance_word(int dir);
+    void scroll_cursor_into_view();
 };
 
 #endif
