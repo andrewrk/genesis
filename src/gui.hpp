@@ -56,7 +56,7 @@ struct MouseEvent {
 
 uint32_t hash_int(const int &x);
 
-class LabelWidget;
+class TextWidget;
 class Gui {
 public:
     Gui(SDL_Window *window);
@@ -64,7 +64,7 @@ public:
 
     void exec();
 
-    LabelWidget *create_label_widget();
+    TextWidget *create_text_widget();
 
     void remove_widget(Widget *widget);
 

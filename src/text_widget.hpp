@@ -1,17 +1,17 @@
-#ifndef LABEL_WIDGET_HPP
-#define LABEL_WIDGET_HPP
+#ifndef TEXT_WIDGET_HPP
+#define TEXT_WIDGET_HPP
 
 #include "string.hpp"
 #include "label.hpp"
 #include "glm.hpp"
 #include "gui.hpp"
 
-class LabelWidget {
+class TextWidget {
 public:
-    LabelWidget(Gui *gui, int gui_index);
-    ~LabelWidget() {}
-    LabelWidget(const LabelWidget &copy) = delete;
-    LabelWidget &operator=(const LabelWidget &copy) = delete;
+    TextWidget(Gui *gui, int gui_index);
+    ~TextWidget() {}
+    TextWidget(const TextWidget &copy) = delete;
+    TextWidget &operator=(const TextWidget &copy) = delete;
 
     void set_text(const String &text) {
         _label.set_text(text);

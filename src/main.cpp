@@ -1,7 +1,7 @@
 #include "util.hpp"
 #include "genesis.hpp"
 #include "gui.hpp"
-#include "label_widget.hpp"
+#include "text_widget.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -33,10 +33,10 @@ int main(int argc, char *argv[]) {
 
     Gui gui(window);
 
-    LabelWidget *label_widget = gui.create_label_widget();
-    label_widget->set_text("");
-    label_widget->set_pos(100, 100);
-    label_widget->set_placeholder_text("file filter");
+    TextWidget *text_widget = gui.create_text_widget();
+    text_widget->set_text("");
+    text_widget->set_pos(100, 100);
+    text_widget->set_placeholder_text("file filter");
 
     gui.exec();
 

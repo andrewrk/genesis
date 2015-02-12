@@ -1,4 +1,4 @@
-#include "label_widget.hpp"
+#include "text_widget.hpp"
 #include "gui.hpp"
 
 static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
@@ -12,7 +12,7 @@ static bool is_whitespace(uint32_t c) {
     return false;
 }
 
-LabelWidget::LabelWidget(Gui *gui, int gui_index) :
+TextWidget::TextWidget(Gui *gui, int gui_index) :
         _gui_index(gui_index),
         _label(gui),
         _is_visible(true),
@@ -40,7 +40,7 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
     update_model();
 }
 
-void LabelWidget::draw(const glm::mat4 &projection) {
+void TextWidget::draw(const glm::mat4 &projection) {
     glm::mat4 bg_mvp = projection * _bg_model;
     _gui->fill_rect(_background_color, bg_mvp);
 
@@ -66,7 +66,7 @@ void LabelWidget::draw(const glm::mat4 &projection) {
     }
 }
 
-void LabelWidget::update_model() {
+void TextWidget::update_model() {
     int slice_start_x, slice_end_x;
     if (_auto_size) {
         slice_start_x = -1;
@@ -88,15 +88,15 @@ void LabelWidget::update_model() {
                     glm::vec3(width(), height(), 0.0f));
 }
 
-void LabelWidget::on_mouse_over(const MouseEvent &event) {
+void TextWidget::on_mouse_over(const MouseEvent &event) {
     SDL_SetCursor(_gui->_cursor_ibeam);
 }
 
-void LabelWidget::on_mouse_out(const MouseEvent &event) {
+void TextWidget::on_mouse_out(const MouseEvent &event) {
     SDL_SetCursor(_gui->_cursor_default);
 }
 
-void LabelWidget::on_mouse_move(const MouseEvent &event) {
+void TextWidget::on_mouse_move(const MouseEvent &event) {
     switch (event.action) {
         case MouseActionDown:
             if (event.button == MouseButtonLeft) {
@@ -144,19 +144,19 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
     }
 }
 
-int LabelWidget::cursor_at_pos(int x, int y) const {
+int TextWidget::cursor_at_pos(int x, int y) const {
     int inner_x = x - _padding_left;
     int inner_y = y - _padding_top;
     return _label.cursor_at_pos(inner_x, inner_y);
 }
 
-void LabelWidget::pos_at_cursor(int index, int &x, int &y) const {
+void TextWidget::pos_at_cursor(int index, int &x, int &y) const {
     _label.pos_at_cursor(index, x, y);
     x += _padding_left - _scroll_x;
     y += _padding_top;
 }
 
-void LabelWidget::get_cursor_slice(int &start, int &end) const {
+void TextWidget::get_cursor_slice(int &start, int &end) const {
     if (_cursor_start <= _cursor_end) {
         start = _cursor_start;
         end = _cursor_end;
@@ -166,7 +166,7 @@ void LabelWidget::get_cursor_slice(int &start, int &end) const {
     }
 }
 
-void LabelWidget::update_selection_model() {
+void TextWidget::update_selection_model() {
     if (_cursor_start == _cursor_end) {
         int x, y;
         pos_at_cursor(_cursor_start, x, y);
@@ -200,23 +200,23 @@ void LabelWidget::update_selection_model() {
     }
 }
 
-void LabelWidget::set_selection(int start, int end) {
+void TextWidget::set_selection(int start, int end) {
     _cursor_start = clamp(0, start, _label.text().length());
     _cursor_end = clamp(0, end, _label.text().length());
     scroll_cursor_into_view();
 }
 
-void LabelWidget::on_gain_focus() {
+void TextWidget::on_gain_focus() {
     _have_focus = true;
     _gui->start_text_editing(left(), top(), width(), height());
 }
 
-void LabelWidget::on_lose_focus() {
+void TextWidget::on_lose_focus() {
     _have_focus = false;
     _gui->stop_text_editing();
 }
 
-void LabelWidget::on_text_input(const TextInputEvent &event) {
+void TextWidget::on_text_input(const TextInputEvent &event) {
     if (event.action == TextInputActionCandidate) {
         // 1. Need a ttf font that supports more characters
         // 2. Support displaying this event
@@ -228,7 +228,7 @@ void LabelWidget::on_text_input(const TextInputEvent &event) {
     replace_text(start, end, event.text, 1);
 }
 
-void LabelWidget::replace_text(int start, int end, const String &text, int cursor_modifier) {
+void TextWidget::replace_text(int start, int end, const String &text, int cursor_modifier) {
     start = clamp(0, start, _label.text().length());
     end = clamp(0, end, _label.text().length());
 
@@ -241,7 +241,7 @@ void LabelWidget::replace_text(int start, int end, const String &text, int curso
     scroll_cursor_into_view();
 }
 
-void LabelWidget::on_key_event(const KeyEvent &event) {
+void TextWidget::on_key_event(const KeyEvent &event) {
     if (event.action == KeyActionUp)
         return;
 
@@ -342,19 +342,19 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
     }
 }
 
-int LabelWidget::backward_word() {
+int TextWidget::backward_word() {
     return advance_word(-1);
 }
 
-int LabelWidget::forward_word() {
+int TextWidget::forward_word() {
     return advance_word(1);
 }
 
-int LabelWidget::advance_word(int dir) {
+int TextWidget::advance_word(int dir) {
     return advance_word_from_index(_cursor_end, dir);
 }
 
-int LabelWidget::advance_word_from_index(int start_index, int dir) {
+int TextWidget::advance_word_from_index(int start_index, int dir) {
     int init_advance = (dir > 0) ? 0 : 1;
     int new_cursor = clamp(0, start_index - init_advance, _label.text().length());
     bool found_non_whitespace = false;
@@ -371,24 +371,24 @@ int LabelWidget::advance_word_from_index(int start_index, int dir) {
     return new_cursor;
 }
 
-void LabelWidget::select_all() {
+void TextWidget::select_all() {
     set_selection(0, _label.text().length());
 }
 
-void LabelWidget::cut() {
+void TextWidget::cut() {
     int start, end;
     get_cursor_slice(start, end);
     _gui->set_clipboard_string(_label.text().substring(start, end));
     replace_text(start, end, "", 0);
 }
 
-void LabelWidget::copy() {
+void TextWidget::copy() {
     int start, end;
     get_cursor_slice(start, end);
     _gui->set_clipboard_string(_label.text().substring(start, end));
 }
 
-void LabelWidget::paste() {
+void TextWidget::paste() {
     if (!_gui->clipboard_has_string())
         return;
     int start, end;
@@ -397,7 +397,7 @@ void LabelWidget::paste() {
     replace_text(start, end, str, str.length());
 }
 
-int LabelWidget::width() const {
+int TextWidget::width() const {
     if (_auto_size) {
         return _label.width() + _padding_left + _padding_right;
     } else {
@@ -405,22 +405,22 @@ int LabelWidget::width() const {
     }
 }
 
-int LabelWidget::height() const {
+int TextWidget::height() const {
     return _label.height() + _padding_top + _padding_bottom;
 }
 
-void LabelWidget::set_width(int new_width) {
+void TextWidget::set_width(int new_width) {
     _width = new_width;
     _auto_size = false;
     scroll_cursor_into_view();
 }
 
-void LabelWidget::set_auto_size(bool value) {
+void TextWidget::set_auto_size(bool value) {
     _auto_size = value;
     scroll_cursor_into_view();
 }
 
-void LabelWidget::scroll_index_into_view(int char_index) {
+void TextWidget::scroll_index_into_view(int char_index) {
     if (_auto_size) {
         _scroll_x = 0;
     } else {
@@ -443,11 +443,11 @@ void LabelWidget::scroll_index_into_view(int char_index) {
     update_selection_model();
 }
 
-void LabelWidget::scroll_cursor_into_view() {
+void TextWidget::scroll_cursor_into_view() {
     return scroll_index_into_view(_cursor_end);
 }
 
-void LabelWidget::set_placeholder_text(const String &text) {
+void TextWidget::set_placeholder_text(const String &text) {
     _placeholder_label.set_text(text);
     _placeholder_label.update();
     update_model();

@@ -1,6 +1,6 @@
 #include "gui.hpp"
 #include "debug.hpp"
-#include "label_widget.hpp"
+#include "text_widget.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -244,9 +244,9 @@ void Gui::exec() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         for (int i = 0; i < _widget_list.length(); i += 1) {
-            LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_widget_list.at(i));
-            if (label_widget->is_visible())
-                label_widget->draw(_projection);
+            TextWidget *text_widget = reinterpret_cast<TextWidget*>(_widget_list.at(i));
+            if (text_widget->is_visible())
+                text_widget->draw(_projection);
         }
 
         SDL_GL_SwapWindow(_window);
@@ -260,10 +260,10 @@ void Gui::resize() {
     _projection = glm::ortho(0.0f, (float)_width, (float)_height, 0.0f);
 }
 
-LabelWidget * Gui::create_label_widget() {
-    LabelWidget *label_widget = create<LabelWidget>(this, _widget_list.length());
-    _widget_list.append(label_widget);
-    return label_widget;
+TextWidget * Gui::create_text_widget() {
+    TextWidget *text_widget = create<TextWidget>(this, _widget_list.length());
+    _widget_list.append(text_widget);
+    return text_widget;
 }
 
 FontSize *Gui::get_font_size(int font_size) {
@@ -297,15 +297,15 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
 }
 
 void Gui::remove_widget(Widget *widget) {
-    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
-    _widget_list.swap_remove(label_widget->_gui_index);
+    TextWidget *text_widget = reinterpret_cast<TextWidget*>(widget);
+    _widget_list.swap_remove(text_widget->_gui_index);
 }
 
 void Gui::on_mouse_move(const MouseEvent &event) {
     // if we're pressing a mouse button, the mouse over widget gets the event
     bool pressing_any_btn = (event.buttons.left || event.buttons.middle || event.buttons.right);
     if (_mouse_over_widget) {
-        LabelWidget *mouse_over_label = reinterpret_cast<LabelWidget*>(_mouse_over_widget);
+        TextWidget *mouse_over_label = reinterpret_cast<TextWidget*>(_mouse_over_widget);
         int right = mouse_over_label->left() + mouse_over_label->width();
         int bottom = mouse_over_label->top() + mouse_over_label->height();
         bool in_bounds = (event.x >= mouse_over_label->left() &&
@@ -338,24 +338,24 @@ void Gui::on_mouse_move(const MouseEvent &event) {
 
     for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
-        LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
+        TextWidget *text_widget = reinterpret_cast<TextWidget*>(widget);
 
-        int right = label_widget->left() + label_widget->width();
-        int bottom = label_widget->top() + label_widget->height();
-        if (event.x >= label_widget->left() && event.y >= label_widget->top() &&
+        int right = text_widget->left() + text_widget->width();
+        int bottom = text_widget->top() + text_widget->height();
+        if (event.x >= text_widget->left() && event.y >= text_widget->top() &&
             event.x < right && event.y < bottom)
         {
             MouseEvent mouse_event = event;
-            mouse_event.x -= label_widget->left();
-            mouse_event.y -= label_widget->top();
+            mouse_event.x -= text_widget->left();
+            mouse_event.y -= text_widget->top();
 
-            _mouse_over_widget = label_widget;
+            _mouse_over_widget = text_widget;
 
             if (pressing_any_btn && _mouse_over_widget != _focus_widget)
                 set_focus_widget(_mouse_over_widget);
 
-            label_widget->on_mouse_over(mouse_event);
-            label_widget->on_mouse_move(mouse_event);
+            text_widget->on_mouse_over(mouse_event);
+            text_widget->on_mouse_move(mouse_event);
             return;
         }
     }
@@ -365,15 +365,15 @@ void Gui::set_focus_widget(Widget *widget) {
     if (_focus_widget == widget)
         return;
     if (_focus_widget) {
-        LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
+        TextWidget *text_widget = reinterpret_cast<TextWidget*>(_focus_widget);
         _focus_widget = NULL;
-        label_widget->on_lose_focus();
+        text_widget->on_lose_focus();
     }
     if (!widget)
         return;
     _focus_widget = widget;
-    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(widget);
-    label_widget->on_gain_focus();
+    TextWidget *text_widget = reinterpret_cast<TextWidget*>(widget);
+    text_widget->on_gain_focus();
 }
 
 void Gui::start_text_editing(int x, int y, int w, int h) {
@@ -394,16 +394,16 @@ void Gui::on_text_input(const TextInputEvent &event) {
     if (!_focus_widget)
         panic("focus widget non NULL and text input on");
 
-    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
-    label_widget->on_text_input(event);
+    TextWidget *text_widget = reinterpret_cast<TextWidget*>(_focus_widget);
+    text_widget->on_text_input(event);
 }
 
 void Gui::on_key_event(const KeyEvent &event) {
     if (!_focus_widget)
         return;
 
-    LabelWidget *label_widget = reinterpret_cast<LabelWidget*>(_focus_widget);
-    label_widget->on_key_event(event);
+    TextWidget *text_widget = reinterpret_cast<TextWidget*>(_focus_widget);
+    text_widget->on_key_event(event);
 }
 
 void Gui::set_clipboard_string(const String &str) {
