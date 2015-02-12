@@ -200,11 +200,21 @@ void Gui::exec() {
                     bool left = event.button.state & SDL_BUTTON_LMASK;
                     bool middle = event.button.state & SDL_BUTTON_MMASK;
                     bool right = event.button.state & SDL_BUTTON_RMASK;
+                    MouseAction action;
+                    if (event.button.type == SDL_MOUSEBUTTONDOWN) {
+                        if (event.button.clicks == 1) {
+                            action = MouseActionDown;
+                        } else {
+                            action = MouseActionDbl;
+                        }
+                    } else {
+                        action = MouseActionUp;
+                    }
                     MouseEvent mouse_event = {
                         event.button.x,
                         event.button.y,
                         btn,
-                        (event.button.type == SDL_MOUSEBUTTONDOWN) ? MouseActionDown : MouseActionUp,
+                        action,
                         MouseButtons {left, middle, right},
                     };
                     on_mouse_move(mouse_event);

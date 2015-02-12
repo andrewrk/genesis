@@ -122,6 +122,7 @@ private:
     int backward_word();
     int forward_word();
     int advance_word(int dir);
+    int advance_word_from_index(int index, int dir);
     void scroll_cursor_into_view();
 };
 

@@ -1,6 +1,17 @@
 #include "label_widget.hpp"
 #include "gui.hpp"
 
+static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
+    8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232,
+    8233, 8239, 8287, 12288};
+static bool is_whitespace(uint32_t c) {
+    for (size_t i = 0; i < array_length(whitespace); i+= 1) {
+        if (c == whitespace[i])
+            return true;
+    }
+    return false;
+}
+
 LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _gui_index(gui_index),
         _label(gui),
@@ -104,6 +115,13 @@ void LabelWidget::on_mouse_move(const MouseEvent &event) {
             if (event.buttons.left && _select_down) {
                 _cursor_end = cursor_at_pos(event.x + _scroll_x, event.y);
                 scroll_cursor_into_view();
+            }
+            break;
+        case MouseActionDbl:
+            {
+                int start = advance_word_from_index(_cursor_end + 1, -1);
+                int end = advance_word_from_index(_cursor_end - 1, 1);
+                set_selection(start, end);
             }
             break;
     }
@@ -308,17 +326,6 @@ void LabelWidget::on_key_event(const KeyEvent &event) {
     }
 }
 
-static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
-    8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232,
-    8233, 8239, 8287, 12288};
-static bool is_whitespace(uint32_t c) {
-    for (size_t i = 0; i < array_length(whitespace); i+= 1) {
-        if (c == whitespace[i])
-            return true;
-    }
-    return false;
-}
-
 int LabelWidget::backward_word() {
     return advance_word(-1);
 }
@@ -328,8 +335,12 @@ int LabelWidget::forward_word() {
 }
 
 int LabelWidget::advance_word(int dir) {
+    return advance_word_from_index(_cursor_end, dir);
+}
+
+int LabelWidget::advance_word_from_index(int start_index, int dir) {
     int init_advance = (dir > 0) ? 0 : 1;
-    int new_cursor = clamp(0, _cursor_end - init_advance, _label.text().length());
+    int new_cursor = clamp(0, start_index - init_advance, _label.text().length());
     bool found_non_whitespace = false;
     while ((new_cursor + dir) >= 0 && (new_cursor + dir) <= _label.text().length()) {
         uint32_t c = _label.text().at(new_cursor);

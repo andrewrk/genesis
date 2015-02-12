@@ -37,6 +37,7 @@ enum MouseAction {
     MouseActionMove,
     MouseActionDown,
     MouseActionUp,
+    MouseActionDbl,
 };
 
 struct MouseButtons {
