@@ -352,7 +352,7 @@ void Label::get_render_coords(int &start_x, int &end_x) {
         end_x = _width;
     } else {
         start_x = _render_slice_start_x;
-        end_x = _render_slice_end_x;
+        end_x = min(_render_slice_end_x, _width);
     }
 }
 
