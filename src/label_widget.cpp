@@ -21,7 +21,9 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _select_down(false),
         _have_focus(false),
         _width(100),
-        _scroll_x(0)
+        _scroll_x(0),
+        _placeholder_label(gui),
+        _placeholder_color(0.5f, 0.5f, 0.5f, 1.0f)
 {
     update_model();
 }
@@ -31,6 +33,9 @@ void LabelWidget::draw(const glm::mat4 &projection) {
     _gui->fill_rect(_background_color, bg_mvp);
 
     glm::mat4 label_mvp = projection * _label_model;
+    if (_placeholder_label.text().length() > 0 && _label.text().length() == 0)
+        _placeholder_label.draw(label_mvp, _placeholder_color);
+
     _label.draw(label_mvp, _text_color);
 
     if (_have_focus && _cursor_start != -1 && _cursor_end != -1) {
@@ -395,7 +400,7 @@ void LabelWidget::scroll_cursor_into_view() {
         int x, y;
         pos_at_cursor(_cursor_end, x, y);
 
-        int cursor_too_far_right = x - (width() - _padding_right - 1);
+        int cursor_too_far_right = x - (_width - _padding_right);
         if (cursor_too_far_right > 0)
             _scroll_x += cursor_too_far_right;
 
@@ -403,10 +408,15 @@ void LabelWidget::scroll_cursor_into_view() {
         if (cursor_too_far_left > 0)
             _scroll_x -= cursor_too_far_left;
 
-        int max_scroll_x = _label.width() - (_width - _padding_left - _padding_right);
+        int max_scroll_x = max(0, _label.width() - (_width - _padding_left - _padding_right));
         _scroll_x = clamp(0, _scroll_x, max_scroll_x);
     }
 
     update_model();
     update_selection_model();
+}
+
+void LabelWidget::set_placeholder_text(const String &text) {
+    _placeholder_label.set_text(text);
+    update_model();
 }

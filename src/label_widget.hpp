@@ -18,6 +18,8 @@ public:
         _label.update();
     }
 
+    void set_placeholder_text(const String &text);
+
     void set_font_size(int size) {
         _label.set_font_size(size);
         _label.update();
@@ -106,6 +108,9 @@ private:
     int _width;
 
     int _scroll_x;
+
+    Label _placeholder_label;
+    glm::vec4 _placeholder_color;
 
     void update_model();
 
