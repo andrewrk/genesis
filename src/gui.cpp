@@ -1,6 +1,7 @@
 #include "gui.hpp"
 #include "debug.hpp"
 #include "text_widget.hpp"
+#include "find_file_widget.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -154,7 +155,7 @@ void Gui::exec() {
                         (VirtKey)event.key.keysym.sym,
                         event.key.keysym.mod,
                     };
-                    on_key_event(key_event);
+                    on_key_event(&key_event);
                 }
                 break;
             case SDL_QUIT:
@@ -181,7 +182,7 @@ void Gui::exec() {
                         MouseActionMove,
                         MouseButtons {left, middle, right},
                     };
-                    on_mouse_move(mouse_event);
+                    on_mouse_move(&mouse_event);
                 }
                 break;
             case SDL_MOUSEBUTTONDOWN:
@@ -217,7 +218,7 @@ void Gui::exec() {
                         action,
                         MouseButtons {left, middle, right},
                     };
-                    on_mouse_move(mouse_event);
+                    on_mouse_move(&mouse_event);
                 }
                 break;
             case SDL_TEXTEDITING:
@@ -226,7 +227,7 @@ void Gui::exec() {
                         TextInputActionCandidate,
                         String(event.edit.text),
                     };
-                    on_text_input(text_event);
+                    on_text_input(&text_event);
                     break;
                 }
             case SDL_TEXTINPUT:
@@ -235,7 +236,7 @@ void Gui::exec() {
                         TextInputActionCommit,
                         String(event.text.text),
                     };
-                    on_text_input(text_event);
+                    on_text_input(&text_event);
                     break;
                 }
             }
@@ -244,9 +245,10 @@ void Gui::exec() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         for (int i = 0; i < _widget_list.length(); i += 1) {
-            TextWidget *text_widget = reinterpret_cast<TextWidget*>(_widget_list.at(i));
-            if (text_widget->is_visible())
-                text_widget->draw(_projection);
+            Widget *widget = _widget_list.at(i);
+            if (widget->is_visible(widget)) {
+                widget->draw(widget, _projection);
+            }
         }
 
         SDL_GL_SwapWindow(_window);
@@ -261,9 +263,19 @@ void Gui::resize() {
 }
 
 TextWidget * Gui::create_text_widget() {
-    TextWidget *text_widget = create<TextWidget>(this, _widget_list.length());
-    _widget_list.append(text_widget);
+    TextWidget *text_widget = create<TextWidget>(this);
+    Widget *widget = &text_widget->_widget;
+    widget->_gui_index = _widget_list.length();
+    _widget_list.append(widget);
     return text_widget;
+}
+
+FindFileWidget *Gui::create_find_file_widget() {
+    FindFileWidget *find_file_widget = create<FindFileWidget>();
+    Widget *widget = &find_file_widget->_widget;
+    widget->_gui_index = _widget_list.length();
+    _widget_list.append(widget);
+    return find_file_widget;
 }
 
 FontSize *Gui::get_font_size(int font_size) {
@@ -296,40 +308,42 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void Gui::remove_widget(Widget *widget) {
-    TextWidget *text_widget = reinterpret_cast<TextWidget*>(widget);
-    _widget_list.swap_remove(text_widget->_gui_index);
+void Gui::destroy_widget(Widget *widget) {
+    _widget_list.swap_remove(widget->_gui_index);
+    widget->destroy(widget);
 }
 
-void Gui::on_mouse_move(const MouseEvent &event) {
+void Gui::on_mouse_move(const MouseEvent *event) {
     // if we're pressing a mouse button, the mouse over widget gets the event
-    bool pressing_any_btn = (event.buttons.left || event.buttons.middle || event.buttons.right);
+    bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
     if (_mouse_over_widget) {
-        TextWidget *mouse_over_label = reinterpret_cast<TextWidget*>(_mouse_over_widget);
-        int right = mouse_over_label->left() + mouse_over_label->width();
-        int bottom = mouse_over_label->top() + mouse_over_label->height();
-        bool in_bounds = (event.x >= mouse_over_label->left() &&
-                event.y >= mouse_over_label->top() &&
-                event.x < right &&
-                event.y < bottom);
+        int right = _mouse_over_widget->left(_mouse_over_widget) +
+            _mouse_over_widget->width(_mouse_over_widget);
+        int bottom = _mouse_over_widget->top(_mouse_over_widget) +
+            _mouse_over_widget->height(_mouse_over_widget);
+        bool in_bounds = (event->x >= _mouse_over_widget->left(_mouse_over_widget) &&
+                event->y >= _mouse_over_widget->top(_mouse_over_widget) &&
+                event->x < right &&
+                event->y < bottom);
 
-        MouseEvent mouse_event = event;
-        mouse_event.x -= mouse_over_label->left();
-        mouse_event.y -= mouse_over_label->top();
+        MouseEvent mouse_event = *event;
+        mouse_event.x -= _mouse_over_widget->left(_mouse_over_widget);
+        mouse_event.y -= _mouse_over_widget->top(_mouse_over_widget);
 
         if (in_bounds || pressing_any_btn) {
             if (pressing_any_btn && _mouse_over_widget != _focus_widget)
                 set_focus_widget(_mouse_over_widget);
-            mouse_over_label->on_mouse_move(mouse_event);
+            _mouse_over_widget->on_mouse_move(_mouse_over_widget, &mouse_event);
             return;
         } else {
             // not in bounds, not pressing any button
-            if (event.action == MouseActionUp) {
+            if (event->action == MouseActionUp) {
                 // give them the mouse up event
-                mouse_over_label->on_mouse_move(mouse_event);
+                _mouse_over_widget->on_mouse_move(_mouse_over_widget, &mouse_event);
             }
+            Widget *old_mouse_over_widget = _mouse_over_widget;
             _mouse_over_widget = NULL;
-            mouse_over_label->on_mouse_out(mouse_event);
+            old_mouse_over_widget->on_mouse_out(old_mouse_over_widget, &mouse_event);
         }
     }
 
@@ -338,24 +352,23 @@ void Gui::on_mouse_move(const MouseEvent &event) {
 
     for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
-        TextWidget *text_widget = reinterpret_cast<TextWidget*>(widget);
 
-        int right = text_widget->left() + text_widget->width();
-        int bottom = text_widget->top() + text_widget->height();
-        if (event.x >= text_widget->left() && event.y >= text_widget->top() &&
-            event.x < right && event.y < bottom)
+        int right = widget->left(widget) + widget->width(widget);
+        int bottom = widget->top(widget) + widget->height(widget);
+        if (event->x >= widget->left(widget) && event->y >= widget->top(widget) &&
+            event->x < right && event->y < bottom)
         {
-            MouseEvent mouse_event = event;
-            mouse_event.x -= text_widget->left();
-            mouse_event.y -= text_widget->top();
+            MouseEvent mouse_event = *event;
+            mouse_event.x -= widget->left(widget);
+            mouse_event.y -= widget->top(widget);
 
-            _mouse_over_widget = text_widget;
+            _mouse_over_widget = widget;
 
             if (pressing_any_btn && _mouse_over_widget != _focus_widget)
                 set_focus_widget(_mouse_over_widget);
 
-            text_widget->on_mouse_over(mouse_event);
-            text_widget->on_mouse_move(mouse_event);
+            widget->on_mouse_over(widget, &mouse_event);
+            widget->on_mouse_move(widget, &mouse_event);
             return;
         }
     }
@@ -365,15 +378,14 @@ void Gui::set_focus_widget(Widget *widget) {
     if (_focus_widget == widget)
         return;
     if (_focus_widget) {
-        TextWidget *text_widget = reinterpret_cast<TextWidget*>(_focus_widget);
+        Widget *old_focus_widget = _focus_widget;
         _focus_widget = NULL;
-        text_widget->on_lose_focus();
+        old_focus_widget->on_lose_focus(old_focus_widget);
     }
     if (!widget)
         return;
     _focus_widget = widget;
-    TextWidget *text_widget = reinterpret_cast<TextWidget*>(widget);
-    text_widget->on_gain_focus();
+    _focus_widget->on_gain_focus(_focus_widget);
 }
 
 void Gui::start_text_editing(int x, int y, int w, int h) {
@@ -390,20 +402,18 @@ void Gui::stop_text_editing() {
     SDL_StopTextInput();
 }
 
-void Gui::on_text_input(const TextInputEvent &event) {
+void Gui::on_text_input(const TextInputEvent *event) {
     if (!_focus_widget)
         panic("focus widget non NULL and text input on");
 
-    TextWidget *text_widget = reinterpret_cast<TextWidget*>(_focus_widget);
-    text_widget->on_text_input(event);
+    _focus_widget->on_text_input(_focus_widget, event);
 }
 
-void Gui::on_key_event(const KeyEvent &event) {
+void Gui::on_key_event(const KeyEvent *event) {
     if (!_focus_widget)
         return;
 
-    TextWidget *text_widget = reinterpret_cast<TextWidget*>(_focus_widget);
-    text_widget->on_key_event(event);
+    _focus_widget->on_key_event(_focus_widget, event);
 }
 
 void Gui::set_clipboard_string(const String &str) {
@@ -425,3 +435,4 @@ String Gui::get_clipboard_string() const {
 bool Gui::clipboard_has_string() const {
     return SDL_HasClipboardText();
 }
+

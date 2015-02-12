@@ -5,10 +5,13 @@
 #include "label.hpp"
 #include "glm.hpp"
 #include "gui.hpp"
+#include "widget.hpp"
 
 class TextWidget {
 public:
-    TextWidget(Gui *gui, int gui_index);
+    Widget _widget;
+
+    TextWidget(Gui *gui);
     ~TextWidget() {}
     TextWidget(const TextWidget &copy) = delete;
     TextWidget &operator=(const TextWidget &copy) = delete;
@@ -63,15 +66,13 @@ public:
     void copy();
     void paste();
 
-    void on_mouse_over(const MouseEvent &event);
-    void on_mouse_out(const MouseEvent &event);
-    void on_mouse_move(const MouseEvent &event);
+    void on_mouse_over(const MouseEvent *event);
+    void on_mouse_out(const MouseEvent *event);
+    void on_mouse_move(const MouseEvent *event);
     void on_gain_focus();
     void on_lose_focus();
-    void on_text_input(const TextInputEvent &event);
-    void on_key_event(const KeyEvent &event);
-
-    int _gui_index;
+    void on_text_input(const TextInputEvent *event);
+    void on_key_event(const KeyEvent *event);
 
 private:
     Label _label;
@@ -128,6 +129,49 @@ private:
     int advance_word_from_index(int index, int dir);
     void scroll_cursor_into_view();
     void scroll_index_into_view(int char_index);
+
+    static bool is_visible(Widget * widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->is_visible();
+    }
+    static void draw(Widget *widget, const glm::mat4 &projection) {
+        return (reinterpret_cast<TextWidget*>(widget))->draw(projection);
+    }
+    static void destroy(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->~TextWidget();
+    }
+    static int left(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->left();
+    }
+    static int top(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->top();
+    }
+    static int width(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->width();
+    }
+    static int height(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->height();
+    }
+    static void on_mouse_move(Widget *widget, const MouseEvent *event) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_mouse_move(event);
+    }
+    static void on_mouse_out(Widget *widget, const MouseEvent *event) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_mouse_out(event);
+    }
+    static void on_mouse_over(Widget *widget, const MouseEvent *event) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_mouse_over(event);
+    }
+    static void on_gain_focus(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_gain_focus();
+    }
+    static void on_lose_focus(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_lose_focus();
+    }
+    static void on_text_input(Widget *widget, const TextInputEvent *event) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_text_input(event);
+    }
+    static void on_key_event(Widget *widget, const KeyEvent *event) {
+        return (reinterpret_cast<TextWidget*>(widget))->on_key_event(event);
+    }
 };
 
 #endif

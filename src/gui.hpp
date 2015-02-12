@@ -8,55 +8,16 @@
 #include "hash_map.hpp"
 #include "string.hpp"
 #include "font_size.hpp"
-#include "key_event.hpp"
+#include "widget.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
 #include <SDL2/SDL.h>
 
-typedef void Widget;
-
-enum TextInputAction {
-    TextInputActionCandidate,
-    TextInputActionCommit,
-};
-
-struct TextInputEvent {
-    TextInputAction action;
-    String text;
-};
-
-enum MouseButton {
-    MouseButtonNone,
-    MouseButtonLeft,
-    MouseButtonMiddle,
-    MouseButtonRight,
-};
-
-enum MouseAction {
-    MouseActionMove,
-    MouseActionDown,
-    MouseActionUp,
-    MouseActionDbl,
-};
-
-struct MouseButtons {
-    unsigned left   : 1;
-    unsigned middle : 1;
-    unsigned right  : 1;
-};
-
-struct MouseEvent {
-    int x;
-    int y;
-    MouseButton button;
-    MouseAction action;
-    MouseButtons buttons;
-};
-
 uint32_t hash_int(const int &x);
 
 class TextWidget;
+class FindFileWidget;
 class Gui {
 public:
     Gui(SDL_Window *window);
@@ -65,9 +26,9 @@ public:
     void exec();
 
     TextWidget *create_text_widget();
+    FindFileWidget *create_find_file_widget();
 
-    void remove_widget(Widget *widget);
-
+    void destroy_widget(Widget *widget);
     void set_focus_widget(Widget *widget);
 
     FontSize *get_font_size(int font_size);
@@ -122,9 +83,9 @@ private:
     Widget *_focus_widget;
 
     void resize();
-    void on_mouse_move(const MouseEvent &event);
-    void on_text_input(const TextInputEvent &event);
-    void on_key_event(const KeyEvent &event);
+    void on_mouse_move(const MouseEvent *event);
+    void on_text_input(const TextInputEvent *event);
+    void on_key_event(const KeyEvent *event);
 };
 
 #endif

@@ -31,6 +31,7 @@ genesis is programmed in a tiny subset of C++:
  * No STL.
  * No `new` or `delete`.
  * No exceptions or run-time type information.
+ * Pass pointers instead of references.
 
 ### Building and Running
 
@@ -43,6 +44,8 @@ make
 ## Roadmap
 
  0. UI for the user to load a file.
+    - display currently selected directory
+    - backspace in empty text box goes up one
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.
  0. Render channels graphically.

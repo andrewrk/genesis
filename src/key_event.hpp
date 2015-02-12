@@ -1,6 +1,7 @@
 #ifndef KEY_EVENT_HPP
 #define KEY_EVENT_HPP
 
+#include "string.hpp"
 #include <SDL2/SDL.h>
 
 enum VirtKey {
@@ -297,6 +298,17 @@ struct KeyEvent {
         return modifiers & KMOD_GUI;
     }
 };
+
+enum TextInputAction {
+    TextInputActionCandidate,
+    TextInputActionCommit,
+};
+
+struct TextInputEvent {
+    TextInputAction action;
+    String text;
+};
+
 
 
 #endif

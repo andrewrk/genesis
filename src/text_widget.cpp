@@ -12,8 +12,23 @@ static bool is_whitespace(uint32_t c) {
     return false;
 }
 
-TextWidget::TextWidget(Gui *gui, int gui_index) :
-        _gui_index(gui_index),
+TextWidget::TextWidget(Gui *gui) :
+        _widget(Widget {
+            is_visible,
+            draw,
+            destroy,
+            left,
+            top,
+            width,
+            height,
+            on_mouse_move,
+            on_mouse_out,
+            on_mouse_over,
+            on_gain_focus,
+            on_lose_focus,
+            on_text_input,
+            on_key_event,
+        }),
         _label(gui),
         _is_visible(true),
         _padding_left(4),
@@ -88,19 +103,19 @@ void TextWidget::update_model() {
                     glm::vec3(width(), height(), 0.0f));
 }
 
-void TextWidget::on_mouse_over(const MouseEvent &event) {
+void TextWidget::on_mouse_over(const MouseEvent *event) {
     SDL_SetCursor(_gui->_cursor_ibeam);
 }
 
-void TextWidget::on_mouse_out(const MouseEvent &event) {
+void TextWidget::on_mouse_out(const MouseEvent *event) {
     SDL_SetCursor(_gui->_cursor_default);
 }
 
-void TextWidget::on_mouse_move(const MouseEvent &event) {
-    switch (event.action) {
+void TextWidget::on_mouse_move(const MouseEvent *event) {
+    switch (event->action) {
         case MouseActionDown:
-            if (event.button == MouseButtonLeft) {
-                int index = cursor_at_pos(event.x + _scroll_x, event.y);
+            if (event->button == MouseButtonLeft) {
+                int index = cursor_at_pos(event->x + _scroll_x, event->y);
                 _cursor_start = index;
                 _cursor_end = index;
                 _select_down = true;
@@ -108,14 +123,14 @@ void TextWidget::on_mouse_move(const MouseEvent &event) {
                 break;
             }
         case MouseActionUp:
-            if (event.button == MouseButtonLeft && _select_down) {
+            if (event->button == MouseButtonLeft && _select_down) {
                 _select_down = false;
                 _mouse_down_dbl = false;
             }
             break;
         case MouseActionMove:
-            if (event.buttons.left && _select_down) {
-                int new_end = cursor_at_pos(event.x + _scroll_x, event.y);
+            if (event->buttons.left && _select_down) {
+                int new_end = cursor_at_pos(event->x + _scroll_x, event->y);
                 if (_mouse_down_dbl) {
                     if (new_end >= _dbl_select_start) {
                         int new_end2 = advance_word_from_index(new_end - 1,  1);
@@ -131,7 +146,7 @@ void TextWidget::on_mouse_move(const MouseEvent &event) {
             }
             break;
         case MouseActionDbl:
-            if (event.button == MouseButtonLeft) {
+            if (event->button == MouseButtonLeft) {
                 int start = advance_word_from_index(_cursor_end + 1, -1);
                 int end = advance_word_from_index(_cursor_end - 1, 1);
                 set_selection(start, end);
@@ -216,8 +231,8 @@ void TextWidget::on_lose_focus() {
     _gui->stop_text_editing();
 }
 
-void TextWidget::on_text_input(const TextInputEvent &event) {
-    if (event.action == TextInputActionCandidate) {
+void TextWidget::on_text_input(const TextInputEvent *event) {
+    if (event->action == TextInputActionCandidate) {
         // 1. Need a ttf font that supports more characters
         // 2. Support displaying this event
         panic("TODO text editing event support");
@@ -225,7 +240,7 @@ void TextWidget::on_text_input(const TextInputEvent &event) {
 
     int start, end;
     get_cursor_slice(start, end);
-    replace_text(start, end, event.text, 1);
+    replace_text(start, end, event->text, 1);
 }
 
 void TextWidget::replace_text(int start, int end, const String &text, int cursor_modifier) {
@@ -241,21 +256,21 @@ void TextWidget::replace_text(int start, int end, const String &text, int cursor
     scroll_cursor_into_view();
 }
 
-void TextWidget::on_key_event(const KeyEvent &event) {
-    if (event.action == KeyActionUp)
+void TextWidget::on_key_event(const KeyEvent *event) {
+    if (event->action == KeyActionUp)
         return;
 
     int start, end;
     get_cursor_slice(start, end);
-    switch (event.virt_key) {
+    switch (event->virt_key) {
         case VirtKeyLeft:
-            if (event.ctrl() && event.shift()) {
+            if (event->ctrl() && event->shift()) {
                 int new_end = backward_word();
                 set_selection(_cursor_start, new_end);
-            } else if (event.ctrl()) {
+            } else if (event->ctrl()) {
                 int new_start = backward_word();
                 set_selection(new_start, new_start);
-            } else if (event.shift()) {
+            } else if (event->shift()) {
                 set_selection(_cursor_start, _cursor_end - 1);
             } else {
                 if (start == end) {
@@ -266,13 +281,13 @@ void TextWidget::on_key_event(const KeyEvent &event) {
             }
             break;
         case VirtKeyRight:
-            if (event.ctrl() && event.shift()) {
+            if (event->ctrl() && event->shift()) {
                 int new_end = forward_word();
                 set_selection(_cursor_start, new_end);
-            } else if (event.ctrl()) {
+            } else if (event->ctrl()) {
                 int new_start = forward_word();
                 set_selection(new_start, new_start);
-            } else if (event.shift()) {
+            } else if (event->shift()) {
                 set_selection(_cursor_start, _cursor_end + 1);
             } else {
                 if (start == end) {
@@ -284,7 +299,7 @@ void TextWidget::on_key_event(const KeyEvent &event) {
             break;
         case VirtKeyBackspace:
             if (start == end) {
-                if (event.ctrl()) {
+                if (event->ctrl()) {
                     int new_start = backward_word();
                     replace_text(new_start, start, "", 0);
                 } else {
@@ -296,7 +311,7 @@ void TextWidget::on_key_event(const KeyEvent &event) {
             break;
         case VirtKeyDelete:
             if (start == end) {
-                if (event.ctrl()) {
+                if (event->ctrl()) {
                     int new_start = forward_word();
                     replace_text(start, new_start, "", 0);
                 } else {
@@ -307,33 +322,33 @@ void TextWidget::on_key_event(const KeyEvent &event) {
             }
             break;
         case VirtKeyHome:
-            if (event.shift()) {
+            if (event->shift()) {
                 set_selection(_cursor_start, 0);
             } else {
                 set_selection(0, 0);
             }
             break;
         case VirtKeyEnd:
-            if (event.shift()) {
+            if (event->shift()) {
                 set_selection(_cursor_start, _label.text().length());
             } else {
                 set_selection(_label.text().length(), _label.text().length());
             }
             break;
         case VirtKeyA:
-            if (event.ctrl())
+            if (event->ctrl())
                 select_all();
             break;
         case VirtKeyX:
-            if (event.ctrl())
+            if (event->ctrl())
                 cut();
             break;
         case VirtKeyC:
-            if (event.ctrl())
+            if (event->ctrl())
                 copy();
             break;
         case VirtKeyV:
-            if (event.ctrl())
+            if (event->ctrl())
                 paste();
             break;
         default:
@@ -356,9 +371,9 @@ int TextWidget::advance_word(int dir) {
 
 int TextWidget::advance_word_from_index(int start_index, int dir) {
     int init_advance = (dir > 0) ? 0 : 1;
-    int new_cursor = clamp(0, start_index - init_advance, _label.text().length());
+    int new_cursor = clamp(0, start_index - init_advance, _label.text().length() - 1);
     bool found_non_whitespace = false;
-    while ((new_cursor + dir) >= 0 && (new_cursor + dir) <= _label.text().length()) {
+    while (new_cursor >= 0 && new_cursor < _label.text().length()) {
         uint32_t c = _label.text().at(new_cursor);
         if (is_whitespace(c)) {
             if (found_non_whitespace)
