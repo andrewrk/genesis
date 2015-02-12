@@ -10,7 +10,8 @@ class LabelWidget {
 public:
     LabelWidget(Gui *gui, int gui_index);
     ~LabelWidget() {}
-    LabelWidget(LabelWidget &copy) = delete;
+    LabelWidget(const LabelWidget &copy) = delete;
+    LabelWidget &operator=(const LabelWidget &copy) = delete;
 
     void set_text(const String &text) {
         _label.set_text(text);
@@ -36,13 +37,12 @@ public:
         return _top;
     }
 
-    int width() const {
-        return _label.width() + _padding_left + _padding_right;
-    }
+    int width() const;
+    int height() const;
 
-    int height() const {
-        return _label.height() + _padding_top + _padding_bottom;
-    }
+    void set_width(int new_width);
+
+    void set_auto_size(bool value);
 
     void draw(const glm::mat4 &projection);
 
@@ -88,7 +88,7 @@ private:
     glm::vec4 _background_color;
     glm::vec4 _selection_color;
     glm::vec4 _cursor_color;
-    bool _has_background;
+    bool _auto_size;
 
     Gui *_gui;
 
@@ -101,6 +101,11 @@ private:
     glm::mat4 _sel_text_model;
 
     bool _have_focus;
+
+    // used when _auto_size is false
+    int _width;
+
+    bool _cursor_visible;
 
     void update_model();
 

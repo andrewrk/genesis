@@ -14,12 +14,14 @@ LabelWidget::LabelWidget(Gui *gui, int gui_index) :
         _background_color(0.788f, 0.812f, 0.886f, 1.0f),
         _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
-        _has_background(true),
+        _auto_size(false),
         _gui(gui),
         _cursor_start(-1),
         _cursor_end(-1),
         _select_down(false),
-        _have_focus(false)
+        _have_focus(false),
+        _width(100),
+        _cursor_visible(true)
 {
     update_model();
 }
@@ -33,31 +35,42 @@ void LabelWidget::draw(const glm::mat4 &projection) {
 
     if (_have_focus && _cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
-            // draw cursor
-            glm::mat4 cursor_mvp = projection * _cursor_model;
-            _gui->fill_rect(_selection_color, cursor_mvp);
+            if (_cursor_visible) {
+                // draw cursor
+                glm::mat4 cursor_mvp = projection * _cursor_model;
+                _gui->fill_rect(_selection_color, cursor_mvp);
+            }
         } else {
             // draw selection rectangle
             glm::mat4 sel_mvp = projection * _sel_model;
             _gui->fill_rect(_selection_color, sel_mvp);
 
             glm::mat4 sel_text_mvp = projection * _sel_text_model;
-            _label.draw_slice(sel_text_mvp, _sel_text_color);
+            _label.draw_sel_slice(sel_text_mvp, _sel_text_color);
         }
     }
 }
 
 void LabelWidget::update_model() {
+    int slice_start_x, slice_end_x;
+    if (_auto_size) {
+        slice_start_x = -1;
+        slice_end_x = -1;
+    } else {
+        slice_start_x = 0;
+        slice_end_x = _width - _padding_left - _padding_right;
+    }
+    _label.set_slice(slice_start_x, slice_end_x);
+
     float label_left = _left + _padding_left;
     float label_top = _top + _padding_top;
     _label_model = glm::translate(glm::mat4(1.0f), glm::vec3(label_left, label_top, 0.0f));
 
-
     _bg_model = glm::scale(
-                        glm::translate(
-                            glm::mat4(1.0f),
-                            glm::vec3(_left, _top, 0.0f)),
-                        glm::vec3(width(), height(), 0.0f));
+                    glm::translate(
+                        glm::mat4(1.0f),
+                        glm::vec3(_left, _top, 0.0f)),
+                    glm::vec3(width(), height(), 0.0f));
 }
 
 void LabelWidget::on_mouse_over(const MouseEvent &event) {
@@ -119,6 +132,7 @@ void LabelWidget::update_selection_model() {
     if (_cursor_start == _cursor_end) {
         int x, y;
         pos_at_cursor(_cursor_start, x, y);
+        _cursor_visible = x < (width() - _padding_right);
         _cursor_model = glm::scale(
                             glm::translate(
                                 glm::mat4(1.0f),
@@ -127,14 +141,16 @@ void LabelWidget::update_selection_model() {
     } else {
         int start, end;
         get_cursor_slice(start, end);
-        _label.set_slice(start, end);
+        _label.set_sel_slice(start, end);
         int start_x, end_x;
         _label.get_slice_dimensions(start, end, start_x, end_x);
+        int max_sel_width = width() - _padding_left - _padding_right - start_x;
+        int sel_width = min(end_x - start_x, max_sel_width);
         _sel_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
                             glm::vec3(_left + _padding_left + start_x, _top + _padding_top, 0.0f)),
-                        glm::vec3(end_x - start_x, _label.height(), 1.0f));
+                        glm::vec3(sel_width, _label.height(), 1.0f));
         float label_left = _left + _padding_left;
         float label_top = _top + _padding_top;
         _sel_text_model = glm::translate(glm::mat4(1.0f),
@@ -346,4 +362,31 @@ void LabelWidget::paste() {
     get_cursor_slice(start, end);
     String str = _gui->get_clipboard_string();
     replace_text(start, end, str, str.length());
+}
+
+int LabelWidget::width() const {
+    if (_auto_size) {
+        return _label.width() + _padding_left + _padding_right;
+    } else {
+        return _width;
+    }
+}
+
+int LabelWidget::height() const {
+    return _label.height() + _padding_top + _padding_bottom;
+}
+
+void LabelWidget::set_width(int new_width) {
+    _width = new_width;
+    _auto_size = false;
+
+    update_model();
+    update_selection_model();
+}
+
+void LabelWidget::set_auto_size(bool value) {
+    _auto_size = value;
+
+    update_model();
+    update_selection_model();
 }

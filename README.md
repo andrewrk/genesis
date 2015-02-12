@@ -42,8 +42,7 @@ make
 
 ## Roadmap
 
- 0. Make the text box support all the text editing controls you would expect
- 0. Make the text box not auto-size
+ 0. Fixed size text box scroll
  0. UI for the user to load a file.
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.

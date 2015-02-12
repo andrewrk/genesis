@@ -16,8 +16,10 @@ Label::Label(Gui *gui) :
     _width(0),
     _height(0),
     _text("Label"),
-    _render_slice_start(-1),
-    _render_slice_end(-1)
+    _render_sel_slice_start(-1),
+    _render_sel_slice_end(-1),
+    _render_slice_start_x(-1),
+    _render_slice_end_x(-1)
 {
     set_font_size(16);
 
@@ -55,7 +57,7 @@ Label::Label(Gui *gui) :
         {1, 1},
     };
     glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(_gui->_text_attrib_tex_coord);
     glVertexAttribPointer(_gui->_text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
@@ -111,7 +113,7 @@ void Label::draw(const glm::mat4 &mvp, const glm::vec4 &color) {
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void Label::draw_slice(const glm::mat4 &mvp, const glm::vec4 &color) {
+void Label::draw_sel_slice(const glm::mat4 &mvp, const glm::vec4 &color) {
     if (_text.length() == 0)
         return;
 
@@ -208,23 +210,12 @@ void Label::update() {
     _width = bounding_width;
     _height = bounding_height;
 
-    int img_buf_size =  4 * bounding_width * bounding_height;
+    update_render_slice();
+    update_render_sel_slice();
+
+    int img_buf_size =  4 * _width * _height;
     if (img_buf_size > _img_buffer.length())
         _img_buffer.resize(img_buf_size);
-
-    glBindVertexArray(_vertex_array);
-    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-    GLfloat vertexes[4][3] = {
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, bounding_height, 0.0f},
-        {bounding_width, 0.0f, 0.0f},
-        {bounding_width, bounding_height, 0.0f},
-    };
-    glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
-
-    assert_no_gl_error();
-
-    update_render_slice();
 
     _img_buffer.fill(0);
     // second pass to render bitmap
@@ -291,28 +282,41 @@ void Label::get_slice_dimensions(int start, int end, int &start_x, int &end_x) c
     start_x = start_letter->left;
 }
 
-void Label::set_slice(int start, int end) {
-    _render_slice_start = start;
-    _render_slice_end = end;
-    update_render_slice();
+void Label::set_sel_slice(int start, int end) {
+    _render_sel_slice_start = start;
+    _render_sel_slice_end = end;
+    update_render_sel_slice();
 }
 
-void Label::update_render_slice() {
+void Label::set_slice(int start_x, int end_x) {
+    _render_slice_start_x = start_x;
+    _render_slice_end_x = end_x;
+    update_render_slice();
+    update_render_sel_slice();
+}
+
+void Label::update_render_sel_slice() {
     if (_text.length() == 0)
         return;
 
     int start, end;
-    if (_render_slice_start == -1) {
+    if (_render_sel_slice_start == -1) {
         start = 0;
         end = _text.length() + 1;
     } else {
-        start = _render_slice_start;
-        end = _render_slice_end;
+        start = _render_sel_slice_start;
+        end = _render_sel_slice_end;
     }
     int start_x, start_y;
     int end_x, end_y;
     pos_at_cursor(start, start_x, start_y);
     pos_at_cursor(end, end_x, end_y);
+
+    int main_start_x, main_end_x;
+    get_render_coords(main_start_x, main_end_x);
+    if (end_x > main_end_x)
+        end_x = main_end_x;
+
     float width = end_x - start_x;
     float tex_start_x = ((float)start_x) / ((float)_width);
     float tex_end_x = tex_start_x + width / ((float)_width);
@@ -336,6 +340,51 @@ void Label::update_render_slice() {
         {tex_end_x, 1.0f},
     };
     glBufferSubData(GL_ARRAY_BUFFER, 0, 2 * 4 * sizeof(GLfloat), coords);
+
+    assert_no_gl_error();
+}
+
+void Label::get_render_coords(int &start_x, int &end_x) {
+    if (_render_slice_start_x == -1) {
+        start_x = 0;
+        end_x = _width;
+    } else {
+        start_x = _render_slice_start_x;
+        end_x = _render_slice_end_x;
+    }
+}
+
+void Label::update_render_slice() {
+    if (_text.length() == 0)
+        return;
+
+    int start_x, end_x;
+    get_render_coords(start_x, end_x);
+    float width = end_x - start_x;
+    float tex_start_x = ((float)start_x) / ((float)_width);
+    float tex_end_x = tex_start_x + width / ((float)_width);
+
+    glBindVertexArray(_vertex_array);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+    GLfloat vertexes[4][3] = {
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, (float)_height, 0.0f},
+        {width, 0.0f, 0.0f},
+        {width, (float)_height, 0.0f},
+    };
+    glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
+    GLfloat coords[4][2] = {
+        {tex_start_x, 0.0f},
+        {tex_start_x, 1.0f},
+        {tex_end_x, 0.0f},
+        {tex_end_x, 1.0f},
+    };
+    glBufferSubData(GL_ARRAY_BUFFER, 0, 2 * 4 * sizeof(GLfloat), coords);
+
+    assert_no_gl_error();
 }
 
 void Label::replace_text(int start, int end, String text) {

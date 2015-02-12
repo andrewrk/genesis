@@ -54,8 +54,12 @@ public:
         return _font_size->_max_below_size;
     }
 
-    void set_slice(int start, int end); // -1 for full
-    void draw_slice(const glm::mat4 &mvp, const glm::vec4 &color);
+    // start and end are character indexes
+    void set_sel_slice(int start, int end); // -1 for full
+    void draw_sel_slice(const glm::mat4 &mvp, const glm::vec4 &color);
+
+    // start and end are pixels
+    void set_slice(int start_x, int end_x); // -1 for full
 
     void replace_text(int start, int end, String text);
 
@@ -90,13 +94,20 @@ private:
     // cached from _text on update()
     List<Letter> _letters;
 
-    int _render_slice_start;
-    int _render_slice_end;
+    // character indexes
+    int _render_sel_slice_start;
+    int _render_sel_slice_end;
     GLuint _slice_vertex_array;
     GLuint _slice_vertex_buffer;
     GLuint _slice_tex_coord_buffer;
 
+    // in pixels
+    int _render_slice_start_x;
+    int _render_slice_end_x;
+
+    void update_render_sel_slice();
     void update_render_slice();
+    void get_render_coords(int &start_x, int &end_x);
 };
 
 #endif
