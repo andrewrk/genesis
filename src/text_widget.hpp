@@ -29,9 +29,17 @@ public:
     void on_text_input(const TextInputEvent *event);
     void on_key_event(const KeyEvent *event);
 
+    // return true if you ate the event
+    void set_on_key_event(bool (*fn)(TextWidget *, const KeyEvent *event)) {
+        _on_key_event = fn;
+    }
+
     void set_text(const String &text) {
         _label.set_text(text);
         _label.update();
+    }
+    const String &text() const {
+        return _label.text();
     }
 
     void set_placeholder_text(const String &text);
@@ -73,6 +81,7 @@ public:
         _text_interaction_on = false;
     }
 
+    void *_userdata;
 
 private:
     Label _label;
@@ -131,6 +140,8 @@ private:
     int advance_word_from_index(int index, int dir);
     void scroll_cursor_into_view();
     void scroll_index_into_view(int char_index);
+
+    bool (*_on_key_event)(TextWidget *, const KeyEvent *event);
 
     // widget methods
     static void destructor(Widget *widget) {

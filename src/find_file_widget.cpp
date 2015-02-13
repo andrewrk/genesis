@@ -32,11 +32,12 @@ FindFileWidget::FindFileWidget(Gui *gui) :
     _gui(gui),
     _current_path(genesis_home_dir)
 {
-    bool ok;
-    _current_path_widget.set_text(String(_current_path, &ok));
+    update_current_path_display();
     _current_path_widget.set_background(false);
     _current_path_widget.set_text_interaction(false);
     _filter_widget.set_placeholder_text("file filter");
+    _filter_widget._userdata = this;
+    _filter_widget.set_on_key_event(on_filter_key);
     update_model();
 }
 
@@ -97,4 +98,28 @@ void FindFileWidget::on_text_input(const TextInputEvent *event) {
 
 void FindFileWidget::on_key_event(const KeyEvent *event) {
 
+}
+
+bool FindFileWidget::on_filter_key(const KeyEvent *event) {
+    if (event->action != KeyActionDown)
+        return false;
+
+    if (event->virt_key == VirtKeyBackspace && _filter_widget.text().length() == 0) {
+        go_up_one();
+        return true;
+    }
+
+    return false;
+}
+
+void FindFileWidget::go_up_one() {
+    _current_path = path_dirname(_current_path);
+    update_current_path_display();
+}
+
+void FindFileWidget::update_current_path_display() {
+    bool ok;
+    _current_path_widget.set_text(String(_current_path, &ok));
+    if (!ok)
+        fprintf(stderr, "Invalid UTF-8 in path\n");
 }

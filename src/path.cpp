@@ -19,19 +19,37 @@ int path_mkdirp(ByteBuffer path) {
     if (errno != ENOENT)
         return errno;
 
-    ByteBuffer basename = path_basename(path);
-    err = path_mkdirp(basename);
+    ByteBuffer dirname = path_dirname(path);
+    err = path_mkdirp(dirname);
     if (err)
         return err;
 
     return path_mkdirp(path);
 }
 
-ByteBuffer path_basename(ByteBuffer path) {
-    int pos = path.index_of_rev('/', path.length() - 2);
-    if (pos == -1)
-        panic("invalid path, separator not found");
-    return path.substring(0, pos);
+ByteBuffer path_dirname(ByteBuffer path) {
+    ByteBuffer result;
+    const char *ptr = path.raw();
+    const char *last_slash = NULL;
+    while (*ptr) {
+        const char *next = ptr + 1;
+        if (*ptr == '/' && *next)
+            last_slash = ptr;
+        ptr = next;
+    }
+    if (!last_slash) {
+        if (path.at(0) == '/')
+            result.append("/", 1);
+        return result;
+    }
+    ptr = path.raw();
+    while (ptr != last_slash) {
+        result.append(ptr, 1);
+        ptr += 1;
+    }
+    if (result.length() == 0 && path.at(0) == '/')
+        result.append("/", 1);
+    return result;
 }
 
 ByteBuffer path_join(ByteBuffer left, ByteBuffer right) {
