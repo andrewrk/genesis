@@ -145,6 +145,16 @@ void FindFileWidget::update_current_path_display() {
         fprintf(stderr, "Invalid UTF-8 in path\n");
 }
 
+static int compare_entry_name(DirEntry *a, DirEntry *b) {
+    if (a->is_dir && !b->is_dir) {
+        return -1;
+    } else if (b->is_dir && !a->is_dir) {
+        return 1;
+    } else {
+        return ByteBuffer::compare(a->name, b->name);
+    }
+}
+
 void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     _current_path = dir;
     update_current_path_display();
@@ -153,6 +163,7 @@ void FindFileWidget::change_current_path(const ByteBuffer &dir) {
         // TODO display error in UI
         fprintf(stderr, "Unable to read directory\n");
     } else {
+        _entries.sort<compare_entry_name>();
         update_entries_display();
     }
 }

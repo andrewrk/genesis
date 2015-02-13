@@ -77,6 +77,11 @@ public:
         _length = 0;
     }
 
+    template<int(*Comparator)(T, T)>
+    void sort() {
+        insertion_sort<T, Comparator>(_items, _length);
+    }
+
 private:
     T * _items;
     int _length;

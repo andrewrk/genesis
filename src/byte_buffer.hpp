@@ -93,6 +93,11 @@ public:
     void fill(char value) {
         memset(_buffer.raw(), value, length());
     }
+
+    static int compare(const ByteBuffer &a, const ByteBuffer &b) {
+        return memcmp(a.raw(), b.raw(), min(a.length(), b.length()) + 1);
+    }
+
 private:
     List<char> _buffer;
 };
