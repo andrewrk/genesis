@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <dirent.h>
+#include <unistd.h>
 
 static const mode_t default_dir_mode = 0777;
 
@@ -55,4 +57,39 @@ ByteBuffer path_dirname(ByteBuffer path) {
 ByteBuffer path_join(ByteBuffer left, ByteBuffer right) {
     const char *fmt_str = (left.at(left.length() - 1) == '/') ? "%s%s" : "%s/%s";
     return ByteBuffer::format(fmt_str, left.raw(), right.raw());
+}
+
+int path_readdir(const char *dir, List<DirEntry*> &entries) {
+    DIR *dp = opendir(dir);
+    if (!dp)
+        return errno;
+    struct dirent *ep;
+    for (int i = 0; i < entries.length(); i += 1) {
+        DirEntry *entry = entries.at(i);
+        destroy(entry);
+    }
+    entries.clear();
+    while ((ep = readdir(dp))) {
+        if (strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0)
+            continue;
+        ByteBuffer full_path = path_join(dir, ep->d_name);
+        struct stat st;
+        if (stat(full_path.raw(), &st)) {
+            int err = errno;
+            closedir(dp);
+            return err;
+        }
+        DirEntry *entry = create<DirEntry>();
+        entry->name = ByteBuffer(ep->d_name);
+        entry->is_dir = S_ISDIR(st.st_mode);
+        entry->is_file = S_ISREG(st.st_mode);
+        entry->is_link = S_ISLNK(st.st_mode);
+        entry->size = st.st_size;
+        entry->mtime = st.st_mtime;
+        entries.append(entry);
+    }
+    if (closedir(dp))
+        return errno;
+
+    return 0;
 }

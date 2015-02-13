@@ -4,6 +4,7 @@
 #include "widget.hpp"
 #include "text_widget.hpp"
 #include "byte_buffer.hpp"
+#include "path.hpp"
 
 class Gui;
 class FindFileWidget {
@@ -14,7 +15,7 @@ public:
     FindFileWidget(const FindFileWidget &copy) = delete;
     FindFileWidget &operator=(const FindFileWidget &copy) = delete;
 
-    ~FindFileWidget() {}
+    ~FindFileWidget();
     void draw(const glm::mat4 &projection);
     int left() const { return _left; }
     int top() const { return _top; }
@@ -61,6 +62,9 @@ private:
     Gui *_gui;
 
     ByteBuffer _current_path;
+    List<DirEntry*> _entries;
+
+    List<TextWidget*> _displayed_entries;
 
     void update_model();
     bool on_filter_key(const KeyEvent *event);
@@ -71,6 +75,9 @@ private:
     }
 
     void update_current_path_display();
+    void update_entries_display();
+    void destroy_all_displayed_entries();
+    void change_current_path(const ByteBuffer &dir);
 
     // widget methods
     static void destructor(Widget *widget) {
