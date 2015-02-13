@@ -44,8 +44,8 @@ make
 ## Roadmap
 
  0. UI for the user to load a file.
-    - display currently selected directory
     - backspace in empty text box goes up one
+    - display other files from current path in list
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.
  0. Render channels graphically.

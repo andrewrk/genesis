@@ -84,6 +84,7 @@ void FindFileWidget::on_mouse_over(const MouseEvent *event) {
 }
 
 void FindFileWidget::on_gain_focus() {
+    _gui->set_focus_widget(&_filter_widget._widget);
 }
 
 void FindFileWidget::on_lose_focus() {
