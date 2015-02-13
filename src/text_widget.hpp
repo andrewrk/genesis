@@ -12,9 +12,22 @@ public:
     Widget _widget;
 
     TextWidget(Gui *gui);
-    ~TextWidget() {}
     TextWidget(const TextWidget &copy) = delete;
     TextWidget &operator=(const TextWidget &copy) = delete;
+
+    ~TextWidget() {}
+    void draw(const glm::mat4 &projection);
+    int left() const { return _left; }
+    int top() const { return _top; }
+    int width() const;
+    int height() const;
+    void on_mouse_move(const MouseEvent *event);
+    void on_mouse_out(const MouseEvent *event);
+    void on_mouse_over(const MouseEvent *event);
+    void on_gain_focus();
+    void on_lose_focus();
+    void on_text_input(const TextInputEvent *event);
+    void on_key_event(const KeyEvent *event);
 
     void set_text(const String &text) {
         _label.set_text(text);
@@ -34,26 +47,12 @@ public:
         update_model();
     }
 
-    int left() const {
-        return _left;
-    }
 
-    int top() const {
-        return _top;
-    }
-
-    int width() const;
-    int height() const;
 
     void set_width(int new_width);
 
     void set_auto_size(bool value);
 
-    void draw(const glm::mat4 &projection);
-
-    bool is_visible() const {
-        return _is_visible;
-    }
 
     void set_selection(int start, int end);
 
@@ -66,13 +65,14 @@ public:
     void copy();
     void paste();
 
-    void on_mouse_over(const MouseEvent *event);
-    void on_mouse_out(const MouseEvent *event);
-    void on_mouse_move(const MouseEvent *event);
-    void on_gain_focus();
-    void on_lose_focus();
-    void on_text_input(const TextInputEvent *event);
-    void on_key_event(const KeyEvent *event);
+    void set_background(bool value) {
+        _background_on = value;
+    }
+
+    void set_text_interaction(bool value) {
+        _text_interaction_on = false;
+    }
+
 
 private:
     Label _label;
@@ -81,7 +81,6 @@ private:
     glm::mat4 _label_model;
     glm::mat4 _bg_model;
 
-    bool _is_visible;
     int _padding_left;
     int _padding_right;
     int _padding_top;
@@ -116,6 +115,9 @@ private:
     int _dbl_select_start;
     int _dbl_select_end;
 
+    bool _background_on;
+    bool _text_interaction_on;
+
     void update_model();
 
     int cursor_at_pos(int x, int y) const;
@@ -130,14 +132,12 @@ private:
     void scroll_cursor_into_view();
     void scroll_index_into_view(int char_index);
 
-    static bool is_visible(Widget * widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->is_visible();
+    // widget methods
+    static void destructor(Widget *widget) {
+        return (reinterpret_cast<TextWidget*>(widget))->~TextWidget();
     }
     static void draw(Widget *widget, const glm::mat4 &projection) {
         return (reinterpret_cast<TextWidget*>(widget))->draw(projection);
-    }
-    static void destroy(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->~TextWidget();
     }
     static int left(Widget *widget) {
         return (reinterpret_cast<TextWidget*>(widget))->left();

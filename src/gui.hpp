@@ -58,8 +58,11 @@ public:
     String get_clipboard_string() const;
     bool clipboard_has_string() const;
 
+    bool try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event);
+
     SDL_Cursor* _cursor_ibeam;
     SDL_Cursor* _cursor_default;
+
 private:
     SDL_Window *_window;
 
@@ -86,6 +89,7 @@ private:
     void on_mouse_move(const MouseEvent *event);
     void on_text_input(const TextInputEvent *event);
     void on_key_event(const KeyEvent *event);
+    void init_widget(Widget *widget);
 };
 
 #endif

@@ -14,9 +14,8 @@ static bool is_whitespace(uint32_t c) {
 
 TextWidget::TextWidget(Gui *gui) :
         _widget(Widget {
-            is_visible,
+            destructor,
             draw,
-            destroy,
             left,
             top,
             width,
@@ -30,14 +29,13 @@ TextWidget::TextWidget(Gui *gui) :
             on_key_event,
         }),
         _label(gui),
-        _is_visible(true),
         _padding_left(4),
         _padding_right(4),
         _padding_top(4),
         _padding_bottom(4),
         _text_color(0.0f, 0.0f, 0.0f, 1.0f),
         _sel_text_color(1.0f, 1.0f, 1.0f, 1.0f),
-        _background_color(0.788f, 0.812f, 0.886f, 1.0f),
+        _background_color(0.828f, 0.862f, 0.916f, 1.0f),
         _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _auto_size(false),
@@ -49,23 +47,29 @@ TextWidget::TextWidget(Gui *gui) :
         _width(100),
         _scroll_x(0),
         _placeholder_label(gui),
-        _placeholder_color(0.5f, 0.5f, 0.5f, 1.0f),
-        _mouse_down_dbl(false)
+        _placeholder_color(0.4f, 0.4f, 0.4f, 1.0f),
+        _mouse_down_dbl(false),
+        _background_on(true),
+        _text_interaction_on(true)
 {
     update_model();
 }
 
 void TextWidget::draw(const glm::mat4 &projection) {
-    glm::mat4 bg_mvp = projection * _bg_model;
-    _gui->fill_rect(_background_color, bg_mvp);
+    if (_background_on) {
+        glm::mat4 bg_mvp = projection * _bg_model;
+        _gui->fill_rect(_background_color, bg_mvp);
+    }
 
     glm::mat4 label_mvp = projection * _label_model;
-    if (_placeholder_label.text().length() > 0 && _label.text().length() == 0)
-        _placeholder_label.draw(label_mvp, _placeholder_color);
+    if (_text_interaction_on) {
+        if (_placeholder_label.text().length() > 0 && _label.text().length() == 0)
+            _placeholder_label.draw(label_mvp, _placeholder_color);
+    }
 
     _label.draw(label_mvp, _text_color);
 
-    if (_have_focus && _cursor_start != -1 && _cursor_end != -1) {
+    if (_text_interaction_on && _have_focus && _cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
             // draw cursor
             glm::mat4 cursor_mvp = projection * _cursor_model;
@@ -104,7 +108,9 @@ void TextWidget::update_model() {
 }
 
 void TextWidget::on_mouse_over(const MouseEvent *event) {
-    SDL_SetCursor(_gui->_cursor_ibeam);
+    if (_text_interaction_on) {
+        SDL_SetCursor(_gui->_cursor_ibeam);
+    }
 }
 
 void TextWidget::on_mouse_out(const MouseEvent *event) {
@@ -112,6 +118,9 @@ void TextWidget::on_mouse_out(const MouseEvent *event) {
 }
 
 void TextWidget::on_mouse_move(const MouseEvent *event) {
+    if (!_text_interaction_on)
+        return;
+
     switch (event->action) {
         case MouseActionDown:
             if (event->button == MouseButtonLeft) {
@@ -232,6 +241,9 @@ void TextWidget::on_lose_focus() {
 }
 
 void TextWidget::on_text_input(const TextInputEvent *event) {
+    if (!_text_interaction_on)
+        return;
+
     if (event->action == TextInputActionCandidate) {
         // 1. Need a ttf font that supports more characters
         // 2. Support displaying this event
@@ -257,6 +269,8 @@ void TextWidget::replace_text(int start, int end, const String &text, int cursor
 }
 
 void TextWidget::on_key_event(const KeyEvent *event) {
+    if (!_text_interaction_on)
+        return;
     if (event->action == KeyActionUp)
         return;
 

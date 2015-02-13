@@ -5,6 +5,10 @@ String::String(const ByteBuffer &bytes) {
     *this = decode(bytes);
 }
 
+String::String(const ByteBuffer &bytes, bool *ok) {
+    *this = decode(bytes, ok);
+}
+
 String::String(const String &copy) {
     *this = copy;
 }
@@ -18,28 +22,28 @@ String& String::operator= (const String &other) {
 
 String String::decode(const ByteBuffer &bytes) {
     bool ok;
-    String str = String::decode(bytes, ok);
+    String str = String::decode(bytes, &ok);
     if (!ok)
         panic("invalid UTF-8");
     return str;
 }
 
-String String::decode(const ByteBuffer &bytes, bool &ok) {
+String String::decode(const ByteBuffer &bytes, bool *ok) {
     String str;
-    ok = true;
+    *ok = true;
     for (int i = 0; i < bytes.length(); i += 1) {
         uint8_t byte1 = *((uint8_t*)&bytes.at(i));
         if ((0x80 & byte1) == 0) {
             str.append(byte1);
         } else if ((0xe0 & byte1) == 0xc0) {
             if (++i >= bytes.length()) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 break;
             }
             uint8_t byte2 = *((uint8_t*)&bytes.at(i));
             if ((byte2 & 0xc0) != 0x80) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 continue;
             }
@@ -49,25 +53,25 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
             str.append(bits_byte2 | (bits_byte1 << 6));
         } else if ((0xf0 & byte1) == 0xe0) {
             if (++i >= bytes.length()) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 break;
             }
             uint8_t byte2 = *((uint8_t*)&bytes.at(i));
             if ((byte2 & 0xc0) != 0x80) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 continue;
             }
 
             if (++i >= bytes.length()) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 break;
             }
             uint8_t byte3 = *((uint8_t*)&bytes.at(i));
             if ((byte3 & 0xc0) != 0x80) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 continue;
             }
@@ -78,37 +82,37 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
             str.append(bits_byte3 | (bits_byte2 << 6) | (bits_byte1 << 12));
         } else if ((0xf8 & byte1) == 0xf0) {
             if (++i >= bytes.length()) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 break;
             }
             uint8_t byte2 = *((uint8_t*)&bytes.at(i));
             if ((byte2 & 0xc0) != 0x80) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 continue;
             }
 
             if (++i >= bytes.length()) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 break;
             }
             uint8_t byte3 = *((uint8_t*)&bytes.at(i));
             if ((byte3 & 0xc0) != 0x80) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 continue;
             }
 
             if (++i >= bytes.length()) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 break;
             }
             uint8_t byte4 = *((uint8_t*)&bytes.at(i));
             if ((byte3 & 0xc0) != 0x80) {
-                ok = false;
+                *ok = false;
                 str.append(0xfffd);
                 continue;
             }
@@ -119,7 +123,7 @@ String String::decode(const ByteBuffer &bytes, bool &ok) {
             uint32_t bits_byte4 = (byte4 & 0x3f);
             str.append(bits_byte4 | (bits_byte3 << 6) | (bits_byte2 << 12) | (bits_byte1 << 18));
         } else {
-            ok = false;
+            *ok = false;
             str.append(0xfffd);
         }
     }

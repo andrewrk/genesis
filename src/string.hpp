@@ -14,8 +14,9 @@ public:
     String(const String &copy);
     String& operator= (const String& other);
     String(const ByteBuffer &bytes);
+    String(const ByteBuffer &bytes, bool *ok);
 
-    static String decode(const ByteBuffer &bytes, bool &ok);
+    static String decode(const ByteBuffer &bytes, bool *ok);
     // this one panics if the string is invalid
     static String decode(const ByteBuffer &bytes);
     ByteBuffer encode() const;

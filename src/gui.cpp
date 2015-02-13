@@ -246,7 +246,7 @@ void Gui::exec() {
 
         for (int i = 0; i < _widget_list.length(); i += 1) {
             Widget *widget = _widget_list.at(i);
-            if (widget->is_visible(widget)) {
+            if (widget->_is_visible) {
                 widget->draw(widget, _projection);
             }
         }
@@ -262,19 +262,21 @@ void Gui::resize() {
     _projection = glm::ortho(0.0f, (float)_width, (float)_height, 0.0f);
 }
 
-TextWidget * Gui::create_text_widget() {
-    TextWidget *text_widget = create<TextWidget>(this);
-    Widget *widget = &text_widget->_widget;
+void Gui::init_widget(Widget *widget) {
+    widget->_is_visible = true;
     widget->_gui_index = _widget_list.length();
     _widget_list.append(widget);
+}
+
+TextWidget * Gui::create_text_widget() {
+    TextWidget *text_widget = create<TextWidget>(this);
+    init_widget(&text_widget->_widget);
     return text_widget;
 }
 
-FindFileWidget *Gui::create_find_file_widget() {
-    FindFileWidget *find_file_widget = create<FindFileWidget>();
-    Widget *widget = &find_file_widget->_widget;
-    widget->_gui_index = _widget_list.length();
-    _widget_list.append(widget);
+FindFileWidget * Gui::create_find_file_widget() {
+    FindFileWidget *find_file_widget = create<FindFileWidget>(this);
+    init_widget(&find_file_widget->_widget);
     return find_file_widget;
 }
 
@@ -310,7 +312,30 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
 
 void Gui::destroy_widget(Widget *widget) {
     _widget_list.swap_remove(widget->_gui_index);
-    widget->destroy(widget);
+    widget->destructor(widget);
+}
+
+bool Gui::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {
+    bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
+    int right = widget->left(widget) + widget->width(widget);
+    int bottom = widget->top(widget) + widget->height(widget);
+    if (event->x >= widget->left(widget) && event->y >= widget->top(widget) &&
+        event->x < right && event->y < bottom)
+    {
+        MouseEvent mouse_event = *event;
+        mouse_event.x -= widget->left(widget);
+        mouse_event.y -= widget->top(widget);
+
+        _mouse_over_widget = widget;
+
+        if (pressing_any_btn && _mouse_over_widget != _focus_widget)
+            set_focus_widget(_mouse_over_widget);
+
+        widget->on_mouse_over(widget, &mouse_event);
+        widget->on_mouse_move(widget, &mouse_event);
+        return true;
+    }
+    return false;
 }
 
 void Gui::on_mouse_move(const MouseEvent *event) {
@@ -352,25 +377,8 @@ void Gui::on_mouse_move(const MouseEvent *event) {
 
     for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
-
-        int right = widget->left(widget) + widget->width(widget);
-        int bottom = widget->top(widget) + widget->height(widget);
-        if (event->x >= widget->left(widget) && event->y >= widget->top(widget) &&
-            event->x < right && event->y < bottom)
-        {
-            MouseEvent mouse_event = *event;
-            mouse_event.x -= widget->left(widget);
-            mouse_event.y -= widget->top(widget);
-
-            _mouse_over_widget = widget;
-
-            if (pressing_any_btn && _mouse_over_widget != _focus_widget)
-                set_focus_widget(_mouse_over_widget);
-
-            widget->on_mouse_over(widget, &mouse_event);
-            widget->on_mouse_move(widget, &mouse_event);
+        if (try_mouse_move_event_on_widget(widget, event))
             return;
-        }
     }
 }
 
@@ -425,7 +433,7 @@ void Gui::set_clipboard_string(const String &str) {
 String Gui::get_clipboard_string() const {
     char* clip_text = SDL_GetClipboardText();
     bool ok;
-    String str = String::decode(clip_text, ok);
+    String str = String::decode(clip_text, &ok);
     SDL_free(clip_text);
     if (!ok)
         fprintf(stderr, "Reading invalid UTF-8 from the clipboard\n");

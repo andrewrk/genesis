@@ -7,9 +7,8 @@
 
 class Widget {
 public:
-    bool (*is_visible)(Widget *);
+    void (*destructor)(Widget *);
     void (*draw)(Widget *, const glm::mat4 &projection);
-    void (*destroy)(Widget *);
     int (*left)(Widget *);
     int (*top)(Widget *);
     int (*width)(Widget *);
@@ -23,6 +22,7 @@ public:
     void (*on_key_event)(Widget *, const KeyEvent *);
 
     int _gui_index;
+    bool _is_visible;
 };
 
 #endif

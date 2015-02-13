@@ -15,13 +15,13 @@ Label::Label(Gui *gui) :
     _gui(gui),
     _width(0),
     _height(0),
-    _text("Label"),
+    _text(""),
     _render_sel_slice_start(-1),
     _render_sel_slice_end(-1),
     _render_slice_start_x(-1),
     _render_slice_end_x(-1)
 {
-    set_font_size(16);
+    set_font_size(12);
 
     glGenTextures(1, &_texture_id);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
@@ -153,6 +153,7 @@ void Label::update() {
     _letters.clear();
     if (_text.length() == 0) {
         _width = 0;
+        _height = above_size() + below_size();
         return;
     }
 
