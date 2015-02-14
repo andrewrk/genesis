@@ -1,0 +1,21 @@
+{
+  files: {
+    "font.ttf": {
+      path: "assets/font/OpenSans-Regular.ttf",
+    },
+  },
+  textures: {
+    spritesheet: {
+      maxWidth: 128,
+      maxHeight: 128,
+      globImages: [
+        {
+          path: "assets/img/",
+          glob: "*",
+          prefix: "img/",
+          anchor: "topleft",
+        },
+      ],
+    }
+  }
+}

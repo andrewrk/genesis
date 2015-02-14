@@ -10,12 +10,11 @@ static const mode_t default_dir_mode = 0777;
 
 int path_mkdirp(ByteBuffer path) {
     struct stat st;
-    stat(path.raw(), &st);
-    bool ok = S_ISDIR(st.st_mode);
-    if (ok)
+    int err = stat(path.raw(), &st);
+    if (!err && S_ISDIR(st.st_mode))
         return 0;
 
-    int err = mkdir(path.raw(), default_dir_mode);
+    err = mkdir(path.raw(), default_dir_mode);
     if (!err)
         return 0;
     if (errno != ENOENT)

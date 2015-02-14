@@ -2,6 +2,7 @@
 #include "genesis.hpp"
 #include "gui.hpp"
 #include "find_file_widget.hpp"
+#include "resource_bundle.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -31,14 +32,17 @@ int main(int argc, char *argv[]) {
 
     SDL_GLContext context = SDL_GL_CreateContext(window);
 
-    Gui gui(window);
+    {
+        ResourceBundle resource_bundle("build/resources.bundle");
+        Gui gui(window, &resource_bundle);
 
-    FindFileWidget *find_file_widget = gui.create_find_file_widget();
-    find_file_widget->set_mode(FindFileWidget::ModeOpen);
-    find_file_widget->set_pos(100, 100);
-    gui.set_focus_widget(&find_file_widget->_widget);
+        FindFileWidget *find_file_widget = gui.create_find_file_widget();
+        find_file_widget->set_mode(FindFileWidget::ModeOpen);
+        find_file_widget->set_pos(100, 100);
+        gui.set_focus_widget(&find_file_widget->_widget);
 
-    gui.exec();
+        gui.exec();
+    }
 
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);

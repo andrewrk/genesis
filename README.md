@@ -36,7 +36,8 @@ genesis is programmed in a tiny subset of C++:
 ### Building and Running
 
 ```
-sudo apt-get install libgroove-dev libsdl2-dev libepoxy-dev libglm-dev libfreetype6-dev
+sudo apt-get install libgroove-dev libsdl2-dev libepoxy-dev libglm-dev \
+    libfreetype6-dev libpng12-dev librucksack-dev
 make
 ./build/genesis
 ```
@@ -44,7 +45,11 @@ make
 ## Roadmap
 
  0. UI for the user to load a file.
-    - display other files from current path in list
+    - hide hidden files by default
+    - ability to toggle hidden files
+    - press arrows to select one
+    - click one to select it
+    - display icon for folder
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.
  0. Render channels graphically.

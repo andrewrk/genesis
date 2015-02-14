@@ -12,7 +12,7 @@ static void ft_ok(FT_Error err) {
         panic("freetype error");
 }
 
-Gui::Gui(SDL_Window *window) :
+Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle) :
     _text_shader_program(R"VERTEX(
 
 #version 150 core
@@ -73,7 +73,8 @@ void main(void) {
 )FRAGMENT", NULL),
     _window(window),
     _mouse_over_widget(NULL),
-    _focus_widget(NULL)
+    _focus_widget(NULL),
+    _resource_bundle(resource_bundle)
 {
     _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
     _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
@@ -108,7 +109,9 @@ void main(void) {
 
 
     ft_ok(FT_Init_FreeType(&_ft_library));
-    ft_ok(FT_New_Face(_ft_library, "assets/OpenSans-Regular.ttf", 0, &_default_font_face));
+    _resource_bundle->get_file_buffer("font.ttf", _default_font_buffer);
+    ft_ok(FT_New_Memory_Face(_ft_library, (FT_Byte*)_default_font_buffer.raw(),
+                _default_font_buffer.length(), 0, &_default_font_face));
 
     _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
     _cursor_ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);

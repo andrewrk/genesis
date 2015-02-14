@@ -9,6 +9,7 @@
 #include "string.hpp"
 #include "font_size.hpp"
 #include "widget.hpp"
+#include "resource_bundle.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -20,7 +21,7 @@ class TextWidget;
 class FindFileWidget;
 class Gui {
 public:
-    Gui(SDL_Window *window);
+    Gui(SDL_Window *window, ResourceBundle *resource_bundle);
     ~Gui();
 
     void exec();
@@ -84,6 +85,9 @@ private:
 
     Widget *_mouse_over_widget;
     Widget *_focus_widget;
+
+    ResourceBundle *_resource_bundle;
+    ByteBuffer _default_font_buffer;
 
     void resize();
     void on_mouse_move(const MouseEvent *event);
