@@ -165,7 +165,7 @@ permanent authorization for you to choose that version for the
 Library.
 
 
-assets/OpenSans-Regular.ttf:
+assets/font/OpenSans-Regular.ttf:
 
                                  Apache License
                            Version 2.0, January 2004
@@ -369,3 +369,8 @@ assets/OpenSans-Regular.ttf:
    See the License for the specific language governing permissions and
    limitations under the License.
 
+assets/img/entry-dir.png:
+assets/img/entry-file.png:
+
+Free for commercial use (Do not redistribute)
+See https://www.iconfinder.com/icons/66792/download_folder_icon
