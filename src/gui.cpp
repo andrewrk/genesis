@@ -245,7 +245,7 @@ void Gui::exec() {
             }
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
         for (int i = 0; i < _widget_list.length(); i += 1) {
             Widget *widget = _widget_list.at(i);

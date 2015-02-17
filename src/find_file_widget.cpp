@@ -80,6 +80,7 @@ void FindFileWidget::update_model() {
                 _current_path_widget.left(),
                 y);
         text_widget->set_width(_current_path_widget.width());
+        text_widget->_widget._is_visible = (text_widget->top() <= _top + _padding_top + _height);
         y += text_widget->height() + _margin;
     }
 }
@@ -89,11 +90,31 @@ void FindFileWidget::draw(const glm::mat4 &projection) {
     _current_path_widget.draw(projection);
     _filter_widget.draw(projection);
 
+    glEnable(GL_STENCIL_TEST);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    _gui->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            _left + _padding_left, _top + _padding_top,
+            _width - _padding_left - _padding_right, _height - _padding_bottom - _padding_top);
+
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glStencilMask(0x00);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
     for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
-        text_widget->draw(projection);
+        if (text_widget->_widget._is_visible)
+            text_widget->draw(projection);
     }
+
+    glDisable(GL_STENCIL_TEST);
 }
 
 int FindFileWidget::width() const {
