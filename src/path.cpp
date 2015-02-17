@@ -63,11 +63,6 @@ int path_readdir(const char *dir, List<DirEntry*> &entries) {
     if (!dp)
         return errno;
     struct dirent *ep;
-    for (int i = 0; i < entries.length(); i += 1) {
-        DirEntry *entry = entries.at(i);
-        destroy(entry, 1);
-    }
-    entries.clear();
     while ((ep = readdir(dp))) {
         if (strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0)
             continue;

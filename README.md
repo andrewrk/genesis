@@ -45,7 +45,6 @@ make
 ## Roadmap
 
  0. UI for the user to load a file.
-    - use better memory management for DirEntry list
     - type to filter options
     - display icon for folder
     - press arrows to select one

@@ -44,10 +44,22 @@ FindFileWidget::FindFileWidget(Gui *gui) :
 
 FindFileWidget::~FindFileWidget() {
     destroy_all_displayed_entries();
+    destroy_all_dir_entries();
+}
+
+void FindFileWidget::destroy_all_dir_entries() {
     for (int i = 0; i < _entries.length(); i += 1) {
-        DirEntry *entry = _entries.at(i);
-        destroy(entry, 1);
+        destroy(_entries.at(i), 1);
     }
+    _entries.clear();
+}
+
+void FindFileWidget::destroy_all_displayed_entries() {
+    for (int i = 0; i < _displayed_entries.length(); i += 1) {
+        DisplayEntry display_entry = _displayed_entries.at(i);
+        destroy(display_entry.widget, 1);
+    }
+    _displayed_entries.clear();
 }
 
 void FindFileWidget::update_model() {
@@ -158,6 +170,7 @@ void FindFileWidget::update_current_path_display() {
 void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     _current_path = dir;
     update_current_path_display();
+    destroy_all_dir_entries();
     int err = path_readdir(_current_path.raw(), _entries);
     if (err) {
         // TODO display error in UI
@@ -172,34 +185,28 @@ void FindFileWidget::update_entries_display() {
     bool ok;
     for (int i = 0; i < _entries.length(); i += 1) {
         DirEntry *entry = _entries.at(i);
-        TextWidget *text_widget = create<TextWidget>(_gui);
-        text_widget->set_background(false);
-        text_widget->set_text_interaction(false);
-        text_widget->set_text(String(entry->name, &ok));
-        _displayed_entries.append({
-                entry,
-                text_widget,
-        });
+        String text(entry->name, &ok);
+        if (should_show_entry(entry, text)) {
+            TextWidget *text_widget = create<TextWidget>(_gui);
+            text_widget->set_background(false);
+            text_widget->set_text_interaction(false);
+            text_widget->set_text(text);
+            _displayed_entries.append({
+                    entry,
+                    text_widget,
+            });
+        }
     }
-    _displayed_entries.filter_with_order_undefined<should_show_entry>(this);
     _displayed_entries.sort<compare_display_name>();
     update_model();
-}
-
-void FindFileWidget::destroy_all_displayed_entries() {
-    for (int i = 0; i < _displayed_entries.length(); i += 1) {
-        DisplayEntry display_entry = _displayed_entries.at(i);
-        destroy(display_entry.widget, 1);
-    }
-    _displayed_entries.clear();
 }
 
 void FindFileWidget::on_filter_text_change() {
     update_entries_display();
 }
 
-bool FindFileWidget::should_show_entry(DisplayEntry display_entry) {
-    bool is_hidden = display_entry.entry->is_hidden;
+bool FindFileWidget::should_show_entry(DirEntry *dir_entry, const String &text) {
+    bool is_hidden = dir_entry->is_hidden;
     bool filter_match = true;
 
     return (_show_hidden_files || !is_hidden) && filter_match;

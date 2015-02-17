@@ -17,6 +17,9 @@ struct DirEntry {
 int path_mkdirp(ByteBuffer path);
 ByteBuffer path_dirname(ByteBuffer path);
 ByteBuffer path_join(ByteBuffer left, ByteBuffer right);
+
+// you must ensure that entries is empty and entries destroyed before calling
+// you also must clean up the entries when done
 int path_readdir(const char *dir, List<DirEntry*> &entries);
 
 

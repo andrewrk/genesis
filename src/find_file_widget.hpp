@@ -77,6 +77,7 @@ private:
     void go_up_one();
     void on_filter_text_change();
 
+
     static bool on_filter_key(TextWidget *text_widget, const KeyEvent *event) {
         return (reinterpret_cast<FindFileWidget*>(text_widget->_userdata))->on_filter_key(event);
     }
@@ -88,12 +89,9 @@ private:
     void update_current_path_display();
     void update_entries_display();
     void destroy_all_displayed_entries();
+    void destroy_all_dir_entries();
     void change_current_path(const ByteBuffer &dir);
-    bool should_show_entry(DisplayEntry display_entry);
-
-    static bool should_show_entry(void *context, DisplayEntry display_entry) {
-        return (reinterpret_cast<FindFileWidget*>(context))->should_show_entry(display_entry);
-    }
+    bool should_show_entry(DirEntry *dir_entry, const String &text);
 
     static int compare_display_name(DisplayEntry a, DisplayEntry b) {
         if (a.entry->is_dir && !b.entry->is_dir) {
