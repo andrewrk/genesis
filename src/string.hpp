@@ -31,6 +31,9 @@ public:
         return _chars.at(index);
     }
 
+    void make_lower_case();
+    void make_upper_case();
+
     static const int max_codepoint = 0x1fffff;
     void append(uint32_t c) {
         if (c > max_codepoint)
@@ -41,6 +44,11 @@ public:
     String substring(int start) const;
 
     void replace(int start, int end, String s);
+
+    static int compare(const String &a, const String &b);
+    static int compare_insensitive(const String &a, const String &b);
+    static uint32_t char_to_lower(uint32_t c);
+    static uint32_t char_to_upper(uint32_t c);
 
 private:
     List<uint32_t> _chars;

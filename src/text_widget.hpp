@@ -34,6 +34,11 @@ public:
         _on_key_event = fn;
     }
 
+    // return true if you ate the event
+    void set_on_text_change_event(void (*fn)(TextWidget *)) {
+        _on_text_change_event = fn;
+    }
+
     void set_text(const String &text) {
         _label.set_text(text);
         _label.update();
@@ -142,6 +147,7 @@ private:
     void scroll_index_into_view(int char_index);
 
     bool (*_on_key_event)(TextWidget *, const KeyEvent *event);
+    void (*_on_text_change_event)(TextWidget *);
 
     // widget methods
     static void destructor(Widget *widget) {

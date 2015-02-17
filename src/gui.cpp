@@ -134,7 +134,7 @@ Gui::~Gui() {
     HashMap<int, FontSize *, hash_int>::Iterator it = _font_size_cache.value_iterator();
     while (it.has_next()) {
         FontSize *font_size_object = it.next();
-        destroy(font_size_object);
+        destroy(font_size_object, 1);
     }
 
     FT_Done_Face(_default_font_face);

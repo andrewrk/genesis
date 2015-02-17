@@ -90,3 +90,29 @@ ByteBuffer& ByteBuffer::operator= (const ByteBuffer& other) {
     }
     return *this;
 }
+
+void ByteBuffer::split(const char *split_by, List<ByteBuffer> &out) const {
+    const char *split_ptr = split_by;
+
+    bool in_match = false;
+    out.resize(out.length() + 1);
+    ByteBuffer *current = &out.at(out.length() - 1);
+
+    for (const char *buf_ptr = raw(); *buf_ptr; buf_ptr += 1) {
+        if (*buf_ptr == *split_ptr) {
+            in_match = true;
+            split_ptr += 1;
+            if (!*split_ptr) {
+                split_ptr = split_by;
+                in_match = false;
+                out.resize(out.length() + 1);
+                current = &out.at(out.length() - 1);
+            }
+            continue;
+        } else if (in_match) {
+            split_ptr = split_by;
+            in_match = false;
+        }
+        current->append(buf_ptr, 1);
+    }
+}

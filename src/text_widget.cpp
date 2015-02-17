@@ -5,6 +5,10 @@ static bool default_on_key_event(TextWidget *, const KeyEvent *event) {
     return false;
 }
 
+static void default_on_text_change_event(TextWidget *) {
+    // do nothing
+}
+
 static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
     8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232,
     8233, 8239, 8287, 12288};
@@ -56,7 +60,8 @@ TextWidget::TextWidget(Gui *gui) :
         _mouse_down_dbl(false),
         _background_on(true),
         _text_interaction_on(true),
-        _on_key_event(default_on_key_event)
+        _on_key_event(default_on_key_event),
+        _on_text_change_event(default_on_text_change_event)
 {
     update_model();
 }
@@ -272,6 +277,8 @@ void TextWidget::replace_text(int start, int end, const String &text, int cursor
 
     _label.update();
     scroll_cursor_into_view();
+
+    _on_text_change_event(this);
 }
 
 void TextWidget::on_key_event(const KeyEvent *event) {

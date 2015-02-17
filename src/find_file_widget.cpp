@@ -38,6 +38,7 @@ FindFileWidget::FindFileWidget(Gui *gui) :
     _filter_widget.set_placeholder_text("file filter");
     _filter_widget._userdata = this;
     _filter_widget.set_on_key_event(on_filter_key);
+    _filter_widget.set_on_text_change_event(on_filter_text_change);
     update_model();
 }
 
@@ -45,7 +46,7 @@ FindFileWidget::~FindFileWidget() {
     destroy_all_displayed_entries();
     for (int i = 0; i < _entries.length(); i += 1) {
         DirEntry *entry = _entries.at(i);
-        destroy(entry);
+        destroy(entry, 1);
     }
 }
 
@@ -180,16 +181,26 @@ void FindFileWidget::update_entries_display() {
                 text_widget,
         });
     }
-    if (!_show_hidden_files)
-        _displayed_entries.filter_with_order_undefined<is_entry_visible>(NULL);
-    _displayed_entries.sort<compare_entry_name>();
+    _displayed_entries.filter_with_order_undefined<should_show_entry>(this);
+    _displayed_entries.sort<compare_display_name>();
     update_model();
 }
 
 void FindFileWidget::destroy_all_displayed_entries() {
     for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry display_entry = _displayed_entries.at(i);
-        destroy(display_entry.widget);
+        destroy(display_entry.widget, 1);
     }
     _displayed_entries.clear();
+}
+
+void FindFileWidget::on_filter_text_change() {
+    update_entries_display();
+}
+
+bool FindFileWidget::should_show_entry(DisplayEntry display_entry) {
+    bool is_hidden = display_entry.entry->is_hidden;
+    bool filter_match = true;
+
+    return (_show_hidden_files || !is_hidden) && filter_match;
 }

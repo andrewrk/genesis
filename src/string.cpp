@@ -1,5 +1,5 @@
 #include "string.hpp"
-
+#include "unicode.hpp"
 
 String::String(const ByteBuffer &bytes) {
     *this = decode(bytes);
@@ -198,4 +198,64 @@ void String::replace(int start, int end, String s) {
     for (int i = 0; i < second_half.length(); i += 1) {
         _chars.at(start + s.length() + i) = second_half.at(i);
     }
+}
+
+int String::compare(const String &a, const String &b) {
+    for (int i = 0;; i += 1) {
+        bool a_end = (i >= a.length());
+        bool b_end = (i >= b.length());
+        if (a_end && b_end) {
+            return 0;
+        } else if (a_end) {
+            return -1;
+        } else if (b_end) {
+            return 1;
+        } else {
+            int diff = a.at(i) - b.at(i);
+            if (diff == 0)
+                continue;
+            else
+                return diff;
+        }
+    }
+}
+
+int String::compare_insensitive(const String &a, const String &b) {
+    for (int i = 0;; i += 1) {
+        bool a_end = (i >= a.length());
+        bool b_end = (i >= b.length());
+        if (a_end && b_end) {
+            return 0;
+        } else if (a_end) {
+            return -1;
+        } else if (b_end) {
+            return 1;
+        } else {
+            int diff = char_to_lower(a.at(i)) - char_to_lower(b.at(i));
+            if (diff == 0)
+                continue;
+            else
+                return diff;
+        }
+    }
+}
+
+void String::make_lower_case() {
+    for (int i = 0; i < _chars.length(); i += 1) {
+        _chars.at(i) = char_to_lower(_chars.at(i));
+    }
+}
+
+void String::make_upper_case() {
+    for (int i = 0; i < _chars.length(); i += 1) {
+        _chars.at(i) = char_to_upper(_chars.at(i));
+    }
+}
+
+uint32_t String::char_to_lower(uint32_t c) {
+    return (c < array_length(unicode_characters)) ? unicode_characters[c].lower : c;
+}
+
+uint32_t String::char_to_upper(uint32_t c) {
+    return (c < array_length(unicode_characters)) ? unicode_characters[c].upper : c;
 }

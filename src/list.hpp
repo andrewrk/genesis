@@ -12,7 +12,7 @@ public:
         _items = allocate<T>(_capacity);
     }
     ~List() {
-        destroy(_items);
+        destroy(_items, _capacity);
     }
     List(List &other) = delete;
     List<T>& operator= (const List<T> &other) {
@@ -112,7 +112,7 @@ private:
         while (better_capacity < new_capacity)
             better_capacity *= 2;
         if (better_capacity != _capacity) {
-            _items = reallocate(_items, better_capacity);
+            _items = reallocate(_items, _capacity, better_capacity);
             _capacity = better_capacity;
         }
     }

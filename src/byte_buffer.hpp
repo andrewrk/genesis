@@ -94,6 +94,8 @@ public:
         memset(_buffer.raw(), value, length());
     }
 
+    void split(const char *split_by, List<ByteBuffer> &out) const;
+
     static int compare(const ByteBuffer &a, const ByteBuffer &b) {
         return memcmp(a.raw(), b.raw(), min(a.length(), b.length()) + 1);
     }

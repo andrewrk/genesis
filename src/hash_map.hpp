@@ -15,7 +15,7 @@ public:
         init_capacity(capacity);
     }
     ~HashMap() {
-        destroy(_entries);
+        destroy(_entries, _capacity);
     }
 
     int size() const {
@@ -37,7 +37,7 @@ public:
                 if (old_entry->used)
                     internal_put(old_entry->key, old_entry->value);
             }
-            destroy(old_entries);
+            destroy(old_entries, old_capacity);
         }
     }
 

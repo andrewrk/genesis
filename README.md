@@ -45,11 +45,11 @@ make
 ## Roadmap
 
  0. UI for the user to load a file.
-    - hide hidden files by default
-    - ability to toggle hidden files
+    - use better memory management for DirEntry list
+    - type to filter options
+    - display icon for folder
     - press arrows to select one
     - click one to select it
-    - display icon for folder
  0. Load all the audio file's channels into memory.
  0. Display all of the audio file's channels in a list.
  0. Render channels graphically.

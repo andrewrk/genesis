@@ -75,29 +75,33 @@ private:
     void update_model();
     bool on_filter_key(const KeyEvent *event);
     void go_up_one();
+    void on_filter_text_change();
 
     static bool on_filter_key(TextWidget *text_widget, const KeyEvent *event) {
         return (reinterpret_cast<FindFileWidget*>(text_widget->_userdata))->on_filter_key(event);
+    }
+
+    static void on_filter_text_change(TextWidget *text_widget) {
+        return (reinterpret_cast<FindFileWidget*>(text_widget->_userdata))->on_filter_text_change();
     }
 
     void update_current_path_display();
     void update_entries_display();
     void destroy_all_displayed_entries();
     void change_current_path(const ByteBuffer &dir);
+    bool should_show_entry(DisplayEntry display_entry);
 
-    static bool is_entry_visible(void *context, DisplayEntry display_entry) {
-        return !display_entry.entry->is_hidden;
+    static bool should_show_entry(void *context, DisplayEntry display_entry) {
+        return (reinterpret_cast<FindFileWidget*>(context))->should_show_entry(display_entry);
     }
 
-    static int compare_entry_name(DisplayEntry a, DisplayEntry b) {
-        DirEntry *dir_a = a.entry;
-        DirEntry *dir_b = b.entry;
-        if (dir_a->is_dir && !dir_b->is_dir) {
+    static int compare_display_name(DisplayEntry a, DisplayEntry b) {
+        if (a.entry->is_dir && !b.entry->is_dir) {
             return -1;
-        } else if (dir_b->is_dir && !dir_a->is_dir) {
+        } else if (b.entry->is_dir && !a.entry->is_dir) {
             return 1;
         } else {
-            return ByteBuffer::compare(dir_a->name, dir_b->name);
+            return String::compare_insensitive(a.widget->text(), b.widget->text());
         }
     }
 
