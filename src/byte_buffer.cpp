@@ -95,8 +95,8 @@ void ByteBuffer::split(const char *split_by, List<ByteBuffer> &out) const {
     const char *split_ptr = split_by;
 
     bool in_match = false;
-    out.resize(out.length() + 1);
-    ByteBuffer *current = &out.at(out.length() - 1);
+    out.resize(1);
+    ByteBuffer *current = &out.at(0);
 
     for (const char *buf_ptr = raw(); *buf_ptr; buf_ptr += 1) {
         if (*buf_ptr == *split_ptr) {

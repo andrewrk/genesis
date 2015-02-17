@@ -45,10 +45,16 @@ public:
 
     void replace(int start, int end, String s);
 
+    void split_on_whitespace(List<String> &out) const;
+
+    int index_of_insensitive(const String &other) const;
+
     static int compare(const String &a, const String &b);
     static int compare_insensitive(const String &a, const String &b);
     static uint32_t char_to_lower(uint32_t c);
     static uint32_t char_to_upper(uint32_t c);
+
+    static bool is_whitespace(uint32_t c);
 
 private:
     List<uint32_t> _chars;

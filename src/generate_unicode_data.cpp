@@ -1,11 +1,16 @@
 #include "util.hpp"
 #include "byte_buffer.hpp"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <assert.h>
+
+static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
+    8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232,
+    8233, 8239, 8287, 12288};
 
 struct UnicodeCharacter {
     uint32_t lower;
@@ -80,6 +85,13 @@ int main(int argc, char *argv[]) {
     fprintf(out, "#ifndef UNICODE_HPP\n");
     fprintf(out, "#define UNICODE_HPP\n");
     fprintf(out, "#include <stdint.h>\n");
+
+    fprintf(out, "static const uint32_t whitespace[] = {\n");
+    for (size_t i = 0; i < array_length(whitespace); i += 1) {
+        fprintf(out, "  0x%x,\n", whitespace[i]);
+    }
+    fprintf(out, "};\n");
+
     fprintf(out, "struct UnicodeCharacter {\n");
     fprintf(out, "    uint32_t lower;\n");
     fprintf(out, "    uint32_t upper;\n");

@@ -259,3 +259,44 @@ uint32_t String::char_to_lower(uint32_t c) {
 uint32_t String::char_to_upper(uint32_t c) {
     return (c < array_length(unicode_characters)) ? unicode_characters[c].upper : c;
 }
+
+bool String::is_whitespace(uint32_t c) {
+    for (size_t i = 0; i < array_length(whitespace); i+= 1) {
+        if (c == whitespace[i])
+            return true;
+    }
+    return false;
+}
+
+void String::split_on_whitespace(List<String> &out) const {
+    out.resize(1);
+    String *current = &out.at(0);
+
+    for (int i = 0; i < _chars.length(); i += 1) {
+        uint32_t c = _chars.at(i);
+        if (is_whitespace(c)) {
+            out.resize(out.length() + 1);
+            current = &out.at(out.length() - 1);
+            continue;
+        }
+        current->append(c);
+    }
+}
+
+int String::index_of_insensitive(const String &search) const {
+    int upper_bound = _chars.length() - search._chars.length() + 1;
+    for (int i = 0; i < upper_bound; i += 1) {
+        bool all_ok = true;
+        for (int inner = 0; inner < search._chars.length(); inner += 1) {
+            uint32_t lower_a = char_to_lower(_chars.at(i + inner));
+            uint32_t lower_b = char_to_lower(search.at(inner));
+            if (lower_a != lower_b) {
+                all_ok = false;
+                break;
+            }
+        }
+        if (all_ok)
+            return i;
+    }
+    return -1;
+}

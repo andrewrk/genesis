@@ -91,7 +91,8 @@ private:
     void destroy_all_displayed_entries();
     void destroy_all_dir_entries();
     void change_current_path(const ByteBuffer &dir);
-    bool should_show_entry(DirEntry *dir_entry, const String &text);
+    bool should_show_entry(DirEntry *dir_entry, const String &text,
+            const List<String> &search_words);
 
     static int compare_display_name(DisplayEntry a, DisplayEntry b) {
         if (a.entry->is_dir && !b.entry->is_dir) {

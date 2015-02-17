@@ -9,17 +9,6 @@ static void default_on_text_change_event(TextWidget *) {
     // do nothing
 }
 
-static const uint32_t whitespace[] = {9, 10, 11, 12, 13, 32, 133, 160, 5760,
-    8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232,
-    8233, 8239, 8287, 12288};
-static bool is_whitespace(uint32_t c) {
-    for (size_t i = 0; i < array_length(whitespace); i+= 1) {
-        if (c == whitespace[i])
-            return true;
-    }
-    return false;
-}
-
 TextWidget::TextWidget(Gui *gui) :
         _widget(Widget {
             destructor,
@@ -408,7 +397,7 @@ int TextWidget::advance_word_from_index(int start_index, int dir) {
     bool found_non_whitespace = false;
     while (new_cursor >= 0 && new_cursor < _label.text().length()) {
         uint32_t c = _label.text().at(new_cursor);
-        if (is_whitespace(c)) {
+        if (String::is_whitespace(c)) {
             if (found_non_whitespace)
                 return new_cursor + init_advance;
         } else {

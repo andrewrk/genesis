@@ -182,11 +182,15 @@ void FindFileWidget::change_current_path(const ByteBuffer &dir) {
 
 void FindFileWidget::update_entries_display() {
     destroy_all_displayed_entries();
+
+    List<String> search_words;
+    _filter_widget.text().split_on_whitespace(search_words);
+
     bool ok;
     for (int i = 0; i < _entries.length(); i += 1) {
         DirEntry *entry = _entries.at(i);
         String text(entry->name, &ok);
-        if (should_show_entry(entry, text)) {
+        if (should_show_entry(entry, text, search_words)) {
             TextWidget *text_widget = create<TextWidget>(_gui);
             text_widget->set_background(false);
             text_widget->set_text_interaction(false);
@@ -205,9 +209,16 @@ void FindFileWidget::on_filter_text_change() {
     update_entries_display();
 }
 
-bool FindFileWidget::should_show_entry(DirEntry *dir_entry, const String &text) {
-    bool is_hidden = dir_entry->is_hidden;
-    bool filter_match = true;
+bool FindFileWidget::should_show_entry(DirEntry *dir_entry, const String &text,
+        const List<String> &search_words)
+{
+    if (!_show_hidden_files && dir_entry->is_hidden)
+        return false;
 
-    return (_show_hidden_files || !is_hidden) && filter_match;
+    for (int i = 0; i < search_words.length(); i += 1) {
+        if (text.index_of_insensitive(search_words.at(i)) == -1)
+            return false;
+    }
+
+    return true;
 }
