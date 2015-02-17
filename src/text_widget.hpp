@@ -39,10 +39,7 @@ public:
         _on_text_change_event = fn;
     }
 
-    void set_text(const String &text) {
-        _label.set_text(text);
-        _label.update();
-    }
+    void set_text(const String &text);
     const String &text() const {
         return _label.text();
     }

@@ -153,7 +153,21 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
         return true;
     }
 
+    if (event->virt_key == VirtKeyReturn) {
+        if (_displayed_entries.length() > 0)
+            choose_entry(_displayed_entries.at(0));
+        return true;
+    }
+
     return false;
+}
+
+void FindFileWidget::choose_entry(DisplayEntry display_entry) {
+    if (display_entry.entry->is_dir) {
+        change_current_path(path_join(_current_path, display_entry.entry->name));
+    } else {
+        fprintf(stderr, "TODO: you have chosen: %s\n", display_entry.entry->name.raw());
+    }
 }
 
 void FindFileWidget::go_up_one() {
@@ -169,6 +183,7 @@ void FindFileWidget::update_current_path_display() {
 
 void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     _current_path = dir;
+    _filter_widget.set_text("");
     update_current_path_display();
     destroy_all_dir_entries();
     int err = path_readdir(_current_path.raw(), _entries);

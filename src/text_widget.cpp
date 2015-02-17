@@ -489,3 +489,10 @@ void TextWidget::set_placeholder_text(const String &text) {
     _placeholder_label.update();
     update_model();
 }
+
+void TextWidget::set_text(const String &text) {
+    _label.set_text(text);
+    _label.update();
+    update_model();
+    update_selection_model();
+}
