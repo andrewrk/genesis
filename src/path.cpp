@@ -83,6 +83,7 @@ int path_readdir(const char *dir, List<DirEntry*> &entries) {
         entry->is_dir = S_ISDIR(st.st_mode);
         entry->is_file = S_ISREG(st.st_mode);
         entry->is_link = S_ISLNK(st.st_mode);
+        entry->is_hidden = ep->d_name[0] == '.';
         entry->size = st.st_size;
         entry->mtime = st.st_mtime;
         entries.append(entry);

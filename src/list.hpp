@@ -44,7 +44,7 @@ public:
     T pop() {
         if (_length == 0)
             panic("pop empty list");
-        return _items[--_length];
+        return unchecked_pop();
     }
 
     void resize(int length) {
@@ -59,12 +59,9 @@ public:
     }
 
     T swap_remove(int index) {
-        T last = pop();
-        if (index >= _length)
+        if (index < 0 || index >= _length)
             panic("list: swap_remove index out of bounds");
-        T item = _items[index];
-        _items[index] = last;
-        return item;
+        return unchecked_swap_remove(index);
     }
 
     void fill(T value) {
@@ -82,6 +79,29 @@ public:
         insertion_sort<T, Comparator>(_items, _length);
     }
 
+    template<bool(*filter_fn)(void *, T)>
+    void filter_with_order_undefined(void *context) {
+        for (int i = 0; i < _length;) {
+            if (!filter_fn(context, _items[i]))
+                unchecked_swap_remove(i);
+            else
+                i += 1;
+        }
+    }
+
+    T unchecked_swap_remove(int index) {
+        if (index == _length - 1)
+            return unchecked_pop();
+
+        T last = unchecked_pop();
+        T item = _items[index];
+        _items[index] = last;
+        return item;
+    }
+
+    T unchecked_pop() {
+        return _items[--_length];
+    }
 private:
     T * _items;
     int _length;

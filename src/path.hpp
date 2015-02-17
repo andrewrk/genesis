@@ -9,6 +9,7 @@ struct DirEntry {
     bool is_dir;
     bool is_file;
     bool is_link;
+    bool is_hidden;
     int64_t size;
     long mtime;
 };

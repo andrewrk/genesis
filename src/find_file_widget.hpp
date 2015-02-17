@@ -64,7 +64,13 @@ private:
     ByteBuffer _current_path;
     List<DirEntry*> _entries;
 
-    List<TextWidget*> _displayed_entries;
+    struct DisplayEntry {
+        DirEntry *entry;
+        TextWidget *widget;
+    };
+    List<DisplayEntry> _displayed_entries;
+
+    bool _show_hidden_files;
 
     void update_model();
     bool on_filter_key(const KeyEvent *event);
@@ -78,6 +84,22 @@ private:
     void update_entries_display();
     void destroy_all_displayed_entries();
     void change_current_path(const ByteBuffer &dir);
+
+    static bool is_entry_visible(void *context, DisplayEntry display_entry) {
+        return !display_entry.entry->is_hidden;
+    }
+
+    static int compare_entry_name(DisplayEntry a, DisplayEntry b) {
+        DirEntry *dir_a = a.entry;
+        DirEntry *dir_b = b.entry;
+        if (dir_a->is_dir && !dir_b->is_dir) {
+            return -1;
+        } else if (dir_b->is_dir && !dir_a->is_dir) {
+            return 1;
+        } else {
+            return ByteBuffer::compare(dir_a->name, dir_b->name);
+        }
+    }
 
     // widget methods
     static void destructor(Widget *widget) {

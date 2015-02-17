@@ -28,7 +28,8 @@ FindFileWidget::FindFileWidget(Gui *gui) :
     _margin(4),
     _current_path_widget(gui),
     _filter_widget(gui),
-    _gui(gui)
+    _gui(gui),
+    _show_hidden_files(false)
 {
     change_current_path(genesis_home_dir);
 
@@ -60,7 +61,8 @@ void FindFileWidget::update_model() {
 
     int y = _filter_widget.top() + _filter_widget.height() + _margin;
     for (int i = 0; i < _displayed_entries.length(); i += 1) {
-        TextWidget *text_widget = _displayed_entries.at(i);
+        DisplayEntry *display_entry = &_displayed_entries.at(i);
+        TextWidget *text_widget = display_entry->widget;
         text_widget->set_pos(
                 _current_path_widget.left(),
                 y);
@@ -75,7 +77,8 @@ void FindFileWidget::draw(const glm::mat4 &projection) {
     _filter_widget.draw(projection);
 
     for (int i = 0; i < _displayed_entries.length(); i += 1) {
-        TextWidget *text_widget = _displayed_entries.at(i);
+        DisplayEntry *display_entry = &_displayed_entries.at(i);
+        TextWidget *text_widget = display_entry->widget;
         text_widget->draw(projection);
     }
 }
@@ -131,6 +134,12 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
         return true;
     }
 
+    if (event->virt_key == VirtKeyH && event->ctrl()) {
+        _show_hidden_files = !_show_hidden_files;
+        update_entries_display();
+        return true;
+    }
+
     return false;
 }
 
@@ -145,16 +154,6 @@ void FindFileWidget::update_current_path_display() {
         fprintf(stderr, "Invalid UTF-8 in path\n");
 }
 
-static int compare_entry_name(DirEntry *a, DirEntry *b) {
-    if (a->is_dir && !b->is_dir) {
-        return -1;
-    } else if (b->is_dir && !a->is_dir) {
-        return 1;
-    } else {
-        return ByteBuffer::compare(a->name, b->name);
-    }
-}
-
 void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     _current_path = dir;
     update_current_path_display();
@@ -163,7 +162,6 @@ void FindFileWidget::change_current_path(const ByteBuffer &dir) {
         // TODO display error in UI
         fprintf(stderr, "Unable to read directory\n");
     } else {
-        _entries.sort<compare_entry_name>();
         update_entries_display();
     }
 }
@@ -177,15 +175,21 @@ void FindFileWidget::update_entries_display() {
         text_widget->set_background(false);
         text_widget->set_text_interaction(false);
         text_widget->set_text(String(entry->name, &ok));
-        _displayed_entries.append(text_widget);
+        _displayed_entries.append({
+                entry,
+                text_widget,
+        });
     }
+    if (!_show_hidden_files)
+        _displayed_entries.filter_with_order_undefined<is_entry_visible>(NULL);
+    _displayed_entries.sort<compare_entry_name>();
     update_model();
 }
 
 void FindFileWidget::destroy_all_displayed_entries() {
     for (int i = 0; i < _displayed_entries.length(); i += 1) {
-        TextWidget *text_widget = _displayed_entries.at(i);
-        destroy(text_widget);
+        DisplayEntry display_entry = _displayed_entries.at(i);
+        destroy(display_entry.widget);
     }
     _displayed_entries.clear();
 }
