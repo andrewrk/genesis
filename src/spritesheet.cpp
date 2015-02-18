@@ -109,21 +109,20 @@ void main(void)
             GLfloat vertexes[4][3];
             if (image->r90) {
                 vertexes[0][0] = image->width;
-                vertexes[0][1] = 0.0f;
+                vertexes[0][1] = image->height;
                 vertexes[0][2] = 0.0f;
 
                 vertexes[1][0] = 0.0f;
-                vertexes[1][1] = 0.0f;
+                vertexes[1][1] = image->height;
                 vertexes[1][2] = 0.0f;
 
                 vertexes[2][0] = image->width;
-                vertexes[2][1] = image->height;
+                vertexes[2][1] = 0.0f;
                 vertexes[2][2] = 0.0f;
 
                 vertexes[3][0] = 0.0f;
-                vertexes[3][1] = image->height;
+                vertexes[3][1] = 0.0f;
                 vertexes[3][2] = 0.0f;
-
             } else {
                 vertexes[0][0] = 0.0f;
                 vertexes[0][1] = 0.0f;
@@ -149,32 +148,17 @@ void main(void)
 
         {
             GLfloat coords[4][2];
-            if (image->r90) {
-                coords[0][0] = (image->x + image->width) / full_width;
-                coords[0][1] = image->y / full_height;
+            coords[0][0] = image->x / full_width;
+            coords[0][1] = (image->y + image->height) / full_height;
 
-                coords[1][0] = image->x / full_width;
-                coords[1][1] = image->y / full_height;
+            coords[1][0] = image->x / full_width;
+            coords[1][1] = image->y / full_height;
 
-                coords[2][0] = (image->x + image->width) / full_width;
-                coords[2][1] = (image->y + image->height) / full_height;
+            coords[2][0] = (image->x + image->width) / full_width;
+            coords[2][1] = (image->y + image->height) / full_height;
 
-                coords[3][0] = image->x / full_width;
-                coords[3][1] = (image->y + image->height) / full_height;
-            } else {
-                coords[0][0] = image->x / full_width;
-                coords[0][1] = image->y / full_height;
-
-                coords[1][0] = image->x / full_width;
-                coords[1][1] = (image->y + image->height) / full_height;
-
-                coords[2][0] = (image->x + image->width) / full_width;
-                coords[2][1] = image->y / full_height;
-
-                coords[3][0] = (image->x + image->width) / full_width;
-                coords[3][1] = (image->y + image->height) / full_height;
-
-            }
+            coords[3][0] = (image->x + image->width) / full_width;
+            coords[3][1] = image->y / full_height;
             glBindBuffer(GL_ARRAY_BUFFER, tex_coord_buffer);
             glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_STATIC_DRAW);
             glEnableVertexAttribArray(_texture_attrib_tex_coord);
