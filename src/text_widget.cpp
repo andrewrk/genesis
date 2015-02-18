@@ -37,6 +37,9 @@ TextWidget::TextWidget(Gui *gui) :
         _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _auto_size(false),
+        _icon_size_w(16),
+        _icon_size_h(16),
+        _icon_margin(4),
         _gui(gui),
         _cursor_start(0),
         _cursor_end(0),
@@ -49,6 +52,7 @@ TextWidget::TextWidget(Gui *gui) :
         _mouse_down_dbl(false),
         _background_on(true),
         _text_interaction_on(true),
+        _icon_img(NULL),
         _on_key_event(default_on_key_event),
         _on_text_change_event(default_on_text_change_event)
 {
@@ -59,6 +63,11 @@ void TextWidget::draw(const glm::mat4 &projection) {
     if (_background_on) {
         glm::mat4 bg_mvp = projection * _bg_model;
         _gui->fill_rect(_background_color, bg_mvp);
+    }
+
+    if (_icon_img) {
+        glm::mat4 icon_mvp = projection * _icon_model;
+        _gui->draw_image(_icon_img, icon_mvp);
     }
 
     glm::mat4 label_mvp = projection * _label_model;
@@ -86,18 +95,28 @@ void TextWidget::draw(const glm::mat4 &projection) {
 }
 
 void TextWidget::update_model() {
+    if (_icon_img) {
+        float scale_x = ((float)_icon_size_w) / ((float)_icon_img->width);
+        float scale_y = ((float)_icon_size_h) / ((float)_icon_img->height);
+        _icon_model = glm::scale(
+                        glm::translate(
+                            glm::mat4(1.0f),
+                            glm::vec3(_left + _padding_left, _top + _padding_top, 0.0f)),
+                        glm::vec3(scale_x, scale_y, 0.0f));
+    }
+
     int slice_start_x, slice_end_x;
     if (_auto_size) {
         slice_start_x = -1;
         slice_end_x = -1;
     } else {
         slice_start_x = _scroll_x;
-        slice_end_x = _scroll_x + _width - _padding_left - _padding_right;
+        slice_end_x = _scroll_x + _width - label_start_x() - _padding_right;
     }
     _label.set_slice(slice_start_x, slice_end_x);
 
-    float label_left = _left + _padding_left;
-    float label_top = _top + _padding_top;
+    float label_left = _left + label_start_x();
+    float label_top = _top + label_start_y();
     _label_model = glm::translate(glm::mat4(1.0f), glm::vec3(label_left, label_top, 0.0f));
 
     _bg_model = glm::scale(
@@ -168,16 +187,27 @@ void TextWidget::on_mouse_move(const MouseEvent *event) {
     }
 }
 
+int TextWidget::label_start_x() const {
+    int x = _padding_left;
+    if (_icon_img)
+        x += _icon_size_w + _icon_margin;
+    return x;
+}
+
+int TextWidget::label_start_y() const {
+    return (height() - _label.height()) / 2;
+}
+
 int TextWidget::cursor_at_pos(int x, int y) const {
-    int inner_x = x - _padding_left;
-    int inner_y = y - _padding_top;
+    int inner_x = x - label_start_x();
+    int inner_y = y - label_start_y();
     return _label.cursor_at_pos(inner_x, inner_y);
 }
 
 void TextWidget::pos_at_cursor(int index, int &x, int &y) const {
     _label.pos_at_cursor(index, x, y);
-    x += _padding_left - _scroll_x;
-    y += _padding_top;
+    x += label_start_x() - _scroll_x;
+    y += label_start_y();
 }
 
 void TextWidget::get_cursor_slice(int &start, int &end) const {
@@ -191,6 +221,7 @@ void TextWidget::get_cursor_slice(int &start, int &end) const {
 }
 
 void TextWidget::update_selection_model() {
+    int sel_height = height() - _padding_top - _padding_bottom;
     if (_cursor_start == _cursor_end) {
         int x, y;
         pos_at_cursor(_cursor_start, x, y);
@@ -198,7 +229,7 @@ void TextWidget::update_selection_model() {
                             glm::translate(
                                 glm::mat4(1.0f),
                                 glm::vec3(_left + x, _top + _padding_top, 0.0f)),
-                            glm::vec3(2.0f, _label.height(), 1.0f));;
+                            glm::vec3(2.0f, sel_height, 1.0f));;
     } else {
         int start, end;
         get_cursor_slice(start, end);
@@ -207,7 +238,7 @@ void TextWidget::update_selection_model() {
         _label.get_slice_dimensions(start, end, start_x, end_x);
         start_x -= _scroll_x;
         end_x -= _scroll_x;
-        int max_end_x = width() - _padding_left - _padding_right;
+        int max_end_x = width() - label_start_x() - _padding_right;
         int min_start_x = 0;
         start_x = max(min_start_x, start_x);
         end_x = min(max_end_x, end_x);
@@ -215,10 +246,10 @@ void TextWidget::update_selection_model() {
         _sel_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
-                            glm::vec3(_left + _padding_left + start_x, _top + _padding_top, 0.0f)),
-                        glm::vec3(sel_width, _label.height(), 1.0f));
-        float label_left = _left + _padding_left;
-        float label_top = _top + _padding_top;
+                            glm::vec3(_left + label_start_x() + start_x, _top + _padding_top, 0.0f)),
+                        glm::vec3(sel_width, sel_height, 1.0f));
+        float label_left = _left + label_start_x();
+        float label_top = _top + label_start_y();
         _sel_text_model = glm::translate(glm::mat4(1.0f),
                 glm::vec3(label_left + start_x, label_top, 0.0f));
     }
@@ -436,14 +467,21 @@ void TextWidget::paste() {
 
 int TextWidget::width() const {
     if (_auto_size) {
-        return _label.width() + _padding_left + _padding_right;
+        return _label.width() + label_start_x() + _padding_right;
     } else {
         return _width;
     }
 }
 
 int TextWidget::height() const {
-    return _label.height() + _padding_top + _padding_bottom;
+    int height_from_label = _label.height() + _padding_top + _padding_bottom;
+
+    if (_icon_img) {
+        int height_from_icon = _padding_top + _padding_bottom + _icon_size_h;
+        return max(height_from_label, height_from_icon);
+    } else {
+        return height_from_label;
+    }
 }
 
 void TextWidget::set_width(int new_width) {
@@ -468,11 +506,11 @@ void TextWidget::scroll_index_into_view(int char_index) {
         if (cursor_too_far_right > 0)
             _scroll_x += cursor_too_far_right;
 
-        int cursor_too_far_left = -x + _padding_left;
+        int cursor_too_far_left = -x + label_start_x();
         if (cursor_too_far_left > 0)
             _scroll_x -= cursor_too_far_left;
 
-        int max_scroll_x = max(0, _label.width() - (_width - _padding_left - _padding_right));
+        int max_scroll_x = max(0, _label.width() - (_width - label_start_x() - _padding_right));
         _scroll_x = clamp(0, _scroll_x, max_scroll_x);
     }
 
@@ -493,6 +531,12 @@ void TextWidget::set_placeholder_text(const String &text) {
 void TextWidget::set_text(const String &text) {
     _label.set_text(text);
     _label.update();
+    update_model();
+    update_selection_model();
+}
+
+void TextWidget::set_icon(Gui::Image *icon) {
+    _icon_img = icon;
     update_model();
     update_selection_model();
 }

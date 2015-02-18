@@ -257,9 +257,6 @@ void Gui::exec() {
             }
         }
 
-        draw_image(_img_entry_dir, 400, 400, 16, 16);
-        draw_image(_img_entry_file, 450, 400, 16, 16);
-
         SDL_GL_SwapWindow(_window);
         SDL_Delay(17);
     }

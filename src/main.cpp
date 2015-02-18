@@ -43,6 +43,11 @@ int main(int argc, char *argv[]) {
         find_file_widget->set_pos(100, 100);
         gui.set_focus_widget(&find_file_widget->_widget);
 
+        TextWidget *text_widget = gui.create_text_widget();
+        text_widget->set_icon(gui._img_entry_file);
+        text_widget->set_text("with icon");
+        text_widget->set_pos(500, 400);
+
         gui.exec();
     }
 

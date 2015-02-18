@@ -69,7 +69,6 @@ public:
     SDL_Cursor* _cursor_ibeam;
     SDL_Cursor* _cursor_default;
 
-private:
     SDL_Window *_window;
 
 
@@ -98,6 +97,8 @@ private:
 
     Image *_img_entry_dir;
     Image *_img_entry_file;
+
+private:
 
     void resize();
     void on_mouse_move(const MouseEvent *event);

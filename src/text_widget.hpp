@@ -83,6 +83,8 @@ public:
         _text_interaction_on = false;
     }
 
+    void set_icon(Gui::Image *icon);
+
     void *_userdata;
 
 private:
@@ -102,6 +104,9 @@ private:
     glm::vec4 _selection_color;
     glm::vec4 _cursor_color;
     bool _auto_size;
+    int _icon_size_w;
+    int _icon_size_h;
+    int _icon_margin;
 
     Gui *_gui;
 
@@ -129,6 +134,12 @@ private:
     bool _background_on;
     bool _text_interaction_on;
 
+    Gui::Image *_icon_img;
+    glm::mat4 _icon_model;
+
+    bool (*_on_key_event)(TextWidget *, const KeyEvent *event);
+    void (*_on_text_change_event)(TextWidget *);
+
     void update_model();
 
     int cursor_at_pos(int x, int y) const;
@@ -143,8 +154,8 @@ private:
     void scroll_cursor_into_view();
     void scroll_index_into_view(int char_index);
 
-    bool (*_on_key_event)(TextWidget *, const KeyEvent *event);
-    void (*_on_text_change_event)(TextWidget *);
+    int label_start_x() const;
+    int label_start_y() const;
 
     // widget methods
     static void destructor(Widget *widget) {
