@@ -9,6 +9,10 @@ static void default_on_text_change_event(TextWidget *) {
     // do nothing
 }
 
+static bool default_on_mouse_event(TextWidget *, const MouseEvent *event) {
+    return false;
+}
+
 TextWidget::TextWidget(Gui *gui) :
         _widget(Widget {
             destructor,
@@ -24,6 +28,8 @@ TextWidget::TextWidget(Gui *gui) :
             on_lose_focus,
             on_text_input,
             on_key_event,
+            -1,
+            true,
         }),
         _userdata(NULL),
         _label(gui),
@@ -57,7 +63,8 @@ TextWidget::TextWidget(Gui *gui) :
         _icon_img(NULL),
         _hovering(false),
         _on_key_event(default_on_key_event),
-        _on_text_change_event(default_on_text_change_event)
+        _on_text_change_event(default_on_text_change_event),
+        _on_mouse_event(default_on_mouse_event)
 {
     update_model();
 }
@@ -144,6 +151,9 @@ void TextWidget::on_mouse_out(const MouseEvent *event) {
 }
 
 void TextWidget::on_mouse_move(const MouseEvent *event) {
+    if (_on_mouse_event(this, event))
+        return;
+
     if (!_text_interaction_on)
         return;
 

@@ -39,6 +39,11 @@ public:
         _on_text_change_event = fn;
     }
 
+    // return true if you ate the event
+    void set_on_mouse_event(bool (*fn)(TextWidget *, const MouseEvent *event)) {
+        _on_mouse_event = fn;
+    }
+
     void set_text(const String &text);
     const String &text() const {
         return _label.text();
@@ -155,6 +160,7 @@ private:
 
     bool (*_on_key_event)(TextWidget *, const KeyEvent *event);
     void (*_on_text_change_event)(TextWidget *);
+    bool (*_on_mouse_event)(TextWidget *, const MouseEvent *event);
 
     void update_model();
 

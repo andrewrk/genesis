@@ -44,6 +44,11 @@ public:
         update_model();
     }
 private:
+    struct TextWidgetUserData {
+        FindFileWidget *find_file_widget;
+        DirEntry *dir_entry;
+    };
+
     Mode _mode;
 
     int _left;
@@ -76,6 +81,8 @@ private:
     bool on_filter_key(const KeyEvent *event);
     void go_up_one();
     void on_filter_text_change();
+    bool on_entry_mouse(TextWidget *entry_widget, TextWidgetUserData *userdata,
+            const MouseEvent *event);
 
 
     static bool on_filter_key(TextWidget *text_widget, const KeyEvent *event) {
@@ -86,6 +93,11 @@ private:
         return (reinterpret_cast<FindFileWidget*>(text_widget->_userdata))->on_filter_text_change();
     }
 
+    static bool on_entry_mouse(TextWidget *text_widget, const MouseEvent *event) {
+        TextWidgetUserData *userdata = reinterpret_cast<TextWidgetUserData*>(text_widget->_userdata);
+        return userdata->find_file_widget->on_entry_mouse(text_widget, userdata, event);
+    }
+
     void update_current_path_display();
     void update_entries_display();
     void destroy_all_displayed_entries();
@@ -94,7 +106,7 @@ private:
     bool should_show_entry(DirEntry *dir_entry, const String &text,
             const List<String> &search_words);
 
-    void choose_entry(DisplayEntry display_entry);
+    void choose_dir_entry(DirEntry *dir_entry);
 
     static int compare_display_name(DisplayEntry a, DisplayEntry b) {
         if (a.entry->is_dir && !b.entry->is_dir) {

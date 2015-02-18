@@ -16,6 +16,8 @@ FindFileWidget::FindFileWidget(Gui *gui) :
         on_lose_focus,
         on_text_input,
         on_key_event,
+        -1,
+        true,
     }),
     _left(0),
     _top(0),
@@ -57,7 +59,8 @@ void FindFileWidget::destroy_all_dir_entries() {
 void FindFileWidget::destroy_all_displayed_entries() {
     for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry display_entry = _displayed_entries.at(i);
-        destroy(display_entry.widget, 1);
+        destroy((TextWidgetUserData *)display_entry.widget->_userdata, 1);
+        _gui->destroy_widget(&display_entry.widget->_widget);
     }
     _displayed_entries.clear();
 }
@@ -183,18 +186,18 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
 
     if (event->virt_key == VirtKeyReturn) {
         if (_displayed_entries.length() > 0)
-            choose_entry(_displayed_entries.at(0));
+            choose_dir_entry(_displayed_entries.at(0).entry);
         return true;
     }
 
     return false;
 }
 
-void FindFileWidget::choose_entry(DisplayEntry display_entry) {
-    if (display_entry.entry->is_dir) {
-        change_current_path(path_join(_current_path, display_entry.entry->name));
+void FindFileWidget::choose_dir_entry(DirEntry *dir_entry) {
+    if (dir_entry->is_dir) {
+        change_current_path(path_join(_current_path, dir_entry->name));
     } else {
-        fprintf(stderr, "TODO: you have chosen: %s\n", display_entry.entry->name.raw());
+        fprintf(stderr, "TODO: you have chosen: %s\n", dir_entry->name.raw());
     }
 }
 
@@ -241,6 +244,12 @@ void FindFileWidget::update_entries_display() {
             text_widget->set_text(text);
             text_widget->set_hover_color(glm::vec4(0.663f, 0.663f, 0.663f, 1.0f));
             text_widget->set_hover_on(true);
+            text_widget->set_on_mouse_event(on_entry_mouse);
+
+            TextWidgetUserData *userdata = create<TextWidgetUserData>();
+            userdata->find_file_widget = this;
+            userdata->dir_entry = entry;
+            text_widget->_userdata = userdata;
 
             if (entry->is_dir) {
                 text_widget->set_icon(_gui->_img_entry_dir);
@@ -274,6 +283,17 @@ bool FindFileWidget::should_show_entry(DirEntry *dir_entry, const String &text,
         if (text.index_of_insensitive(search_words.at(i)) == -1)
             return false;
     }
+
+    return true;
+}
+
+bool FindFileWidget::on_entry_mouse(TextWidget *entry_widget,
+        TextWidgetUserData *userdata, const MouseEvent *event)
+{
+    if (event->action != MouseActionDown)
+        return false;
+
+    choose_dir_entry(userdata->dir_entry);
 
     return true;
 }

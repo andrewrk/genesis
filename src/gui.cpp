@@ -334,8 +334,15 @@ void Gui::draw_image(const Image *img, const glm::mat4 &mvp) {
 }
 
 void Gui::destroy_widget(Widget *widget) {
-    _widget_list.swap_remove(widget->_gui_index);
+    if (widget == _mouse_over_widget)
+        _mouse_over_widget = NULL;
+    if (widget == _focus_widget)
+        _focus_widget = NULL;
+
+    if (widget->_gui_index >= 0)
+        _widget_list.swap_remove(widget->_gui_index);
     widget->destructor(widget);
+    destroy<Widget>(widget, 1);
 }
 
 bool Gui::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {
