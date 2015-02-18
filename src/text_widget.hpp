@@ -75,12 +75,24 @@ public:
     void copy();
     void paste();
 
-    void set_background(bool value) {
+    void set_background_on(bool value) {
         _background_on = value;
+    }
+
+    void set_hover_on(bool value) {
+        _hover_on = value;
     }
 
     void set_text_interaction(bool value) {
         _text_interaction_on = false;
+    }
+
+    void set_background_color(const glm::vec4 &color) {
+        _background_color = color;
+    }
+
+    void set_hover_color(const glm::vec4 &color) {
+        _hover_color = color;
     }
 
     void set_icon(Gui::Image *icon);
@@ -101,6 +113,7 @@ private:
     glm::vec4 _text_color;
     glm::vec4 _sel_text_color;
     glm::vec4 _background_color;
+    glm::vec4 _hover_color;
     glm::vec4 _selection_color;
     glm::vec4 _cursor_color;
     bool _auto_size;
@@ -132,10 +145,13 @@ private:
     int _dbl_select_end;
 
     bool _background_on;
+    bool _hover_on;
     bool _text_interaction_on;
 
     Gui::Image *_icon_img;
     glm::mat4 _icon_model;
+
+    bool _hovering;
 
     bool (*_on_key_event)(TextWidget *, const KeyEvent *event);
     void (*_on_text_change_event)(TextWidget *);

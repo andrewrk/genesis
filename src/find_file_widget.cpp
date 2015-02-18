@@ -33,7 +33,7 @@ FindFileWidget::FindFileWidget(Gui *gui) :
 {
     change_current_path(genesis_home_dir);
 
-    _current_path_widget.set_background(false);
+    _current_path_widget.set_background_on(false);
     _current_path_widget.set_text_interaction(false);
     _filter_widget.set_placeholder_text("file filter");
     _filter_widget._userdata = this;
@@ -81,7 +81,7 @@ void FindFileWidget::update_model() {
                 y);
         text_widget->set_width(_current_path_widget.width());
         text_widget->_widget._is_visible = (text_widget->top() <= _top + _padding_top + _height);
-        y += text_widget->height() + _margin;
+        y += text_widget->height();
     }
 }
 
@@ -133,6 +133,13 @@ void FindFileWidget::on_mouse_move(const MouseEvent *event) {
         return;
     if (_gui->try_mouse_move_event_on_widget(&_filter_widget._widget, &mouse_event))
         return;
+
+    for (int i = 0; i < _displayed_entries.length(); i += 1) {
+        DisplayEntry *display_entry = &_displayed_entries.at(i);
+        TextWidget *text_widget = display_entry->widget;
+        if (_gui->try_mouse_move_event_on_widget(&text_widget->_widget, &mouse_event))
+            return;
+    }
 }
 
 void FindFileWidget::on_mouse_out(const MouseEvent *event) {
@@ -229,9 +236,11 @@ void FindFileWidget::update_entries_display() {
         String text(entry->name, &ok);
         if (should_show_entry(entry, text, search_words)) {
             TextWidget *text_widget = create<TextWidget>(_gui);
-            text_widget->set_background(false);
+            text_widget->set_background_on(false);
             text_widget->set_text_interaction(false);
             text_widget->set_text(text);
+            text_widget->set_hover_color(glm::vec4(0.663f, 0.663f, 0.663f, 1.0f));
+            text_widget->set_hover_on(true);
 
             if (entry->is_dir) {
                 text_widget->set_icon(_gui->_img_entry_dir);

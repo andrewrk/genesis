@@ -34,6 +34,7 @@ TextWidget::TextWidget(Gui *gui) :
         _text_color(0.0f, 0.0f, 0.0f, 1.0f),
         _sel_text_color(1.0f, 1.0f, 1.0f, 1.0f),
         _background_color(0.828f, 0.862f, 0.916f, 1.0f),
+        _hover_color(0.7f, 0.7f, 0.8f, 1.0f),
         _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
         _auto_size(false),
@@ -51,8 +52,10 @@ TextWidget::TextWidget(Gui *gui) :
         _placeholder_color(0.4f, 0.4f, 0.4f, 1.0f),
         _mouse_down_dbl(false),
         _background_on(true),
+        _hover_on(false),
         _text_interaction_on(true),
         _icon_img(NULL),
+        _hovering(false),
         _on_key_event(default_on_key_event),
         _on_text_change_event(default_on_text_change_event)
 {
@@ -60,9 +63,11 @@ TextWidget::TextWidget(Gui *gui) :
 }
 
 void TextWidget::draw(const glm::mat4 &projection) {
-    if (_background_on) {
+    bool should_hover = (_hover_on && _hovering);
+    if (_background_on || should_hover) {
         glm::mat4 bg_mvp = projection * _bg_model;
-        _gui->fill_rect(_background_color, bg_mvp);
+        glm::vec4 color = should_hover ? _hover_color : _background_color;
+        _gui->fill_rect(color, bg_mvp);
     }
 
     if (_icon_img) {
@@ -130,10 +135,12 @@ void TextWidget::on_mouse_over(const MouseEvent *event) {
     if (_text_interaction_on) {
         SDL_SetCursor(_gui->_cursor_ibeam);
     }
+    _hovering = true;
 }
 
 void TextWidget::on_mouse_out(const MouseEvent *event) {
     SDL_SetCursor(_gui->_cursor_default);
+    _hovering = false;
 }
 
 void TextWidget::on_mouse_move(const MouseEvent *event) {
