@@ -10,6 +10,7 @@
 #include "font_size.hpp"
 #include "widget.hpp"
 #include "resource_bundle.hpp"
+#include "spritesheet.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -52,6 +53,10 @@ public:
     void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
     void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
 
+    typedef Spritesheet::ImageInfo Image;
+    void draw_image(const Image *img, int x, int y, int w, int h);
+    void draw_image(const Image *img, const glm::mat4 &mvp);
+
     void start_text_editing(int x, int y, int w, int h);
     void stop_text_editing();
 
@@ -88,6 +93,11 @@ private:
 
     ResourceBundle *_resource_bundle;
     ByteBuffer _default_font_buffer;
+
+    Spritesheet _spritesheet;
+
+    Image *_img_entry_dir;
+    Image *_img_entry_file;
 
     void resize();
     void on_mouse_move(const MouseEvent *event);

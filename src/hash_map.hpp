@@ -22,7 +22,7 @@ public:
         return _size;
     }
 
-    void put(K key, V value) {
+    void put(const K &key, const V &value) {
         _modification_count += 1;
         internal_put(key, value);
 
@@ -41,7 +41,7 @@ public:
         }
     }
 
-    V get(K key) const {
+    const V &get(const K &key) const {
         Entry *entry = internal_get(key);
         if (!entry)
             panic("key not found");
@@ -49,7 +49,7 @@ public:
     }
 
     // if the return value is false, out_value will not be touched
-    bool get(K key, V *out_value) const {
+    bool get(const K &key, V *out_value) const {
         Entry *entry = internal_get(key);
         if (!entry)
             return false;
@@ -57,7 +57,7 @@ public:
         return true;
     }
 
-    void remove(K key) {
+    void remove(const K &key) {
         _modification_count += 1;
         int start_index = key_to_index(key);
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
@@ -198,7 +198,7 @@ private:
     }
 
 
-    Entry *internal_get(K key) const {
+    Entry *internal_get(const K &key) const {
         int start_index = key_to_index(key);
         for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
             int index = (start_index + roll_over) % _capacity;
@@ -213,7 +213,7 @@ private:
         return NULL;
     }
 
-    int key_to_index(K key) const {
+    int key_to_index(const K &key) const {
         return (int)(HashFunction(key) % ((uint32_t)_capacity));
     }
 };

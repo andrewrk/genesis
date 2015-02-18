@@ -96,10 +96,31 @@ public:
 
     void split(const char *split_by, List<ByteBuffer> &out) const;
 
+    uint32_t hash() const {
+        // FNV 32-bit hash
+        uint32_t h = 2166136261;
+        for (int i = 0; i < _buffer.length(); i += 1) {
+            h = h ^ ((uint8_t)_buffer.at(i));
+            h = h * 16777619;
+        }
+        return h;
+    }
+
     static int compare(const ByteBuffer &a, const ByteBuffer &b) {
         return memcmp(a.raw(), b.raw(), min(a.length(), b.length()) + 1);
     }
 
+    static uint32_t hash(const ByteBuffer &key) {
+        return key.hash();
+    }
+
+    inline bool operator==(const ByteBuffer &other) {
+        return compare(*this, other) == 0;
+    }
+
+    inline bool operator!=(const ByteBuffer &other) {
+        return compare(*this, other) != 0;
+    }
 private:
     List<char> _buffer;
 };

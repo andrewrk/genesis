@@ -22,6 +22,22 @@ public:
         }
         return *this;
     }
+    inline bool operator==(const List<T> &other) {
+        if (_length != other._length)
+            return false;
+
+        for (int i = 0; i < _length; i += 1) {
+            if (_items[i] != other._items[i])
+                return false;
+        }
+
+        return true;
+    }
+
+    inline bool operator!=(const List<T> &other) {
+        return !(*this == other);
+    }
+
     void append(T item) {
         ensure_capacity(_length + 1);
         _items[_length++] = item;

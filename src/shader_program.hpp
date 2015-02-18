@@ -15,7 +15,7 @@ public:
             const char *geometry_shader_source);
     ~ShaderProgram();
 
-    void bind() {
+    void bind() const {
         glUseProgram(program_id);
     }
 
@@ -33,12 +33,12 @@ public:
         return id;
     }
 
-    void set_uniform(GLint uniformId, int value);
-    void set_uniform(GLint uniformId, float value);
-    void set_uniform(GLint uniformId, const glm::vec3 &value);
-    void set_uniform(GLint uniformId, const glm::vec4 &value);
-    void set_uniform(GLint uniformId, const glm::mat4 &value);
-    void set_uniform(GLint uniformId, const glm::mat3 &value);
+    void set_uniform(GLint uniformId, int value) const;
+    void set_uniform(GLint uniformId, float value) const;
+    void set_uniform(GLint uniformId, const glm::vec3 &value) const;
+    void set_uniform(GLint uniformId, const glm::vec4 &value) const;
+    void set_uniform(GLint uniformId, const glm::mat4 &value) const;
+    void set_uniform(GLint uniformId, const glm::mat3 &value) const;
 
 private:
 

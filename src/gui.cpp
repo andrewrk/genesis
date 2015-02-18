@@ -74,7 +74,10 @@ void main(void) {
     _window(window),
     _mouse_over_widget(NULL),
     _focus_widget(NULL),
-    _resource_bundle(resource_bundle)
+    _resource_bundle(resource_bundle),
+    _spritesheet(resource_bundle, "spritesheet"),
+    _img_entry_dir((Image*)_spritesheet.get_image_info("img/entry-dir.png")),
+    _img_entry_file((Image*)_spritesheet.get_image_info("img/entry-file.png"))
 {
     _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
     _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
@@ -254,6 +257,9 @@ void Gui::exec() {
             }
         }
 
+        draw_image(_img_entry_dir, 400, 400, 16, 16);
+        draw_image(_img_entry_file, 450, 400, 16, 16);
+
         SDL_GL_SwapWindow(_window);
         SDL_Delay(17);
     }
@@ -311,6 +317,22 @@ void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
 
     glBindVertexArray(_primitive_vertex_array);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void Gui::draw_image(const Image *img, int x, int y, int w, int h) {
+    float scale_x = ((float)w) / ((float)img->width);
+    float scale_y = ((float)h) / ((float)img->height);
+    glm::mat4 model = glm::scale(
+                        glm::translate(
+                            glm::mat4(1.0f),
+                            glm::vec3(x, y, 0.0f)),
+                        glm::vec3(scale_x, scale_y, 0.0f));
+    glm::mat4 mvp = _projection * model;
+    draw_image(img, mvp);
+}
+
+void Gui::draw_image(const Image *img, const glm::mat4 &mvp) {
+    _spritesheet.draw(img, mvp);
 }
 
 void Gui::destroy_widget(Widget *widget) {

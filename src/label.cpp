@@ -231,6 +231,7 @@ void Label::update() {
     // send bitmap to GPU
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bounding_width, bounding_height,
             0, GL_BGRA, GL_UNSIGNED_BYTE, _img_buffer.raw());
 

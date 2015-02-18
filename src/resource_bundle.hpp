@@ -12,7 +12,6 @@ public:
 
     void get_file_buffer(const char *key, ByteBuffer &buffer);
 
-private:
     RuckSackBundle *_bundle;
 };
 

@@ -69,32 +69,32 @@ ShaderProgram::~ShaderProgram() {
     glDeleteProgram(program_id);
 }
 
-void ShaderProgram::set_uniform(GLint uniform_id, int value)
+void ShaderProgram::set_uniform(GLint uniform_id, int value) const
 {
     glUniform1i(uniform_id, value);
 }
 
-void ShaderProgram::set_uniform(GLint uniform_id, float value)
+void ShaderProgram::set_uniform(GLint uniform_id, float value) const
 {
     glUniform1f(uniform_id, value);
 }
 
-void ShaderProgram::set_uniform(GLint uniform_id, const glm::vec3 &value)
+void ShaderProgram::set_uniform(GLint uniform_id, const glm::vec3 &value) const
 {
     glUniform3fv(uniform_id, 1, &value[0]);
 }
 
-void ShaderProgram::set_uniform(GLint uniform_id, const glm::vec4 &value)
+void ShaderProgram::set_uniform(GLint uniform_id, const glm::vec4 &value) const
 {
     glUniform4fv(uniform_id, 1, &value[0]);
 }
 
-void ShaderProgram::set_uniform(GLint uniform_id, const glm::mat4 &value)
+void ShaderProgram::set_uniform(GLint uniform_id, const glm::mat4 &value) const
 {
     glUniformMatrix4fv(uniform_id, 1, GL_FALSE, &value[0][0]);
 }
 
-void ShaderProgram::set_uniform(GLint uniform_id, const glm::mat3 &value)
+void ShaderProgram::set_uniform(GLint uniform_id, const glm::mat3 &value) const
 {
     glUniformMatrix3fv(uniform_id, 1, GL_FALSE, &value[0][0]);
 }
