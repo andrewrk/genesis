@@ -52,5 +52,5 @@ build/test: $(TEST_OBJECTS)
 
 .PHONY: clean
 clean:
-	rm -rf buil
+	rm -rf build
 
