@@ -210,7 +210,8 @@ void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     int err = path_readdir(_current_path.raw(), _entries);
     if (err) {
         // TODO display error in UI
-        fprintf(stderr, "Unable to read directory\n");
+        char *err_str = strerror(err);
+        fprintf(stderr, "Unable to read directory: %s\n", err_str);
     } else {
         update_entries_display();
     }
@@ -231,6 +232,15 @@ void FindFileWidget::update_entries_display() {
             text_widget->set_background(false);
             text_widget->set_text_interaction(false);
             text_widget->set_text(text);
+
+            if (entry->is_dir) {
+                text_widget->set_icon(_gui->_img_entry_dir);
+            } else if (entry->is_file) {
+                text_widget->set_icon(_gui->_img_entry_file);
+            } else {
+                text_widget->set_icon(_gui->_img_null);
+            }
+
             _displayed_entries.append({
                     entry,
                     text_widget,

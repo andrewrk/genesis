@@ -45,7 +45,6 @@ make
 ## Roadmap
 
  0. UI for the user to load a file.
-    - display icon for folder
     - press arrows to select one
     - click one to select it
     - scroll

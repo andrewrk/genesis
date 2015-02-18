@@ -97,6 +97,7 @@ public:
 
     Image *_img_entry_dir;
     Image *_img_entry_file;
+    Image *_img_null;
 
 private:
 

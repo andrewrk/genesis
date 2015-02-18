@@ -77,7 +77,8 @@ void main(void) {
     _resource_bundle(resource_bundle),
     _spritesheet(resource_bundle, "spritesheet"),
     _img_entry_dir((Image*)_spritesheet.get_image_info("img/entry-dir.png")),
-    _img_entry_file((Image*)_spritesheet.get_image_info("img/entry-file.png"))
+    _img_entry_file((Image*)_spritesheet.get_image_info("img/entry-file.png")),
+    _img_null((Image*)_spritesheet.get_image_info("img/null.png"))
 {
     _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
     _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
