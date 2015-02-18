@@ -144,7 +144,8 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
         for (int x = 0; x < source.width; x += 1) {
             unsigned char alpha = source.buffer[y * pitch + x];
             int dest_index = 4 * ((top + y) * dest_width + x + left) + 3;
-            dest.at(dest_index) = alpha;
+            if (dest_index >= 0 && dest_index < dest.length())
+                dest.at(dest_index) = alpha;
         }
     }
 }
