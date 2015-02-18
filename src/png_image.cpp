@@ -63,7 +63,7 @@ PngImage::PngImage(const ByteBuffer &compressed_bytes) {
         panic("expected RGBA");
 
     _pitch = _width * bits_per_channel * channel_count / 8;
-    _image_data.resize(_width * _pitch);
+    _image_data.resize(_height * _pitch);
     png_bytep *row_ptrs = allocate<png_bytep>(_height);
 
     for (int i = 0; i < _height; i++) {
