@@ -132,6 +132,11 @@ void main(void) {
 }
 
 Gui::~Gui() {
+    for (int i = 0; i < _widget_list.length(); i += 1) {
+        Widget *widget = _widget_list.at(i);
+        destroy_widget(widget);
+    }
+
     SDL_FreeCursor(_cursor_default);
     SDL_FreeCursor(_cursor_ibeam);
 
