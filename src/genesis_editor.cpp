@@ -2,6 +2,7 @@
 #include "list.hpp"
 
 #include <groove/groove.h>
+#include <stdint.h>
 
 struct Channel {
     int sample_rate;
@@ -66,6 +67,20 @@ bool GenesisEditor::on_gui_key(Gui *gui, const KeyEvent *event) {
     return false;
 }
 
+static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile &audio_file) {
+    uint8_t *ptr = buffer->data[0];
+    double min = (double)INT32_MIN;
+    double max = (double)INT32_MAX;
+    double range = max - min;
+    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+        for (int ch = 0; ch < audio_file.channels.length(); ch += 1, ptr += 1) {
+            int32_t *sample = reinterpret_cast<int32_t*>(ptr);
+            double dbl_sample = (((double)*sample) - min) / range;
+            audio_file.channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
 void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     destroy_find_file_widget();
 
@@ -101,14 +116,14 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     if (!item)
         panic("out of memory");
 
-    fprintf(stderr, "waiting on buffer\n");
     GrooveBuffer *buffer;
-    while (groove_sink_buffer_get(sink, &buffer, 1)) {
-        fprintf(stderr, "got buffer\n");
+    while (groove_sink_buffer_get(sink, &buffer, 1) == GROOVE_BUFFER_YES) {
         if (buffer->format.sample_rate != audio_format.sample_rate) {
             panic("non-consistent sample rate: %d -> %d",
                     audio_format.sample_rate, buffer->format.sample_rate );
         }
+        if (buffer->format.channel_layout != audio_format.channel_layout)
+            panic("non-consistent channel layout");
         switch (buffer->format.sample_fmt) {
             default:
                 panic("unrecognized sample format");
@@ -120,7 +135,7 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
                 panic("unsupported sample format: s16");
                 break;
             case GROOVE_SAMPLE_FMT_S32:         /* signed 32 bits */
-                panic("unsupported sample format: s32");
+                import_buffer_int32(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_FLT:         /* float (32 bits) */
                 panic("unsupported sample format: float");
@@ -151,4 +166,5 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     groove_playlist_clear(playlist);
     groove_playlist_destroy(playlist);
     groove_file_close(file);
+
 }
