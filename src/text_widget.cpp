@@ -548,8 +548,7 @@ void TextWidget::set_placeholder_text(const String &text) {
 void TextWidget::set_text(const String &text) {
     _label.set_text(text);
     _label.update();
-    update_model();
-    update_selection_model();
+    set_selection(_cursor_start, _cursor_end);
 }
 
 void TextWidget::set_icon(Gui::Image *icon) {
