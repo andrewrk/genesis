@@ -1,5 +1,5 @@
 #include "find_file_widget.hpp"
-#include "genesis.hpp"
+#include "os.hpp"
 
 FindFileWidget::FindFileWidget(Gui *gui) :
     _widget(Widget {
@@ -33,7 +33,7 @@ FindFileWidget::FindFileWidget(Gui *gui) :
     _gui(gui),
     _show_hidden_files(false)
 {
-    change_current_path(genesis_home_dir);
+    change_current_path(os_home_dir);
 
     _current_path_widget.set_background_on(false);
     _current_path_widget.set_text_interaction(false);

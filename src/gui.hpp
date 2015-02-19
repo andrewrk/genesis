@@ -24,6 +24,8 @@ class Gui {
 public:
     Gui(SDL_Window *window, ResourceBundle *resource_bundle);
     ~Gui();
+    Gui(const Gui &copy) = delete;
+    Gui &operator=(const Gui &copy) = delete;
 
     void exec();
 

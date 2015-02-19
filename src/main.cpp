@@ -1,5 +1,5 @@
 #include "util.hpp"
-#include "genesis.hpp"
+#include "os.hpp"
 #include "gui.hpp"
 #include "find_file_widget.hpp"
 #include "resource_bundle.hpp"
@@ -13,7 +13,7 @@
 #include <assert.h>
 
 int main(int argc, char *argv[]) {
-    genesis_init();
+    os_init();
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
         panic("SDL initialize");

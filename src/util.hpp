@@ -28,6 +28,13 @@ static inline T * allocate(size_t count) {
     return ptr;
 }
 
+// allocate zeroed memory, do not run constructors and return NULL instead
+// of panicking.
+template<typename T>
+static inline T *allocate_zero(size_t count) {
+    return reinterpret_cast<T*>(calloc(count, sizeof(T)));
+}
+
 // Pass in a pointer to an array of old_count items.
 // You will get a pointer to an array of new_count items
 // where the first old_count items will have the same bits as the array you
