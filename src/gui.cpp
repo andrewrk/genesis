@@ -12,6 +12,10 @@ static void ft_ok(FT_Error err) {
         panic("freetype error");
 }
 
+static bool default_on_key_event(Gui *, const KeyEvent *event) {
+    return false;
+}
+
 Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle) :
     _text_shader_program(R"VERTEX(
 
@@ -78,7 +82,9 @@ void main(void) {
     _spritesheet(resource_bundle, "spritesheet"),
     _img_entry_dir((Image*)_spritesheet.get_image_info("img/entry-dir.png")),
     _img_entry_file((Image*)_spritesheet.get_image_info("img/entry-file.png")),
-    _img_null((Image*)_spritesheet.get_image_info("img/null.png"))
+    _img_null((Image*)_spritesheet.get_image_info("img/null.png")),
+    _userdata(NULL),
+    _on_key_event(default_on_key_event)
 {
     _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
     _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
@@ -447,12 +453,15 @@ void Gui::stop_text_editing() {
 
 void Gui::on_text_input(const TextInputEvent *event) {
     if (!_focus_widget)
-        panic("focus widget non NULL and text input on");
+        return;
 
     _focus_widget->on_text_input(_focus_widget, event);
 }
 
 void Gui::on_key_event(const KeyEvent *event) {
+    if (_on_key_event(this, event))
+        return;
+
     if (!_focus_widget)
         return;
 

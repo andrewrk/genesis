@@ -68,6 +68,11 @@ public:
 
     bool try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event);
 
+    // return true if you ate the event
+    void set_on_key_event(bool (*fn)(Gui *, const KeyEvent *event)) {
+        _on_key_event = fn;
+    }
+
     SDL_Cursor* _cursor_ibeam;
     SDL_Cursor* _cursor_default;
 
@@ -100,6 +105,9 @@ public:
     Image *_img_entry_dir;
     Image *_img_entry_file;
     Image *_img_null;
+
+    void *_userdata;
+    bool (*_on_key_event)(Gui *, const KeyEvent *event);
 
 private:
 

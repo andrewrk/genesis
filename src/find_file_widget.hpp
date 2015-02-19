@@ -43,6 +43,12 @@ public:
         _top = new_top;
         update_model();
     }
+
+    void set_on_choose_file(void (*fn)(FindFileWidget *, const ByteBuffer &file_path)) {
+        _on_choose_file = fn;
+    }
+
+    void *_userdata;
 private:
     struct TextWidgetUserData {
         FindFileWidget *find_file_widget;
@@ -76,6 +82,8 @@ private:
     List<DisplayEntry> _displayed_entries;
 
     bool _show_hidden_files;
+
+    void (*_on_choose_file)(FindFileWidget *, const ByteBuffer &file_path);
 
     void update_model();
     bool on_filter_key(const KeyEvent *event);

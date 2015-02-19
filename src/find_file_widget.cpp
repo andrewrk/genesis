@@ -1,6 +1,12 @@
 #include "find_file_widget.hpp"
 #include "os.hpp"
 
+static void default_on_choose_file(FindFileWidget *find_file_widget,
+        const ByteBuffer &file_path)
+{
+    fprintf(stderr, "you have chosen: %s\n", file_path.raw());
+}
+
 FindFileWidget::FindFileWidget(Gui *gui) :
     _widget(Widget {
         destructor,
@@ -31,7 +37,8 @@ FindFileWidget::FindFileWidget(Gui *gui) :
     _current_path_widget(gui),
     _filter_widget(gui),
     _gui(gui),
-    _show_hidden_files(false)
+    _show_hidden_files(false),
+    _on_choose_file(default_on_choose_file)
 {
     change_current_path(os_home_dir);
 
@@ -194,10 +201,11 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
 }
 
 void FindFileWidget::choose_dir_entry(DirEntry *dir_entry) {
+    ByteBuffer selected_path = path_join(_current_path, dir_entry->name);
     if (dir_entry->is_dir) {
-        change_current_path(path_join(_current_path, dir_entry->name));
+        change_current_path(selected_path);
     } else {
-        fprintf(stderr, "TODO: you have chosen: %s\n", dir_entry->name.raw());
+        _on_choose_file(this, selected_path);
     }
 }
 
