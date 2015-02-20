@@ -44,7 +44,6 @@ make
 
 ## Roadmap
 
- 0. Display all of the audio file's channels in a list.
  0. Render channels graphically.
  0. Ability to make a selection.
  0. Playback to speakers.

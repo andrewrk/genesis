@@ -31,6 +31,15 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
         -1,
         true,
     }),
+    _gui(gui),
+    _left(0),
+    _top(0),
+    _width(500),
+    _height(300),
+    _padding_left(4),
+    _padding_right(4),
+    _padding_top(4),
+    _padding_bottom(4),
     _audio_file(create_empty_audio_file())
 {
 }
@@ -48,6 +57,11 @@ void AudioEditWidget::destroy_audio_file() {
 }
 
 void AudioEditWidget::destroy_all_ui() {
+    for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
+        TextWidget *text_widget = _channel_name_widgets.at(i);
+        _gui->destroy_widget(&text_widget->_widget);
+    }
+    _channel_name_widgets.clear();
 }
 
 static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_file) {
@@ -56,7 +70,7 @@ static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_fil
     double max = (double)INT32_MAX;
     double range = max - min;
     for (int frame = 0; frame < buffer->frame_count; frame += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / range;
             audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -64,6 +78,31 @@ static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_fil
     }
 }
 
+static void import_buffer_float_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        uint8_t *ptr = buffer->data[ch];
+        Channel *channel = &audio_file->channels.at(ch);
+        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 4) {
+            float *sample = reinterpret_cast<float*>(ptr);
+            double dbl_sample = *sample;
+            channel->samples.append(dbl_sample);
+        }
+    }
+}
+
+static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    double min = (double)INT16_MIN;
+    double max = (double)INT16_MAX;
+    double range = max - min;
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        uint8_t *ptr = buffer->data[ch];
+        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 2) {
+            int16_t *sample = reinterpret_cast<int16_t*>(ptr);
+            double dbl_sample = (((double)*sample) - min) / range;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
 
 void AudioEditWidget::load_file(const ByteBuffer &file_path) {
     AudioFile *audio_file = create_empty_audio_file();
@@ -133,13 +172,13 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
                 panic("unsupported sample format: u8 planar");
                 break;
             case GROOVE_SAMPLE_FMT_S16P:        /* signed 16 bits, planar */
-                panic("unsupported sample format: s16 planar");
+                import_buffer_int16_planar(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_S32P:        /* signed 32 bits, planar */
                 panic("unsupported sample format: s32 planar");
                 break;
             case GROOVE_SAMPLE_FMT_FLTP:        /* float (32 bits), planar */
-                panic("unsupported sample format: float planar");
+                import_buffer_float_planar(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_DBLP:         /* double (64 bits), planar */
                 panic("unsupported sample format: double planar");
@@ -173,12 +212,23 @@ void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
     destroy_all_ui();
     for (int i = 0; i < _audio_file->channels.length(); i += 1) {
         String channel_name = audio_file_channel_name(_audio_file, i);
-        fprintf(stderr, "channel: %s\n", channel_name.encode().raw());
+        TextWidget *text_widget = create<TextWidget>(_gui);
+        text_widget->set_text(channel_name);
+        text_widget->set_background_on(false);
+        text_widget->set_text_interaction(false);
+        _channel_name_widgets.append(text_widget);
     }
+    update_model();
 }
 
 void AudioEditWidget::draw(const glm::mat4 &projection) {
+    _gui->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
+    for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
+        TextWidget *text_widget = _channel_name_widgets.at(i);
+        if (text_widget->_widget._is_visible)
+            text_widget->draw(projection);
+    }
 }
 
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
@@ -222,5 +272,10 @@ void AudioEditWidget::set_size(int width, int height) {
 }
 
 void AudioEditWidget::update_model() {
-
+    int y = _top + _padding_top;
+    for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
+        TextWidget *text_widget = _channel_name_widgets.at(i);
+        text_widget->set_pos(_left + _padding_left, y);
+        y += text_widget->height();
+    }
 }

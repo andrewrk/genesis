@@ -4,6 +4,7 @@
 #include "widget.hpp"
 #include "byte_buffer.hpp"
 #include "channel_layouts.hpp"
+#include "text_widget.hpp"
 
 struct Channel {
     int sample_rate;
@@ -45,13 +46,21 @@ public:
     void set_size(int width, int height);
 
 private:
+    Gui *_gui;
 
     int _left;
     int _top;
     int _width;
     int _height;
 
+    int _padding_left;
+    int _padding_right;
+    int _padding_top;
+    int _padding_bottom;
+
     AudioFile *_audio_file;
+
+    List<TextWidget *> _channel_name_widgets;
 
     void update_model();
 
