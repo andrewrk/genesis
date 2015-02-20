@@ -64,6 +64,34 @@ void AudioEditWidget::destroy_all_ui() {
     _channel_name_widgets.clear();
 }
 
+static void import_buffer_uint8(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    uint8_t *ptr = buffer->data[0];
+    double min = 0.0;
+    double max = (double)UINT8_MAX;
+    double range = max - min;
+    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
+            uint8_t sample = *ptr;
+            double dbl_sample = (((double)sample) - min) / range;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
+static void import_buffer_int16(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    uint8_t *ptr = buffer->data[0];
+    double min = (double)INT16_MIN;
+    double max = (double)INT16_MAX;
+    double range = max - min;
+    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
+            int16_t *sample = reinterpret_cast<int16_t*>(ptr);
+            double dbl_sample = (((double)*sample) - min) / range;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
 static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_file) {
     uint8_t *ptr = buffer->data[0];
     double min = (double)INT32_MIN;
@@ -71,6 +99,69 @@ static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_fil
     double range = max - min;
     for (int frame = 0; frame < buffer->frame_count; frame += 1) {
         for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
+            int32_t *sample = reinterpret_cast<int32_t*>(ptr);
+            double dbl_sample = (((double)*sample) - min) / range;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
+static void import_buffer_float(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    uint8_t *ptr = buffer->data[0];
+    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
+            float *sample = reinterpret_cast<float*>(ptr);
+            double dbl_sample = *sample;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
+static void import_buffer_double(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    uint8_t *ptr = buffer->data[0];
+    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
+            double *sample = reinterpret_cast<double*>(ptr);
+            audio_file->channels.at(ch).samples.append(*sample);
+        }
+    }
+}
+
+static void import_buffer_uint8_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    double min = 0.0;
+    double max = (double)UINT8_MAX;
+    double range = max - min;
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        uint8_t *ptr = buffer->data[ch];
+        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 1) {
+            uint8_t sample = *ptr;
+            double dbl_sample = (((double)sample) - min) / range;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
+static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    double min = (double)INT16_MIN;
+    double max = (double)INT16_MAX;
+    double range = max - min;
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        uint8_t *ptr = buffer->data[ch];
+        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 2) {
+            int16_t *sample = reinterpret_cast<int16_t*>(ptr);
+            double dbl_sample = (((double)*sample) - min) / range;
+            audio_file->channels.at(ch).samples.append(dbl_sample);
+        }
+    }
+}
+
+static void import_buffer_int32_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+    double min = (double)INT32_MIN;
+    double max = (double)INT32_MAX;
+    double range = max - min;
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        uint8_t *ptr = buffer->data[ch];
+        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / range;
             audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -90,16 +181,13 @@ static void import_buffer_float_planar(const GrooveBuffer *buffer, AudioFile *au
     }
 }
 
-static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
-    double min = (double)INT16_MIN;
-    double max = (double)INT16_MAX;
-    double range = max - min;
+static void import_buffer_double_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
     for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = buffer->data[ch];
-        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 2) {
-            int16_t *sample = reinterpret_cast<int16_t*>(ptr);
-            double dbl_sample = (((double)*sample) - min) / range;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+        Channel *channel = &audio_file->channels.at(ch);
+        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 8) {
+            double *sample = reinterpret_cast<double*>(ptr);
+            channel->samples.append(*sample);
         }
     }
 }
@@ -153,35 +241,35 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
                 panic("unrecognized sample format");
                 break;
             case GROOVE_SAMPLE_FMT_U8:          /* unsigned 8 bits */
-                panic("unsupported sample format: u8");
+                import_buffer_uint8(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_S16:         /* signed 16 bits */
-                panic("unsupported sample format: s16");
+                import_buffer_int16(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_S32:         /* signed 32 bits */
                 import_buffer_int32(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_FLT:         /* float (32 bits) */
-                panic("unsupported sample format: float");
+                import_buffer_float(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_DBL:         /* double (64 bits) */
-                panic("unsupported sample format: double");
+                import_buffer_double(buffer, audio_file);
                 break;
 
             case GROOVE_SAMPLE_FMT_U8P:         /* unsigned 8 bits, planar */
-                panic("unsupported sample format: u8 planar");
+                import_buffer_uint8_planar(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_S16P:        /* signed 16 bits, planar */
                 import_buffer_int16_planar(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_S32P:        /* signed 32 bits, planar */
-                panic("unsupported sample format: s32 planar");
+                import_buffer_int32_planar(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_FLTP:        /* float (32 bits), planar */
                 import_buffer_float_planar(buffer, audio_file);
                 break;
             case GROOVE_SAMPLE_FMT_DBLP:         /* double (64 bits), planar */
-                panic("unsupported sample format: double planar");
+                import_buffer_double_planar(buffer, audio_file);
                 break;
         }
     }
