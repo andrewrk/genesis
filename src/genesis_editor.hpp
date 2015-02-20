@@ -7,7 +7,9 @@
 
 #include <SDL2/SDL.h>
 
+
 class Gui;
+class AudioEditWidget;
 class GenesisEditor {
 public:
     GenesisEditor();
@@ -24,10 +26,13 @@ private:
     SDL_GLContext _context;
 
     FindFileWidget *_find_file_widget;
+    AudioEditWidget *_audio_edit_widget;
+
 
     bool on_gui_key(Gui *gui, const KeyEvent *event);
 
     void destroy_find_file_widget();
+    void destroy_audio_edit_widget();
 
     void on_choose_file(const ByteBuffer &file_path);
 

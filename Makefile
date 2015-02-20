@@ -9,7 +9,8 @@ OBJECTS = build/main.o build/util.o build/byte_buffer.o build/os.o \
 		  build/path.o build/string.o build/shader_program.o build/gui.o \
 		  build/label.o build/debug.o build/text_widget.o build/font_size.o \
 		  build/find_file_widget.o build/resource_bundle.o build/png_image.o \
-		  build/spritesheet.o build/genesis_editor.o
+		  build/spritesheet.o build/genesis_editor.o build/audio_edit_widget.o \
+		  build/genesis.o build/channel_layouts.o
 
 GENERATE_UNICODE_DATA_OBJECTS = build/generate_unicode_data.o build/util.o \
 								build/byte_buffer.o

@@ -16,10 +16,9 @@ struct FontCacheValue {
     int below_size;
 };
 
-class Gui;
 class FontSize {
 public:
-    FontSize(Gui *gui, FT_Face font_face, int font_size);
+    FontSize(FT_Face font_face, int font_size);
     ~FontSize();
     FontSize &operator=(const FontSize&) = delete;
     FontSize(const FontSize&) = delete;
@@ -32,7 +31,6 @@ public:
 private:
     HashMap<uint32_t, FontCacheValue, hash_uint32_t> _font_cache;
 
-    Gui *_gui;
     FT_Face _font_face;
     int _font_size;
 };

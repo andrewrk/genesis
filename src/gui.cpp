@@ -2,6 +2,7 @@
 #include "debug.hpp"
 #include "text_widget.hpp"
 #include "find_file_widget.hpp"
+#include "audio_edit_widget.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -298,11 +299,17 @@ FindFileWidget * Gui::create_find_file_widget() {
     return find_file_widget;
 }
 
+AudioEditWidget * Gui::create_audio_edit_widget() {
+    AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this);
+    init_widget(&audio_edit_widget->_widget);
+    return audio_edit_widget;
+}
+
 FontSize *Gui::get_font_size(int font_size) {
     FontSize *font_size_object;
     if (_font_size_cache.get(font_size, &font_size_object))
         return font_size_object;
-    font_size_object = create<FontSize>(this, _default_font_face, font_size);
+    font_size_object = create<FontSize>(_default_font_face, font_size);
     _font_size_cache.put(font_size, font_size_object);
     return font_size_object;
 }

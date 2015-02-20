@@ -1,12 +1,14 @@
 #include "util.hpp"
 #include "os.hpp"
 #include "genesis_editor.hpp"
+#include "genesis.h"
 
 #include <SDL2/SDL.h>
 #include <groove/groove.h>
 
 
 int main(int argc, char *argv[]) {
+    genesis_init();
     os_init();
     groove_init();
     groove_set_logging(GROOVE_LOG_INFO);

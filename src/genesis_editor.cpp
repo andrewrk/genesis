@@ -1,21 +1,11 @@
 #include "genesis_editor.hpp"
 #include "list.hpp"
-
-#include <groove/groove.h>
-#include <stdint.h>
-
-struct Channel {
-    int sample_rate;
-    List<double> samples;
-};
-
-struct AudioFile {
-    List<Channel> channels;
-};
+#include "audio_edit_widget.hpp"
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("build/resources.bundle"),
-    _find_file_widget(NULL)
+    _find_file_widget(NULL),
+    _audio_edit_widget(NULL)
 {
     _window = SDL_CreateWindow("genesis",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
@@ -33,6 +23,7 @@ GenesisEditor::GenesisEditor() :
 
 GenesisEditor::~GenesisEditor() {
     destroy_find_file_widget();
+    destroy_audio_edit_widget();
     destroy(_gui, 1);
     SDL_GL_DeleteContext(_context);
     SDL_DestroyWindow(_window);
@@ -49,11 +40,19 @@ void GenesisEditor::destroy_find_file_widget() {
     _find_file_widget = NULL;
 }
 
+void GenesisEditor::destroy_audio_edit_widget() {
+    if (!_audio_edit_widget)
+        return;
+    _gui->destroy_widget(&_audio_edit_widget->_widget);
+    _audio_edit_widget = NULL;
+}
+
 bool GenesisEditor::on_gui_key(Gui *gui, const KeyEvent *event) {
     if (event->action != KeyActionDown)
         return false;
 
     if (event->virt_key == VirtKeyO && event->ctrl()) {
+        destroy_audio_edit_widget();
         if (!_find_file_widget) {
             _find_file_widget = _gui->create_find_file_widget();
             _find_file_widget->set_mode(FindFileWidget::ModeOpen);
@@ -67,104 +66,11 @@ bool GenesisEditor::on_gui_key(Gui *gui, const KeyEvent *event) {
     return false;
 }
 
-static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile &audio_file) {
-    uint8_t *ptr = buffer->data[0];
-    double min = (double)INT32_MIN;
-    double max = (double)INT32_MAX;
-    double range = max - min;
-    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
-        for (int ch = 0; ch < audio_file.channels.length(); ch += 1, ptr += 1) {
-            int32_t *sample = reinterpret_cast<int32_t*>(ptr);
-            double dbl_sample = (((double)*sample) - min) / range;
-            audio_file.channels.at(ch).samples.append(dbl_sample);
-        }
-    }
-}
-
 void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     destroy_find_file_widget();
 
-    GrooveFile *file = groove_file_open(const_cast<char *>(file_path.raw()));
-    if (!file)
-        panic("groove_file_open error");
-
-    GrooveAudioFormat audio_format;
-    groove_file_audio_format(file, &audio_format);
-
-    int channel_count = groove_channel_layout_count(audio_format.channel_layout);
-
-    AudioFile audio_file;
-    audio_file.channels.resize(channel_count);
-    for (int i = 0; i < audio_file.channels.length(); i += 1) {
-        audio_file.channels.at(i).sample_rate = audio_format.sample_rate;
-    }
-
-    GroovePlaylist *playlist = groove_playlist_create();
-    GrooveSink *sink = groove_sink_create();
-    if (!playlist || !sink)
-        panic("out of memory");
-
-    sink->audio_format = audio_format;
-    sink->disable_resample = 1;
-
-    int err = groove_sink_attach(sink, playlist);
-    if (err)
-        panic("error attaching sink");
-
-    GroovePlaylistItem *item = groove_playlist_insert(
-            playlist, file, 1.0, 1.0, NULL);
-    if (!item)
-        panic("out of memory");
-
-    GrooveBuffer *buffer;
-    while (groove_sink_buffer_get(sink, &buffer, 1) == GROOVE_BUFFER_YES) {
-        if (buffer->format.sample_rate != audio_format.sample_rate) {
-            panic("non-consistent sample rate: %d -> %d",
-                    audio_format.sample_rate, buffer->format.sample_rate );
-        }
-        if (buffer->format.channel_layout != audio_format.channel_layout)
-            panic("non-consistent channel layout");
-        switch (buffer->format.sample_fmt) {
-            default:
-                panic("unrecognized sample format");
-                break;
-            case GROOVE_SAMPLE_FMT_U8:          /* unsigned 8 bits */
-                panic("unsupported sample format: u8");
-                break;
-            case GROOVE_SAMPLE_FMT_S16:         /* signed 16 bits */
-                panic("unsupported sample format: s16");
-                break;
-            case GROOVE_SAMPLE_FMT_S32:         /* signed 32 bits */
-                import_buffer_int32(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_FLT:         /* float (32 bits) */
-                panic("unsupported sample format: float");
-                break;
-            case GROOVE_SAMPLE_FMT_DBL:         /* double (64 bits) */
-                panic("unsupported sample format: double");
-                break;
-
-            case GROOVE_SAMPLE_FMT_U8P:         /* unsigned 8 bits, planar */
-                panic("unsupported sample format: u8 planar");
-                break;
-            case GROOVE_SAMPLE_FMT_S16P:        /* signed 16 bits, planar */
-                panic("unsupported sample format: s16 planar");
-                break;
-            case GROOVE_SAMPLE_FMT_S32P:        /* signed 32 bits, planar */
-                panic("unsupported sample format: s32 planar");
-                break;
-            case GROOVE_SAMPLE_FMT_FLTP:        /* float (32 bits), planar */
-                panic("unsupported sample format: float planar");
-                break;
-            case GROOVE_SAMPLE_FMT_DBLP:         /* double (64 bits), planar */
-                panic("unsupported sample format: double planar");
-                break;
-        }
-    }
-
-    groove_sink_detach(sink);
-    groove_playlist_clear(playlist);
-    groove_playlist_destroy(playlist);
-    groove_file_close(file);
-
+    _audio_edit_widget = _gui->create_audio_edit_widget();
+    _audio_edit_widget->set_pos(10, 10);
+    _audio_edit_widget->set_size(_gui->_width - 20, _gui->_height - 20);
+    _audio_edit_widget->load_file(file_path);
 }

@@ -67,8 +67,8 @@ private:
     int _padding_bottom;
     int _margin; // space between widgets
 
-    TextWidget _current_path_widget;
-    TextWidget _filter_widget;
+    TextWidget *_current_path_widget;
+    TextWidget *_filter_widget;
 
     Gui *_gui;
 

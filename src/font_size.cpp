@@ -5,10 +5,9 @@ static void ft_ok(FT_Error err) {
         panic("freetype error");
 }
 
-FontSize::FontSize(Gui *gui, FT_Face font_face, int font_size) :
+FontSize::FontSize(FT_Face font_face, int font_size) :
     _max_above_size(0),
     _max_below_size(0),
-    _gui(gui),
     _font_face(font_face),
     _font_size(font_size)
 {
