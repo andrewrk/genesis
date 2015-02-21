@@ -17,6 +17,8 @@ public:
     GenesisEditor(const GenesisEditor &copy) = delete;
     GenesisEditor &operator=(const GenesisEditor &copy) = delete;
 
+    void edit_file(const char *filename);
+
     void exec();
 
 private:

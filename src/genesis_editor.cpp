@@ -69,8 +69,13 @@ bool GenesisEditor::on_gui_key(Gui *gui, const KeyEvent *event) {
 void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     destroy_find_file_widget();
 
+    destroy_audio_edit_widget();
     _audio_edit_widget = _gui->create_audio_edit_widget();
     _audio_edit_widget->set_pos(10, 10);
     _audio_edit_widget->set_size(_gui->_width - 20, _gui->_height - 20);
     _audio_edit_widget->load_file(file_path);
+}
+
+void GenesisEditor::edit_file(const char *filename) {
+    on_choose_file(filename);
 }

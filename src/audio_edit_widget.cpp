@@ -40,6 +40,8 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     _padding_right(4),
     _padding_top(4),
     _padding_bottom(4),
+    _channel_edit_height(100),
+    _margin(2),
     _audio_file(create_empty_audio_file())
 {
 }
@@ -364,6 +366,6 @@ void AudioEditWidget::update_model() {
     for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
         TextWidget *text_widget = _channel_name_widgets.at(i);
         text_widget->set_pos(_left + _padding_left, y);
-        y += text_widget->height();
+        y += _channel_edit_height + _margin;
     }
 }

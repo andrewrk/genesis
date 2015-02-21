@@ -58,6 +58,9 @@ private:
     int _padding_top;
     int _padding_bottom;
 
+    int _channel_edit_height;
+    int _margin;
+
     AudioFile *_audio_file;
 
     List<TextWidget *> _channel_name_widgets;
