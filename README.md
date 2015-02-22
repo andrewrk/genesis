@@ -37,14 +37,13 @@ genesis is programmed in a tiny subset of C++:
 
 ```
 sudo apt-get install libgroove-dev libsdl2-dev libepoxy-dev libglm-dev \
-    libfreetype6-dev libpng12-dev librucksack-dev
+    libfreetype6-dev libpng12-dev librucksack-dev unicode-data
 make
 ./build/genesis
 ```
 
 ## Roadmap
 
- 0. Render channels graphically.
  0. Ability to make a selection.
  0. Playback to speakers.
  0. Delete selection.
