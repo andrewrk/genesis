@@ -20,15 +20,14 @@ Texture::Texture(Gui *gui) :
     glGenBuffers(1, &_vertex_buffer);
     glGenBuffers(1, &_tex_coord_buffer);
 
-    // send dummy vertex data - real data happens at update()
     GLfloat vertexes[4][3] = {
-        {0, 0, 0},
-        {0, 0, 0},
-        {0, 0, 0},
-        {0, 0, 0},
+        {0,    0,    0},
+        {0,    1.0f, 0},
+        {1.0f, 0,    0},
+        {1.0f, 1.0f, 0},
     };
     glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_STATIC_DRAW);
     glEnableVertexAttribArray(_gui->_shader_program_manager->_texture_attrib_position);
     glVertexAttribPointer(_gui->_shader_program_manager->_texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
@@ -54,21 +53,8 @@ Texture::~Texture() {
 }
 
 void Texture::send_pixels(const ByteBuffer &pixels, int width, int height) {
-    if (width != _width || height != _height) {
-        _width = width;
-        _height = height;
-
-        glBindVertexArray(_vertex_array);
-
-        glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-        GLfloat vertexes[4][3] = {
-            {0.0f, 0.0f, 0.0f},
-            {0.0f, (float)_height, 0.0f},
-            {(float)_width, 0.0f, 0.0f},
-            {(float)_width, (float)_height, 0.0f},
-        };
-        glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
-    }
+    _width = width;
+    _height = height;
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);

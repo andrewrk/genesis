@@ -77,11 +77,11 @@ static void import_buffer_uint8(const GrooveBuffer *buffer, AudioFile *audio_fil
     uint8_t *ptr = buffer->data[0];
     double min = 0.0;
     double max = (double)UINT8_MAX;
-    double range = max - min;
+    double half_range = max / 2.0 - min / 2.0;
     for (int frame = 0; frame < buffer->frame_count; frame += 1) {
         for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
             uint8_t sample = *ptr;
-            double dbl_sample = (((double)sample) - min) / range;
+            double dbl_sample = (((double)sample) - min) / half_range - 1.0;
             audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
@@ -91,11 +91,11 @@ static void import_buffer_int16(const GrooveBuffer *buffer, AudioFile *audio_fil
     uint8_t *ptr = buffer->data[0];
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
-    double range = max - min;
+    double half_range = max / 2.0 - min / 2.0;
     for (int frame = 0; frame < buffer->frame_count; frame += 1) {
         for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
-            double dbl_sample = (((double)*sample) - min) / range;
+            double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
@@ -105,11 +105,11 @@ static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_fil
     uint8_t *ptr = buffer->data[0];
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
-    double range = max - min;
+    double half_range = max / 2.0 - min / 2.0;
     for (int frame = 0; frame < buffer->frame_count; frame += 1) {
         for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
-            double dbl_sample = (((double)*sample) - min) / range;
+            double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
@@ -139,13 +139,14 @@ static void import_buffer_double(const GrooveBuffer *buffer, AudioFile *audio_fi
 static void import_buffer_uint8_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
     double min = 0.0;
     double max = (double)UINT8_MAX;
-    double range = max - min;
+    double half_range = max / 2.0 - min / 2.0;
     for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = buffer->data[ch];
+        Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 1) {
             uint8_t sample = *ptr;
-            double dbl_sample = (((double)sample) - min) / range;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            double dbl_sample = (((double)sample) - min) / half_range - 1.0;
+            channel->samples.append(dbl_sample);
         }
     }
 }
@@ -153,13 +154,14 @@ static void import_buffer_uint8_planar(const GrooveBuffer *buffer, AudioFile *au
 static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
-    double range = max - min;
+    double half_range = max / 2.0 - min / 2.0;
     for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = buffer->data[ch];
+        Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
-            double dbl_sample = (((double)*sample) - min) / range;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
+            channel->samples.append(dbl_sample);
         }
     }
 }
@@ -167,13 +169,14 @@ static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *au
 static void import_buffer_int32_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
-    double range = max - min;
+    double half_range = max / 2.0 - min / 2.0;
     for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = buffer->data[ch];
+        Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
-            double dbl_sample = (((double)*sample) - min) / range;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
+            channel->samples.append(dbl_sample);
         }
     }
 }
@@ -201,6 +204,27 @@ static void import_buffer_double_planar(const GrooveBuffer *buffer, AudioFile *a
     }
 }
 
+static const char *sample_format_names[] = {
+    "none",
+    "unsigned 8 bits",
+    "signed 16 bits",
+    "signed 32 bits",
+    "float (32 bits)",
+    "double (64 bits)",
+    "unsigned 8 bits, planar",
+    "signed 16 bits, planar",
+    "signed 32 bits, planar",
+    "float (32 bits), planar",
+    "double (64 bits), planar",
+};
+
+static void debug_print_sample_format(enum GrooveSampleFormat sample_fmt) {
+    size_t index = sample_fmt + 1;
+    if (index < 0 || index >= array_length(sample_format_names))
+        panic("invalid sample format");
+    fprintf(stderr, "sample format: %s\n", sample_format_names[index]);
+}
+
 void AudioEditWidget::load_file(const ByteBuffer &file_path) {
     AudioFile *audio_file = create_empty_audio_file();
 
@@ -210,6 +234,8 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
 
     GrooveAudioFormat audio_format;
     groove_file_audio_format(file, &audio_format);
+
+    debug_print_sample_format(audio_format.sample_fmt);
 
     audio_file->channel_layout = genesis_from_groove_channel_layout(audio_format.channel_layout);
     int channel_count = groove_channel_layout_count(audio_format.channel_layout);
@@ -384,10 +410,10 @@ void AudioEditWidget::set_size(int width, int height) {
 }
 
 static void vec4_color_to_uint8(const glm::vec4 &rgba, uint8_t *out) {
-    out[0] = (uint8_t)((out[0] / 1.0f) * 255.0f);
-    out[1] = (uint8_t)((out[1] / 1.0f) * 255.0f);
-    out[2] = (uint8_t)((out[2] / 1.0f) * 255.0f);
-    out[3] = (uint8_t)((out[3] / 1.0f) * 255.0f);
+    out[0] = (uint8_t)(out[0] * 255.0f);
+    out[1] = (uint8_t)(out[1] * 255.0f);
+    out[2] = (uint8_t)(out[2] * 255.0f);
+    out[3] = (uint8_t)(out[3] * 255.0f);
 }
 
 void AudioEditWidget::update_model() {
@@ -413,16 +439,16 @@ void AudioEditWidget::update_model() {
         double frames_per_pixel = samples->length() / width;
         pixels.resize(_height * pitch);
         for (int x = 0; x < width; x += 1) {
-            double min_sample = 1.0;
-            double max_sample = 0.0;
+            double min_sample =  1.0;
+            double max_sample = -1.0;
             for (int off = 0; off < frames_per_pixel; off += 1) {
                 double sample = samples->at(x * frames_per_pixel + off);
                 min_sample = min(min_sample, sample);
                 max_sample = max(max_sample, sample);
             }
 
-            int y_min = min_sample * height;
-            int y_max = max_sample * height;
+            int y_min = (min_sample + 1.0) / 2.0 * height;
+            int y_max = (max_sample + 1.0) / 2.0 * height;
             int y = 0;
 
             // top bg
@@ -443,7 +469,10 @@ void AudioEditWidget::update_model() {
                     glm::translate(
                         glm::mat4(1.0f),
                         glm::vec3(_left + _padding_left, top, 0.0f)),
-                    glm::vec3(1.0f, 1.0f, 1.0f));
+                    glm::vec3(
+                        per_channel_data->waveform_texture->_width,
+                        per_channel_data->waveform_texture->_height,
+                        1.0f));
 
         top += _channel_edit_height + _margin;
     }

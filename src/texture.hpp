@@ -20,15 +20,15 @@ public:
 
     void draw(const glm::mat4 &mvp);
 
-private:
     Gui *_gui;
+    int _width;
+    int _height;
+
+private:
     GLuint _texture_id;
     GLuint _vertex_array;
     GLuint _vertex_buffer;
     GLuint _tex_coord_buffer;
-
-    int _width;
-    int _height;
 };
 
 #endif
