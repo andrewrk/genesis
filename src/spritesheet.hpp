@@ -2,16 +2,16 @@
 #define SPRITESHEET_H
 
 #include "shader_program.hpp"
-#include "resource_bundle.hpp"
 #include "byte_buffer.hpp"
 #include "hash_map.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
 
+class Gui;
 class Spritesheet {
 public:
-    Spritesheet(const ResourceBundle *bundle, const ByteBuffer &key);
+    Spritesheet(Gui *gui, const ByteBuffer &key);
     ~Spritesheet();
     Spritesheet(const Spritesheet &copy) = delete;
     Spritesheet &operator=(const Spritesheet &copy) = delete;
@@ -33,14 +33,8 @@ public:
     void draw(const ImageInfo *image, const glm::mat4 &mvp) const;
 
 private:
-    ShaderProgram _texture_shader_program;
-    GLint _texture_attrib_tex_coord;
-    GLint _texture_attrib_position;
-    GLint _texture_uniform_mvp;
-    GLint _texture_uniform_tex;
-
-    GLuint _texture_id = 0;
-
+    Gui *_gui;
+    GLuint _texture_id;
 
     HashMap<ByteBuffer, ImageInfo, ByteBuffer::hash> _info_dict;
 };

@@ -17,87 +17,20 @@ static bool default_on_key_event(Gui *, const KeyEvent *event) {
     return false;
 }
 
-Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle) :
-    _text_shader_program(R"VERTEX(
-
-#version 150 core
-
-in vec3 VertexPosition;
-in vec2 TexCoord;
-
-out vec2 FragTexCoord;
-
-uniform mat4 MVP;
-
-void main(void)
-{
-    FragTexCoord = TexCoord;
-    gl_Position = MVP * vec4(VertexPosition, 1.0);
-}
-
-)VERTEX", R"FRAGMENT(
-
-#version 150 core
-
-in vec2 FragTexCoord;
-out vec4 FragColor;
-
-uniform sampler2D Tex;
-uniform vec4 Color;
-
-void main(void)
-{
-    FragColor = vec4(1, 1, 1, texture(Tex, FragTexCoord).a) * Color;
-}
-
-)FRAGMENT", NULL),
-    _primitive_shader_program(R"VERTEX(
-
-#version 150 core
-
-in vec3 VertexPosition;
-
-uniform mat4 MVP;
-
-void main(void) {
-    gl_Position = MVP * vec4(VertexPosition, 1.0);
-}
-
-)VERTEX", R"FRAGMENT(
-
-#version 150 core
-
-out vec4 FragColor;
-
-uniform vec4 Color;
-
-void main(void) {
-    FragColor = Color;
-}
-
-)FRAGMENT", NULL),
+Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle,
+        ShaderProgramManager *shader_program_manager) :
+    _shader_program_manager(shader_program_manager),
     _window(window),
     _mouse_over_widget(NULL),
     _focus_widget(NULL),
     _resource_bundle(resource_bundle),
-    _spritesheet(resource_bundle, "spritesheet"),
+    _spritesheet(this, "spritesheet"),
     _img_entry_dir((Image*)_spritesheet.get_image_info("img/entry-dir.png")),
     _img_entry_file((Image*)_spritesheet.get_image_info("img/entry-file.png")),
     _img_null((Image*)_spritesheet.get_image_info("img/null.png")),
     _userdata(NULL),
     _on_key_event(default_on_key_event)
 {
-    _text_attrib_tex_coord = _text_shader_program.attrib_location("TexCoord");
-    _text_attrib_position = _text_shader_program.attrib_location("VertexPosition");
-    _text_uniform_mvp = _text_shader_program.uniform_location("MVP");
-    _text_uniform_tex = _text_shader_program.uniform_location("Tex");
-    _text_uniform_color = _text_shader_program.uniform_location("Color");
-
-    _primitive_attrib_position = _primitive_shader_program.attrib_location("VertexPosition");
-    _primitive_uniform_mvp = _primitive_shader_program.uniform_location("MVP");
-    _primitive_uniform_color = _primitive_shader_program.uniform_location("Color");
-
-
     glGenVertexArrays(1, &_primitive_vertex_array);
     glBindVertexArray(_primitive_vertex_array);
 
@@ -113,8 +46,8 @@ void main(void) {
     glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_STATIC_DRAW);
 
 
-    glEnableVertexAttribArray(_primitive_attrib_position);
-    glVertexAttribPointer(_primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glEnableVertexAttribArray(_shader_program_manager->_primitive_attrib_position);
+    glVertexAttribPointer(_shader_program_manager->_primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     assert_no_gl_error();
 
@@ -325,11 +258,13 @@ void Gui::fill_rect(const glm::vec4 &color, int x, int y, int w, int h) {
 }
 
 void Gui::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
-    _primitive_shader_program.bind();
+    _shader_program_manager->_primitive_shader_program.bind();
 
-    _primitive_shader_program.set_uniform(_primitive_uniform_color, color);
-    _primitive_shader_program.set_uniform(_primitive_uniform_mvp, mvp);
+    _shader_program_manager->_primitive_shader_program.set_uniform(
+            _shader_program_manager->_primitive_uniform_color, color);
 
+    _shader_program_manager->_primitive_shader_program.set_uniform(
+            _shader_program_manager->_primitive_uniform_mvp, mvp);
 
     glBindVertexArray(_primitive_vertex_array);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

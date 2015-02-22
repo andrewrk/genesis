@@ -15,7 +15,9 @@ GenesisEditor::GenesisEditor() :
 
     _context = SDL_GL_CreateContext(_window);
 
-    _gui = create<Gui>(_window, &_resource_bundle);
+    _shader_program_manager = create<ShaderProgramManager>();
+
+    _gui = create<Gui>(_window, &_resource_bundle, _shader_program_manager);
     _gui->_userdata = this;
     _gui->set_on_key_event(static_on_gui_key);
 
@@ -25,6 +27,7 @@ GenesisEditor::~GenesisEditor() {
     destroy_find_file_widget();
     destroy_audio_edit_widget();
     destroy(_gui, 1);
+    destroy(_shader_program_manager, 1);
     SDL_GL_DeleteContext(_context);
     SDL_DestroyWindow(_window);
 }

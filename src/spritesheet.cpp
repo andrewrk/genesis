@@ -1,48 +1,14 @@
 #include "spritesheet.hpp"
 #include "png_image.hpp"
+#include "gui.hpp"
 
 #include <rucksack/rucksack.h>
 
-Spritesheet::Spritesheet(const ResourceBundle *resource_bundle, const ByteBuffer &key) :
-    _texture_shader_program(R"VERTEX(
-
-#version 150 core
-
-in vec3 VertexPosition;
-in vec2 TexCoord;
-
-out vec2 FragTexCoord;
-
-uniform mat4 MVP;
-
-void main(void)
+Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
+    _gui(gui),
+    _texture_id(0)
 {
-    FragTexCoord = TexCoord;
-    gl_Position = MVP * vec4(VertexPosition, 1.0);
-}
-
-)VERTEX", R"FRAGMENT(
-
-#version 150 core
-
-in vec2 FragTexCoord;
-out vec4 FragColor;
-
-uniform sampler2D Tex;
-
-void main(void)
-{
-    FragColor = texture(Tex, FragTexCoord);
-}
-
-)FRAGMENT", NULL)
-{
-    _texture_attrib_tex_coord = _texture_shader_program.attrib_location("TexCoord");
-    _texture_attrib_position = _texture_shader_program.attrib_location("VertexPosition");
-    _texture_uniform_mvp = _texture_shader_program.uniform_location("MVP");
-    _texture_uniform_tex = _texture_shader_program.uniform_location("Tex");
-
-    RuckSackBundle *bundle = resource_bundle->_bundle;
+    RuckSackBundle *bundle = gui->_resource_bundle->_bundle;
 
     RuckSackFileEntry *entry = rucksack_bundle_find_file(bundle, key.raw(), key.length());
     if (!entry)
@@ -142,8 +108,8 @@ void main(void)
             }
             glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_STATIC_DRAW);
-            glEnableVertexAttribArray(_texture_attrib_position);
-            glVertexAttribPointer(_texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+            glEnableVertexAttribArray(_gui->_shader_program_manager->_texture_attrib_position);
+            glVertexAttribPointer(_gui->_shader_program_manager->_texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
         }
 
         {
@@ -161,8 +127,8 @@ void main(void)
             coords[3][1] = image->y / full_height;
             glBindBuffer(GL_ARRAY_BUFFER, tex_coord_buffer);
             glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_STATIC_DRAW);
-            glEnableVertexAttribArray(_texture_attrib_tex_coord);
-            glVertexAttribPointer(_texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+            glEnableVertexAttribArray(_gui->_shader_program_manager->_texture_attrib_tex_coord);
+            glVertexAttribPointer(_gui->_shader_program_manager->_texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
         }
     }
 
@@ -172,10 +138,13 @@ void main(void)
 Spritesheet::~Spritesheet() {}
 
 void Spritesheet::draw(const ImageInfo *image, const glm::mat4 &mvp) const {
-    _texture_shader_program.bind();
+    _gui->_shader_program_manager->_texture_shader_program.bind();
 
-    _texture_shader_program.set_uniform(_texture_uniform_mvp, mvp);
-    _texture_shader_program.set_uniform(_texture_uniform_tex, 0);
+    _gui->_shader_program_manager->_texture_shader_program.set_uniform(
+            _gui->_shader_program_manager->_texture_uniform_mvp, mvp);
+
+    _gui->_shader_program_manager->_texture_shader_program.set_uniform(
+            _gui->_shader_program_manager->_texture_uniform_tex, 0);
 
     glBindVertexArray(image->vertex_array);
     glActiveTexture(GL_TEXTURE0);

@@ -1,7 +1,7 @@
 #ifndef GUI_HPP
 #define GUI_HPP
 
-#include "shader_program.hpp"
+#include "shader_program_manager.hpp"
 #include "freetype.hpp"
 #include "list.hpp"
 #include "glm.hpp"
@@ -23,7 +23,8 @@ class FindFileWidget;
 class AudioEditWidget;
 class Gui {
 public:
-    Gui(SDL_Window *window, ResourceBundle *resource_bundle);
+    Gui(SDL_Window *window, ResourceBundle *resource_bundle,
+            ShaderProgramManager *shader_program_manager);
     ~Gui();
     Gui(const Gui &copy) = delete;
     Gui &operator=(const Gui &copy) = delete;
@@ -41,18 +42,6 @@ public:
 
 
     FT_Face _default_font_face;
-
-    ShaderProgram _text_shader_program;
-    GLint _text_attrib_tex_coord;
-    GLint _text_attrib_position;
-    GLint _text_uniform_mvp;
-    GLint _text_uniform_tex;
-    GLint _text_uniform_color;
-
-    ShaderProgram _primitive_shader_program;
-    GLint _primitive_attrib_position;
-    GLint _primitive_uniform_mvp;
-    GLint _primitive_uniform_color;
 
     void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
     void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
@@ -74,6 +63,8 @@ public:
     void set_on_key_event(bool (*fn)(Gui *, const KeyEvent *event)) {
         _on_key_event = fn;
     }
+
+    ShaderProgramManager *_shader_program_manager;
 
     SDL_Cursor* _cursor_ibeam;
     SDL_Cursor* _cursor_default;

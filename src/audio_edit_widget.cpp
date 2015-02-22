@@ -42,6 +42,8 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     _padding_bottom(4),
     _channel_edit_height(100),
     _margin(2),
+    _waveform_fg_color(0.25882f, 0.43137f, 0.772549, 1.0f),
+    _waveform_bg_color(0.0f, 0.0f, 0.0f, 0.0f),
     _audio_file(create_empty_audio_file())
 {
 }
@@ -59,11 +61,16 @@ void AudioEditWidget::destroy_audio_file() {
 }
 
 void AudioEditWidget::destroy_all_ui() {
-    for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
-        TextWidget *text_widget = _channel_name_widgets.at(i);
-        _gui->destroy_widget(&text_widget->_widget);
+    for (int i = 0; i < _channel_list.length(); i += 1) {
+        destroy_per_channel_data(_channel_list.at(i));
     }
-    _channel_name_widgets.clear();
+    _channel_list.clear();
+}
+
+void AudioEditWidget::destroy_per_channel_data(PerChannelData *per_channel_data) {
+    destroy(per_channel_data->waveform_texture, 1);
+    _gui->destroy_widget(&per_channel_data->channel_name_widget->_widget);
+    destroy(per_channel_data, 1);
 }
 
 static void import_buffer_uint8(const GrooveBuffer *buffer, AudioFile *audio_file) {
@@ -301,23 +308,38 @@ void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
 
     destroy_all_ui();
     for (int i = 0; i < _audio_file->channels.length(); i += 1) {
-        String channel_name = audio_file_channel_name(_audio_file, i);
-        TextWidget *text_widget = create<TextWidget>(_gui);
-        text_widget->set_text(channel_name);
-        text_widget->set_background_on(false);
-        text_widget->set_text_interaction(false);
-        _channel_name_widgets.append(text_widget);
+        PerChannelData *per_channel_data = create_per_channel_data(i);
+        _channel_list.append(per_channel_data);
     }
     update_model();
+}
+
+AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i) {
+    String channel_name = audio_file_channel_name(_audio_file, i);
+    TextWidget *text_widget = create<TextWidget>(_gui);
+    text_widget->set_text(channel_name);
+    text_widget->set_background_on(false);
+    text_widget->set_text_interaction(false);
+
+    PerChannelData *per_channel_data = create<PerChannelData>();
+    per_channel_data->channel_name_widget = text_widget;
+    per_channel_data->waveform_texture = create<Texture>(_gui);
+
+    return per_channel_data;
 }
 
 void AudioEditWidget::draw(const glm::mat4 &projection) {
     _gui->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
-    for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
-        TextWidget *text_widget = _channel_name_widgets.at(i);
-        if (text_widget->_widget._is_visible)
-            text_widget->draw(projection);
+    for (int i = 0; i < _channel_list.length(); i += 1) {
+        PerChannelData *per_channel_data = _channel_list.at(i);
+
+        glm::mat4 mvp = projection * per_channel_data->waveform_model;
+        per_channel_data->waveform_texture->draw(mvp);
+
+        TextWidget *channel_name_widget = per_channel_data->channel_name_widget;
+        if (channel_name_widget->_widget._is_visible)
+            channel_name_widget->draw(projection);
     }
 }
 
@@ -361,11 +383,68 @@ void AudioEditWidget::set_size(int width, int height) {
     update_model();
 }
 
+static void vec4_color_to_uint8(const glm::vec4 &rgba, uint8_t *out) {
+    out[0] = (uint8_t)((out[0] / 1.0f) * 255.0f);
+    out[1] = (uint8_t)((out[1] / 1.0f) * 255.0f);
+    out[2] = (uint8_t)((out[2] / 1.0f) * 255.0f);
+    out[3] = (uint8_t)((out[3] / 1.0f) * 255.0f);
+}
+
 void AudioEditWidget::update_model() {
-    int y = _top + _padding_top;
-    for (int i = 0; i < _channel_name_widgets.length(); i += 1) {
-        TextWidget *text_widget = _channel_name_widgets.at(i);
-        text_widget->set_pos(_left + _padding_left, y);
-        y += _channel_edit_height + _margin;
+    ByteBuffer pixels;
+    int top = _top + _padding_top;
+
+    uint8_t color_fg[4];
+    uint8_t color_bg[4];
+    
+    vec4_color_to_uint8(_waveform_fg_color, color_fg);
+    vec4_color_to_uint8(_waveform_bg_color, color_bg);
+
+    for (int i = 0; i < _channel_list.length(); i += 1) {
+        PerChannelData *per_channel_data = _channel_list.at(i);
+        List<double> *samples = &_audio_file->channels.at(i).samples;
+
+        TextWidget *text_widget = per_channel_data->channel_name_widget;
+        text_widget->set_pos(_left + _padding_left, top);
+
+        int width = _width;
+        int height = _channel_edit_height;
+        int pitch = width * 4;
+        double frames_per_pixel = samples->length() / width;
+        pixels.resize(_height * pitch);
+        for (int x = 0; x < width; x += 1) {
+            double min_sample = 1.0;
+            double max_sample = 0.0;
+            for (int off = 0; off < frames_per_pixel; off += 1) {
+                double sample = samples->at(x * frames_per_pixel + off);
+                min_sample = min(min_sample, sample);
+                max_sample = max(max_sample, sample);
+            }
+
+            int y_min = min_sample * height;
+            int y_max = max_sample * height;
+            int y = 0;
+
+            // top bg
+            for (; y < y_min; y += 1) {
+                memcpy(pixels.raw() + (4 * (y * width + x)), color_bg, 4);
+            }
+            // top and bottom wave
+            for (; y <= y_max; y += 1) {
+                memcpy(pixels.raw() + (4 * (y * width + x)), color_fg, 4);
+            }
+            // bottom bg
+            for (; y < height; y += 1) {
+                memcpy(pixels.raw() + (4 * (y * width + x)), color_bg, 4);
+            }
+        }
+        per_channel_data->waveform_texture->send_pixels(pixels, width, height);
+        per_channel_data->waveform_model = glm::scale(
+                    glm::translate(
+                        glm::mat4(1.0f),
+                        glm::vec3(_left + _padding_left, top, 0.0f)),
+                    glm::vec3(1.0f, 1.0f, 1.0f));
+
+        top += _channel_edit_height + _margin;
     }
 }

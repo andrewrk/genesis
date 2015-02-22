@@ -4,6 +4,7 @@
 #include "resource_bundle.hpp"
 #include "key_event.hpp"
 #include "find_file_widget.hpp"
+#include "shader_program_manager.hpp"
 
 #include <SDL2/SDL.h>
 
@@ -29,7 +30,7 @@ private:
 
     FindFileWidget *_find_file_widget;
     AudioEditWidget *_audio_edit_widget;
-
+    ShaderProgramManager *_shader_program_manager;
 
     bool on_gui_key(Gui *gui, const KeyEvent *event);
 

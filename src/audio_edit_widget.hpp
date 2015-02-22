@@ -5,6 +5,7 @@
 #include "byte_buffer.hpp"
 #include "channel_layouts.hpp"
 #include "text_widget.hpp"
+#include "texture.hpp"
 
 struct Channel {
     int sample_rate;
@@ -61,14 +62,25 @@ private:
     int _channel_edit_height;
     int _margin;
 
+    glm::vec4 _waveform_fg_color;
+    glm::vec4 _waveform_bg_color;
+
     AudioFile *_audio_file;
 
-    List<TextWidget *> _channel_name_widgets;
+    struct PerChannelData {
+        TextWidget *channel_name_widget;
+        Texture *waveform_texture;
+        glm::mat4 waveform_model;
+    };
+
+    List<PerChannelData*> _channel_list;
 
     void update_model();
 
     void destroy_audio_file();
     void destroy_all_ui();
+    void destroy_per_channel_data(PerChannelData *per_channel_data);
+    PerChannelData *create_per_channel_data(int index);
 
 
     // widget methods
