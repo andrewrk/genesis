@@ -47,7 +47,7 @@ Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
     rucksack_texture_get_images(texture, images.raw());
     float full_width = tex_image._width; 
     float full_height = tex_image._height;
-    for (int i = 0; i < images.length(); i += 1) {
+    for (size_t i = 0; i < images.length(); i += 1) {
         RuckSackImage *image = images.at(i);
         GLuint vertex_array;
         GLuint vertex_buffer;

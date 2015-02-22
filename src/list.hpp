@@ -17,7 +17,7 @@ public:
     List(List &other) = delete;
     List<T>& operator= (const List<T> &other) {
         resize(other._length);
-        for (int i = 0; i < _length; i += 1) {
+        for (size_t i = 0; i < _length; i += 1) {
             _items[i] = other._items[i];
         }
         return *this;
@@ -26,7 +26,7 @@ public:
         if (_length != other._length)
             return false;
 
-        for (int i = 0; i < _length; i += 1) {
+        for (size_t i = 0; i < _length; i += 1) {
             if (_items[i] != other._items[i])
                 return false;
         }
@@ -44,17 +44,17 @@ public:
     }
     // remember that the pointer to this item is invalid after you
     // modify the length of the list
-    const T & at(int index) const {
-        if (index < 0 || index >= _length)
+    const T & at(size_t index) const {
+        if (index >= _length)
             panic("list: const at index out of bounds");
         return _items[index];
     }
-    T & at(int index) {
-        if (index < 0 || index >= _length)
+    T & at(size_t index) {
+        if (index >= _length)
             panic("list: at index out of bounds");
         return _items[index];
     }
-    int length() const {
+    size_t length() const {
         return _length;
     }
     T pop() {
@@ -63,9 +63,7 @@ public:
         return unchecked_pop();
     }
 
-    void resize(int length) {
-        if (length < 0)
-            panic("negative resize");
+    void resize(size_t length) {
         ensure_capacity(length);
         _length = length;
     }
@@ -74,14 +72,14 @@ public:
         return _items;
     }
 
-    T swap_remove(int index) {
-        if (index < 0 || index >= _length)
+    T swap_remove(size_t index) {
+        if (index >= _length)
             panic("list: swap_remove index out of bounds");
         return unchecked_swap_remove(index);
     }
 
     void fill(T value) {
-        for (int i = 0; i < _length; i += 1) {
+        for (size_t i = 0; i < _length; i += 1) {
             _items[i] = value;
         }
     }
@@ -97,7 +95,7 @@ public:
 
     template<bool(*filter_fn)(void *, T)>
     void filter_with_order_undefined(void *context) {
-        for (int i = 0; i < _length;) {
+        for (size_t i = 0; i < _length;) {
             if (!filter_fn(context, _items[i]))
                 unchecked_swap_remove(i);
             else
@@ -105,7 +103,7 @@ public:
         }
     }
 
-    T unchecked_swap_remove(int index) {
+    T unchecked_swap_remove(size_t index) {
         if (index == _length - 1)
             return unchecked_pop();
 
@@ -120,11 +118,11 @@ public:
     }
 private:
     T * _items;
-    int _length;
-    int _capacity;
+    size_t _length;
+    size_t _capacity;
 
-    void ensure_capacity(int new_capacity) {
-        int better_capacity = _capacity;
+    void ensure_capacity(size_t new_capacity) {
+        size_t better_capacity = _capacity;
         while (better_capacity < new_capacity)
             better_capacity *= 2;
         if (better_capacity != _capacity) {

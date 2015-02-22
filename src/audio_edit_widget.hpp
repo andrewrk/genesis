@@ -71,9 +71,31 @@ private:
         TextWidget *channel_name_widget;
         Texture *waveform_texture;
         glm::mat4 waveform_model;
+        int left;
+        int top;
+        int width;
+        int height;
     };
 
     List<PerChannelData*> _channel_list;
+
+    struct Selection {
+        List<bool> channels;
+        size_t start;
+        size_t end;
+    };
+
+    struct CursorPosition {
+        size_t channel;
+        size_t frame;
+    };
+
+    Selection _selection;
+    Selection _playback_selection;
+    int _scroll_x; // in pixels
+    double _frames_per_pixel;
+    bool _select_down;
+
 
     void update_model();
 
@@ -81,6 +103,17 @@ private:
     void destroy_all_ui();
     void destroy_per_channel_data(PerChannelData *per_channel_data);
     PerChannelData *create_per_channel_data(int index);
+
+    void init_selection(Selection &selection);
+    bool get_frame_and_channel(int x, int y, CursorPosition *out);
+    size_t frame_at_pos(int x);
+    int pos_at_frame(size_t frame);
+    int wave_start_left() const;
+    int wave_width() const;
+    void scroll_cursor_into_view();
+    void zoom_100();
+    size_t get_display_frame_count() const;
+    int get_full_wave_width() const;
 
 
     // widget methods

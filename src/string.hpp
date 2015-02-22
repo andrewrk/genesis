@@ -21,13 +21,13 @@ public:
     static String decode(const ByteBuffer &bytes);
     ByteBuffer encode() const;
 
-    int length() const {
+    size_t length() const {
         return _chars.length();
     }
-    const uint32_t & at(int index) const {
+    const uint32_t & at(size_t index) const {
         return _chars.at(index);
     }
-    uint32_t & at(int index) {
+    uint32_t & at(size_t index) {
         return _chars.at(index);
     }
 
@@ -40,14 +40,14 @@ public:
             panic("codepoint out of range");
         _chars.append(c);
     }
-    String substring(int start, int end) const;
-    String substring(int start) const;
+    String substring(size_t start, size_t end) const;
+    String substring(size_t start) const;
 
-    void replace(int start, int end, String s);
+    void replace(size_t start, size_t end, String s);
 
     void split_on_whitespace(List<String> &out) const;
 
-    int index_of_insensitive(const String &other) const;
+    off_t index_of_insensitive(const String &other) const;
 
     static int compare(const String &a, const String &b);
     static int compare_insensitive(const String &a, const String &b);

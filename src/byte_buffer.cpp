@@ -19,7 +19,7 @@ ByteBuffer::ByteBuffer(const ByteBuffer & copy)
     _buffer.append(0);
     append(copy);
 }
-ByteBuffer::ByteBuffer(const char * str, int length) {
+ByteBuffer::ByteBuffer(const char * str, size_t length) {
     _buffer.append(0);
     append(str, length);
 }
@@ -32,9 +32,9 @@ void ByteBuffer::append(const char *str) {
     append(str, strlen(str));
 }
 
-void ByteBuffer::append(const char *str, int length) {
-    int prev_length_plus_null = _buffer.length();
-    int new_length_plus_null = prev_length_plus_null + length;
+void ByteBuffer::append(const char *str, size_t length) {
+    size_t prev_length_plus_null = _buffer.length();
+    size_t new_length_plus_null = prev_length_plus_null + length;
     _buffer.resize(new_length_plus_null);
     memcpy(_buffer.raw() + prev_length_plus_null - 1, str, length);
     _buffer.at(new_length_plus_null - 1) = 0;
@@ -63,19 +63,19 @@ ByteBuffer ByteBuffer::format(const char *format, ...) {
     return result;
 }
 
-int ByteBuffer::index_of_rev(char c) const {
+size_t ByteBuffer::index_of_rev(char c) const {
     return index_of_rev(c, length() - 1);
 }
 
-int ByteBuffer::index_of_rev(char c, int start) const {
-    for (int i = start; i >= 0; i -= 1) {
+size_t ByteBuffer::index_of_rev(char c, size_t start) const {
+    for (size_t i = start; i >= 0; i -= 1) {
         if (_buffer.at(i) == c)
             return i;
     }
     return -1;
 }
 
-ByteBuffer ByteBuffer::substring(int start, int end) const {
+ByteBuffer ByteBuffer::substring(size_t start, size_t end) const {
     if (start < 0 || start >= length())
         panic("substring start out of bounds");
     if (end < 0 || end > length())
