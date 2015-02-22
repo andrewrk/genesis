@@ -410,10 +410,10 @@ void AudioEditWidget::set_size(int width, int height) {
 }
 
 static void vec4_color_to_uint8(const glm::vec4 &rgba, uint8_t *out) {
-    out[0] = (uint8_t)(out[0] * 255.0f);
-    out[1] = (uint8_t)(out[1] * 255.0f);
-    out[2] = (uint8_t)(out[2] * 255.0f);
-    out[3] = (uint8_t)(out[3] * 255.0f);
+    out[0] = (uint8_t)(rgba[0] * 255.0f);
+    out[1] = (uint8_t)(rgba[1] * 255.0f);
+    out[2] = (uint8_t)(rgba[2] * 255.0f);
+    out[3] = (uint8_t)(rgba[3] * 255.0f);
 }
 
 void AudioEditWidget::update_model() {
