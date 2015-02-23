@@ -456,8 +456,9 @@ int AudioEditWidget::wave_width() const {
 
 size_t AudioEditWidget::frame_at_pos(int x) {
     float percent_x = (x - wave_start_left() + _scroll_x) / (float)wave_width();
-    percent_x = clamp(0.0f, percent_x, 1.0f);
-    return percent_x * get_display_frame_count();
+    size_t frame_at_end = _frames_per_pixel * (size_t)wave_width();
+    size_t frame_count = get_display_frame_count();
+    return min((size_t)(frame_at_end * percent_x), frame_count);
 }
 
 bool AudioEditWidget::get_frame_and_channel(int x, int y, CursorPosition *out) {
@@ -504,8 +505,6 @@ void AudioEditWidget::scroll_cursor_into_view() {
         int max_scroll_x = max(0, get_full_wave_width() - wave_width());
         _scroll_x = clamp(0, _scroll_x, max_scroll_x);
         update_model();
-    } else {
-        update_selection_model();
     }
 }
 
@@ -560,7 +559,40 @@ void AudioEditWidget::on_text_input(const TextInputEvent *event) {
 }
 
 void AudioEditWidget::on_key_event(const KeyEvent *event) {
+    if (event->action != KeyActionDown)
+        return;
 
+    switch (event->virt_key) {
+        default:
+            break;
+        case VirtKeyDelete:
+            delete_selection();
+            break;
+    }
+}
+
+void AudioEditWidget::get_order_correct_selection(const Selection *selection,
+        size_t *start, size_t *end)
+{
+    if (selection->start > selection->end) {
+        *start = selection->end;
+        *end = selection->start;
+    } else {
+        *start = selection->start;
+        *end = selection->end;
+    }
+}
+
+void AudioEditWidget::delete_selection() {
+    size_t start, end;
+    get_order_correct_selection(&_selection, &start, &end);
+    for (size_t i = 0; i < _audio_file->channels.length(); i += 1) {
+        _audio_file->channels.at(i).samples.remove_range(start, end);
+    }
+    _selection.start = min(_selection.start, _selection.end);
+    _selection.end = _selection.start;
+    clamp_selection();
+    update_model();
 }
 
 void AudioEditWidget::set_pos(int left, int top) {
@@ -594,32 +626,42 @@ void AudioEditWidget::update_model() {
         per_channel_data->width = width;
         per_channel_data->height = _channel_edit_height;
 
-        double frames_per_pixel = samples->length() / width;
         pixels.resize(width * height);
         for (int x = 0; x < width; x += 1) {
-            double min_sample =  1.0;
-            double max_sample = -1.0;
-            for (int off = 0; off < frames_per_pixel; off += 1) {
-                double sample = samples->at(x * frames_per_pixel + off);
-                min_sample = min(min_sample, sample);
-                max_sample = max(max_sample, sample);
-            }
+            size_t start_frame = x * _frames_per_pixel;
+            if (start_frame < samples->length()) {
+                size_t end_frame = min(
+                        (size_t)((x + 1) * _frames_per_pixel),
+                        samples->length());
+                double min_sample =  1.0;
+                double max_sample = -1.0;
+                for (size_t frame = start_frame; frame < end_frame; frame += 1) {
+                    double sample = samples->at(frame);
+                    min_sample = min(min_sample, sample);
+                    max_sample = max(max_sample, sample);
+                }
 
-            int y_min = (min_sample + 1.0) / 2.0 * height;
-            int y_max = (max_sample + 1.0) / 2.0 * height;
-            int y = 0;
+                int y_min = (min_sample + 1.0) / 2.0 * height;
+                int y_max = (max_sample + 1.0) / 2.0 * height;
+                int y = 0;
 
-            // top bg
-            for (; y < y_min; y += 1) {
-                pixels.raw()[y * width + x] = 0;
-            }
-            // top and bottom wave
-            for (; y <= y_max; y += 1) {
-                pixels.raw()[y * width + x] = 255;
-            }
-            // bottom bg
-            for (; y < height; y += 1) {
-                pixels.raw()[y * width + x] = 0;
+                // top bg
+                for (; y < y_min; y += 1) {
+                    pixels.raw()[y * width + x] = 0;
+                }
+                // top and bottom wave
+                for (; y <= y_max; y += 1) {
+                    pixels.raw()[y * width + x] = 255;
+                }
+                // bottom bg
+                for (; y < height; y += 1) {
+                    pixels.raw()[y * width + x] = 0;
+                }
+            } else {
+                // the waveform does not go into this column
+                for (int y = 0; y < height; y += 1) {
+                    pixels.raw()[y * width + x] = 0;
+                }
             }
         }
         per_channel_data->waveform_texture->send_pixels(pixels, width, height);
@@ -636,6 +678,8 @@ void AudioEditWidget::update_model() {
     }
 }
 
-void AudioEditWidget::update_selection_model() {
-    // TODO
+void AudioEditWidget::clamp_selection() {
+    size_t frame_count = get_display_frame_count();
+    _selection.start = min(_selection.start, frame_count);
+    _selection.end = min(_selection.end, frame_count + 1);
 }

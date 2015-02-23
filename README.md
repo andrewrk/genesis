@@ -44,7 +44,7 @@ make
 
 ## Roadmap
 
- 0. Delete selection.
+ 0. Export audio file.
  0. Ability to make a playback selection.
  0. Playback to speakers.
  0. Undo/Redo

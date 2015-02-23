@@ -3,6 +3,8 @@
 
 #include "util.hpp"
 
+#include <string.h>
+
 template<typename T>
 class List {
 public:
@@ -76,6 +78,20 @@ public:
         if (index >= _length)
             panic("list: swap_remove index out of bounds");
         return unchecked_swap_remove(index);
+    }
+
+    void remove_range(size_t start, size_t end) {
+        if (start >= _length)
+            panic("list: remove_range start out of bounds");
+        if (end > _length)
+            panic("list: remove_range end out of bounds");
+        if (start > end)
+            panic("list: remove_range start > end");
+        size_t del_count = end - start;
+        for (size_t i = start; i < end; i += 1) {
+            _items[i] = _items[i + del_count];
+        }
+        _length -= del_count;
     }
 
     void fill(T value) {

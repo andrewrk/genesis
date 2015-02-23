@@ -100,7 +100,6 @@ private:
 
 
     void update_model();
-    void update_selection_model();
 
     void destroy_audio_file();
     void destroy_all_ui();
@@ -117,7 +116,9 @@ private:
     void zoom_100();
     size_t get_display_frame_count() const;
     int get_full_wave_width() const;
-
+    void delete_selection();
+    void clamp_selection();
+    void get_order_correct_selection(const Selection *selection, size_t *start, size_t *end);
 
     // widget methods
     static void destructor(Widget *widget) {
