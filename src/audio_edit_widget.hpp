@@ -5,7 +5,7 @@
 #include "byte_buffer.hpp"
 #include "channel_layouts.hpp"
 #include "text_widget.hpp"
-#include "texture.hpp"
+#include "alpha_texture.hpp"
 
 struct Channel {
     int sample_rate;
@@ -64,12 +64,14 @@ private:
 
     glm::vec4 _waveform_fg_color;
     glm::vec4 _waveform_bg_color;
+    glm::vec4 _waveform_sel_bg_color;
+    glm::vec4 _waveform_sel_fg_color;
 
     AudioFile *_audio_file;
 
     struct PerChannelData {
         TextWidget *channel_name_widget;
-        Texture *waveform_texture;
+        AlphaTexture *waveform_texture;
         glm::mat4 waveform_model;
         int left;
         int top;
@@ -98,6 +100,7 @@ private:
 
 
     void update_model();
+    void update_selection_model();
 
     void destroy_audio_file();
     void destroy_all_ui();

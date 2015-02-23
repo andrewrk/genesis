@@ -44,6 +44,8 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     _margin(2),
     _waveform_fg_color(0.25882f, 0.43137f, 0.772549, 1.0f),
     _waveform_bg_color(0.0f, 0.0f, 0.0f, 0.0f),
+    _waveform_sel_bg_color(0.2f, 0.2314f, 0.4784f, 1.0f),
+    _waveform_sel_fg_color(0.6745f, 0.69f, 0.8157f, 1.0f),
     _audio_file(create_empty_audio_file()),
     _scroll_x(0),
     _frames_per_pixel(1.0f),
@@ -380,7 +382,7 @@ AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i)
 
     PerChannelData *per_channel_data = create<PerChannelData>();
     per_channel_data->channel_name_widget = text_widget;
-    per_channel_data->waveform_texture = create<Texture>(_gui);
+    per_channel_data->waveform_texture = create<AlphaTexture>(_gui);
 
     return per_channel_data;
 }
@@ -392,12 +394,56 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         glm::mat4 mvp = projection * per_channel_data->waveform_model;
-        per_channel_data->waveform_texture->draw(mvp);
+        per_channel_data->waveform_texture->draw(_waveform_fg_color, mvp);
 
         TextWidget *channel_name_widget = per_channel_data->channel_name_widget;
         if (channel_name_widget->_widget._is_visible)
             channel_name_widget->draw(projection);
     }
+
+    size_t start = _selection.start;
+    size_t end = _selection.end;
+    if (start == end)
+        end += 1;
+
+    // fill selection rectangle and stencil at the same time
+    glEnable(GL_STENCIL_TEST);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    int sel_start_x = pos_at_frame(start);
+    int sel_end_x = pos_at_frame(end);
+    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+        PerChannelData *per_channel_data = _channel_list.at(i);
+
+        if (!_selection.channels.at(i))
+            continue;
+
+        _gui->fill_rect(_waveform_sel_bg_color,
+                _left + per_channel_data->left + sel_start_x, _top + per_channel_data->top,
+                sel_end_x - sel_start_x, per_channel_data->height);
+    }
+
+
+    // draw the wave texture again with a stencil
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glStencilMask(0x00);
+
+    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+        PerChannelData *per_channel_data = _channel_list.at(i);
+
+        if (!_selection.channels.at(i))
+            continue;
+
+        glm::mat4 mvp = projection * per_channel_data->waveform_model;
+        per_channel_data->waveform_texture->draw(_waveform_sel_fg_color, mvp);
+    }
+
+    glDisable(GL_STENCIL_TEST);
 }
 
 int AudioEditWidget::wave_start_left() const {
@@ -439,23 +485,28 @@ int AudioEditWidget::pos_at_frame(size_t frame) {
 }
 
 void AudioEditWidget::scroll_cursor_into_view() {
-    // TODO remove early return
-    update_model();
-    return;
     int x = pos_at_frame(_selection.end);
+    bool scrolled = false;
 
     int cursor_too_far_right = x - wave_width();
-    if (cursor_too_far_right > 0)
+    if (cursor_too_far_right > 0) {
         _scroll_x += cursor_too_far_right;
+        scrolled = true;
+    }
 
     int cursor_too_far_left = -x + wave_start_left();
-    if (cursor_too_far_left > 0)
+    if (cursor_too_far_left > 0) {
         _scroll_x -= cursor_too_far_left;
+        scrolled = true;
+    }
 
-    int max_scroll_x = max(0, get_full_wave_width() - wave_width());
-    _scroll_x = clamp(0, _scroll_x, max_scroll_x);
-
-    update_model();
+    if (scrolled) {
+        int max_scroll_x = max(0, get_full_wave_width() - wave_width());
+        _scroll_x = clamp(0, _scroll_x, max_scroll_x);
+        update_model();
+    } else {
+        update_selection_model();
+    }
 }
 
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
@@ -466,6 +517,7 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                 if (get_frame_and_channel(event->x, event->y, &pos)) {
                     _selection.start = pos.frame;
                     _selection.end = pos.frame;
+                    _selection.channels.fill(true);
                 }
                 _select_down = true;
                 scroll_cursor_into_view();
@@ -479,7 +531,6 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
         case MouseActionMove:
             if (event->buttons.left && _select_down) {
                 _selection.end = frame_at_pos(event->x);
-                fprintf(stderr, "start: %zu  end: %zu\n", _selection.start, _selection.end);
                 scroll_cursor_into_view();
             }
             break;
@@ -524,22 +575,9 @@ void AudioEditWidget::set_size(int width, int height) {
     update_model();
 }
 
-static void vec4_color_to_uint8(const glm::vec4 &rgba, uint8_t *out) {
-    out[0] = (uint8_t)(rgba[0] * 255.0f);
-    out[1] = (uint8_t)(rgba[1] * 255.0f);
-    out[2] = (uint8_t)(rgba[2] * 255.0f);
-    out[3] = (uint8_t)(rgba[3] * 255.0f);
-}
-
 void AudioEditWidget::update_model() {
     ByteBuffer pixels;
-    int top = _top + _padding_top;
-
-    uint8_t color_fg[4];
-    uint8_t color_bg[4];
-    
-    vec4_color_to_uint8(_waveform_fg_color, color_fg);
-    vec4_color_to_uint8(_waveform_bg_color, color_bg);
+    int top = _padding_top;
 
     for (size_t i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
@@ -549,16 +587,15 @@ void AudioEditWidget::update_model() {
         List<double> *samples = &_audio_file->channels.at(i).samples;
 
         TextWidget *text_widget = per_channel_data->channel_name_widget;
-        text_widget->set_pos(_left + wave_start_left(), top);
+        text_widget->set_pos(_left + wave_start_left(), _top + top);
 
         int width = wave_width();
         int height = _channel_edit_height;
         per_channel_data->width = width;
         per_channel_data->height = _channel_edit_height;
 
-        int pitch = width * 4;
         double frames_per_pixel = samples->length() / width;
-        pixels.resize(_height * pitch);
+        pixels.resize(width * height);
         for (int x = 0; x < width; x += 1) {
             double min_sample =  1.0;
             double max_sample = -1.0;
@@ -574,22 +611,22 @@ void AudioEditWidget::update_model() {
 
             // top bg
             for (; y < y_min; y += 1) {
-                memcpy(pixels.raw() + (4 * (y * width + x)), color_bg, 4);
+                pixels.raw()[y * width + x] = 0;
             }
             // top and bottom wave
             for (; y <= y_max; y += 1) {
-                memcpy(pixels.raw() + (4 * (y * width + x)), color_fg, 4);
+                pixels.raw()[y * width + x] = 255;
             }
             // bottom bg
             for (; y < height; y += 1) {
-                memcpy(pixels.raw() + (4 * (y * width + x)), color_bg, 4);
+                pixels.raw()[y * width + x] = 0;
             }
         }
         per_channel_data->waveform_texture->send_pixels(pixels, width, height);
         per_channel_data->waveform_model = glm::scale(
                     glm::translate(
                         glm::mat4(1.0f),
-                        glm::vec3(_left + _padding_left, top, 0.0f)),
+                        glm::vec3(_left + _padding_left, _top + top, 0.0f)),
                     glm::vec3(
                         per_channel_data->waveform_texture->_width,
                         per_channel_data->waveform_texture->_height,
@@ -597,4 +634,8 @@ void AudioEditWidget::update_model() {
 
         top += _channel_edit_height + _margin;
     }
+}
+
+void AudioEditWidget::update_selection_model() {
+    // TODO
 }

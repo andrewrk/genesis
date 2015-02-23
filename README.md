@@ -44,7 +44,6 @@ make
 
 ## Roadmap
 
- 0. Ability to make a audio selection.
  0. Delete selection.
  0. Ability to make a playback selection.
  0. Playback to speakers.

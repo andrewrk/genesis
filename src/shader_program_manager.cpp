@@ -63,7 +63,7 @@ uniform vec4 Color;
 
 void main(void)
 {
-    FragColor = vec4(1, 1, 1, texture(Tex, FragTexCoord).a) * Color;
+    FragColor = vec4(1, 1, 1, texture(Tex, FragTexCoord).r) * Color;
 }
 
 )FRAGMENT", NULL),

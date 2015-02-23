@@ -153,7 +153,7 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
     for (int y = 0; y < source.rows; y += 1) {
         for (int x = 0; x < source.width; x += 1) {
             unsigned char alpha = source.buffer[y * pitch + x];
-            int dest_index = 4 * ((top + y) * dest_width + x + left) + 3;
+            int dest_index = (top + y) * dest_width + x + left;
             if (dest_index >= 0 && (size_t)dest_index < dest.length())
                 dest.at(dest_index) = alpha;
         }
@@ -225,7 +225,7 @@ void Label::update() {
     update_render_slice();
     update_render_sel_slice();
 
-    size_t img_buf_size =  4 * _width * _height;
+    size_t img_buf_size =  _width * _height;
     if (img_buf_size > _img_buffer.length())
         _img_buffer.resize(img_buf_size);
 
@@ -243,11 +243,10 @@ void Label::update() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bounding_width, bounding_height,
-            0, GL_RGBA, GL_UNSIGNED_BYTE, _img_buffer.raw());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, bounding_width, bounding_height,
+            0, GL_RED, GL_UNSIGNED_BYTE, _img_buffer.raw());
 
     assert_no_gl_error();
-
 }
 
 int Label::cursor_at_pos(int x, int y) const {
