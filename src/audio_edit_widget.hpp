@@ -3,19 +3,10 @@
 
 #include "widget.hpp"
 #include "byte_buffer.hpp"
-#include "channel_layouts.hpp"
 #include "text_widget.hpp"
 #include "alpha_texture.hpp"
-
-struct Channel {
-    int sample_rate;
-    List<double> samples;
-};
-
-struct AudioFile {
-    List<Channel> channels;
-    const ChannelLayout *channel_layout;
-};
+#include "genesis.h"
+#include "audio_file.hpp"
 
 class Gui;
 class AudioEditWidget {
@@ -46,6 +37,8 @@ public:
     void set_pos(int left, int top);
     void set_size(int width, int height);
 
+    void save_as(const ByteBuffer &file_path);
+
 private:
     Gui *_gui;
 
@@ -57,7 +50,7 @@ private:
     int _padding_left;
     int _padding_right;
     int _padding_top;
-    int _padding_bottom;
+    //int _padding_bottom;
 
     int _channel_edit_height;
     int _margin;

@@ -37,7 +37,8 @@ genesis is programmed in a tiny subset of C++:
 
 ```
 sudo apt-get install libgroove-dev libsdl2-dev libepoxy-dev libglm-dev \
-    libfreetype6-dev libpng12-dev librucksack-dev unicode-data
+    libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
+    libavformat-dev libavutil-dev libavfilter-dev
 make
 ./build/genesis
 ```

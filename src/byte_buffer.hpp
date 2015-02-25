@@ -56,7 +56,7 @@ public:
         _buffer.append(0);
     }
     uint32_t read_uint32le(size_t index) const {
-        if (index < 0 || index + 4 > length())
+        if (index + 4 > length())
             panic("bounds check");
         char *buf = _buffer.raw() + index;
         return  ((uint32_t)buf[0])        |
@@ -65,7 +65,7 @@ public:
                (((uint32_t)buf[3]) << 24) ;
     }
     uint8_t read_uint8(size_t index) const {
-        if (index < 0 || index >= length())
+        if (index >= length())
             panic("bounds check");
         char *buf = _buffer.raw() + index;
         return (uint8_t)*buf;

@@ -68,7 +68,7 @@ size_t ByteBuffer::index_of_rev(char c) const {
 }
 
 size_t ByteBuffer::index_of_rev(char c, size_t start) const {
-    for (size_t i = start; i >= 0; i -= 1) {
+    for (off_t i = start; i >= 0; i -= 1) {
         if (_buffer.at(i) == c)
             return i;
     }
@@ -76,9 +76,9 @@ size_t ByteBuffer::index_of_rev(char c, size_t start) const {
 }
 
 ByteBuffer ByteBuffer::substring(size_t start, size_t end) const {
-    if (start < 0 || start >= length())
+    if (start >= length())
         panic("substring start out of bounds");
-    if (end < 0 || end > length())
+    if (end > length())
         panic("substring end out of bounds");
     return ByteBuffer(_buffer.raw() + start, end - start);
 }

@@ -4,11 +4,11 @@
 #include <stdlib.h>
 #include <new>
 
-void panic(const char *format, ...) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
+void panic(const char *format, ...) __attribute__((cold)) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
 template<typename T, typename... Args>
-static inline T * create(Args... args) {
+__attribute__((malloc)) static inline T * create(Args... args) {
     T * ptr = reinterpret_cast<T*>(malloc(sizeof(T)));
     if (!ptr)
         panic("create: out of memory");
@@ -19,7 +19,7 @@ static inline T * create(Args... args) {
 // allocate<MyClass>(10) is equivalent to: new MyClass[10]
 // calls the default constructor for each item in the array.
 template<typename T>
-static inline T * allocate(size_t count) {
+__attribute__((malloc)) static inline T * allocate(size_t count) {
     T * ptr = reinterpret_cast<T*>(malloc(count * sizeof(T)));
     if (!ptr)
         panic("allocate: out of memory");
@@ -31,7 +31,7 @@ static inline T * allocate(size_t count) {
 // allocate zeroed memory, do not run constructors and return NULL instead
 // of panicking.
 template<typename T>
-static inline T *allocate_zero(size_t count) {
+__attribute__((malloc)) static inline T *allocate_zero(size_t count) {
     return reinterpret_cast<T*>(calloc(count, sizeof(T)));
 }
 

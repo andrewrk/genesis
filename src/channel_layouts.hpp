@@ -1,8 +1,8 @@
 #ifndef CHANNEL_LAYOUTS_HPP
 #define CHANNEL_LAYOUTS_HPP
 
-#include <stdint.h>
 #include "string.hpp"
+#include <stdint.h>
 
 // must correlate to channel_names
 enum ChannelId {
@@ -36,6 +36,7 @@ enum ChannelId {
 struct ChannelLayout {
     String name;
     List<ChannelId> channels;
+    uint64_t libav_value;
 };
 
 // must correlate to initialize_channel_layouts
@@ -73,6 +74,7 @@ void genesis_init_channel_layouts(void);
 const char *genesis_get_channel_name(enum ChannelId id);
 int genesis_get_channel_layout_count(void);
 const struct ChannelLayout *genesis_get_channel_layout(int index);
-ChannelLayout *genesis_from_groove_channel_layout(uint64_t libgroove_channel_layout);
+const ChannelLayout *genesis_from_libav_channel_layout(uint64_t libav_channel_layout);
+uint64_t genesis_to_libav_channel_layout(const ChannelLayout *channel_layout);
 
 #endif

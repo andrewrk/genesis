@@ -10,8 +10,8 @@ class List {
 public:
     List() {
         _length = 0;
-        _capacity = 16;
-        _items = allocate<T>(_capacity);
+        _capacity = 0;
+        _items = NULL;
     }
     ~List() {
         destroy(_items, _capacity);
@@ -140,7 +140,7 @@ private:
     void ensure_capacity(size_t new_capacity) {
         size_t better_capacity = _capacity;
         while (better_capacity < new_capacity)
-            better_capacity *= 2;
+            better_capacity = better_capacity * 2 + 16;
         if (better_capacity != _capacity) {
             _items = reallocate(_items, _capacity, better_capacity);
             _capacity = better_capacity;

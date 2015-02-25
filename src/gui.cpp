@@ -82,9 +82,12 @@ Gui::~Gui() {
     SDL_FreeCursor(_cursor_default);
     SDL_FreeCursor(_cursor_ibeam);
 
-    HashMap<int, FontSize *, hash_int>::Iterator it = _font_size_cache.value_iterator();
-    while (it.has_next()) {
-        FontSize *font_size_object = it.next();
+    auto it = _font_size_cache.entry_iterator();
+    for (;;) {
+        auto *entry = it.next();
+        if (!entry)
+            break;
+        FontSize *font_size_object = entry->value;
         destroy(font_size_object, 1);
     }
 
@@ -241,10 +244,10 @@ AudioEditWidget * Gui::create_audio_edit_widget() {
 }
 
 FontSize *Gui::get_font_size(int font_size) {
-    FontSize *font_size_object;
-    if (_font_size_cache.get(font_size, &font_size_object))
-        return font_size_object;
-    font_size_object = create<FontSize>(_default_font_face, font_size);
+    auto *entry = _font_size_cache.maybe_get(font_size);
+    if (entry)
+        return entry->value;
+    FontSize *font_size_object = create<FontSize>(_default_font_face, font_size);
     _font_size_cache.put(font_size, font_size_object);
     return font_size_object;
 }

@@ -17,6 +17,24 @@ public:
     ~HashMap() {
         destroy(_entries, _capacity);
     }
+    HashMap(const HashMap &copy) = delete;
+    HashMap &operator=(const HashMap &copy) = delete;
+
+    struct Entry {
+        bool used;
+        size_t distance_from_start_index;
+        K key;
+        V value;
+    };
+
+    void clear() {
+        for (size_t i = 0; i < _capacity; i += 1) {
+            _entries[i].used = false;
+        }
+        _size = 0;
+        _max_distance_from_start_index = 0;
+        _modification_count += 1;
+    }
 
     size_t size() const {
         return _size;
@@ -48,13 +66,8 @@ public:
         return entry->value;
     }
 
-    // if the return value is false, out_value will not be touched
-    bool get(const K &key, V *out_value) const {
-        Entry *entry = internal_get(key);
-        if (!entry)
-            return false;
-        *out_value = entry->value;
-        return true;
+    Entry *maybe_get(const K &key) const {
+        return internal_get(key);
     }
 
     void remove(const K &key) {
@@ -89,50 +102,41 @@ public:
 
     class Iterator {
     public:
-        bool has_next() const {
+        Entry *next() {
             if (_inital_modification_count != _table->_modification_count)
                 panic("concurrent modification");
-            return _count < _table->size();
-        }
-        V next() {
-            if (_inital_modification_count != _table->_modification_count)
-                panic("concurrent modification");
-            for (; _index < _table->_capacity; _index++) {
-                Entry * entry = &_table->_entries[_index];
+            if (_count >= _table->size())
+                return NULL;
+            for (; _index < _table->_capacity; _index += 1) {
+                Entry *entry = &_table->_entries[_index];
                 if (entry->used) {
-                    _index++;
-                    _count++;
-                    return entry->value;
+                    _index += 1;
+                    _count += 1;
+                    return entry;
                 }
             }
             panic("no next item");
         }
     private:
-        HashMap * _table;
+        const HashMap * _table;
         // how many items have we returned
         size_t _count = 0;
         // iterator through the entry array
         size_t _index = 0;
         // used to detect concurrent modification
         uint32_t _inital_modification_count;
-        Iterator(HashMap * table) :
+        Iterator(const HashMap * table) :
                 _table(table), _inital_modification_count(table->_modification_count) {
         }
         friend HashMap;
     };
+
     // you must not modify the underlying HashMap while this iterator is still in use
-    Iterator value_iterator() {
+    Iterator entry_iterator() const {
         return Iterator(this);
     }
 
 private:
-
-    struct Entry {
-        bool used;
-        size_t distance_from_start_index;
-        K key;
-        V value;
-    };
 
     Entry *_entries;
     size_t _capacity;

@@ -20,10 +20,13 @@ FontSize::FontSize(FT_Face font_face, int font_size) :
 }
 
 FontSize::~FontSize() {
-    HashMap<uint32_t, FontCacheValue, hash_uint32_t>::Iterator it = _font_cache.value_iterator();
-    while (it.has_next()) {
-        FontCacheValue entry = it.next();
-        FT_Done_Glyph(entry.glyph);
+    auto it = _font_cache.entry_iterator();
+    for (;;) {
+        auto *entry = it.next();
+        if (!entry)
+            break;
+        FontCacheValue *font_cache_value = &entry->value;
+        FT_Done_Glyph(font_cache_value->glyph);
     }
 }
 
@@ -32,9 +35,9 @@ uint32_t hash_uint32_t(const uint32_t &x) {
 }
 
 FontCacheValue FontSize::font_cache_entry(uint32_t codepoint) {
-    FontCacheValue value;
-    if (_font_cache.get(codepoint, &value))
-        return value;
+    auto *entry = _font_cache.maybe_get(codepoint);
+    if (entry)
+        return entry->value;
 
     ft_ok(FT_Set_Char_Size(_font_face, 0, _font_size * 64, 0, 0));
     FT_UInt glyph_index = FT_Get_Char_Index(_font_face, codepoint);
@@ -55,7 +58,7 @@ FontCacheValue FontSize::font_cache_entry(uint32_t codepoint) {
     if (this_below_size > _max_below_size)
         _max_below_size = this_below_size;
 
-    value = FontCacheValue{glyph, bitmap_glyph, glyph_index, this_above_size, this_below_size};
+    FontCacheValue value = FontCacheValue{glyph, bitmap_glyph, glyph_index, this_above_size, this_below_size};
     _font_cache.put(codepoint, value);
     return value;
 }

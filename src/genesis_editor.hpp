@@ -38,6 +38,10 @@ private:
     void destroy_audio_edit_widget();
 
     void on_choose_file(const ByteBuffer &file_path);
+    void on_choose_save_file(const ByteBuffer &file_path);
+    void show_open_file();
+    void show_save_file();
+    void ensure_find_file_widget();
 
     static bool static_on_gui_key(Gui *gui, const KeyEvent *event) {
         return reinterpret_cast<GenesisEditor*>(gui->_userdata)->on_gui_key(gui, event);
@@ -45,6 +49,10 @@ private:
 
     static void on_choose_file(FindFileWidget *find_file_widget, const ByteBuffer &file_path) {
         return reinterpret_cast<GenesisEditor*>(find_file_widget->_userdata)->on_choose_file(file_path);
+    }
+
+    static void on_choose_save_file(FindFileWidget *find_file_widget, const ByteBuffer &file_path) {
+        return reinterpret_cast<GenesisEditor*>(find_file_widget->_userdata)->on_choose_save_file(file_path);
     }
 
 };
