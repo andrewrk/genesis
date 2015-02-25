@@ -138,9 +138,9 @@ private:
     size_t _capacity;
 
     void ensure_capacity(size_t new_capacity) {
-        size_t better_capacity = _capacity;
+        size_t better_capacity = max(_capacity, 16UL);
         while (better_capacity < new_capacity)
-            better_capacity = better_capacity * 2 + 16;
+            better_capacity = better_capacity * 2;
         if (better_capacity != _capacity) {
             _items = reallocate(_items, _capacity, better_capacity);
             _capacity = better_capacity;
