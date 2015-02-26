@@ -1,7 +1,6 @@
 #include "audio_file.hpp"
 #include "libav.hpp"
 
-#include <groove/groove.h>
 #include <stdint.h>
 
 
@@ -14,12 +13,12 @@ static const int supported_sample_rates[] = {
     96000,
 };
 
-static void import_buffer_uint8(const GrooveBuffer *buffer, AudioFile *audio_file) {
-    uint8_t *ptr = buffer->data[0];
+static void import_frame_uint8(const AVFrame *avframe, AudioFile *audio_file) {
+    uint8_t *ptr = avframe->extended_data[0];
     double min = 0.0;
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
-    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+    for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
             uint8_t sample = *ptr;
             double dbl_sample = (((double)sample) - min) / half_range - 1.0;
@@ -28,12 +27,12 @@ static void import_buffer_uint8(const GrooveBuffer *buffer, AudioFile *audio_fil
     }
 }
 
-static void import_buffer_int16(const GrooveBuffer *buffer, AudioFile *audio_file) {
-    uint8_t *ptr = buffer->data[0];
+static void import_frame_int16(const AVFrame *avframe, AudioFile *audio_file) {
+    uint8_t *ptr = avframe->extended_data[0];
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
-    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+    for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
@@ -42,12 +41,12 @@ static void import_buffer_int16(const GrooveBuffer *buffer, AudioFile *audio_fil
     }
 }
 
-static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_file) {
-    uint8_t *ptr = buffer->data[0];
+static void import_frame_int32(const AVFrame *avframe, AudioFile *audio_file) {
+    uint8_t *ptr = avframe->extended_data[0];
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
-    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+    for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
@@ -56,9 +55,9 @@ static void import_buffer_int32(const GrooveBuffer *buffer, AudioFile *audio_fil
     }
 }
 
-static void import_buffer_float(const GrooveBuffer *buffer, AudioFile *audio_file) {
-    uint8_t *ptr = buffer->data[0];
-    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+static void import_frame_float(const AVFrame *avframe, AudioFile *audio_file) {
+    uint8_t *ptr = avframe->extended_data[0];
+    for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             float *sample = reinterpret_cast<float*>(ptr);
             double dbl_sample = *sample;
@@ -67,9 +66,9 @@ static void import_buffer_float(const GrooveBuffer *buffer, AudioFile *audio_fil
     }
 }
 
-static void import_buffer_double(const GrooveBuffer *buffer, AudioFile *audio_file) {
-    uint8_t *ptr = buffer->data[0];
-    for (int frame = 0; frame < buffer->frame_count; frame += 1) {
+static void import_frame_double(const AVFrame *avframe, AudioFile *audio_file) {
+    uint8_t *ptr = avframe->extended_data[0];
+    for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
             double *sample = reinterpret_cast<double*>(ptr);
             audio_file->channels.at(ch).samples.append(*sample);
@@ -77,14 +76,14 @@ static void import_buffer_double(const GrooveBuffer *buffer, AudioFile *audio_fi
     }
 }
 
-static void import_buffer_uint8_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+static void import_frame_uint8_planar(const AVFrame *avframe, AudioFile *audio_file) {
     double min = 0.0;
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
     for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
-        uint8_t *ptr = buffer->data[ch];
+        uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
-        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 1) {
+        for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 1) {
             uint8_t sample = *ptr;
             double dbl_sample = (((double)sample) - min) / half_range - 1.0;
             channel->samples.append(dbl_sample);
@@ -92,14 +91,14 @@ static void import_buffer_uint8_planar(const GrooveBuffer *buffer, AudioFile *au
     }
 }
 
-static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+static void import_frame_int16_planar(const AVFrame *avframe, AudioFile *audio_file) {
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
     for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
-        uint8_t *ptr = buffer->data[ch];
+        uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
-        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 2) {
+        for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             channel->samples.append(dbl_sample);
@@ -107,14 +106,14 @@ static void import_buffer_int16_planar(const GrooveBuffer *buffer, AudioFile *au
     }
 }
 
-static void import_buffer_int32_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+static void import_frame_int32_planar(const AVFrame *avframe, AudioFile *audio_file) {
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
     for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
-        uint8_t *ptr = buffer->data[ch];
+        uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
-        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 4) {
+        for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             channel->samples.append(dbl_sample);
@@ -122,11 +121,11 @@ static void import_buffer_int32_planar(const GrooveBuffer *buffer, AudioFile *au
     }
 }
 
-static void import_buffer_float_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+static void import_frame_float_planar(const AVFrame *avframe, AudioFile *audio_file) {
     for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
-        uint8_t *ptr = buffer->data[ch];
+        uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
-        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 4) {
+        for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
             float *sample = reinterpret_cast<float*>(ptr);
             double dbl_sample = *sample;
             channel->samples.append(dbl_sample);
@@ -134,36 +133,15 @@ static void import_buffer_float_planar(const GrooveBuffer *buffer, AudioFile *au
     }
 }
 
-static void import_buffer_double_planar(const GrooveBuffer *buffer, AudioFile *audio_file) {
+static void import_frame_double_planar(const AVFrame *avframe, AudioFile *audio_file) {
     for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
-        uint8_t *ptr = buffer->data[ch];
+        uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
-        for (int frame = 0; frame < buffer->frame_count; frame += 1, ptr += 8) {
+        for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 8) {
             double *sample = reinterpret_cast<double*>(ptr);
             channel->samples.append(*sample);
         }
     }
-}
-
-static const char *sample_format_names[] = {
-    "none",
-    "unsigned 8 bits",
-    "signed 16 bits",
-    "signed 32 bits",
-    "float (32 bits)",
-    "double (64 bits)",
-    "unsigned 8 bits, planar",
-    "signed 16 bits, planar",
-    "signed 32 bits, planar",
-    "float (32 bits), planar",
-    "double (64 bits), planar",
-};
-
-static void debug_print_sample_format(enum GrooveSampleFormat sample_fmt) {
-    int index = sample_fmt + 1;
-    if (index < 0 || (size_t)index >= array_length(sample_format_names))
-        panic("invalid sample format");
-    fprintf(stderr, "sample format: %s\n", sample_format_names[index]);
 }
 
 static SampleFormat from_libav_sample_format(AVSampleFormat format) {
@@ -188,102 +166,190 @@ static SampleFormat from_libav_sample_format(AVSampleFormat format) {
     }
 }
 
-void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
-    GrooveFile *file = groove_file_open(file_path.raw());
-    if (!file)
-        panic("groove_file_open error");
+static int decode_interrupt_cb(void *ctx) {
+    return 0;
+}
 
-    GrooveTag *tag = NULL;
-    audio_file->tags.clear();
-    while ((tag = groove_file_metadata_get(file, "", tag, 0))) {
-        bool ok;
-        String value(groove_tag_value(tag), &ok);
-        audio_file->tags.put(groove_tag_key(tag), value);
+static int decode_frame(AudioFile *audio_file, AVPacket *pkt,
+        AVCodecContext *codec_ctx, AVFrame *in_frame,
+        void (*import_frame)(const AVFrame *, AudioFile *))
+{
+    AVPacket pkt_temp = *pkt;
+    bool new_packet = true;
+    int decoded_byte_count = 0;
+    while (pkt_temp.size > 0 || (!pkt_temp.data && new_packet)) {
+        new_packet = false;
+        int got_frame;
+        int len1 = avcodec_decode_audio4(codec_ctx, in_frame, &got_frame, &pkt_temp);
+        if (len1 < 0) {
+            char buf[256];
+            av_strerror(len1, buf, sizeof(buf));
+            fprintf(stderr, "error decoding audio: %s\n", buf);
+            return -1;
+        }
+        pkt_temp.data += len1;
+        pkt_temp.size -= len1;
+
+        if (!got_frame) {
+            // stop sending empty packets if the decoder is finished
+            if (!pkt_temp.data && (codec_ctx->codec->capabilities & CODEC_CAP_DELAY))
+                break;
+            continue;
+        }
+
+        import_frame(in_frame, audio_file);
+        decoded_byte_count += in_frame->nb_samples *
+            av_get_bytes_per_sample((AVSampleFormat)in_frame->format) *
+            av_get_channel_layout_nb_channels(in_frame->channel_layout);
     }
 
-    GrooveAudioFormat audio_format;
-    groove_file_audio_format(file, &audio_format);
+    return decoded_byte_count;
+}
 
-    debug_print_sample_format(audio_format.sample_fmt);
+void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
+    AVFormatContext *ic = avformat_alloc_context();
+    if (!ic)
+        panic("unable to create format context");
 
-    audio_file->channel_layout = genesis_from_libav_channel_layout(audio_format.channel_layout);
-    audio_file->sample_rate = audio_format.sample_rate;
-    audio_file->export_sample_format = from_libav_sample_format((AVSampleFormat)audio_format.sample_fmt);
+    ic->interrupt_callback.callback = decode_interrupt_cb;
+    ic->interrupt_callback.opaque = NULL;
+
+    int err = avformat_open_input(&ic, file_path.raw(), NULL, NULL);
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("unable to open %s: %s", file_path.raw(), buf);
+    }
+
+    err = avformat_find_stream_info(ic, NULL);
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("unable to find stream in %s: %s", file_path.raw(), buf);
+    }
+
+    // set all streams to discard. in a few lines here we will find the audio
+    // stream and cancel discarding it
+    for (size_t i = 0; i < ic->nb_streams; i += 1)
+        ic->streams[i]->discard = AVDISCARD_ALL;
+
+    AVCodec *decoder = NULL;
+    int audio_stream_index = av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO,
+            -1, -1, &decoder, 0);
+    if (audio_stream_index < 0)
+        panic("no audio stream found");
+    if (!decoder)
+        panic("no decoder found");
+
+    AVStream *audio_st = ic->streams[audio_stream_index];
+    audio_st->discard = AVDISCARD_DEFAULT;
+
+    AVCodecContext *codec_ctx = audio_st->codec;
+    err = avcodec_open2(codec_ctx, decoder, NULL);
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("unable to open decoder: %s", buf);
+    }
+
+    if (!codec_ctx->channel_layout)
+        codec_ctx->channel_layout = av_get_default_channel_layout(codec_ctx->channels);
+    if (!codec_ctx->channel_layout)
+        panic("unable to guess channel layout");
+
+    // copy the audio stream metadata to the context metadata
+    av_dict_copy(&ic->metadata, audio_st->metadata, 0);
+
+    AVDictionaryEntry *tag = NULL;
+    audio_file->tags.clear();
+    while ((tag = av_dict_get(ic->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+        bool ok;
+        String value(tag->value, &ok);
+        audio_file->tags.put(tag->key, value);
+    }
+
+    audio_file->channel_layout = genesis_from_libav_channel_layout(codec_ctx->channel_layout);
+    audio_file->sample_rate = codec_ctx->sample_rate;
+    audio_file->export_sample_format = from_libav_sample_format(codec_ctx->sample_fmt);
     audio_file->export_bit_rate = 320 * 1000;
-    int channel_count = groove_channel_layout_count(audio_format.channel_layout);
+    size_t channel_count = audio_file->channel_layout->channels.length();
+
+    void (*import_frame)(const AVFrame *, AudioFile *);
+    switch (codec_ctx->sample_fmt) {
+        default:
+            panic("unrecognized sample format");
+            break;
+        case AV_SAMPLE_FMT_U8:
+            import_frame = import_frame_uint8;
+            break;
+        case AV_SAMPLE_FMT_S16:
+            import_frame = import_frame_int16;
+            break;
+        case AV_SAMPLE_FMT_S32:
+            import_frame = import_frame_int32;
+            break;
+        case AV_SAMPLE_FMT_FLT:
+            import_frame = import_frame_float;
+            break;
+        case AV_SAMPLE_FMT_DBL:
+            import_frame = import_frame_double;
+            break;
+
+        case AV_SAMPLE_FMT_U8P:
+            import_frame = import_frame_uint8_planar;
+            break;
+        case AV_SAMPLE_FMT_S16P:
+            import_frame = import_frame_int16_planar;
+            break;
+        case AV_SAMPLE_FMT_S32P:
+            import_frame = import_frame_int32_planar;
+            break;
+        case AV_SAMPLE_FMT_FLTP:
+            import_frame = import_frame_float_planar;
+            break;
+        case AV_SAMPLE_FMT_DBLP:
+            import_frame = import_frame_double_planar;
+            break;
+    }
 
     audio_file->channels.resize(channel_count);
     for (size_t i = 0; i < audio_file->channels.length(); i += 1) {
         audio_file->channels.at(i).samples.clear();
     }
 
-    GroovePlaylist *playlist = groove_playlist_create();
-    GrooveSink *sink = groove_sink_create();
-    if (!playlist || !sink)
-        panic("out of memory");
+    AVFrame *in_frame = av_frame_alloc();
+    if (!in_frame)
+        panic("unable to allocate frame");
 
-    sink->audio_format = audio_format;
-    sink->disable_resample = 1;
+    AVPacket pkt;
+    memset(&pkt, 0, sizeof(AVPacket));
 
-    int err = groove_sink_attach(sink, playlist);
-    if (err)
-        panic("error attaching sink");
-
-    GroovePlaylistItem *item = groove_playlist_insert(
-            playlist, file, 1.0, 1.0, NULL);
-    if (!item)
-        panic("out of memory");
-
-    GrooveBuffer *buffer;
-    while (groove_sink_buffer_get(sink, &buffer, 1) == GROOVE_BUFFER_YES) {
-        if (buffer->format.sample_rate != audio_format.sample_rate) {
-            panic("non-consistent sample rate: %d -> %d",
-                    audio_format.sample_rate, buffer->format.sample_rate );
+    for (;;) {
+        err = av_read_frame(ic, &pkt);
+        if (err == AVERROR_EOF) {
+            break;
+        } else if (err < 0) {
+            char buf[256];
+            av_strerror(err, buf, sizeof(buf));
+            panic("unable to read frame: %s", buf);
         }
-        if (buffer->format.channel_layout != audio_format.channel_layout)
-            panic("non-consistent channel layout");
-        switch (buffer->format.sample_fmt) {
-            default:
-                panic("unrecognized sample format");
-                break;
-            case GROOVE_SAMPLE_FMT_U8:          /* unsigned 8 bits */
-                import_buffer_uint8(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_S16:         /* signed 16 bits */
-                import_buffer_int16(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_S32:         /* signed 32 bits */
-                import_buffer_int32(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_FLT:         /* float (32 bits) */
-                import_buffer_float(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_DBL:         /* double (64 bits) */
-                import_buffer_double(buffer, audio_file);
-                break;
-
-            case GROOVE_SAMPLE_FMT_U8P:         /* unsigned 8 bits, planar */
-                import_buffer_uint8_planar(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_S16P:        /* signed 16 bits, planar */
-                import_buffer_int16_planar(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_S32P:        /* signed 32 bits, planar */
-                import_buffer_int32_planar(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_FLTP:        /* float (32 bits), planar */
-                import_buffer_float_planar(buffer, audio_file);
-                break;
-            case GROOVE_SAMPLE_FMT_DBLP:         /* double (64 bits), planar */
-                import_buffer_double_planar(buffer, audio_file);
-                break;
-        }
+        decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame);
+        av_free_packet(&pkt);
     }
 
-    groove_sink_detach(sink);
-    groove_playlist_clear(playlist);
-    groove_playlist_destroy(playlist);
-    groove_file_close(file);
+    // flush
+    for (;;) {
+        av_init_packet(&pkt);
+        pkt.data = NULL;
+        pkt.size = 0;
+        pkt.stream_index = audio_stream_index;
+        if (decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame) <= 0)
+            break;
+    }
+
+    av_frame_free(&in_frame);
+    avcodec_close(codec_ctx);
+    avformat_close_input(&ic);
 }
 
 static void get_format_and_codec(const char *format_short_name, const char *codec_short_name,

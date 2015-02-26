@@ -4,7 +4,6 @@
 #include "genesis.h"
 
 #include <SDL2/SDL.h>
-#include <groove/groove.h>
 
 static int print_usage(char *arg0) {
     fprintf(stderr, "%s [filename]\n", arg0);
@@ -14,8 +13,6 @@ static int print_usage(char *arg0) {
 int main(int argc, char *argv[]) {
     genesis_init();
     os_init();
-    groove_init();
-    groove_set_logging(GROOVE_LOG_INFO);
 
     const char *input_filename = NULL;
     for (int i = 1; i < argc; i += 1) {
@@ -45,6 +42,5 @@ int main(int argc, char *argv[]) {
     genesis_editor.exec();
 
     SDL_Quit();
-    groove_finish();
     return 0;
 }

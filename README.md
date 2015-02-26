@@ -36,7 +36,7 @@ genesis is programmed in a tiny subset of C++:
 ### Building and Running
 
 ```
-sudo apt-get install libgroove-dev libsdl2-dev libepoxy-dev libglm-dev \
+sudo apt-get install libsdl2-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
     libavformat-dev libavutil-dev libavfilter-dev
 make
@@ -45,7 +45,10 @@ make
 
 ## Roadmap
 
- 0. Export audio file.
+ - check saving wav with valgrind
+ - save as mp3 support
+ - check saving mp3 with valgrind
+
  0. Ability to make a playback selection.
  0. Playback to speakers.
  0. Undo/Redo

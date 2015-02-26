@@ -2,8 +2,6 @@
 #include "list.hpp"
 #include "libav.hpp"
 
-#include <groove/groove.h>
-
 // must correlate to ChannelId enum
 static const char * channel_names[] = {
     "Front Left",

@@ -1,7 +1,6 @@
 #include "audio_edit_widget.hpp"
 #include "byte_buffer.hpp"
 
-#include <groove/groove.h>
 #include <stdint.h>
 
 static AudioFile *create_empty_audio_file() {

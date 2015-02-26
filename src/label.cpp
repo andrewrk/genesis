@@ -150,8 +150,8 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
     if (source.pixel_mode != FT_PIXEL_MODE_GRAY)
         panic("only 8-bit grayscale fonts supported");
 
-    for (int y = 0; y < source.rows; y += 1) {
-        for (int x = 0; x < source.width; x += 1) {
+    for (unsigned int y = 0; y < source.rows; y += 1) {
+        for (unsigned int x = 0; x < source.width; x += 1) {
             unsigned char alpha = source.buffer[y * pitch + x];
             int dest_index = (top + y) * dest_width + x + left;
             if (dest_index >= 0 && (size_t)dest_index < dest.length())
