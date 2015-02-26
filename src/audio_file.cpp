@@ -720,8 +720,9 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
     if (err < 0)
         panic("error writing trailer");
 
-    avformat_free_context(fmt_ctx); // this frees stream too
+    avio_closep(&fmt_ctx->pb);
     avcodec_close(codec_ctx);
+    avformat_free_context(fmt_ctx);
 }
 
 void audio_file_init(void) {

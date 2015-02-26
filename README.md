@@ -45,7 +45,6 @@ make
 
 ## Roadmap
 
- - check saving wav with valgrind
  - save as mp3 support
  - check saving mp3 with valgrind
 
