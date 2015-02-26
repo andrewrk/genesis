@@ -37,7 +37,7 @@ public:
     void set_pos(int left, int top);
     void set_size(int width, int height);
 
-    void save_as(const ByteBuffer &file_path);
+    void save_as(const ByteBuffer &file_path, SampleFormat sample_format);
 
 private:
     Gui *_gui;

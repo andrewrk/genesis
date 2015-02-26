@@ -33,10 +33,18 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file);
 void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         const char *codec_short_name, const AudioFile *audio_file);
 
-void get_supported_sample_rates(const char *format_short_name,
+void audio_file_get_supported_sample_rates(const char *format_short_name,
         const char *codec_short_name, const char *filename, List<int> &out);
-void get_supported_sample_formats(const char *format_short_name,
+void audio_file_get_supported_sample_formats(const char *format_short_name,
         const char *codec_short_name, const char *filename, List<SampleFormat> &out);
+
+int sample_format_byte_count(enum SampleFormat format);
+
+bool codec_supports_sample_rate(const char *format_short_name,
+        const char *codec_short_name, const char *filename, int sample_rate);
+
+bool codec_supports_sample_format(const char *format_short_name,
+        const char *codec_short_name, const char *filename, SampleFormat format);
 
 void audio_file_init(void);
 

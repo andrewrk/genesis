@@ -166,6 +166,28 @@ static void debug_print_sample_format(enum GrooveSampleFormat sample_fmt) {
     fprintf(stderr, "sample format: %s\n", sample_format_names[index]);
 }
 
+static SampleFormat from_libav_sample_format(AVSampleFormat format) {
+    switch (format) {
+        default:
+            panic("invalid sample format");
+        case AV_SAMPLE_FMT_U8:
+        case AV_SAMPLE_FMT_U8P:
+            return SampleFormatUInt8;
+        case AV_SAMPLE_FMT_S16:
+        case AV_SAMPLE_FMT_S16P:
+            return SampleFormatInt16;
+        case AV_SAMPLE_FMT_S32:
+        case AV_SAMPLE_FMT_S32P:
+            return SampleFormatInt32;
+        case AV_SAMPLE_FMT_FLT:
+        case AV_SAMPLE_FMT_FLTP:
+            return SampleFormatFloat;
+        case AV_SAMPLE_FMT_DBL:
+        case AV_SAMPLE_FMT_DBLP:
+            return SampleFormatDouble;
+    }
+}
+
 void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
     GrooveFile *file = groove_file_open(file_path.raw());
     if (!file)
@@ -186,6 +208,8 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
 
     audio_file->channel_layout = genesis_from_libav_channel_layout(audio_format.channel_layout);
     audio_file->sample_rate = audio_format.sample_rate;
+    audio_file->export_sample_format = from_libav_sample_format((AVSampleFormat)audio_format.sample_fmt);
+    audio_file->export_bit_rate = 320 * 1000;
     int channel_count = groove_channel_layout_count(audio_format.channel_layout);
 
     audio_file->channels.resize(channel_count);
@@ -290,7 +314,7 @@ static void get_format_and_codec(const char *format_short_name, const char *code
     }
 }
 
-static bool codec_supports_sample_rate(const AVCodec *codec, int sample_rate) {
+static bool libav_codec_supports_sample_rate(const AVCodec *codec, int sample_rate) {
     if (!codec->supported_samplerates)
         return true;
 
@@ -305,7 +329,7 @@ static bool codec_supports_sample_rate(const AVCodec *codec, int sample_rate) {
     return false;
 }
 
-void get_supported_sample_rates(const char *format_short_name,
+void audio_file_get_supported_sample_rates(const char *format_short_name,
         const char *codec_short_name, const char *filename, List<int> &out)
 {
     out.clear();
@@ -318,12 +342,12 @@ void get_supported_sample_rates(const char *format_short_name,
 
     for (size_t i = 0; i < array_length(supported_sample_rates); i += 1) {
         int sample_rate = supported_sample_rates[i];
-        if (codec_supports_sample_rate(codec, sample_rate))
+        if (libav_codec_supports_sample_rate(codec, sample_rate))
             out.append(sample_rate);
     }
 }
 
-static bool codec_supports_sample_format(const AVCodec *codec, SampleFormat format) {
+static bool libav_codec_supports_sample_format(const AVCodec *codec, SampleFormat format) {
     if (!codec->sample_fmts)
         return true;
 
@@ -350,7 +374,7 @@ static bool codec_supports_sample_format(const AVCodec *codec, SampleFormat form
     return false;
 }
 
-void get_supported_sample_formats(const char *format_short_name,
+void audio_file_get_supported_sample_formats(const char *format_short_name,
         const char *codec_short_name, const char *filename, List<SampleFormat> &out)
 {
     out.clear();
@@ -361,19 +385,19 @@ void get_supported_sample_formats(const char *format_short_name,
     if (!oformat || !codec)
         panic("could not find codec");
 
-    if (codec_supports_sample_format(codec, SampleFormatUInt8))
+    if (libav_codec_supports_sample_format(codec, SampleFormatUInt8))
         out.append(SampleFormatUInt8);
 
-    if (codec_supports_sample_format(codec, SampleFormatInt16))
+    if (libav_codec_supports_sample_format(codec, SampleFormatInt16))
         out.append(SampleFormatInt16);
 
-    if (codec_supports_sample_format(codec, SampleFormatInt32))
+    if (libav_codec_supports_sample_format(codec, SampleFormatInt32))
         out.append(SampleFormatInt32);
 
-    if (codec_supports_sample_format(codec, SampleFormatFloat))
+    if (libav_codec_supports_sample_format(codec, SampleFormatFloat))
         out.append(SampleFormatFloat);
 
-    if (codec_supports_sample_format(codec, SampleFormatDouble))
+    if (libav_codec_supports_sample_format(codec, SampleFormatDouble))
         out.append(SampleFormatDouble);
 }
 
@@ -509,15 +533,35 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
     if (!frame)
         panic("error allocating frame");
 
-    int buffer_size = av_samples_get_buffer_size(NULL, codec_ctx->channels,
+    int buffer_size;
+    if (codec_ctx->frame_size) {
+        buffer_size = av_samples_get_buffer_size(NULL, codec_ctx->channels,
             codec_ctx->frame_size, codec_ctx->sample_fmt, 0);
+        if (buffer_size < 0) {
+            char buf[256];
+            av_strerror(err, buf, sizeof(buf));
+            panic("error determining buffer size: %s", buf);
+        }
+    } else {
+        buffer_size = 16 * 1024;
+    }
     int bytes_per_sample = av_get_bytes_per_sample(codec_ctx->sample_fmt);
+    int frame_count = buffer_size / bytes_per_sample / codec_ctx->channels;
+
+    frame->pts = 0;
+    frame->nb_samples = frame_count;
+    frame->format = codec_ctx->sample_fmt;
+    frame->channel_layout = codec_ctx->channel_layout;
+
     uint8_t *buffer = allocate<uint8_t>(buffer_size);
 
     err = avcodec_fill_audio_frame(frame, codec_ctx->channels, codec_ctx->sample_fmt,
             buffer, buffer_size, 0);
-    if (err < 0)
-        panic("error setting up audio frame");
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("error setting up audio frame: %s", buf);
+    }
 
     // set up write_frames fn pointer
     void (*write_sample)(double, uint8_t *);
@@ -540,16 +584,17 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
             break;
     }
 
+    size_t source_frame_count = audio_file->channels.at(0).samples.length();
+
     AVPacket pkt;
     size_t start = 0;
-    uint8_t *buffer_ptr = buffer;
     for (;;) {
         av_init_packet(&pkt);
         pkt.data = NULL; // packet data will be allocated by the encoder
         pkt.size = 0;
 
-        int frame_count = buffer_size / bytes_per_sample / codec_ctx->channels;
-        size_t end = start + frame_count;
+        size_t end = min(start + frame_count, source_frame_count);
+        uint8_t *buffer_ptr = buffer;
         for (size_t i = start; i < end; i += 1) {
             for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
                 write_sample(audio_file->channels.at(ch).samples.at(i), buffer_ptr);
@@ -571,6 +616,10 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
                 panic("error writing frame");
             av_free_packet(&pkt);
         }
+        if (end == source_frame_count)
+            break;
+
+        frame->pts += frame_count;
     }
     for (;;) {
         int got_packet = 0;
@@ -612,4 +661,33 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
 void audio_file_init(void) {
     avcodec_register_all();
     av_register_all();
+}
+
+int sample_format_byte_count(enum SampleFormat format) {
+    switch (format) {
+        case SampleFormatUInt8:  return 1;
+        case SampleFormatInt16:  return 2;
+        case SampleFormatInt32:  return 4;
+        case SampleFormatFloat:  return 4;
+        case SampleFormatDouble: return 8;
+    }
+    panic("unrecognized sample format");
+}
+
+bool codec_supports_sample_rate(const char *format_short_name,
+        const char *codec_short_name, const char *filename, int sample_rate)
+{
+    AVCodec *codec;
+    AVOutputFormat *oformat;
+    get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
+    return libav_codec_supports_sample_rate(codec, sample_rate);
+}
+
+bool codec_supports_sample_format(const char *format_short_name,
+        const char *codec_short_name, const char *filename, SampleFormat format)
+{
+    AVCodec *codec;
+    AVOutputFormat *oformat;
+    get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
+    return libav_codec_supports_sample_format(codec, format);
 }

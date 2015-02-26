@@ -134,6 +134,9 @@ void AudioEditWidget::init_selection(Selection &selection) {
     selection.start = 0;
     selection.end = 0;
     selection.channels.resize(_audio_file->channels.length());
+    for (size_t i = 0; i < selection.channels.length(); i += 1) {
+        selection.channels.at(i) = true;
+    }
 }
 
 AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i) {
@@ -449,6 +452,7 @@ void AudioEditWidget::clamp_selection() {
     _selection.end = min(_selection.end, frame_count);
 }
 
-void AudioEditWidget::save_as(const ByteBuffer &file_path) {
+void AudioEditWidget::save_as(const ByteBuffer &file_path, SampleFormat sample_format) {
+    _audio_file->export_sample_format = sample_format;
     audio_file_save(file_path, NULL, NULL, _audio_file);
 }

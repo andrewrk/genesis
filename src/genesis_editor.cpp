@@ -108,7 +108,22 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
 void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
     destroy_find_file_widget();
 
-    _audio_edit_widget->save_as(file_path);
+    SampleFormat format;
+    if (codec_supports_sample_format(NULL, NULL, file_path.raw(), SampleFormatInt32)) {
+        format = SampleFormatInt32;
+    } else if (codec_supports_sample_format(NULL, NULL, file_path.raw(), SampleFormatInt16)) {
+        format = SampleFormatInt16;
+    } else if (codec_supports_sample_format(NULL, NULL, file_path.raw(), SampleFormatDouble)) {
+        format = SampleFormatDouble;
+    } else if (codec_supports_sample_format(NULL, NULL, file_path.raw(), SampleFormatFloat)) {
+        format = SampleFormatFloat;
+    } else if (codec_supports_sample_format(NULL, NULL, file_path.raw(), SampleFormatUInt8)) {
+        format = SampleFormatUInt8;
+    } else {
+        panic("can't find suitable format to save");
+    }
+
+    _audio_edit_widget->save_as(file_path, format);
 }
 
 void GenesisEditor::edit_file(const char *filename) {
