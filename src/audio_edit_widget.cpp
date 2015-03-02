@@ -221,6 +221,7 @@ int AudioEditWidget::wave_width() const {
 
 size_t AudioEditWidget::frame_at_pos(int x) {
     float percent_x = (x - wave_start_left() + _scroll_x) / (float)wave_width();
+    percent_x = clamp(0.0f, percent_x, 1.0f);
     size_t frame_at_end = _frames_per_pixel * (size_t)wave_width();
     size_t frame_count = get_display_frame_count();
     return min((size_t)(frame_at_end * percent_x), frame_count);
