@@ -71,7 +71,7 @@ Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle,
 }
 
 Gui::~Gui() {
-    for (size_t i = 0; i < _widget_list.length(); i += 1) {
+    for (long i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         destroy_widget(widget);
     }
@@ -198,7 +198,7 @@ void Gui::exec() {
 
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
-        for (size_t i = 0; i < _widget_list.length(); i += 1) {
+        for (long i = 0; i < _widget_list.length(); i += 1) {
             Widget *widget = _widget_list.at(i);
             if (widget->_is_visible) {
                 widget->draw(widget, _projection);
@@ -359,7 +359,7 @@ void Gui::on_mouse_move(const MouseEvent *event) {
     if (_mouse_over_widget != NULL)
         panic("expected _mouse_over_widget NULL");
 
-    for (size_t i = 0; i < _widget_list.length(); i += 1) {
+    for (long i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         if (try_mouse_move_event_on_widget(widget, event))
             return;

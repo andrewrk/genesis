@@ -68,7 +68,7 @@ void AudioEditWidget::destroy_audio_file() {
 }
 
 void AudioEditWidget::destroy_all_ui() {
-    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+    for (long i = 0; i < _channel_list.length(); i += 1) {
         destroy_per_channel_data(_channel_list.at(i));
     }
     _channel_list.clear();
@@ -88,7 +88,7 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
 
 static String audio_file_channel_name(const AudioFile *audio_file, int index) {
     if (audio_file->channel_layout) {
-        if ((size_t)index < audio_file->channel_layout->channels.length())
+        if (index < audio_file->channel_layout->channels.length())
             return genesis_get_channel_name(audio_file->channel_layout->channels.at(index));
         else
             return ByteBuffer::format("Channel %d (extra)", index + 1);
@@ -102,7 +102,7 @@ void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
     _audio_file = audio_file;
 
     destroy_all_ui();
-    for (size_t i = 0; i < _audio_file->channels.length(); i += 1) {
+    for (long i = 0; i < _audio_file->channels.length(); i += 1) {
         PerChannelData *per_channel_data = create_per_channel_data(i);
         _channel_list.append(per_channel_data);
     }
@@ -112,13 +112,13 @@ void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
     zoom_100();
 }
 
-size_t AudioEditWidget::get_display_frame_count() const {
+long AudioEditWidget::get_display_frame_count() const {
     if (!_audio_file)
         return 0;
     if (_audio_file->channels.length() == 0)
         return 0;
-    size_t largest = 0;
-    for (size_t i = 0; i < _audio_file->channels.length(); i += 1) {
+    long largest = 0;
+    for (long i = 0; i < _audio_file->channels.length(); i += 1) {
         largest = max(largest, _audio_file->channels.at(i).samples.length());
     }
     return largest;
@@ -133,7 +133,7 @@ void AudioEditWidget::init_selection(Selection &selection) {
     selection.start = 0;
     selection.end = 0;
     selection.channels.resize(_audio_file->channels.length());
-    for (size_t i = 0; i < selection.channels.length(); i += 1) {
+    for (long i = 0; i < selection.channels.length(); i += 1) {
         selection.channels.at(i) = true;
     }
 }
@@ -155,7 +155,7 @@ AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i)
 void AudioEditWidget::draw(const glm::mat4 &projection) {
     _gui->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
-    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+    for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         glm::mat4 mvp = projection * per_channel_data->waveform_model;
@@ -166,8 +166,8 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
             channel_name_widget->draw(projection);
     }
 
-    size_t start = _selection.start;
-    size_t end = _selection.end;
+    long start = _selection.start;
+    long end = _selection.end;
     if (start == end)
         end += 1;
 
@@ -182,7 +182,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
 
     int sel_start_x = pos_at_frame(start);
     int sel_end_x = pos_at_frame(end);
-    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+    for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         if (!_selection.channels.at(i))
@@ -198,7 +198,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilMask(0x00);
 
-    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+    for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         if (!_selection.channels.at(i))
@@ -219,16 +219,20 @@ int AudioEditWidget::wave_width() const {
     return _width - _padding_left - _padding_right;
 }
 
-size_t AudioEditWidget::frame_at_pos(int x) {
+long AudioEditWidget::frame_at_pos(int x) {
     float percent_x = (x - wave_start_left() + _scroll_x) / (float)wave_width();
     percent_x = clamp(0.0f, percent_x, 1.0f);
-    size_t frame_at_end = _frames_per_pixel * (size_t)wave_width();
-    size_t frame_count = get_display_frame_count();
-    return min((size_t)(frame_at_end * percent_x), frame_count);
+    long frame_at_end = _frames_per_pixel * wave_width();
+    long frame_count = get_display_frame_count();
+    return min((long)(frame_at_end * percent_x), frame_count);
+}
+
+int AudioEditWidget::pos_at_frame(long frame) {
+    return frame / _frames_per_pixel - _scroll_x;
 }
 
 bool AudioEditWidget::get_frame_and_channel(int x, int y, CursorPosition *out) {
-    for (size_t channel = 0; channel < _channel_list.length(); channel += 1) {
+    for (long channel = 0; channel < _channel_list.length(); channel += 1) {
         PerChannelData *per_channel_data = _channel_list.at(channel);
         if (x >= per_channel_data->left &&
             x < per_channel_data->left + per_channel_data->width &&
@@ -245,10 +249,6 @@ bool AudioEditWidget::get_frame_and_channel(int x, int y, CursorPosition *out) {
 
 int AudioEditWidget::get_full_wave_width() const {
     return get_display_frame_count() / _frames_per_pixel;
-}
-
-int AudioEditWidget::pos_at_frame(size_t frame) {
-    return frame / _frames_per_pixel - _scroll_x;
 }
 
 void AudioEditWidget::scroll_cursor_into_view() {
@@ -338,7 +338,7 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
 }
 
 void AudioEditWidget::get_order_correct_selection(const Selection *selection,
-        size_t *start, size_t *end)
+        long *start, long *end)
 {
     if (selection->start > selection->end) {
         *start = selection->end;
@@ -350,9 +350,9 @@ void AudioEditWidget::get_order_correct_selection(const Selection *selection,
 }
 
 void AudioEditWidget::delete_selection() {
-    size_t start, end;
+    long start, end;
     get_order_correct_selection(&_selection, &start, &end);
-    for (size_t i = 0; i < _audio_file->channels.length(); i += 1) {
+    for (long i = 0; i < _audio_file->channels.length(); i += 1) {
         if (start >= _audio_file->channels.at(i).samples.length())
             continue;
         _audio_file->channels.at(i).samples.remove_range(start, end);
@@ -379,7 +379,7 @@ void AudioEditWidget::update_model() {
     ByteBuffer pixels;
     int top = _padding_top;
 
-    for (size_t i = 0; i < _channel_list.length(); i += 1) {
+    for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
         per_channel_data->left = wave_start_left();
         per_channel_data->top = top;
@@ -396,14 +396,14 @@ void AudioEditWidget::update_model() {
 
         pixels.resize(width * height);
         for (int x = 0; x < width; x += 1) {
-            size_t start_frame = x * _frames_per_pixel;
+            long start_frame = x * _frames_per_pixel;
             if (start_frame < samples->length()) {
-                size_t end_frame = min(
-                        (size_t)((x + 1) * _frames_per_pixel),
+                long end_frame = min(
+                        (long)((x + 1) * _frames_per_pixel),
                         samples->length());
                 double min_sample =  1.0;
                 double max_sample = -1.0;
-                for (size_t frame = start_frame; frame < end_frame; frame += 1) {
+                for (long frame = start_frame; frame < end_frame; frame += 1) {
                     double sample = samples->at(frame);
                     min_sample = min(min_sample, sample);
                     max_sample = max(max_sample, sample);
@@ -447,7 +447,7 @@ void AudioEditWidget::update_model() {
 }
 
 void AudioEditWidget::clamp_selection() {
-    size_t frame_count = get_display_frame_count();
+    long frame_count = get_display_frame_count();
     _selection.start = min(_selection.start, frame_count);
     _selection.end = min(_selection.end, frame_count);
 }

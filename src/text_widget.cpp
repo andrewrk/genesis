@@ -443,7 +443,7 @@ int TextWidget::advance_word_from_index(int start_index, int dir) {
     int init_advance = (dir > 0) ? 0 : 1;
     int new_cursor = clamp(0, start_index - init_advance, (int)_label.text().length() - 1);
     bool found_non_whitespace = false;
-    while (new_cursor >= 0 && (size_t)new_cursor < _label.text().length()) {
+    while (new_cursor >= 0 && new_cursor < _label.text().length()) {
         uint32_t c = _label.text().at(new_cursor);
         if (String::is_whitespace(c)) {
             if (found_non_whitespace)

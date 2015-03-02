@@ -1,11 +1,11 @@
 #include "debug.hpp"
 
 void dump_rgba_img(const ByteBuffer &img, int w, int h, const char *filename) {
-    const size_t header1_size = 14;
-    const size_t header2_size = 40;
+    const long header1_size = 14;
+    const long header2_size = 40;
     const int channels = 4;
     const int bmp_size = channels * w * h;
-    const size_t expected_size = header1_size + header2_size + bmp_size;
+    const long expected_size = header1_size + header2_size + bmp_size;
 
     ByteBuffer out_img;
 

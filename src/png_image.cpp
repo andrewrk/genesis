@@ -6,14 +6,14 @@
 #include <png.h>
 
 struct PngIo {
-    size_t index;
+    long index;
     unsigned char *buffer;
-    size_t size;
+    long size;
 };
 
 void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length) {
     PngIo *png_io = reinterpret_cast<PngIo*>(png_get_io_ptr(png_ptr));
-    size_t new_index = png_io->index + length;
+    long new_index = png_io->index + length;
     if (new_index > png_io->size)
         panic("libpng trying to read beyond buffer");
     memcpy(data, png_io->buffer + png_io->index, length);
@@ -38,7 +38,7 @@ PngImage::PngImage(const ByteBuffer &compressed_bytes) {
 
     png_set_sig_bytes(png_ptr, 8);
 
-    PngIo png_io = {8, (unsigned char *)compressed_bytes.raw(), (size_t)compressed_bytes.length()};
+    PngIo png_io = {8, (unsigned char *)compressed_bytes.raw(), compressed_bytes.length()};
     png_set_read_fn(png_ptr, &png_io, read_png_data);
 
     png_read_info(png_ptr, info_ptr);

@@ -9,7 +9,7 @@
 
 static void debug_print_bb_list(const List<ByteBuffer> &list) {
     fprintf(stderr, "\n");
-    for (size_t i = 0; i < list.length(); i += 1) {
+    for (long i = 0; i < list.length(); i += 1) {
         fprintf(stderr, "%zu: %s\n", i, list.at(i).raw());
     }
 }

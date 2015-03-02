@@ -76,13 +76,13 @@ private:
 
     struct Selection {
         List<bool> channels;
-        size_t start;
-        size_t end;
+        long start;
+        long end;
     };
 
     struct CursorPosition {
-        size_t channel;
-        size_t frame;
+        long channel;
+        long frame;
     };
 
     Selection _selection;
@@ -101,17 +101,17 @@ private:
 
     void init_selection(Selection &selection);
     bool get_frame_and_channel(int x, int y, CursorPosition *out);
-    size_t frame_at_pos(int x);
-    int pos_at_frame(size_t frame);
+    long frame_at_pos(int x);
+    int pos_at_frame(long frame);
     int wave_start_left() const;
     int wave_width() const;
     void scroll_cursor_into_view();
     void zoom_100();
-    size_t get_display_frame_count() const;
+    long get_display_frame_count() const;
     int get_full_wave_width() const;
     void delete_selection();
     void clamp_selection();
-    void get_order_correct_selection(const Selection *selection, size_t *start, size_t *end);
+    void get_order_correct_selection(const Selection *selection, long *start, long *end);
 
     // widget methods
     static void destructor(Widget *widget) {

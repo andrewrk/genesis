@@ -56,7 +56,7 @@ void Texture::send_pixels(const ByteBuffer &pixels, int width, int height) {
     _width = width;
     _height = height;
 
-    if (pixels.length() != (size_t)(width * height * 4))
+    if (pixels.length() != width * height * 4)
         panic("invalid pixels length");
 
     glActiveTexture(GL_TEXTURE0);

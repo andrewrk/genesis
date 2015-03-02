@@ -31,7 +31,7 @@ static const char * channel_names[] = {
 static List<ChannelLayout> channel_layouts;
 
 const ChannelLayout *genesis_from_libav_channel_layout(uint64_t libav_channel_layout) {
-    for (size_t i = 0; i < channel_layouts.length(); i += 1) {
+    for (long i = 0; i < channel_layouts.length(); i += 1) {
         const ChannelLayout *layout = &channel_layouts.at(i);
         if (layout->libav_value == libav_channel_layout)
             return layout;

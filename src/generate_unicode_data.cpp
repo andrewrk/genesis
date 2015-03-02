@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     if (fstat(fd, &st))
         panic("fstat failed");
 
-    size_t file_size = st.st_size;
+    long file_size = st.st_size;
 
     FILE *f = fdopen(fd, "r");
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     ByteBuffer buffer;
     buffer.resize(file_size);
 
-    size_t amt_read = fread(buffer.raw(), 1, file_size, f);
+    long amt_read = fread(buffer.raw(), 1, file_size, f);
     if (amt_read != file_size)
         panic("unable to read");
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     fprintf(out, "#include <stdint.h>\n");
 
     fprintf(out, "static const uint32_t whitespace[] = {\n");
-    for (size_t i = 0; i < array_length(whitespace); i += 1) {
+    for (long i = 0; i < array_length(whitespace); i += 1) {
         fprintf(out, "  0x%x,\n", whitespace[i]);
     }
     fprintf(out, "};\n");

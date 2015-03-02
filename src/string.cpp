@@ -31,7 +31,7 @@ String String::decode(const ByteBuffer &bytes) {
 String String::decode(const ByteBuffer &bytes, bool *ok) {
     String str;
     *ok = true;
-    for (size_t i = 0; i < bytes.length(); i += 1) {
+    for (long i = 0; i < bytes.length(); i += 1) {
         uint8_t byte1 = *((uint8_t*)&bytes.at(i));
         if ((0x80 & byte1) == 0) {
             str.append(byte1);
@@ -132,7 +132,7 @@ String String::decode(const ByteBuffer &bytes, bool *ok) {
 
 ByteBuffer String::encode() const {
     ByteBuffer result;
-    for (size_t i = 0; i < _chars.length(); i += 1) {
+    for (long i = 0; i < _chars.length(); i += 1) {
         uint32_t codepoint = _chars.at(i);
         if (codepoint <= 0x7f) {
             // 00000000 00000000 00000000 0xxxxxxx
@@ -177,31 +177,31 @@ ByteBuffer String::encode() const {
     return result;
 }
 
-String String::substring(size_t start, size_t end) const {
+String String::substring(long start, long end) const {
     String result;
-    for (size_t i = start; i < end; i += 1) {
+    for (long i = start; i < end; i += 1) {
         result.append(_chars.at(i));
     }
     return result;
 }
 
-String String::substring(size_t start) const {
+String String::substring(long start) const {
     return substring(start, _chars.length());
 }
 
-void String::replace(size_t start, size_t end, String s) {
+void String::replace(long start, long end, String s) {
     String second_half = substring(end);
     _chars.resize(_chars.length() + s.length() - (end - start));
-    for (size_t i = 0; i < s.length(); i += 1) {
+    for (long i = 0; i < s.length(); i += 1) {
         _chars.at(start + i) = s.at(i);
     }
-    for (size_t i = 0; i < second_half.length(); i += 1) {
+    for (long i = 0; i < second_half.length(); i += 1) {
         _chars.at(start + s.length() + i) = second_half.at(i);
     }
 }
 
 int String::compare(const String &a, const String &b) {
-    for (size_t i = 0;; i += 1) {
+    for (long i = 0;; i += 1) {
         bool a_end = (i >= a.length());
         bool b_end = (i >= b.length());
         if (a_end && b_end) {
@@ -221,7 +221,7 @@ int String::compare(const String &a, const String &b) {
 }
 
 int String::compare_insensitive(const String &a, const String &b) {
-    for (size_t i = 0;; i += 1) {
+    for (long i = 0;; i += 1) {
         bool a_end = (i >= a.length());
         bool b_end = (i >= b.length());
         if (a_end && b_end) {
@@ -241,13 +241,13 @@ int String::compare_insensitive(const String &a, const String &b) {
 }
 
 void String::make_lower_case() {
-    for (size_t i = 0; i < _chars.length(); i += 1) {
+    for (long i = 0; i < _chars.length(); i += 1) {
         _chars.at(i) = char_to_lower(_chars.at(i));
     }
 }
 
 void String::make_upper_case() {
-    for (size_t i = 0; i < _chars.length(); i += 1) {
+    for (long i = 0; i < _chars.length(); i += 1) {
         _chars.at(i) = char_to_upper(_chars.at(i));
     }
 }
@@ -261,7 +261,7 @@ uint32_t String::char_to_upper(uint32_t c) {
 }
 
 bool String::is_whitespace(uint32_t c) {
-    for (size_t i = 0; i < array_length(whitespace); i+= 1) {
+    for (long i = 0; i < array_length(whitespace); i+= 1) {
         if (c == whitespace[i])
             return true;
     }
@@ -272,7 +272,7 @@ void String::split_on_whitespace(List<String> &out) const {
     out.resize(1);
     String *current = &out.at(0);
 
-    for (size_t i = 0; i < _chars.length(); i += 1) {
+    for (long i = 0; i < _chars.length(); i += 1) {
         uint32_t c = _chars.at(i);
         if (is_whitespace(c)) {
             out.resize(out.length() + 1);
@@ -287,7 +287,7 @@ off_t String::index_of_insensitive(const String &search) const {
     off_t upper_bound = _chars.length() - search._chars.length() + 1;
     for (off_t i = 0; i < upper_bound; i += 1) {
         bool all_ok = true;
-        for (size_t inner = 0; inner < search._chars.length(); inner += 1) {
+        for (long inner = 0; inner < search._chars.length(); inner += 1) {
             uint32_t lower_a = char_to_lower(_chars.at(i + inner));
             uint32_t lower_b = char_to_lower(search.at(inner));
             if (lower_a != lower_b) {

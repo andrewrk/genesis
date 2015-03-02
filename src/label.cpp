@@ -154,7 +154,7 @@ static void copy_freetype_bitmap(FT_Bitmap source, ByteBuffer &dest,
         for (unsigned int x = 0; x < source.width; x += 1) {
             unsigned char alpha = source.buffer[y * pitch + x];
             int dest_index = (top + y) * dest_width + x + left;
-            if (dest_index >= 0 && (size_t)dest_index < dest.length())
+            if (dest_index >= 0 && dest_index < dest.length())
                 dest.at(dest_index) = alpha;
         }
     }
@@ -174,7 +174,7 @@ void Label::update() {
     int previous_glyph_index = 0;
     float bounding_width = 0.0f;
     float prev_right = 0.0f;
-    for (size_t i = 0; i < _text.length(); i += 1) {
+    for (long i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
         FontCacheValue entry = _font_size->font_cache_entry(ch);
         if (_letters.length() > 0) {
@@ -225,13 +225,13 @@ void Label::update() {
     update_render_slice();
     update_render_sel_slice();
 
-    size_t img_buf_size =  _width * _height;
+    long img_buf_size =  _width * _height;
     if (img_buf_size > _img_buffer.length())
         _img_buffer.resize(img_buf_size);
 
     _img_buffer.fill(0);
     // second pass to render bitmap
-    for (size_t i = 0; i < _letters.length(); i += 1) {
+    for (long i = 0; i < _letters.length(); i += 1) {
         Letter *letter = &_letters.at(i);
         FontCacheValue entry = _font_size->font_cache_entry(letter->codepoint);
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
@@ -252,7 +252,7 @@ void Label::update() {
 int Label::cursor_at_pos(int x, int y) const {
     if (x < 0)
         return 0;
-    for (size_t i = 0; i < _letters.length(); i += 1) {
+    for (long i = 0; i < _letters.length(); i += 1) {
         const Letter *letter = &_letters.at(i);
 
         if (x < letter->left + letter->full_width / 2)
@@ -273,7 +273,7 @@ void Label::pos_at_cursor(int index, int &x, int &y) const {
         x = 0;
         return;
     }
-    if ((size_t)index >= _letters.length()) {
+    if (index >= _letters.length()) {
         const Letter *letter = &_letters.at(_letters.length() - 1);
         x = letter->left + letter->full_width;
         return;
@@ -283,7 +283,7 @@ void Label::pos_at_cursor(int index, int &x, int &y) const {
 }
 
 void Label::get_slice_dimensions(int start, int end, int &start_x, int &end_x) const {
-    if ((size_t)end >= _letters.length()) {
+    if (end >= _letters.length()) {
         const Letter *end_letter = &_letters.at(_letters.length() - 1);
         end_x = end_letter->left + end_letter->full_width;
     } else {

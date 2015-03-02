@@ -32,7 +32,7 @@ static void import_frame_uint8(const AVFrame *avframe, AudioFile *audio_file) {
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
             uint8_t sample = *ptr;
             double dbl_sample = (((double)sample) - min) / half_range - 1.0;
             audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -46,7 +46,7 @@ static void import_frame_int16(const AVFrame *avframe, AudioFile *audio_file) {
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -60,7 +60,7 @@ static void import_frame_int32(const AVFrame *avframe, AudioFile *audio_file) {
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -71,7 +71,7 @@ static void import_frame_int32(const AVFrame *avframe, AudioFile *audio_file) {
 static void import_frame_float(const AVFrame *avframe, AudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             float *sample = reinterpret_cast<float*>(ptr);
             double dbl_sample = *sample;
             audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -82,7 +82,7 @@ static void import_frame_float(const AVFrame *avframe, AudioFile *audio_file) {
 static void import_frame_double(const AVFrame *avframe, AudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
             double *sample = reinterpret_cast<double*>(ptr);
             audio_file->channels.at(ch).samples.append(*sample);
         }
@@ -93,7 +93,7 @@ static void import_frame_uint8_planar(const AVFrame *avframe, AudioFile *audio_f
     double min = 0.0;
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 1) {
@@ -108,7 +108,7 @@ static void import_frame_int16_planar(const AVFrame *avframe, AudioFile *audio_f
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 2) {
@@ -123,7 +123,7 @@ static void import_frame_int32_planar(const AVFrame *avframe, AudioFile *audio_f
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
@@ -135,7 +135,7 @@ static void import_frame_int32_planar(const AVFrame *avframe, AudioFile *audio_f
 }
 
 static void import_frame_float_planar(const AVFrame *avframe, AudioFile *audio_file) {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
@@ -147,7 +147,7 @@ static void import_frame_float_planar(const AVFrame *avframe, AudioFile *audio_f
 }
 
 static void import_frame_double_planar(const AVFrame *avframe, AudioFile *audio_file) {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 8) {
@@ -248,7 +248,7 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
 
     // set all streams to discard. in a few lines here we will find the audio
     // stream and cancel discarding it
-    for (size_t i = 0; i < ic->nb_streams; i += 1)
+    for (long i = 0; i < ic->nb_streams; i += 1)
         ic->streams[i]->discard = AVDISCARD_ALL;
 
     AVCodec *decoder = NULL;
@@ -290,7 +290,7 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
     audio_file->sample_rate = codec_ctx->sample_rate;
     audio_file->export_sample_format = from_libav_sample_format(codec_ctx->sample_fmt);
     audio_file->export_bit_rate = 320 * 1000;
-    size_t channel_count = audio_file->channel_layout->channels.length();
+    long channel_count = audio_file->channel_layout->channels.length();
 
     void (*import_frame)(const AVFrame *, AudioFile *);
     switch (codec_ctx->sample_fmt) {
@@ -331,7 +331,7 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
     }
 
     audio_file->channels.resize(channel_count);
-    for (size_t i = 0; i < audio_file->channels.length(); i += 1) {
+    for (long i = 0; i < audio_file->channels.length(); i += 1) {
         audio_file->channels.at(i).samples.clear();
     }
 
@@ -424,7 +424,7 @@ void audio_file_get_supported_sample_rates(const char *format_short_name,
     if (!oformat || !codec)
         panic("could not find codec");
 
-    for (size_t i = 0; i < array_length(prioritized_sample_rates); i += 1) {
+    for (long i = 0; i < array_length(prioritized_sample_rates); i += 1) {
         int sample_rate = prioritized_sample_rates[i];
         if (libav_codec_supports_sample_rate(codec, sample_rate))
             out.append(sample_rate);
@@ -476,7 +476,7 @@ void audio_file_get_supported_sample_formats(const char *format_short_name,
     if (!oformat || !codec)
         panic("could not find codec");
 
-    for (size_t i = 0; i < array_length(prioritized_export_formats); i += 1) {
+    for (long i = 0; i < array_length(prioritized_export_formats); i += 1) {
         if (libav_codec_supports_sample_format(codec, prioritized_export_formats[i]))
             out.append(prioritized_export_formats[i]);
     }
@@ -539,11 +539,11 @@ static AVSampleFormat to_libav_sample_format(ExportSampleFormat format) {
 }
 
 static void write_frames_uint8_planar(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+        long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ch_buf = frame->extended_data[ch];
-        for (size_t i = start; i < end; i += 1) {
+        for (long i = start; i < end; i += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (uint8_t)((sample * 127.5) + 127.5);
             ch_buf += 1;
@@ -552,11 +552,11 @@ static void write_frames_uint8_planar(const AudioFile *audio_file,
 }
 
 static void write_frames_int16_planar(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+        long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch]);
-        for (size_t i = start; i < end; i += 1) {
+        for (long i = start; i < end; i += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (int16_t)(sample * 32767.0);
             ch_buf += 1;
@@ -565,11 +565,11 @@ static void write_frames_int16_planar(const AudioFile *audio_file,
 }
 
 static void write_frames_int32_planar(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+        long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
-        for (size_t i = start; i < end; i += 1) {
+        for (long i = start; i < end; i += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (int32_t)(sample * 2147483647.0);
             ch_buf += 1;
@@ -578,11 +578,11 @@ static void write_frames_int32_planar(const AudioFile *audio_file,
 }
 
 static void write_frames_float_planar(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+        long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch]);
-        for (size_t i = start; i < end; i += 1) {
+        for (long i = start; i < end; i += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (float)sample;
             ch_buf += 1;
@@ -591,11 +591,11 @@ static void write_frames_float_planar(const AudioFile *audio_file,
 }
 
 static void write_frames_double_planar(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+        long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch]);
-        for (size_t i = start; i < end; i += 1) {
+        for (long i = start; i < end; i += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = sample;
             ch_buf += 1;
@@ -604,10 +604,10 @@ static void write_frames_double_planar(const AudioFile *audio_file,
 }
 
 static void write_frames_uint8(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+        long start, long end, uint8_t *buffer, AVFrame *)
 {
-    for (size_t i = start; i < end; i += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long i = start; i < end; i += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
 
             *buffer = (uint8_t)((sample * 127.5) + 127.5);
@@ -618,10 +618,10 @@ static void write_frames_uint8(const AudioFile *audio_file,
 }
 
 static void write_frames_int16(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+        long start, long end, uint8_t *buffer, AVFrame *)
 {
-    for (size_t i = start; i < end; i += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long i = start; i < end; i += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
 
             int16_t *int_ptr = reinterpret_cast<int16_t*>(buffer);
@@ -633,10 +633,10 @@ static void write_frames_int16(const AudioFile *audio_file,
 }
 
 static void write_frames_int32(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+        long start, long end, uint8_t *buffer, AVFrame *)
 {
-    for (size_t i = start; i < end; i += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long i = start; i < end; i += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
@@ -648,10 +648,10 @@ static void write_frames_int32(const AudioFile *audio_file,
 }
 
 static void write_frames_float(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+        long start, long end, uint8_t *buffer, AVFrame *)
 {
-    for (size_t i = start; i < end; i += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long i = start; i < end; i += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
 
             float *float_ptr = reinterpret_cast<float*>(buffer);
@@ -663,10 +663,10 @@ static void write_frames_float(const AudioFile *audio_file,
 }
 
 static void write_frames_double(const AudioFile *audio_file,
-        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+        long start, long end, uint8_t *buffer, AVFrame *)
 {
-    for (size_t i = start; i < end; i += 1) {
-        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (long i = start; i < end; i += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
             double sample = audio_file->channels.at(ch).samples.at(i);
             double *double_ptr = reinterpret_cast<double*>(buffer);
             *double_ptr = sample;
@@ -767,7 +767,7 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         panic("error setting up audio frame: %s", buf);
     }
 
-    void (*write_frames)(const AudioFile *, size_t, size_t, uint8_t *, AVFrame *);
+    void (*write_frames)(const AudioFile *, long, long, uint8_t *, AVFrame *);
 
     if (audio_file->export_sample_format.planar) {
         switch (audio_file->export_sample_format.sample_format) {
@@ -811,16 +811,16 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         }
     }
 
-    size_t source_frame_count = audio_file->channels.at(0).samples.length();
+    long source_frame_count = audio_file->channels.at(0).samples.length();
 
     AVPacket pkt;
-    size_t start = 0;
+    long start = 0;
     for (;;) {
         av_init_packet(&pkt);
         pkt.data = NULL; // packet data will be allocated by the encoder
         pkt.size = 0;
 
-        size_t end = min(start + frame_count, source_frame_count);
+        long end = min(start + frame_count, source_frame_count);
         write_frames(audio_file, start, end, buffer, frame);
         start = end;
 
