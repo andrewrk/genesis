@@ -60,9 +60,6 @@ Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle,
     _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
     _cursor_ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
 
-    // disable vsync for now because of https://bugs.launchpad.net/unity/+bug/1415195
-    SDL_GL_SetSwapInterval(0);
-
     glClearColor(0.3, 0.3, 0.3, 1.0);
 
     glEnable(GL_BLEND);
@@ -209,7 +206,6 @@ void Gui::exec() {
         }
 
         SDL_GL_SwapWindow(_window);
-        SDL_Delay(17);
     }
 }
 
