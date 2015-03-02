@@ -14,6 +14,11 @@ enum SampleFormat {
     SampleFormatDouble,
 };
 
+struct ExportSampleFormat {
+    SampleFormat sample_format;
+    bool planar;
+};
+
 struct Channel {
     // samples are always stored as 48000, 64-bit float (double) in memory.
     List<double> samples;
@@ -24,7 +29,7 @@ struct AudioFile {
     const ChannelLayout *channel_layout;
     int sample_rate;
     // export_* used when saving audio file to disk
-    SampleFormat export_sample_format;
+    ExportSampleFormat export_sample_format;
     int export_bit_rate;
     HashMap<ByteBuffer, String, ByteBuffer::hash> tags;
 };
@@ -36,7 +41,7 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
 void audio_file_get_supported_sample_rates(const char *format_short_name,
         const char *codec_short_name, const char *filename, List<int> &out);
 void audio_file_get_supported_sample_formats(const char *format_short_name,
-        const char *codec_short_name, const char *filename, List<SampleFormat> &out);
+        const char *codec_short_name, const char *filename, List<ExportSampleFormat> &out);
 
 int sample_format_byte_count(enum SampleFormat format);
 
@@ -44,7 +49,7 @@ bool codec_supports_sample_rate(const char *format_short_name,
         const char *codec_short_name, const char *filename, int sample_rate);
 
 bool codec_supports_sample_format(const char *format_short_name,
-        const char *codec_short_name, const char *filename, SampleFormat format);
+        const char *codec_short_name, const char *filename, ExportSampleFormat format);
 
 void audio_file_init(void);
 

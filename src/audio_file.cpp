@@ -3,14 +3,27 @@
 
 #include <stdint.h>
 
+static const ExportSampleFormat prioritized_export_formats[] = {
+    {SampleFormatInt32, false},
+    {SampleFormatFloat, false},
+    {SampleFormatInt16, false},
+    {SampleFormatDouble, false},
+    {SampleFormatUInt8, false},
 
-static const int supported_sample_rates[] = {
-    8000,
-    16000,
-    32000,
-    44100,
+    {SampleFormatInt32, true},
+    {SampleFormatFloat, true},
+    {SampleFormatInt16, true},
+    {SampleFormatDouble, true},
+    {SampleFormatUInt8, true},
+};
+
+static const int prioritized_sample_rates[] = {
     48000,
+    44100,
     96000,
+    32000,
+    16000,
+    8000,
 };
 
 static void import_frame_uint8(const AVFrame *avframe, AudioFile *audio_file) {
@@ -144,25 +157,30 @@ static void import_frame_double_planar(const AVFrame *avframe, AudioFile *audio_
     }
 }
 
-static SampleFormat from_libav_sample_format(AVSampleFormat format) {
+static ExportSampleFormat from_libav_sample_format(AVSampleFormat format) {
     switch (format) {
         default:
             panic("invalid sample format");
         case AV_SAMPLE_FMT_U8:
+            return {SampleFormatUInt8, false};
         case AV_SAMPLE_FMT_U8P:
-            return SampleFormatUInt8;
+            return {SampleFormatUInt8, true};
         case AV_SAMPLE_FMT_S16:
+            return {SampleFormatInt16, false};
         case AV_SAMPLE_FMT_S16P:
-            return SampleFormatInt16;
+            return {SampleFormatInt16, true};
         case AV_SAMPLE_FMT_S32:
+            return {SampleFormatInt32, false};
         case AV_SAMPLE_FMT_S32P:
-            return SampleFormatInt32;
+            return {SampleFormatInt32, true};
         case AV_SAMPLE_FMT_FLT:
+            return {SampleFormatFloat, false};
         case AV_SAMPLE_FMT_FLTP:
-            return SampleFormatFloat;
+            return {SampleFormatFloat, true};
         case AV_SAMPLE_FMT_DBL:
+            return {SampleFormatDouble, false};
         case AV_SAMPLE_FMT_DBLP:
-            return SampleFormatDouble;
+            return {SampleFormatDouble, true};
     }
 }
 
@@ -406,32 +424,39 @@ void audio_file_get_supported_sample_rates(const char *format_short_name,
     if (!oformat || !codec)
         panic("could not find codec");
 
-    for (size_t i = 0; i < array_length(supported_sample_rates); i += 1) {
-        int sample_rate = supported_sample_rates[i];
+    for (size_t i = 0; i < array_length(prioritized_sample_rates); i += 1) {
+        int sample_rate = prioritized_sample_rates[i];
         if (libav_codec_supports_sample_rate(codec, sample_rate))
             out.append(sample_rate);
     }
 }
 
-static bool libav_codec_supports_sample_format(const AVCodec *codec, SampleFormat format) {
+static bool libav_codec_supports_sample_format(const AVCodec *codec, ExportSampleFormat format) {
     if (!codec->sample_fmts)
         return true;
 
     const enum AVSampleFormat *p = (enum AVSampleFormat*) codec->sample_fmts;
     while (*p != AV_SAMPLE_FMT_NONE) {
-        if (*p == AV_SAMPLE_FMT_U8 && format == SampleFormatUInt8)
+        if (format.planar && format.sample_format == SampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8P)
+            return true;
+        if (format.planar && format.sample_format == SampleFormatInt16 && *p == AV_SAMPLE_FMT_S16P)
+            return true;
+        if (format.planar && format.sample_format == SampleFormatInt32 && *p == AV_SAMPLE_FMT_S32P)
+            return true;
+        if (format.planar && format.sample_format == SampleFormatFloat && *p == AV_SAMPLE_FMT_FLTP)
+            return true;
+        if (format.planar && format.sample_format == SampleFormatDouble && *p == AV_SAMPLE_FMT_DBLP)
             return true;
 
-        if (*p == AV_SAMPLE_FMT_S16 && format == SampleFormatInt16)
+        if (!format.planar && format.sample_format == SampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8)
             return true;
-
-        if (*p == AV_SAMPLE_FMT_S32 && format == SampleFormatInt32)
+        if (!format.planar && format.sample_format == SampleFormatInt16 && *p == AV_SAMPLE_FMT_S16)
             return true;
-
-        if (*p == AV_SAMPLE_FMT_FLT && format == SampleFormatFloat)
+        if (!format.planar && format.sample_format == SampleFormatInt32 && *p == AV_SAMPLE_FMT_S32)
             return true;
-
-        if (*p == AV_SAMPLE_FMT_DBL && format == SampleFormatDouble)
+        if (!format.planar && format.sample_format == SampleFormatFloat && *p == AV_SAMPLE_FMT_FLT)
+            return true;
+        if (!format.planar && format.sample_format == SampleFormatDouble && *p == AV_SAMPLE_FMT_DBL)
             return true;
 
         p += 1;
@@ -441,7 +466,7 @@ static bool libav_codec_supports_sample_format(const AVCodec *codec, SampleForma
 }
 
 void audio_file_get_supported_sample_formats(const char *format_short_name,
-        const char *codec_short_name, const char *filename, List<SampleFormat> &out)
+        const char *codec_short_name, const char *filename, List<ExportSampleFormat> &out)
 {
     out.clear();
 
@@ -451,20 +476,10 @@ void audio_file_get_supported_sample_formats(const char *format_short_name,
     if (!oformat || !codec)
         panic("could not find codec");
 
-    if (libav_codec_supports_sample_format(codec, SampleFormatUInt8))
-        out.append(SampleFormatUInt8);
-
-    if (libav_codec_supports_sample_format(codec, SampleFormatInt16))
-        out.append(SampleFormatInt16);
-
-    if (libav_codec_supports_sample_format(codec, SampleFormatInt32))
-        out.append(SampleFormatInt32);
-
-    if (libav_codec_supports_sample_format(codec, SampleFormatFloat))
-        out.append(SampleFormatFloat);
-
-    if (libav_codec_supports_sample_format(codec, SampleFormatDouble))
-        out.append(SampleFormatDouble);
+    for (size_t i = 0; i < array_length(prioritized_export_formats); i += 1) {
+        if (libav_codec_supports_sample_format(codec, prioritized_export_formats[i]))
+            out.append(prioritized_export_formats[i]);
+    }
 }
 
 static int abs_diff(int a, int b) {
@@ -502,39 +517,162 @@ static uint64_t closest_supported_channel_layout(AVCodec *codec, uint64_t target
     return best;
 }
 
-static AVSampleFormat to_libav_sample_format(SampleFormat format) {
-    switch (format) {
-        case SampleFormatUInt8:  return AV_SAMPLE_FMT_U8;
-        case SampleFormatInt16:  return AV_SAMPLE_FMT_S16;
-        case SampleFormatInt32:  return AV_SAMPLE_FMT_S32;
-        case SampleFormatFloat:  return AV_SAMPLE_FMT_FLT;
-        case SampleFormatDouble: return AV_SAMPLE_FMT_DBL;
+static AVSampleFormat to_libav_sample_format(ExportSampleFormat format) {
+    if (format.planar) {
+        switch (format.sample_format) {
+            case SampleFormatUInt8:  return AV_SAMPLE_FMT_U8P;
+            case SampleFormatInt16:  return AV_SAMPLE_FMT_S16P;
+            case SampleFormatInt32:  return AV_SAMPLE_FMT_S32P;
+            case SampleFormatFloat:  return AV_SAMPLE_FMT_FLTP;
+            case SampleFormatDouble: return AV_SAMPLE_FMT_DBLP;
+        }
+    } else {
+        switch (format.sample_format) {
+            case SampleFormatUInt8:  return AV_SAMPLE_FMT_U8;
+            case SampleFormatInt16:  return AV_SAMPLE_FMT_S16;
+            case SampleFormatInt32:  return AV_SAMPLE_FMT_S32;
+            case SampleFormatFloat:  return AV_SAMPLE_FMT_FLT;
+            case SampleFormatDouble: return AV_SAMPLE_FMT_DBL;
+        }
     }
     panic("unrecognized sample format");
 }
 
-static void write_sample_uint8(double sample, uint8_t *ptr) {
-    *ptr = (uint8_t)((sample * 127.5) + 127.5);
+static void write_frames_uint8_planar(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+{
+    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        uint8_t *ch_buf = frame->extended_data[ch];
+        for (size_t i = start; i < end; i += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+            *ch_buf = (uint8_t)((sample * 127.5) + 127.5);
+            ch_buf += 1;
+        }
+    }
 }
 
-static void write_sample_int16(double sample, uint8_t *ptr) {
-    int16_t *int_ptr = reinterpret_cast<int16_t*>(ptr);
-    *int_ptr = (int16_t)(sample * 32767.0);
+static void write_frames_int16_planar(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+{
+    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch]);
+        for (size_t i = start; i < end; i += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+            *ch_buf = (int16_t)(sample * 32767.0);
+            ch_buf += 1;
+        }
+    }
 }
 
-static void write_sample_int32(double sample, uint8_t *ptr) {
-    int32_t *int_ptr = reinterpret_cast<int32_t*>(ptr);
-    *int_ptr = (int32_t)(sample * 2147483647.0);
+static void write_frames_int32_planar(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+{
+    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
+        for (size_t i = start; i < end; i += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+            *ch_buf = (int32_t)(sample * 2147483647.0);
+            ch_buf += 1;
+        }
+    }
 }
 
-static void write_sample_float(double sample, uint8_t *ptr) {
-    float *float_ptr = reinterpret_cast<float*>(ptr);
-    *float_ptr = (float)sample;
+static void write_frames_float_planar(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+{
+    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch]);
+        for (size_t i = start; i < end; i += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+            *ch_buf = (float)sample;
+            ch_buf += 1;
+        }
+    }
 }
 
-static void write_sample_double(double sample, uint8_t *ptr) {
-    double *double_ptr = reinterpret_cast<double*>(ptr);
-    *double_ptr = sample;
+static void write_frames_double_planar(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *frame)
+{
+    for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch]);
+        for (size_t i = start; i < end; i += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+            *ch_buf = sample;
+            ch_buf += 1;
+        }
+    }
+}
+
+static void write_frames_uint8(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+{
+    for (size_t i = start; i < end; i += 1) {
+        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+
+            *buffer = (uint8_t)((sample * 127.5) + 127.5);
+
+            buffer += 1;
+        }
+    }
+}
+
+static void write_frames_int16(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+{
+    for (size_t i = start; i < end; i += 1) {
+        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+
+            int16_t *int_ptr = reinterpret_cast<int16_t*>(buffer);
+            *int_ptr = (int16_t)(sample * 32767.0);
+
+            buffer += 2;
+        }
+    }
+}
+
+static void write_frames_int32(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+{
+    for (size_t i = start; i < end; i += 1) {
+        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+
+            int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
+            *int_ptr = (int32_t)(sample * 2147483647.0);
+
+            buffer += 4;
+        }
+    }
+}
+
+static void write_frames_float(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+{
+    for (size_t i = start; i < end; i += 1) {
+        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+
+            float *float_ptr = reinterpret_cast<float*>(buffer);
+            *float_ptr = (float)sample;
+
+            buffer += 4;
+        }
+    }
+}
+
+static void write_frames_double(const AudioFile *audio_file,
+        size_t start, size_t end, uint8_t *buffer, AVFrame *)
+{
+    for (size_t i = start; i < end; i += 1) {
+        for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            double sample = audio_file->channels.at(ch).samples.at(i);
+            double *double_ptr = reinterpret_cast<double*>(buffer);
+            *double_ptr = sample;
+            buffer += 8;
+        }
+    }
 }
 
 void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
@@ -629,25 +767,48 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         panic("error setting up audio frame: %s", buf);
     }
 
-    // set up write_frames fn pointer
-    void (*write_sample)(double, uint8_t *);
+    void (*write_frames)(const AudioFile *, size_t, size_t, uint8_t *, AVFrame *);
 
-    switch (audio_file->export_sample_format) {
-        case SampleFormatUInt8:
-            write_sample = write_sample_uint8;;
-            break;
-        case SampleFormatInt16:
-            write_sample = write_sample_int16;
-            break;
-        case SampleFormatInt32:
-            write_sample = write_sample_int32;
-            break;
-        case SampleFormatFloat:
-            write_sample = write_sample_float;
-            break;
-        case SampleFormatDouble:
-            write_sample = write_sample_double;
-            break;
+    if (audio_file->export_sample_format.planar) {
+        switch (audio_file->export_sample_format.sample_format) {
+            default:
+                panic("unknown sample format");
+            case SampleFormatUInt8:
+                write_frames = write_frames_uint8_planar;
+                break;
+            case SampleFormatInt16:
+                write_frames = write_frames_int16_planar;
+                break;
+            case SampleFormatInt32:
+                write_frames = write_frames_int32_planar;
+                break;
+            case SampleFormatFloat:
+                write_frames = write_frames_float_planar;
+                break;
+            case SampleFormatDouble:
+                write_frames = write_frames_double_planar;
+                break;
+        }
+    } else {
+        switch (audio_file->export_sample_format.sample_format) {
+            default:
+                panic("unknown sample format");
+            case SampleFormatUInt8:
+                write_frames = write_frames_uint8;
+                break;
+            case SampleFormatInt16:
+                write_frames = write_frames_int16;
+                break;
+            case SampleFormatInt32:
+                write_frames = write_frames_int32;
+                break;
+            case SampleFormatFloat:
+                write_frames = write_frames_float;
+                break;
+            case SampleFormatDouble:
+                write_frames = write_frames_double;
+                break;
+        }
     }
 
     size_t source_frame_count = audio_file->channels.at(0).samples.length();
@@ -660,13 +821,7 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         pkt.size = 0;
 
         size_t end = min(start + frame_count, source_frame_count);
-        uint8_t *buffer_ptr = buffer;
-        for (size_t i = start; i < end; i += 1) {
-            for (size_t ch = 0; ch < audio_file->channels.length(); ch += 1) {
-                write_sample(audio_file->channels.at(ch).samples.at(i), buffer_ptr);
-                buffer_ptr += bytes_per_sample;
-            }
-        }
+        write_frames(audio_file, start, end, buffer, frame);
         start = end;
 
         int got_packet = 0;
@@ -751,7 +906,7 @@ bool codec_supports_sample_rate(const char *format_short_name,
 }
 
 bool codec_supports_sample_format(const char *format_short_name,
-        const char *codec_short_name, const char *filename, SampleFormat format)
+        const char *codec_short_name, const char *filename, ExportSampleFormat format)
 {
     AVCodec *codec;
     AVOutputFormat *oformat;

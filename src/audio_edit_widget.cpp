@@ -8,7 +8,7 @@ static AudioFile *create_empty_audio_file() {
     audio_file->channels.resize(2);
     audio_file->channel_layout = genesis_get_channel_layout(ChannelLayoutIdStereo);
     audio_file->sample_rate = 48000;
-    audio_file->export_sample_format = SampleFormatInt32;
+    audio_file->export_sample_format = {SampleFormatInt32, false};
     audio_file->export_bit_rate = 320 * 1000;
     return audio_file;
 }
@@ -451,7 +451,9 @@ void AudioEditWidget::clamp_selection() {
     _selection.end = min(_selection.end, frame_count);
 }
 
-void AudioEditWidget::save_as(const ByteBuffer &file_path, SampleFormat sample_format) {
-    _audio_file->export_sample_format = sample_format;
+void AudioEditWidget::save_as(const ByteBuffer &file_path,
+        ExportSampleFormat export_sample_format)
+{
+    _audio_file->export_sample_format = export_sample_format;
     audio_file_save(file_path, NULL, NULL, _audio_file);
 }

@@ -45,9 +45,6 @@ make
 
 ## Roadmap
 
- - save as mp3 support
- - check saving mp3 with valgrind
-
  0. Ability to make a playback selection.
  0. Playback to speakers.
  0. Undo/Redo
