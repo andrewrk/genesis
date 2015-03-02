@@ -48,14 +48,15 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     _waveform_bg_color(0.0f, 0.0f, 0.0f, 0.0f),
     _waveform_sel_bg_color(0.2f, 0.2314f, 0.4784f, 1.0f),
     _waveform_sel_fg_color(0.6745f, 0.69f, 0.8157f, 1.0f),
-    _timeline_bg_color(0.436f, 0.462f, 0.557f, 1.0f),
+    _timeline_bg_color(parse_color("#979AA5")),
     _timeline_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
     _timeline_sel_bg_color(parse_color("#4D505C")),
     _timeline_sel_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
     _audio_file(create_empty_audio_file()),
     _scroll_x(0),
     _frames_per_pixel(1.0f),
-    _select_down(false)
+    _select_down(false),
+    _playback_select_down(false)
 {
     init_selection(_selection);
     init_selection(_playback_selection);
@@ -161,6 +162,9 @@ AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i)
 void AudioEditWidget::draw(const glm::mat4 &projection) {
     _gui->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
+    _gui->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
+            timeline_width(), _timeline_height);
+
     for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
@@ -198,6 +202,16 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
                 _left + per_channel_data->left + sel_start_x, _top + per_channel_data->top,
                 sel_end_x - sel_start_x, per_channel_data->height);
     }
+
+    long playback_start = _playback_selection.start;
+    long playback_end = _playback_selection.end;
+    if (playback_start == playback_end)
+        playback_end += 1;
+    int playback_sel_start_x = timeline_pos_at_frame(playback_start);
+    int playback_sel_end_x = timeline_pos_at_frame(playback_end);
+    _gui->fill_rect(_timeline_sel_bg_color,
+            _left + timeline_left() + playback_sel_start_x, _top + timeline_top(),
+            playback_sel_end_x - playback_sel_start_x, _timeline_height);
 
 
     // draw the wave texture again with a stencil
@@ -237,6 +251,14 @@ int AudioEditWidget::pos_at_frame(long frame) {
     return frame / _frames_per_pixel - _scroll_x;
 }
 
+long AudioEditWidget::timeline_frame_at_pos(int x) {
+    return frame_at_pos(x);
+}
+
+int AudioEditWidget::timeline_pos_at_frame(long frame) {
+    return pos_at_frame(frame);
+}
+
 bool AudioEditWidget::get_frame_and_channel(int x, int y, CursorPosition *out) {
     for (long channel = 0; channel < _channel_list.length(); channel += 1) {
         PerChannelData *per_channel_data = _channel_list.at(channel);
@@ -253,12 +275,30 @@ bool AudioEditWidget::get_frame_and_channel(int x, int y, CursorPosition *out) {
     return false;
 }
 
+long AudioEditWidget::get_timeline_frame(int x, int y) {
+    if (x >= timeline_left() && x < timeline_left() + timeline_width() &&
+        y >= timeline_top() && y < timeline_top() + _timeline_height)
+    {
+        return timeline_frame_at_pos(x);
+    } else {
+        return -1;
+    }
+}
+
 int AudioEditWidget::get_full_wave_width() const {
     return get_display_frame_count() / _frames_per_pixel;
 }
 
 void AudioEditWidget::scroll_cursor_into_view() {
-    int x = pos_at_frame(_selection.end);
+    return scroll_frame_into_view(_selection.end);
+}
+
+void AudioEditWidget::scroll_playback_cursor_into_view() {
+    return scroll_frame_into_view(_playback_selection.end);
+}
+
+void AudioEditWidget::scroll_frame_into_view(long frame) {
+    int x = pos_at_frame(frame);
     bool scrolled = false;
 
     int cursor_too_far_right = x - wave_width();
@@ -283,26 +323,48 @@ void AudioEditWidget::scroll_cursor_into_view() {
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:
-            if (event->button == MouseButtonLeft) {
+            if (event->button != MouseButtonLeft)
+                break;
+            {
                 CursorPosition pos;
                 if (get_frame_and_channel(event->x, event->y, &pos)) {
                     _selection.start = pos.frame;
                     _selection.end = pos.frame;
                     _selection.channels.fill(true);
+                    _select_down = true;
+                    scroll_cursor_into_view();
+                    break;
                 }
-                _select_down = true;
-                scroll_cursor_into_view();
-                break;
-            }
-        case MouseActionUp:
-            if (event->button == MouseButtonLeft && _select_down) {
-                _select_down = false;
+                long frame = get_timeline_frame(event->x, event->y);
+                if (frame >= 0) {
+                    _playback_selection.start = frame;
+                    _playback_selection.end = frame;
+                    _playback_select_down = true;
+                    scroll_playback_cursor_into_view();
+                    break;
+                }
             }
             break;
+        case MouseActionUp:
+            if (event->button != MouseButtonLeft)
+                break;
+
+            if (_select_down)
+                _select_down = false;
+
+            if (_playback_select_down)
+                _playback_select_down = false;
+
+            break;
         case MouseActionMove:
-            if (event->buttons.left && _select_down) {
+            if (!event->buttons.left)
+                break;
+            if (_select_down) {
                 _selection.end = frame_at_pos(event->x);
                 scroll_cursor_into_view();
+            } else if (_playback_select_down) {
+                _playback_selection.end = timeline_frame_at_pos(event->x);
+                scroll_playback_cursor_into_view();
             }
             break;
         case MouseActionDbl:
@@ -381,9 +443,21 @@ void AudioEditWidget::set_size(int width, int height) {
     update_model();
 }
 
+int AudioEditWidget::timeline_top() const {
+    return _padding_top;
+}
+
+int AudioEditWidget::timeline_left() const {
+    return _padding_left;
+}
+
+int AudioEditWidget::timeline_width() const {
+    return _width - _padding_right - timeline_left();
+}
+
 void AudioEditWidget::update_model() {
     ByteBuffer pixels;
-    int top = _padding_top + _timeline_height + _margin;
+    int top = timeline_top() + _timeline_height + _margin;
 
     for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);

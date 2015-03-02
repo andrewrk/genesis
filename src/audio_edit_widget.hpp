@@ -95,6 +95,7 @@ private:
     int _scroll_x; // in pixels
     double _frames_per_pixel;
     bool _select_down;
+    bool _playback_select_down;
 
 
     void update_model();
@@ -106,17 +107,27 @@ private:
 
     void init_selection(Selection &selection);
     bool get_frame_and_channel(int x, int y, CursorPosition *out);
-    long frame_at_pos(int x);
-    int pos_at_frame(long frame);
+    long get_timeline_frame(int x, int y);
     int wave_start_left() const;
     int wave_width() const;
     void scroll_cursor_into_view();
+    void scroll_playback_cursor_into_view();
+    void scroll_frame_into_view(long frame);
     void zoom_100();
     long get_display_frame_count() const;
     int get_full_wave_width() const;
     void delete_selection();
     void clamp_selection();
     void get_order_correct_selection(const Selection *selection, long *start, long *end);
+    int timeline_left() const;
+    int timeline_top() const;
+    int timeline_width() const;
+
+    long frame_at_pos(int x);
+    int pos_at_frame(long frame);
+
+    long timeline_frame_at_pos(int x);
+    int timeline_pos_at_frame(long frame);
 
     // widget methods
     static void destructor(Widget *widget) {

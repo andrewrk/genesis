@@ -45,7 +45,6 @@ make
 
 ## Roadmap
 
- 0. Ability to make a playback selection.
  0. Playback to speakers.
  0. Undo/Redo
  0. Multiplayer
