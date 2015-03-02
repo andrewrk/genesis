@@ -1,5 +1,6 @@
 #include "audio_edit_widget.hpp"
 #include "byte_buffer.hpp"
+#include "color.hpp"
 
 #include <stdint.h>
 
@@ -42,10 +43,15 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     //_padding_bottom(4),
     _channel_edit_height(100),
     _margin(2),
+    _timeline_height(16),
     _waveform_fg_color(0.25882f, 0.43137f, 0.772549, 1.0f),
     _waveform_bg_color(0.0f, 0.0f, 0.0f, 0.0f),
     _waveform_sel_bg_color(0.2f, 0.2314f, 0.4784f, 1.0f),
     _waveform_sel_fg_color(0.6745f, 0.69f, 0.8157f, 1.0f),
+    _timeline_bg_color(0.436f, 0.462f, 0.557f, 1.0f),
+    _timeline_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
+    _timeline_sel_bg_color(parse_color("#4D505C")),
+    _timeline_sel_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
     _audio_file(create_empty_audio_file()),
     _scroll_x(0),
     _frames_per_pixel(1.0f),
@@ -377,7 +383,7 @@ void AudioEditWidget::set_size(int width, int height) {
 
 void AudioEditWidget::update_model() {
     ByteBuffer pixels;
-    int top = _padding_top;
+    int top = _padding_top + _timeline_height + _margin;
 
     for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);

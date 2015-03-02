@@ -54,11 +54,16 @@ private:
 
     int _channel_edit_height;
     int _margin;
+    int _timeline_height;
 
     glm::vec4 _waveform_fg_color;
     glm::vec4 _waveform_bg_color;
     glm::vec4 _waveform_sel_bg_color;
     glm::vec4 _waveform_sel_fg_color;
+    glm::vec4 _timeline_bg_color;
+    glm::vec4 _timeline_fg_color;
+    glm::vec4 _timeline_sel_bg_color;
+    glm::vec4 _timeline_sel_fg_color;
 
     AudioFile *_audio_file;
 

@@ -3,15 +3,22 @@
 #include "byte_buffer.hpp"
 #include "list.hpp"
 #include "string.hpp"
+#include "color.hpp"
 
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 
 static void debug_print_bb_list(const List<ByteBuffer> &list) {
     fprintf(stderr, "\n");
     for (long i = 0; i < list.length(); i += 1) {
         fprintf(stderr, "%zu: %s\n", i, list.at(i).raw());
     }
+}
+
+static void assert_floats_close(double a, double b) {
+    double diff = abs(a - b);
+    assert(diff < 0.000001);
 }
 
 static void test_bytebuffer_split(void) {
@@ -54,6 +61,14 @@ static void test_list_remove_range(void) {
     assert(list.at(2) == 5);
 }
 
+static void test_parse_color(void) {
+    glm::vec4 color = parse_color("#4D505c");
+    assert_floats_close(color[0], 0.30196078431372547);
+    assert_floats_close(color[1], 0.3137254901960784);
+    assert_floats_close(color[2], 0.3607843137254902);
+    assert_floats_close(color[3], 1.0f);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -63,6 +78,7 @@ static struct Test tests[] = {
     {"ByteBuffer::split", test_bytebuffer_split},
     {"String::make_lower_case", test_string_make_lower_case},
     {"List::remove_range", test_list_remove_range},
+    {"parse_color", test_parse_color},
     {NULL, NULL},
 };
 
