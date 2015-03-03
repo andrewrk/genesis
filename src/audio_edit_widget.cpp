@@ -56,7 +56,9 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     _scroll_x(0),
     _frames_per_pixel(1.0f),
     _select_down(false),
-    _playback_select_down(false)
+    _playback_select_down(false),
+    _playback_frame(0),
+    _playback_active(false)
 {
     init_selection(_selection);
     init_selection(_playback_selection);
@@ -402,7 +404,21 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
         case VirtKeyDelete:
             delete_selection();
             break;
+        case VirtKeySpace:
+            toggle_play();
+            break;
+        case VirtKeyReturn:
+            restart_play();
+            break;
     }
+}
+
+void AudioEditWidget::toggle_play() {
+
+}
+
+void AudioEditWidget::restart_play() {
+
 }
 
 void AudioEditWidget::get_order_correct_selection(const Selection *selection,

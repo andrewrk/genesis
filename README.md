@@ -45,6 +45,7 @@ make
 
 ## Roadmap
 
- 0. Playback to speakers.
+ 0. Playback to speakers with SDL
  0. Undo/Redo
  0. Multiplayer
+ 0. Record audio

@@ -96,6 +96,8 @@ private:
     double _frames_per_pixel;
     bool _select_down;
     bool _playback_select_down;
+    long _playback_frame;
+    bool _playback_active;
 
 
     void update_model();
@@ -128,6 +130,9 @@ private:
 
     long timeline_frame_at_pos(int x);
     int timeline_pos_at_frame(long frame);
+
+    void toggle_play();
+    void restart_play();
 
     // widget methods
     static void destructor(Widget *widget) {

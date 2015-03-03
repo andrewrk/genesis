@@ -83,14 +83,11 @@ public:
     }
 
     void remove_range(long start, long end) {
-        if (start < 0 || start >= _length)
-            panic("list: remove_range start out of bounds");
-        if (end < 0 || end > _length)
-            panic("list: remove_range end out of bounds");
-        if (start > end)
-            panic("list: remove_range start > end");
+        if (!(0 <= start && start <= end && end <= _length))
+            panic("bounds check");
         long del_count = end - start;
-        for (long i = start; i < end; i += 1) {
+        long move_count = min(del_count, _length - end);
+        for (long i = start; i < start + move_count; i += 1) {
             _items[i] = _items[i + del_count];
         }
         _length -= del_count;
