@@ -50,7 +50,7 @@ test: build/test
 	build/test
 
 build/test: $(TEST_OBJECTS)
-	gcc -o $@ $(TEST_OBJECTS)
+	gcc -o $@ $(TEST_OBJECTS) -lm
 
 .PHONY: clean
 clean:

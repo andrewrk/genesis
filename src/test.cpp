@@ -4,6 +4,7 @@
 #include "list.hpp"
 #include "string.hpp"
 #include "color.hpp"
+#include "ring_buffer.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -69,6 +70,43 @@ static void test_parse_color(void) {
     assert_floats_close(color[3], 1.0f);
 }
 
+static void test_ring_buffer(void) {
+    RingBuffer rb(10);
+
+    assert(rb.capacity() == 4096);
+
+    char *write_ptr = rb.write_ptr();
+    int amt = sprintf(write_ptr, "hello") + 1;
+    rb.advance_write_ptr(amt);
+
+    assert(rb.fill_count() == amt);
+    assert(rb.free_count() == 4096 - amt);
+
+    char *read_ptr = rb.read_ptr();
+
+    assert(strcmp(read_ptr, "hello") == 0);
+
+    rb.advance_read_ptr(amt);
+
+    assert(rb.fill_count() == 0);
+    assert(rb.free_count() == rb.capacity());
+
+    rb.advance_write_ptr(4094);
+    amt = sprintf(rb.write_ptr(), "writing past the end") + 1;
+    rb.advance_write_ptr(amt);
+
+    assert(rb.fill_count() == 4094 + amt);
+
+    rb.advance_read_ptr(4094);
+
+    assert(strcmp(rb.read_ptr(), "writing past the end") == 0);
+
+    rb.advance_read_ptr(amt);
+
+    assert(rb.fill_count() == 0);
+    assert(rb.free_count() == rb.capacity());
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -79,6 +117,7 @@ static struct Test tests[] = {
     {"String::make_lower_case", test_string_make_lower_case},
     {"List::remove_range", test_list_remove_range},
     {"parse_color", test_parse_color},
+    {"RingBuffer", test_ring_buffer},
     {NULL, NULL},
 };
 
