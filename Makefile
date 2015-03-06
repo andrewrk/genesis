@@ -23,8 +23,7 @@ CPP_FLAGS += -nodefaultlibs -fno-exceptions -fno-rtti -Ibuild -Isrc -g -Wall -We
 COMPILE_CPP = g++ -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/genesis: $(OBJECTS)
-	gcc -o $@ $(OBJECTS) -lfreetype -lavformat -lavcodec -lavutil -lSDL2 \
-		-lepoxy -lGLU -lGL -lpng -lrucksack -pthread -lportaudio -lasound -lm
+	gcc -o $@ $(OBJECTS) -lfreetype -lavformat -lavcodec -lavutil -lSDL2 -lepoxy -lGLU -lGL -lpng -lrucksack -pthread -lportaudio -lasound -lm
 all: build/genesis
 
 all: build/resources.bundle

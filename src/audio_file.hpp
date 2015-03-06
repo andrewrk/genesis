@@ -5,14 +5,7 @@
 #include "hash_map.hpp"
 #include "string.hpp"
 #include "channel_layouts.hpp"
-
-enum SampleFormat {
-    SampleFormatUInt8,
-    SampleFormatInt16,
-    SampleFormatInt32,
-    SampleFormatFloat,
-    SampleFormatDouble,
-};
+#include "sample_format.hpp"
 
 struct ExportSampleFormat {
     SampleFormat sample_format;
