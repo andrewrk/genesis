@@ -11,7 +11,8 @@ OBJECTS = build/main.o build/util.o build/byte_buffer.o build/os.o \
 		  build/find_file_widget.o build/resource_bundle.o build/png_image.o \
 		  build/spritesheet.o build/genesis_editor.o build/audio_edit_widget.o \
 		  build/genesis.o build/channel_layouts.o build/texture.o \
-		  build/shader_program_manager.o build/alpha_texture.o build/audio_file.o
+		  build/shader_program_manager.o build/alpha_texture.o \
+		  build/audio_file.o build/audio_hardware.o
 
 GENERATE_UNICODE_DATA_OBJECTS = build/generate_unicode_data.o build/util.o \
 								build/byte_buffer.o
@@ -22,7 +23,8 @@ CPP_FLAGS += -nodefaultlibs -fno-exceptions -fno-rtti -Ibuild -Isrc -g -Wall -We
 COMPILE_CPP = g++ -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
 
 build/genesis: $(OBJECTS)
-	gcc -o $@ $(OBJECTS) -lfreetype -lavformat -lavcodec -lavutil -lSDL2 -lm -lepoxy -lGLU -lGL -lpng -lrucksack
+	gcc -o $@ $(OBJECTS) -lfreetype -lavformat -lavcodec -lavutil -lSDL2 \
+		-lepoxy -lGLU -lGL -lpng -lrucksack -pthread -lportaudio -lasound -lm
 all: build/genesis
 
 all: build/resources.bundle
