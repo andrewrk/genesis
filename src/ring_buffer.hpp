@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
+#include <atomic>
+
+using std::atomic_int;
 
 class RingBuffer {
 public:
@@ -98,8 +101,8 @@ public:
 private:
     char *_address;
     int _capacity;
-    volatile int _write_offset;
-    volatile int _read_offset;
+    atomic_int _write_offset;
+    atomic_int _read_offset;
 
     RingBuffer(const RingBuffer &copy) = delete;
     RingBuffer &operator=(const RingBuffer &copy) = delete;
