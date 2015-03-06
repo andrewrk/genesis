@@ -8,14 +8,18 @@
 #include "genesis.h"
 #include "audio_file.hpp"
 
+#include <pthread.h>
+#include <atomic>
+using std::atomic_bool;
+
 class Gui;
+class AudioHardware;
+class OpenPlaybackDevice;
 class AudioEditWidget {
 public:
     Widget _widget;
 
-    AudioEditWidget(Gui *gui);
-    AudioEditWidget(const AudioEditWidget &copy) = delete;
-    AudioEditWidget &operator=(const AudioEditWidget &copy) = delete;
+    AudioEditWidget(Gui *gui, AudioHardware *audio_hardware);
 
     ~AudioEditWidget();
     void draw(const glm::mat4 &projection);
@@ -91,14 +95,23 @@ private:
     };
 
     Selection _selection;
-    Selection _playback_selection;
+    Selection _playback_selection; // protected by mutex
     int _scroll_x; // in pixels
     double _frames_per_pixel;
     bool _select_down;
     bool _playback_select_down;
-    long _playback_frame;
-    bool _playback_active;
 
+    AudioHardware *_audio_hardware;
+    OpenPlaybackDevice *_playback_device;
+    pthread_t _playback_thread;
+    bool _playback_thread_created;
+    pthread_mutex_t _playback_mutex;
+    pthread_condattr_t _playback_condattr;
+    pthread_cond_t _playback_cond;
+    atomic_bool _playback_thread_join_flag;
+    long _playback_write_head; // protected by mutex
+    bool _playback_active; // protected by mutex
+    int _playback_thread_wait_nanos;
 
     void update_model();
 
@@ -133,6 +146,22 @@ private:
 
     void toggle_play();
     void restart_play();
+
+    void close_playback_device();
+    void open_playback_device();
+
+    void * playback_thread();
+
+    void clamp_playback_write_head();
+    void clear_playback_buffer();
+    void set_playback_selection(long start, long end);
+
+    static void *playback_thread(void *arg) {
+        return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
+    }
+
+    AudioEditWidget(const AudioEditWidget &copy) = delete;
+    AudioEditWidget &operator=(const AudioEditWidget &copy) = delete;
 
     // widget methods
     static void destructor(Widget *widget) {

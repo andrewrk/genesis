@@ -18,7 +18,7 @@ static bool default_on_key_event(Gui *, const KeyEvent *event) {
 }
 
 Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle,
-        ShaderProgramManager *shader_program_manager) :
+        ShaderProgramManager *shader_program_manager, AudioHardware *audio_hardware) :
     _shader_program_manager(shader_program_manager),
     _window(window),
     _mouse_over_widget(NULL),
@@ -29,7 +29,8 @@ Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle,
     _img_entry_file((Image*)_spritesheet.get_image_info("img/entry-file.png")),
     _img_null((Image*)_spritesheet.get_image_info("img/null.png")),
     _userdata(NULL),
-    _on_key_event(default_on_key_event)
+    _on_key_event(default_on_key_event),
+    _audio_hardware(audio_hardware)
 {
     glGenVertexArrays(1, &_primitive_vertex_array);
     glBindVertexArray(_primitive_vertex_array);
@@ -234,7 +235,7 @@ FindFileWidget * Gui::create_find_file_widget() {
 }
 
 AudioEditWidget * Gui::create_audio_edit_widget() {
-    AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this);
+    AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this, _audio_hardware);
     init_widget(&audio_edit_widget->_widget);
     return audio_edit_widget;
 }

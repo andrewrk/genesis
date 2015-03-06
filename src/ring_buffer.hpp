@@ -11,6 +11,10 @@
 
 using std::atomic_int;
 
+#ifndef ATOMIC_INT_LOCK_FREE
+#error "require atomic int to be lock free"
+#endif
+
 class RingBuffer {
 public:
     RingBuffer(int requested_capacity) {
@@ -93,7 +97,7 @@ public:
     }
  
     // set all bytes to 0 and reset read and write offset
-    void clear(struct ring_buffer *buffer) {
+    void clear() {
         _write_offset = 0;
         _read_offset = 0;
     }

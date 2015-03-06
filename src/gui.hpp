@@ -21,13 +21,12 @@ uint32_t hash_int(const int &x);
 class TextWidget;
 class FindFileWidget;
 class AudioEditWidget;
+class AudioHardware;
 class Gui {
 public:
     Gui(SDL_Window *window, ResourceBundle *resource_bundle,
-            ShaderProgramManager *shader_program_manager);
+            ShaderProgramManager *shader_program_manager, AudioHardware *audio_hardware);
     ~Gui();
-    Gui(const Gui &copy) = delete;
-    Gui &operator=(const Gui &copy) = delete;
 
     void exec();
 
@@ -102,6 +101,8 @@ public:
     void *_userdata;
     bool (*_on_key_event)(Gui *, const KeyEvent *event);
 
+    AudioHardware *_audio_hardware;
+
 private:
 
     void resize();
@@ -109,6 +110,9 @@ private:
     void on_text_input(const TextInputEvent *event);
     void on_key_event(const KeyEvent *event);
     void init_widget(Widget *widget);
+
+    Gui(const Gui &copy) = delete;
+    Gui &operator=(const Gui &copy) = delete;
 };
 
 #endif

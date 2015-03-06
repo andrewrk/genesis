@@ -76,14 +76,21 @@ static PaSampleFormat to_portaudio_sample_format(SampleFormat sample_format) {
     panic("invalid sample format");
 }
 
-static int playback_callback(const void *input_buffer, void *output_buffer,
+static int playback_callback(const void *input_buffer, void *output_void_ptr,
         unsigned long frame_count, const PaStreamCallbackTimeInfo* time_info,
         PaStreamCallbackFlags status_flags, void *user_data)
 {
     OpenPlaybackDevice *playback_device = reinterpret_cast<OpenPlaybackDevice*>(user_data);
+    char *output_buffer = reinterpret_cast<char*>(output_void_ptr);
 
-    unsigned long read_count = frame_count * playback_device->_bytes_per_frame;
+    unsigned long fill_count = playback_device->_ring_buffer->fill_count();
+    unsigned long write_count = frame_count * playback_device->_bytes_per_frame;
+    unsigned long read_count = min(write_count, fill_count);
+    unsigned long pad_zero_count = write_count - read_count;
+
     memcpy(output_buffer, playback_device->_ring_buffer->read_ptr(), read_count);
+    memset(output_buffer + read_count, 0, pad_zero_count);
+    playback_device->_underrun_count += (int)((bool)pad_zero_count);
     playback_device->_ring_buffer->advance_read_ptr(read_count);
 
     return paContinue;
@@ -94,7 +101,8 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, int device
         int sample_rate, bool *ok) :
     _ring_buffer(NULL),
     _channel_count(channel_count),
-    _stream(NULL)
+    _stream(NULL),
+    _underrun_count(0)
 {
     PaStreamParameters out_params;
     out_params.channelCount = channel_count;
@@ -116,12 +124,21 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, int device
     _ring_buffer = create<RingBuffer>(latency * get_bytes_per_second(sample_format, channel_count, sample_rate));
     _bytes_per_frame = get_bytes_per_frame(sample_format, channel_count);
 
+    err = Pa_StartStream(_stream);
+    if (err) {
+        panic("unable to start portaudio stream: %s", Pa_GetErrorText(err));
+        *ok = false;
+        return;
+    }
+
     *ok = true;
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {
-    if (_stream)
+    if (_stream) {
         Pa_AbortStream(_stream);
+        Pa_CloseStream(_stream);
+    }
     if (_ring_buffer)
         destroy(_ring_buffer, 1);
 }

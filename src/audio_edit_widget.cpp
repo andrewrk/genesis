@@ -1,8 +1,10 @@
 #include "audio_edit_widget.hpp"
 #include "byte_buffer.hpp"
 #include "color.hpp"
+#include "audio_hardware.hpp"
 
 #include <stdint.h>
+#include <errno.h>
 
 static AudioFile *create_empty_audio_file() {
     AudioFile *audio_file = create<AudioFile>();
@@ -14,7 +16,7 @@ static AudioFile *create_empty_audio_file() {
     return audio_file;
 }
 
-AudioEditWidget::AudioEditWidget(Gui *gui) :
+AudioEditWidget::AudioEditWidget(Gui *gui, AudioHardware *audio_hardware) :
     _widget(Widget {
         destructor,
         draw,
@@ -57,16 +59,40 @@ AudioEditWidget::AudioEditWidget(Gui *gui) :
     _frames_per_pixel(1.0f),
     _select_down(false),
     _playback_select_down(false),
-    _playback_frame(0),
+    _audio_hardware(audio_hardware),
+    _playback_device(NULL),
+    _playback_thread_created(false),
+    _playback_thread_join_flag(false),
+    _playback_write_head(-1),
     _playback_active(false)
 {
+    if (pthread_mutex_init(&_playback_mutex, NULL))
+        panic("pthread_mutex_init failure");
+
+    if (pthread_condattr_init(&_playback_condattr))
+        panic("pthread_condattr_init failure");
+
+    if (pthread_condattr_setclock(&_playback_condattr, CLOCK_MONOTONIC))
+        panic("pthread_condattr_setclock failure");
+
+    if (pthread_cond_init(&_playback_cond, &_playback_condattr))
+        panic("pthread_cond_init failure");
+
     init_selection(_selection);
     init_selection(_playback_selection);
 }
 
 AudioEditWidget::~AudioEditWidget() {
+    close_playback_device();
     destroy_audio_file();
     destroy_all_ui();
+
+    if (pthread_cond_destroy(&_playback_cond))
+        panic("pthread_cond_destroy failure");
+    if (pthread_condattr_destroy(&_playback_condattr))
+        panic("pthread_condattr_destroy failure");
+    if (pthread_mutex_destroy(&_playback_mutex))
+        panic("pthread_mutex_destroy failure");
 }
 
 void AudioEditWidget::destroy_audio_file() {
@@ -95,6 +121,22 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
     edit_audio_file(audio_file);
 }
 
+void AudioEditWidget::close_playback_device() {
+    if (_playback_thread_created) {
+        _playback_thread_join_flag = true;
+        pthread_mutex_lock(&_playback_mutex);
+        pthread_cond_signal(&_playback_cond);
+        pthread_mutex_unlock(&_playback_mutex);
+        pthread_join(_playback_thread, NULL);
+        _playback_thread_created = false;
+    }
+
+    if (_playback_device) {
+        destroy(_playback_device, 1);
+        _playback_device = NULL;
+    }
+}
+
 static String audio_file_channel_name(const AudioFile *audio_file, int index) {
     if (audio_file->channel_layout) {
         if (index < audio_file->channel_layout->channels.length())
@@ -107,6 +149,7 @@ static String audio_file_channel_name(const AudioFile *audio_file, int index) {
 }
 
 void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
+    close_playback_device();
     destroy_audio_file();
     _audio_file = audio_file;
 
@@ -119,6 +162,77 @@ void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
     init_selection(_playback_selection);
 
     zoom_100();
+
+    open_playback_device();
+}
+
+void AudioEditWidget::clamp_playback_write_head() {
+    long frame_count = get_display_frame_count();
+    long start, end;
+    if (_playback_selection.start == _playback_selection.end) {
+        start = 0;
+        end = frame_count;
+    } else {
+        start = max(0L, _playback_selection.start);
+        end = min(frame_count, _playback_selection.end);
+    }
+    _playback_write_head = start + (_playback_write_head - start) % (end - start);
+}
+
+void * AudioEditWidget::playback_thread() {
+    while (!_playback_thread_join_flag) {
+        if (pthread_mutex_lock(&_playback_mutex))
+            panic("pthread_mutex_lock failure");
+
+        int free_byte_count = _playback_device->_ring_buffer->free_count();
+        int bytes_per_frame = get_bytes_per_frame(SampleFormatInt32, _audio_file->channels.length());
+        int free_frame_count = free_byte_count / bytes_per_frame;
+        if (_playback_active) {
+            int channel_count = _audio_file->channels.length();
+            int32_t *samples = reinterpret_cast<int32_t*>(_playback_device->_ring_buffer->write_ptr());
+            clamp_playback_write_head();
+            for (int i = 0; i < free_frame_count; i += 1) {
+                for (int ch = 0; ch < channel_count; ch += 1) {
+                    double sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
+                    samples[i * channel_count + ch] = (int32_t)(sample * 2147483647.0);
+                }
+                _playback_write_head += 1;
+                clamp_playback_write_head();
+            }
+            _playback_device->_ring_buffer->advance_write_ptr(free_frame_count * bytes_per_frame);
+        } else {
+            memset(_playback_device->_ring_buffer->write_ptr(), 0, free_byte_count);
+            _playback_device->_ring_buffer->advance_write_ptr(free_byte_count);
+        }
+        struct timespec tms;
+        clock_gettime(CLOCK_MONOTONIC, &tms);
+        tms.tv_nsec += _playback_thread_wait_nanos;
+        pthread_cond_timedwait(&_playback_cond, &_playback_mutex, &tms);
+
+        if (pthread_mutex_unlock(&_playback_mutex))
+            panic("pthread_mutex_unlock failure");
+    }
+    return NULL;
+}
+
+void AudioEditWidget::open_playback_device() {
+    if (_playback_device)
+        close_playback_device();
+
+    double latency = _audio_hardware->devices()->at(_audio_hardware->_default_output_index).default_low_output_latency;
+    bool ok;
+    _playback_device = create<OpenPlaybackDevice>(_audio_hardware, _audio_hardware->_default_output_index,
+            _audio_file->channels.length(), SampleFormatInt32, latency,
+            _audio_file->sample_rate, &ok);
+
+    if (!ok)
+        panic("could not open playback device");
+
+    _playback_thread_join_flag = false;
+    _playback_thread_wait_nanos = (latency / 10.0) * 1000000000;
+    if (pthread_create(&_playback_thread, NULL, playback_thread, this))
+        panic("unable to create playback thread");
+    _playback_thread_created = true;
 }
 
 long AudioEditWidget::get_display_frame_count() const {
@@ -322,6 +436,17 @@ void AudioEditWidget::scroll_frame_into_view(long frame) {
     }
 }
 
+void AudioEditWidget::set_playback_selection(long start, long end) {
+    if (pthread_mutex_lock(&_playback_mutex))
+        panic("pthread_mutex_lock fail");
+
+    _playback_selection.start = start;
+    _playback_selection.end = end;
+
+    if (pthread_mutex_unlock(&_playback_mutex))
+        panic("pthread_mutex_unlock fail");
+}
+
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:
@@ -339,8 +464,7 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                 }
                 long frame = get_timeline_frame(event->x, event->y);
                 if (frame >= 0) {
-                    _playback_selection.start = frame;
-                    _playback_selection.end = frame;
+                    set_playback_selection(frame, frame);
                     _playback_select_down = true;
                     scroll_playback_cursor_into_view();
                     break;
@@ -365,7 +489,7 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                 _selection.end = frame_at_pos(event->x);
                 scroll_cursor_into_view();
             } else if (_playback_select_down) {
-                _playback_selection.end = timeline_frame_at_pos(event->x);
+                set_playback_selection(_playback_selection.start, timeline_frame_at_pos(event->x));
                 scroll_playback_cursor_into_view();
             }
             break;
@@ -413,12 +537,33 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
     }
 }
 
-void AudioEditWidget::toggle_play() {
+void AudioEditWidget::clear_playback_buffer() {
+    _playback_device->_ring_buffer->clear();
+    if (pthread_cond_signal(&_playback_cond))
+        panic("pthread_cond_signal failure");
+}
 
+void AudioEditWidget::toggle_play() {
+    if (pthread_mutex_lock(&_playback_mutex))
+        panic("pthread_mutex_lock failure");
+
+    _playback_active = !_playback_active;
+    clear_playback_buffer();
+
+    if (pthread_mutex_unlock(&_playback_mutex))
+        panic("pthread_mutex_unlock failure");
 }
 
 void AudioEditWidget::restart_play() {
+    if (pthread_mutex_lock(&_playback_mutex))
+        panic("pthread_mutex_lock failure");
 
+    _playback_write_head = _playback_selection.start;
+    _playback_active = true;
+    clear_playback_buffer();
+
+    if (pthread_mutex_unlock(&_playback_mutex))
+        panic("pthread_mutex_unlock failure");
 }
 
 void AudioEditWidget::get_order_correct_selection(const Selection *selection,

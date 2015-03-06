@@ -17,7 +17,7 @@ GenesisEditor::GenesisEditor() :
 
     _shader_program_manager = create<ShaderProgramManager>();
 
-    _gui = create<Gui>(_window, &_resource_bundle, _shader_program_manager);
+    _gui = create<Gui>(_window, &_resource_bundle, _shader_program_manager, &_audio_hardware);
     _gui->_userdata = this;
     _gui->set_on_key_event(static_on_gui_key);
 

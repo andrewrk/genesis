@@ -30,6 +30,7 @@ public:
     int _channel_count;
     unsigned long _bytes_per_frame;
     PaStream *_stream;
+    int _underrun_count;
 };
 
 class AudioHardware {
@@ -38,17 +39,19 @@ public:
     ~AudioHardware();
 
     // calling this invalidates all pointers to AudioDevice instances
+    // as well as all pointers to OpenPlaybackDevices
     void rescan_devices();
 
     const List<AudioDevice> *devices() const {
         return &_devices;
     }
 
+    int _default_input_index;
+    int _default_output_index;
+
 private:
     bool _initialized;
     List<AudioDevice> _devices;
-    int _default_input_index;
-    int _default_output_index;
 
     void deinitialize();
     void initialize();
