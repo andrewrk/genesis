@@ -99,6 +99,11 @@ static inline T max(T a, T b) {
     return (a >= b) ? a : b;
 }
 
+template <typename T>
+static inline T euclidean_mod(T a, T base) {
+    return (a < 0) ? ((a % base + base) % base) : (a % base);
+}
+
 template<typename T, int(*Comparator)(T, T)>
 void insertion_sort(T * in_place_list, int size) {
     for (int top = 1; top < size; top++) {

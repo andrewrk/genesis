@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <atomic>
 using std::atomic_bool;
+using std::atomic_long;
 
 class Gui;
 class AudioHardware;
@@ -68,6 +69,7 @@ private:
     glm::vec4 _timeline_fg_color;
     glm::vec4 _timeline_sel_bg_color;
     glm::vec4 _timeline_sel_fg_color;
+    glm::vec4 _playback_cursor_color;
 
     AudioFile *_audio_file;
 
@@ -112,6 +114,9 @@ private:
     long _playback_write_head; // protected by mutex
     bool _playback_active; // protected by mutex
     int _playback_thread_wait_nanos;
+    atomic_long _playback_cursor_frame;
+    double _playback_device_latency;
+    int _playback_device_sample_rate;
 
     void update_model();
 
@@ -152,7 +157,8 @@ private:
 
     void * playback_thread();
 
-    void clamp_playback_write_head();
+    void clamp_playback_write_head(long start, long end);
+    void calculate_playback_range(long *start, long *end);
     void clear_playback_buffer();
     void set_playback_selection(long start, long end);
 

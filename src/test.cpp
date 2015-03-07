@@ -107,6 +107,13 @@ static void test_ring_buffer(void) {
     assert(rb.free_count() == rb.capacity());
 }
 
+static void test_euclidean_mod(void) {
+    assert(euclidean_mod(3, 5) == 3);
+    assert(euclidean_mod(8, 5) == 3);
+    assert(euclidean_mod(-1, 5) == 4);
+    assert(euclidean_mod(-6, 5) == 4);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -118,6 +125,7 @@ static struct Test tests[] = {
     {"List::remove_range", test_list_remove_range},
     {"parse_color", test_parse_color},
     {"RingBuffer", test_ring_buffer},
+    {"euclidean_mod", test_euclidean_mod},
     {NULL, NULL},
 };
 

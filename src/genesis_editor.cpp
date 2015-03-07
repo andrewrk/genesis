@@ -103,6 +103,7 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     _audio_edit_widget->set_pos(10, 10);
     _audio_edit_widget->set_size(_gui->_width - 20, _gui->_height - 20);
     _audio_edit_widget->load_file(file_path);
+    _gui->set_focus_widget(&_audio_edit_widget->_widget);
 }
 
 void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {

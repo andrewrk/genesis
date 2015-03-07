@@ -54,6 +54,7 @@ AudioEditWidget::AudioEditWidget(Gui *gui, AudioHardware *audio_hardware) :
     _timeline_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
     _timeline_sel_bg_color(parse_color("#4D505C")),
     _timeline_sel_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
+    _playback_cursor_color(0.0f, 0.0f, 0.0f, 1.0f),
     _audio_file(create_empty_audio_file()),
     _scroll_x(0),
     _frames_per_pixel(1.0f),
@@ -63,8 +64,9 @@ AudioEditWidget::AudioEditWidget(Gui *gui, AudioHardware *audio_hardware) :
     _playback_device(NULL),
     _playback_thread_created(false),
     _playback_thread_join_flag(false),
-    _playback_write_head(-1),
-    _playback_active(false)
+    _playback_write_head(0),
+    _playback_active(false),
+    _playback_cursor_frame(0)
 {
     if (pthread_mutex_init(&_playback_mutex, NULL))
         panic("pthread_mutex_init failure");
@@ -166,17 +168,26 @@ void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
     open_playback_device();
 }
 
-void AudioEditWidget::clamp_playback_write_head() {
-    long frame_count = get_display_frame_count();
-    long start, end;
+void AudioEditWidget::calculate_playback_range(long *start, long *end) {
+    long audio_file_frame_count = get_display_frame_count();
     if (_playback_selection.start == _playback_selection.end) {
-        start = 0;
-        end = frame_count;
+        *start = 0;
+        *end = audio_file_frame_count;
     } else {
-        start = max(0L, _playback_selection.start);
-        end = min(frame_count, _playback_selection.end);
+        if (_playback_selection.start > _playback_selection.end) {
+            *start = _playback_selection.end;
+            *end = _playback_selection.start;
+        } else {
+            *start = _playback_selection.start;
+            *end = _playback_selection.end;
+        }
+        *start = max(0L, *start);
+        *end = min(audio_file_frame_count, *end);
     }
-    _playback_write_head = start + (_playback_write_head - start) % (end - start);
+}
+
+void AudioEditWidget::clamp_playback_write_head(long start, long end) {
+    _playback_write_head = start + euclidean_mod((_playback_write_head - start), end - start);
 }
 
 void * AudioEditWidget::playback_thread() {
@@ -188,18 +199,25 @@ void * AudioEditWidget::playback_thread() {
         int bytes_per_frame = get_bytes_per_frame(SampleFormatInt32, _audio_file->channels.length());
         int free_frame_count = free_byte_count / bytes_per_frame;
         if (_playback_active) {
+            // calculate the playback range
+            long playback_range_start, playback_range_end;
+            calculate_playback_range(&playback_range_start, &playback_range_end);
+
             int channel_count = _audio_file->channels.length();
             int32_t *samples = reinterpret_cast<int32_t*>(_playback_device->_ring_buffer->write_ptr());
-            clamp_playback_write_head();
+            clamp_playback_write_head(playback_range_start, playback_range_end);
             for (int i = 0; i < free_frame_count; i += 1) {
                 for (int ch = 0; ch < channel_count; ch += 1) {
                     double sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
                     samples[i * channel_count + ch] = (int32_t)(sample * 2147483647.0);
                 }
                 _playback_write_head += 1;
-                clamp_playback_write_head();
+                clamp_playback_write_head(playback_range_start, playback_range_end);
             }
             _playback_device->_ring_buffer->advance_write_ptr(free_frame_count * bytes_per_frame);
+
+            _playback_cursor_frame = _playback_write_head -
+                (_playback_device_latency * _playback_device_sample_rate);
         } else {
             memset(_playback_device->_ring_buffer->write_ptr(), 0, free_byte_count);
             _playback_device->_ring_buffer->advance_write_ptr(free_byte_count);
@@ -219,17 +237,18 @@ void AudioEditWidget::open_playback_device() {
     if (_playback_device)
         close_playback_device();
 
-    double latency = _audio_hardware->devices()->at(_audio_hardware->_default_output_index).default_low_output_latency;
+    _playback_device_latency = _audio_hardware->devices()->at(_audio_hardware->_default_output_index).default_low_output_latency;
+    _playback_device_sample_rate = _audio_file->sample_rate;
     bool ok;
     _playback_device = create<OpenPlaybackDevice>(_audio_hardware, _audio_hardware->_default_output_index,
-            _audio_file->channels.length(), SampleFormatInt32, latency,
+            _audio_file->channels.length(), SampleFormatInt32, _playback_device_latency,
             _audio_file->sample_rate, &ok);
 
     if (!ok)
         panic("could not open playback device");
 
     _playback_thread_join_flag = false;
-    _playback_thread_wait_nanos = (latency / 10.0) * 1000000000;
+    _playback_thread_wait_nanos = (_playback_device_latency / 10.0) * 1000000000;
     if (pthread_create(&_playback_thread, NULL, playback_thread, this))
         panic("unable to create playback thread");
     _playback_thread_created = true;
@@ -345,6 +364,10 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
     }
 
     glDisable(GL_STENCIL_TEST);
+
+    _gui->fill_rect(_playback_cursor_color,
+            _left + timeline_left() + pos_at_frame(_playback_cursor_frame), _top + timeline_top(),
+            2, _timeline_height);
 }
 
 int AudioEditWidget::wave_start_left() const {
