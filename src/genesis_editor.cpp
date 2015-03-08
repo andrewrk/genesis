@@ -15,6 +15,9 @@ GenesisEditor::GenesisEditor() :
 
     _context = SDL_GL_CreateContext(_window);
 
+    if (!_context)
+        panic("unable to create gl context: %s", SDL_GetError());
+
     _shader_program_manager = create<ShaderProgramManager>();
 
     _gui = create<Gui>(_window, &_resource_bundle, _shader_program_manager, &_audio_hardware);

@@ -45,8 +45,6 @@ make
 
 ## Roadmap
 
- 0. Go ahead and use inheritance for widgets.
- 0. UI Menus
  0. Multiplayer
  0. Undo/Redo
  0. Record audio
