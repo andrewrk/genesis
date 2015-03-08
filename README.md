@@ -27,7 +27,6 @@ Not cool yet.
 
 genesis is programmed in a tiny subset of C++:
 
- * No linking against libstdc++.
  * No STL.
  * No `new` or `delete`.
  * No exceptions or run-time type information.

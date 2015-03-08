@@ -17,23 +17,7 @@ static AudioFile *create_empty_audio_file() {
 }
 
 AudioEditWidget::AudioEditWidget(Gui *gui, AudioHardware *audio_hardware) :
-    _widget(Widget {
-        destructor,
-        draw,
-        left,
-        top,
-        width,
-        height,
-        on_mouse_move,
-        on_mouse_out,
-        on_mouse_over,
-        on_gain_focus,
-        on_lose_focus,
-        on_text_input,
-        on_key_event,
-        -1,
-        true,
-    }),
+    Widget(),
     _gui(gui),
     _left(0),
     _top(0),
@@ -113,7 +97,7 @@ void AudioEditWidget::destroy_all_ui() {
 
 void AudioEditWidget::destroy_per_channel_data(PerChannelData *per_channel_data) {
     destroy(per_channel_data->waveform_texture, 1);
-    _gui->destroy_widget(&per_channel_data->channel_name_widget->_widget);
+    _gui->destroy_widget(per_channel_data->channel_name_widget);
     destroy(per_channel_data, 1);
 }
 
@@ -125,6 +109,8 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
 
 void AudioEditWidget::close_playback_device() {
     if (_playback_thread_created) {
+        fprintf(stderr, "close_playback_device thread\n");
+
         _playback_thread_join_flag = true;
         pthread_mutex_lock(&_playback_mutex);
         pthread_cond_signal(&_playback_cond);
@@ -134,6 +120,7 @@ void AudioEditWidget::close_playback_device() {
     }
 
     if (_playback_device) {
+        fprintf(stderr, "close_playback_device device\n");
         destroy(_playback_device, 1);
         _playback_device = NULL;
     }
@@ -307,7 +294,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
         per_channel_data->waveform_texture->draw(_waveform_fg_color, mvp);
 
         TextWidget *channel_name_widget = per_channel_data->channel_name_widget;
-        if (channel_name_widget->_widget._is_visible)
+        if (channel_name_widget->_is_visible)
             channel_name_widget->draw(projection);
     }
 
@@ -521,24 +508,16 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
     }
 }
 
+void AudioEditWidget::on_mouse_wheel(const MouseWheelEvent *event) {
+    fprintf(stderr, "wheel: %d\n", event->y);
+}
+
 void AudioEditWidget::on_mouse_out(const MouseEvent *event) {
     SDL_SetCursor(_gui->_cursor_default);
 }
 
 void AudioEditWidget::on_mouse_over(const MouseEvent *event) {
     SDL_SetCursor(_gui->_cursor_ibeam);
-}
-
-void AudioEditWidget::on_gain_focus() {
-
-}
-
-void AudioEditWidget::on_lose_focus() {
-
-}
-
-void AudioEditWidget::on_text_input(const TextInputEvent *event) {
-
 }
 
 void AudioEditWidget::on_key_event(const KeyEvent *event) {
@@ -722,3 +701,4 @@ void AudioEditWidget::save_as(const ByteBuffer &file_path,
     _audio_file->export_sample_format = export_sample_format;
     audio_file_save(file_path, NULL, NULL, _audio_file);
 }
+

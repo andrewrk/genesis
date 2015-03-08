@@ -29,4 +29,9 @@ struct MouseEvent {
     MouseButtons buttons;
 };
 
+struct MouseWheelEvent {
+    int x;
+    int y;
+};
+
 #endif

@@ -194,6 +194,15 @@ void Gui::exec() {
                     on_text_input(&text_event);
                     break;
                 }
+            case SDL_MOUSEWHEEL:
+                {
+                    MouseWheelEvent wheel_event = {
+                        event.wheel.x,
+                        event.wheel.y,
+                    };
+                    on_mouse_wheel(&wheel_event);
+                    break;
+                }
             }
         }
 
@@ -202,7 +211,7 @@ void Gui::exec() {
         for (long i = 0; i < _widget_list.length(); i += 1) {
             Widget *widget = _widget_list.at(i);
             if (widget->_is_visible) {
-                widget->draw(widget, _projection);
+                widget->draw(_projection);
             }
         }
 
@@ -224,19 +233,19 @@ void Gui::init_widget(Widget *widget) {
 
 TextWidget * Gui::create_text_widget() {
     TextWidget *text_widget = create<TextWidget>(this);
-    init_widget(&text_widget->_widget);
+    init_widget(text_widget);
     return text_widget;
 }
 
 FindFileWidget * Gui::create_find_file_widget() {
     FindFileWidget *find_file_widget = create<FindFileWidget>(this);
-    init_widget(&find_file_widget->_widget);
+    init_widget(find_file_widget);
     return find_file_widget;
 }
 
 AudioEditWidget * Gui::create_audio_edit_widget() {
     AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this, _audio_hardware);
-    init_widget(&audio_edit_widget->_widget);
+    init_widget(audio_edit_widget);
     return audio_edit_widget;
 }
 
@@ -296,28 +305,27 @@ void Gui::destroy_widget(Widget *widget) {
 
     if (widget->_gui_index >= 0)
         _widget_list.swap_remove(widget->_gui_index);
-    widget->destructor(widget);
     destroy<Widget>(widget, 1);
 }
 
 bool Gui::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
-    int right = widget->left(widget) + widget->width(widget);
-    int bottom = widget->top(widget) + widget->height(widget);
-    if (event->x >= widget->left(widget) && event->y >= widget->top(widget) &&
+    int right = widget->left() + widget->width();
+    int bottom = widget->top() + widget->height();
+    if (event->x >= widget->left() && event->y >= widget->top() &&
         event->x < right && event->y < bottom)
     {
         MouseEvent mouse_event = *event;
-        mouse_event.x -= widget->left(widget);
-        mouse_event.y -= widget->top(widget);
+        mouse_event.x -= widget->left();
+        mouse_event.y -= widget->top();
 
         _mouse_over_widget = widget;
 
         if (pressing_any_btn && _mouse_over_widget != _focus_widget)
             set_focus_widget(_mouse_over_widget);
 
-        widget->on_mouse_over(widget, &mouse_event);
-        widget->on_mouse_move(widget, &mouse_event);
+        widget->on_mouse_over(&mouse_event);
+        widget->on_mouse_move(&mouse_event);
         return true;
     }
     return false;
@@ -327,33 +335,31 @@ void Gui::on_mouse_move(const MouseEvent *event) {
     // if we're pressing a mouse button, the mouse over widget gets the event
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
     if (_mouse_over_widget) {
-        int right = _mouse_over_widget->left(_mouse_over_widget) +
-            _mouse_over_widget->width(_mouse_over_widget);
-        int bottom = _mouse_over_widget->top(_mouse_over_widget) +
-            _mouse_over_widget->height(_mouse_over_widget);
-        bool in_bounds = (event->x >= _mouse_over_widget->left(_mouse_over_widget) &&
-                event->y >= _mouse_over_widget->top(_mouse_over_widget) &&
+        int right = _mouse_over_widget->left() + _mouse_over_widget->width();
+        int bottom = _mouse_over_widget->top() + _mouse_over_widget->height();
+        bool in_bounds = (event->x >= _mouse_over_widget->left() &&
+                event->y >= _mouse_over_widget->top() &&
                 event->x < right &&
                 event->y < bottom);
 
         MouseEvent mouse_event = *event;
-        mouse_event.x -= _mouse_over_widget->left(_mouse_over_widget);
-        mouse_event.y -= _mouse_over_widget->top(_mouse_over_widget);
+        mouse_event.x -= _mouse_over_widget->left();
+        mouse_event.y -= _mouse_over_widget->top();
 
         if (in_bounds || pressing_any_btn) {
             if (pressing_any_btn && _mouse_over_widget != _focus_widget)
                 set_focus_widget(_mouse_over_widget);
-            _mouse_over_widget->on_mouse_move(_mouse_over_widget, &mouse_event);
+            _mouse_over_widget->on_mouse_move(&mouse_event);
             return;
         } else {
             // not in bounds, not pressing any button
             if (event->action == MouseActionUp) {
                 // give them the mouse up event
-                _mouse_over_widget->on_mouse_move(_mouse_over_widget, &mouse_event);
+                _mouse_over_widget->on_mouse_move(&mouse_event);
             }
             Widget *old_mouse_over_widget = _mouse_over_widget;
             _mouse_over_widget = NULL;
-            old_mouse_over_widget->on_mouse_out(old_mouse_over_widget, &mouse_event);
+            old_mouse_over_widget->on_mouse_out(&mouse_event);
         }
     }
 
@@ -373,12 +379,12 @@ void Gui::set_focus_widget(Widget *widget) {
     if (_focus_widget) {
         Widget *old_focus_widget = _focus_widget;
         _focus_widget = NULL;
-        old_focus_widget->on_lose_focus(old_focus_widget);
+        old_focus_widget->on_lose_focus();
     }
     if (!widget)
         return;
     _focus_widget = widget;
-    _focus_widget->on_gain_focus(_focus_widget);
+    _focus_widget->on_gain_focus();
 }
 
 void Gui::start_text_editing(int x, int y, int w, int h) {
@@ -399,7 +405,7 @@ void Gui::on_text_input(const TextInputEvent *event) {
     if (!_focus_widget)
         return;
 
-    _focus_widget->on_text_input(_focus_widget, event);
+    _focus_widget->on_text_input(event);
 }
 
 void Gui::on_key_event(const KeyEvent *event) {
@@ -409,7 +415,14 @@ void Gui::on_key_event(const KeyEvent *event) {
     if (!_focus_widget)
         return;
 
-    _focus_widget->on_key_event(_focus_widget, event);
+    _focus_widget->on_key_event(event);
+}
+
+void Gui::on_mouse_wheel(const MouseWheelEvent *event) {
+    if (!_focus_widget)
+        return;
+
+    _focus_widget->on_mouse_wheel(event);
 }
 
 void Gui::set_clipboard_string(const String &str) {

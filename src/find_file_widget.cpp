@@ -8,23 +8,7 @@ static void default_on_choose_file(FindFileWidget *find_file_widget,
 }
 
 FindFileWidget::FindFileWidget(Gui *gui) :
-    _widget(Widget {
-        destructor,
-        draw,
-        left,
-        top,
-        width,
-        height,
-        on_mouse_move,
-        on_mouse_out,
-        on_mouse_over,
-        on_gain_focus,
-        on_lose_focus,
-        on_text_input,
-        on_key_event,
-        -1,
-        true,
-    }),
+    Widget(),
     _left(0),
     _top(0),
     _width(300),
@@ -54,8 +38,8 @@ FindFileWidget::FindFileWidget(Gui *gui) :
 }
 
 FindFileWidget::~FindFileWidget() {
-    _gui->destroy_widget(&_current_path_widget->_widget);
-    _gui->destroy_widget(&_filter_widget->_widget);
+    _gui->destroy_widget(_current_path_widget);
+    _gui->destroy_widget(_filter_widget);
     destroy_all_displayed_entries();
     destroy_all_dir_entries();
 }
@@ -71,7 +55,7 @@ void FindFileWidget::destroy_all_displayed_entries() {
     for (long i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry display_entry = _displayed_entries.at(i);
         destroy((TextWidgetUserData *)display_entry.widget->_userdata, 1);
-        _gui->destroy_widget(&display_entry.widget->_widget);
+        _gui->destroy_widget(display_entry.widget);
     }
     _displayed_entries.clear();
 }
@@ -94,7 +78,7 @@ void FindFileWidget::update_model() {
                 _current_path_widget->left(),
                 y);
         text_widget->set_width(_current_path_widget->width());
-        text_widget->_widget._is_visible = (text_widget->top() <= _top + _padding_top + _height);
+        text_widget->_is_visible = (text_widget->top() <= _top + _padding_top + _height);
         y += text_widget->height();
     }
 }
@@ -124,7 +108,7 @@ void FindFileWidget::draw(const glm::mat4 &projection) {
     for (long i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
-        if (text_widget->_widget._is_visible)
+        if (text_widget->_is_visible)
             text_widget->draw(projection);
     }
 
@@ -143,15 +127,15 @@ void FindFileWidget::on_mouse_move(const MouseEvent *event) {
     MouseEvent mouse_event = *event;
     mouse_event.x += _left;
     mouse_event.y += _top;
-    if (_gui->try_mouse_move_event_on_widget(&_current_path_widget->_widget, &mouse_event))
+    if (_gui->try_mouse_move_event_on_widget(_current_path_widget, &mouse_event))
         return;
-    if (_gui->try_mouse_move_event_on_widget(&_filter_widget->_widget, &mouse_event))
+    if (_gui->try_mouse_move_event_on_widget(_filter_widget, &mouse_event))
         return;
 
     for (long i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
-        if (_gui->try_mouse_move_event_on_widget(&text_widget->_widget, &mouse_event))
+        if (_gui->try_mouse_move_event_on_widget(text_widget, &mouse_event))
             return;
     }
 }
@@ -165,7 +149,7 @@ void FindFileWidget::on_mouse_over(const MouseEvent *event) {
 }
 
 void FindFileWidget::on_gain_focus() {
-    _gui->set_focus_widget(&_filter_widget->_widget);
+    _gui->set_focus_widget(_filter_widget);
 }
 
 void FindFileWidget::on_lose_focus() {

@@ -16,25 +16,21 @@ using std::atomic_long;
 class Gui;
 class AudioHardware;
 class OpenPlaybackDevice;
-class AudioEditWidget {
+class AudioEditWidget : public Widget {
 public:
-    Widget _widget;
-
     AudioEditWidget(Gui *gui, AudioHardware *audio_hardware);
-
     ~AudioEditWidget();
-    void draw(const glm::mat4 &projection);
-    int left() const { return _left; }
-    int top() const { return _top; }
-    int width() const { return _width; }
-    int height() const { return _height; }
-    void on_mouse_move(const MouseEvent *event);
-    void on_mouse_out(const MouseEvent *event);
-    void on_mouse_over(const MouseEvent *event);
-    void on_gain_focus();
-    void on_lose_focus();
-    void on_text_input(const TextInputEvent *event);
-    void on_key_event(const KeyEvent *event);
+
+    void draw(const glm::mat4 &projection) override;
+    int left() const override { return _left; }
+    int top() const override { return _top; }
+    int width() const override { return _width; }
+    int height() const override { return _height; }
+    void on_mouse_move(const MouseEvent *event) override;
+    void on_mouse_out(const MouseEvent *event) override;
+    void on_mouse_over(const MouseEvent *event) override;
+    void on_key_event(const KeyEvent *event) override;
+    void on_mouse_wheel(const MouseWheelEvent *event) override;
 
 
     void load_file(const ByteBuffer &file_path);
@@ -168,47 +164,6 @@ private:
 
     AudioEditWidget(const AudioEditWidget &copy) = delete;
     AudioEditWidget &operator=(const AudioEditWidget &copy) = delete;
-
-    // widget methods
-    static void destructor(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->~AudioEditWidget();
-    }
-    static void draw(Widget *widget, const glm::mat4 &projection) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->draw(projection);
-    }
-    static int left(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->left();
-    }
-    static int top(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->top();
-    }
-    static int width(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->width();
-    }
-    static int height(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->height();
-    }
-    static void on_mouse_move(Widget *widget, const MouseEvent *event) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_mouse_move(event);
-    }
-    static void on_mouse_out(Widget *widget, const MouseEvent *event) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_mouse_out(event);
-    }
-    static void on_mouse_over(Widget *widget, const MouseEvent *event) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_mouse_over(event);
-    }
-    static void on_gain_focus(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_gain_focus();
-    }
-    static void on_lose_focus(Widget *widget) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_lose_focus();
-    }
-    static void on_text_input(Widget *widget, const TextInputEvent *event) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_text_input(event);
-    }
-    static void on_key_event(Widget *widget, const KeyEvent *event) {
-        return (reinterpret_cast<AudioEditWidget*>(widget))->on_key_event(event);
-    }
 };
 
 #endif

@@ -109,6 +109,7 @@ private:
     void on_mouse_move(const MouseEvent *event);
     void on_text_input(const TextInputEvent *event);
     void on_key_event(const KeyEvent *event);
+    void on_mouse_wheel(const MouseWheelEvent *event);
     void init_widget(Widget *widget);
 
     Gui(const Gui &copy) = delete;

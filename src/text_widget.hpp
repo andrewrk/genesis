@@ -7,27 +7,23 @@
 #include "gui.hpp"
 #include "widget.hpp"
 
-class TextWidget {
+class TextWidget : public Widget {
 public:
-    Widget _widget;
-
     TextWidget(Gui *gui);
-    TextWidget(const TextWidget &copy) = delete;
-    TextWidget &operator=(const TextWidget &copy) = delete;
-
     ~TextWidget() {}
-    void draw(const glm::mat4 &projection);
-    int left() const { return _left; }
-    int top() const { return _top; }
-    int width() const;
-    int height() const;
-    void on_mouse_move(const MouseEvent *event);
-    void on_mouse_out(const MouseEvent *event);
-    void on_mouse_over(const MouseEvent *event);
-    void on_gain_focus();
-    void on_lose_focus();
-    void on_text_input(const TextInputEvent *event);
-    void on_key_event(const KeyEvent *event);
+
+    void draw(const glm::mat4 &projection) override;
+    int left() const override { return _left; }
+    int top() const override { return _top; }
+    int width() const override;
+    int height() const override;
+    void on_mouse_move(const MouseEvent *event) override;
+    void on_mouse_out(const MouseEvent *event) override;
+    void on_mouse_over(const MouseEvent *event) override;
+    void on_gain_focus() override;
+    void on_lose_focus() override;
+    void on_text_input(const TextInputEvent *event) override;
+    void on_key_event(const KeyEvent *event) override;
 
     // return true if you ate the event
     void set_on_key_event(bool (*fn)(TextWidget *, const KeyEvent *event)) {
@@ -179,46 +175,8 @@ private:
     int label_start_x() const;
     int label_start_y() const;
 
-    // widget methods
-    static void destructor(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->~TextWidget();
-    }
-    static void draw(Widget *widget, const glm::mat4 &projection) {
-        return (reinterpret_cast<TextWidget*>(widget))->draw(projection);
-    }
-    static int left(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->left();
-    }
-    static int top(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->top();
-    }
-    static int width(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->width();
-    }
-    static int height(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->height();
-    }
-    static void on_mouse_move(Widget *widget, const MouseEvent *event) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_mouse_move(event);
-    }
-    static void on_mouse_out(Widget *widget, const MouseEvent *event) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_mouse_out(event);
-    }
-    static void on_mouse_over(Widget *widget, const MouseEvent *event) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_mouse_over(event);
-    }
-    static void on_gain_focus(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_gain_focus();
-    }
-    static void on_lose_focus(Widget *widget) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_lose_focus();
-    }
-    static void on_text_input(Widget *widget, const TextInputEvent *event) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_text_input(event);
-    }
-    static void on_key_event(Widget *widget, const KeyEvent *event) {
-        return (reinterpret_cast<TextWidget*>(widget))->on_key_event(event);
-    }
+    TextWidget(const TextWidget &copy) = delete;
+    TextWidget &operator=(const TextWidget &copy) = delete;
 };
 
 #endif

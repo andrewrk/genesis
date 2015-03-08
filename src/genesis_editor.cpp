@@ -42,14 +42,14 @@ void GenesisEditor::exec() {
 void GenesisEditor::destroy_find_file_widget() {
     if (!_find_file_widget)
         return;
-    _gui->destroy_widget(&_find_file_widget->_widget);
+    _gui->destroy_widget(_find_file_widget);
     _find_file_widget = NULL;
 }
 
 void GenesisEditor::destroy_audio_edit_widget() {
     if (!_audio_edit_widget)
         return;
-    _gui->destroy_widget(&_audio_edit_widget->_widget);
+    _gui->destroy_widget(_audio_edit_widget);
     _audio_edit_widget = NULL;
 }
 
@@ -86,7 +86,7 @@ void GenesisEditor::ensure_find_file_widget() {
 void GenesisEditor::show_save_file() {
     ensure_find_file_widget();
     _find_file_widget->set_mode(FindFileWidget::ModeSave);
-    _gui->set_focus_widget(&_find_file_widget->_widget);
+    _gui->set_focus_widget(_find_file_widget);
     _find_file_widget->set_on_choose_file(on_choose_save_file);
 }
 
@@ -95,7 +95,7 @@ void GenesisEditor::show_open_file() {
     ensure_find_file_widget();
     _find_file_widget->set_mode(FindFileWidget::ModeOpen);
     _find_file_widget->set_on_choose_file(on_choose_file);
-    _gui->set_focus_widget(&_find_file_widget->_widget);
+    _gui->set_focus_widget(_find_file_widget);
 }
 
 void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
@@ -106,7 +106,7 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     _audio_edit_widget->set_pos(10, 10);
     _audio_edit_widget->set_size(_gui->_width - 20, _gui->_height - 20);
     _audio_edit_widget->load_file(file_path);
-    _gui->set_focus_widget(&_audio_edit_widget->_widget);
+    _gui->set_focus_widget(_audio_edit_widget);
 }
 
 void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
