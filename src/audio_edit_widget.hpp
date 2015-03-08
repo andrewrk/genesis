@@ -19,7 +19,7 @@ class OpenPlaybackDevice;
 class AudioEditWidget : public Widget {
 public:
     AudioEditWidget(Gui *gui, AudioHardware *audio_hardware);
-    ~AudioEditWidget();
+    ~AudioEditWidget() override;
 
     void draw(const glm::mat4 &projection) override;
     int left() const override { return _left; }

@@ -305,7 +305,7 @@ void Gui::destroy_widget(Widget *widget) {
 
     if (widget->_gui_index >= 0)
         _widget_list.swap_remove(widget->_gui_index);
-    destroy<Widget>(widget, 1);
+    destroy(widget, 1);
 }
 
 bool Gui::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {

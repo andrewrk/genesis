@@ -109,8 +109,6 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
 
 void AudioEditWidget::close_playback_device() {
     if (_playback_thread_created) {
-        fprintf(stderr, "close_playback_device thread\n");
-
         _playback_thread_join_flag = true;
         pthread_mutex_lock(&_playback_mutex);
         pthread_cond_signal(&_playback_cond);
@@ -120,7 +118,6 @@ void AudioEditWidget::close_playback_device() {
     }
 
     if (_playback_device) {
-        fprintf(stderr, "close_playback_device device\n");
         destroy(_playback_device, 1);
         _playback_device = NULL;
     }

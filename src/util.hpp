@@ -64,7 +64,7 @@ static inline T * reallocate(T * old, size_t old_count, size_t new_count) {
 template<typename T>
 static inline void destroy(T * ptr, size_t count) {
     for (size_t i = 0; i < count; i++)
-        ptr[i].T::~T();
+        ptr[i].~T();
     free(ptr);
 }
 
