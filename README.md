@@ -2,7 +2,11 @@
 
 ## Status
 
-Not ready for serious users yet.
+ * Not ready for serious users yet.
+ * Ability to open any format audio file and zoom and scroll around.
+ * Ability to play a selection (supported audio backends: pulseaudio).
+ * Ability to delete sections of audio.
+ * Ability to save as any format audio file.
 
 ![](https://s3.amazonaws.com/superjoe/temp/genesis-deb4513.png)
 
