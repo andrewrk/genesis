@@ -97,6 +97,23 @@ Gui::~Gui() {
     glDeleteVertexArrays(1, &_primitive_vertex_array);
 }
 
+KeyModifiers Gui::get_key_modifiers() {
+    const uint8_t *key_state = SDL_GetKeyboardState(NULL);
+    return {
+        (bool)key_state[SDL_SCANCODE_LSHIFT],
+        (bool)key_state[SDL_SCANCODE_RSHIFT],
+        (bool)key_state[SDL_SCANCODE_LCTRL],
+        (bool)key_state[SDL_SCANCODE_RCTRL],
+        (bool)key_state[SDL_SCANCODE_LALT],
+        (bool)key_state[SDL_SCANCODE_RALT],
+        (bool)key_state[SDL_SCANCODE_LGUI],
+        (bool)key_state[SDL_SCANCODE_RGUI],
+        (bool)key_state[SDL_SCANCODE_NUMLOCKCLEAR],
+        (bool)key_state[SDL_SCANCODE_CAPSLOCK],
+        (bool)key_state[SDL_SCANCODE_MODE],
+    };
+}
+
 void Gui::exec() {
     bool running = true;
     while (running) {
@@ -109,7 +126,19 @@ void Gui::exec() {
                     KeyEvent key_event = {
                         (event.key.state == SDL_PRESSED) ? KeyActionDown : KeyActionUp,
                         (VirtKey)event.key.keysym.sym,
-                        event.key.keysym.mod,
+                        {
+                            (bool)(event.key.keysym.mod & KMOD_LSHIFT),
+                            (bool)(event.key.keysym.mod & KMOD_RSHIFT),
+                            (bool)(event.key.keysym.mod & KMOD_LCTRL),
+                            (bool)(event.key.keysym.mod & KMOD_RCTRL),
+                            (bool)(event.key.keysym.mod & KMOD_LALT),
+                            (bool)(event.key.keysym.mod & KMOD_RALT),
+                            (bool)(event.key.keysym.mod & KMOD_LGUI),
+                            (bool)(event.key.keysym.mod & KMOD_RGUI),
+                            (bool)(event.key.keysym.mod & KMOD_NUM),
+                            (bool)(event.key.keysym.mod & KMOD_CAPS),
+                            (bool)(event.key.keysym.mod & KMOD_MODE),
+                        },
                     };
                     on_key_event(&key_event);
                 }
@@ -137,6 +166,7 @@ void Gui::exec() {
                         MouseButtonNone,
                         MouseActionMove,
                         MouseButtons {left, middle, right},
+                        get_key_modifiers(),
                     };
                     on_mouse_move(&mouse_event);
                 }
@@ -173,6 +203,7 @@ void Gui::exec() {
                         btn,
                         action,
                         MouseButtons {left, middle, right},
+                        get_key_modifiers(),
                     };
                     on_mouse_move(&mouse_event);
                 }
@@ -200,6 +231,7 @@ void Gui::exec() {
                     MouseWheelEvent wheel_event = {
                         event.wheel.x,
                         event.wheel.y,
+                        get_key_modifiers(),
                     };
                     on_mouse_wheel(&wheel_event);
                     break;

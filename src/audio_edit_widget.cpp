@@ -520,7 +520,7 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
 }
 
 void AudioEditWidget::on_mouse_wheel(const MouseWheelEvent *event) {
-    fprintf(stderr, "wheel: %d\n", event->y);
+    fprintf(stderr, "wheel: %d ctrl: %s\n", event->y, event->modifiers.ctrl() ? "yes" : "no");
 }
 
 void AudioEditWidget::on_mouse_out(const MouseEvent *event) {

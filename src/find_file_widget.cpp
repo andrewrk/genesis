@@ -173,7 +173,7 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
         return true;
     }
 
-    if (event->virt_key == VirtKeyH && event->ctrl()) {
+    if (event->virt_key == VirtKeyH && event->modifiers.ctrl()) {
         _show_hidden_files = !_show_hidden_files;
         update_entries_display();
         return true;

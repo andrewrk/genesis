@@ -318,13 +318,13 @@ void TextWidget::on_key_event(const KeyEvent *event) {
     get_cursor_slice(start, end);
     switch (event->virt_key) {
         case VirtKeyLeft:
-            if (event->ctrl() && event->shift()) {
+            if (event->modifiers.ctrl() && event->modifiers.shift()) {
                 int new_end = backward_word();
                 set_selection(_cursor_start, new_end);
-            } else if (event->ctrl()) {
+            } else if (event->modifiers.ctrl()) {
                 int new_start = backward_word();
                 set_selection(new_start, new_start);
-            } else if (event->shift()) {
+            } else if (event->modifiers.shift()) {
                 set_selection(_cursor_start, _cursor_end - 1);
             } else {
                 if (start == end) {
@@ -335,13 +335,13 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             }
             break;
         case VirtKeyRight:
-            if (event->ctrl() && event->shift()) {
+            if (event->modifiers.ctrl() && event->modifiers.shift()) {
                 int new_end = forward_word();
                 set_selection(_cursor_start, new_end);
-            } else if (event->ctrl()) {
+            } else if (event->modifiers.ctrl()) {
                 int new_start = forward_word();
                 set_selection(new_start, new_start);
-            } else if (event->shift()) {
+            } else if (event->modifiers.shift()) {
                 set_selection(_cursor_start, _cursor_end + 1);
             } else {
                 if (start == end) {
@@ -353,7 +353,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             break;
         case VirtKeyBackspace:
             if (start == end) {
-                if (event->ctrl()) {
+                if (event->modifiers.ctrl()) {
                     int new_start = backward_word();
                     replace_text(new_start, start, "", 0);
                 } else {
@@ -365,7 +365,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             break;
         case VirtKeyDelete:
             if (start == end) {
-                if (event->ctrl()) {
+                if (event->modifiers.ctrl()) {
                     int new_start = forward_word();
                     replace_text(start, new_start, "", 0);
                 } else {
@@ -376,33 +376,33 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             }
             break;
         case VirtKeyHome:
-            if (event->shift()) {
+            if (event->modifiers.shift()) {
                 set_selection(_cursor_start, 0);
             } else {
                 set_selection(0, 0);
             }
             break;
         case VirtKeyEnd:
-            if (event->shift()) {
+            if (event->modifiers.shift()) {
                 set_selection(_cursor_start, _label.text().length());
             } else {
                 set_selection(_label.text().length(), _label.text().length());
             }
             break;
         case VirtKeyA:
-            if (event->ctrl())
+            if (event->modifiers.ctrl())
                 select_all();
             break;
         case VirtKeyX:
-            if (event->ctrl())
+            if (event->modifiers.ctrl())
                 cut();
             break;
         case VirtKeyC:
-            if (event->ctrl())
+            if (event->modifiers.ctrl())
                 copy();
             break;
         case VirtKeyV:
-            if (event->ctrl())
+            if (event->modifiers.ctrl())
                 paste();
             break;
         default:

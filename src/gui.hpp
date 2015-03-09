@@ -111,6 +111,7 @@ private:
     void on_key_event(const KeyEvent *event);
     void on_mouse_wheel(const MouseWheelEvent *event);
     void init_widget(Widget *widget);
+    static KeyModifiers get_key_modifiers();
 
     Gui(const Gui &copy) = delete;
     Gui &operator=(const Gui &copy) = delete;

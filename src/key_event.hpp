@@ -209,11 +209,11 @@ enum VirtKey {
     VirtKeyLCtrl = SDLK_LCTRL,
     VirtKeyLShift = SDLK_LSHIFT,
     VirtKeyLAlt = SDLK_LALT,
-    VirtKeyLGui = SDLK_LGUI,
+    VirtKeyLSuper = SDLK_LGUI,
     VirtKeyRCtrl = SDLK_RCTRL,
     VirtKeyRShift = SDLK_RSHIFT,
     VirtKeyRAlt = SDLK_RALT,
-    VirtKeyRGui = SDLK_RGUI,
+    VirtKeyRSuper = SDLK_RGUI,
     VirtKeyMode = SDLK_MODE,
     VirtKeyAudioNext = SDLK_AUDIONEXT,
     VirtKeyAudioPrev = SDLK_AUDIOPREV,
@@ -247,56 +247,37 @@ enum KeyAction {
     KeyActionUp,
 };
 
+struct KeyModifiers {
+    bool left_shift;
+    bool right_shift;
+    bool left_ctrl;
+    bool right_ctrl;
+    bool left_alt;
+    bool right_alt;
+    bool left_super;
+    bool right_super;
+    bool num_lock;
+    bool caps_lock;
+    bool alt_gr;
+
+    bool ctrl() const {
+        return left_ctrl || right_ctrl;
+    }
+    bool shift() const {
+        return left_shift || right_shift;
+    }
+    bool alt() const {
+        return left_alt || right_alt;
+    }
+    bool super() const {
+        return left_super || right_super;
+    }
+};
+
 struct KeyEvent {
     KeyAction action;
     VirtKey virt_key;
-    uint16_t modifiers;
-
-    bool left_shift() const {
-        return modifiers & KMOD_LSHIFT;
-    }
-    bool right_shift() const {
-        return modifiers & KMOD_RSHIFT;
-    }
-    bool left_ctrl() const {
-        return modifiers & KMOD_LCTRL;
-    }
-    bool right_ctrl() const {
-        return modifiers & KMOD_RCTRL;
-    }
-    bool left_alt() const {
-        return modifiers & KMOD_LALT;
-    }
-    bool right_alt() const {
-        return modifiers & KMOD_RALT;
-    }
-    bool left_super() const {
-        return modifiers & KMOD_LGUI;
-    }
-    bool right_super() const {
-        return modifiers & KMOD_RGUI;
-    }
-    bool num_lock() const {
-        return modifiers & KMOD_NUM;
-    }
-    bool caps_lock() const {
-        return modifiers & KMOD_CAPS;
-    }
-    bool alt_gr() const {
-        return modifiers & KMOD_MODE;
-    }
-    bool ctrl() const {
-        return modifiers & KMOD_CTRL;
-    }
-    bool shift() const {
-        return modifiers & KMOD_SHIFT;
-    }
-    bool alt() const {
-        return modifiers & KMOD_ALT;
-    }
-    bool super() const {
-        return modifiers & KMOD_GUI;
-    }
+    KeyModifiers modifiers;
 };
 
 enum TextInputAction {

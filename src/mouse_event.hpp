@@ -1,6 +1,8 @@
 #ifndef MOUSE_EVENT_HPP
 #define MOUSE_EVENT_HPP
 
+#include "key_event.hpp"
+
 enum MouseButton {
     MouseButtonNone,
     MouseButtonLeft,
@@ -27,11 +29,13 @@ struct MouseEvent {
     MouseButton button;
     MouseAction action;
     MouseButtons buttons;
+    KeyModifiers modifiers;
 };
 
 struct MouseWheelEvent {
     int x;
     int y;
+    KeyModifiers modifiers;
 };
 
 #endif

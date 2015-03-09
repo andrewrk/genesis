@@ -61,12 +61,12 @@ bool GenesisEditor::on_gui_key(Gui *gui, const KeyEvent *event) {
         default:
             return false;
         case VirtKeyO:
-            if (!event->ctrl())
+            if (!event->modifiers.ctrl())
                 return false;
             show_open_file();
             return true;
         case VirtKeyS:
-            if (!event->ctrl())
+            if (!event->modifiers.ctrl())
                 return false;
             show_save_file();
             return true;
