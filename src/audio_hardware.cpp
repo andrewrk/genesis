@@ -386,23 +386,10 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
     }
 }
 
-void OpenPlaybackDevice::stream_write_callback(pa_stream *stream, size_t write_count) {
-    size_t fill_count = _ring_buffer->fill_count();
-    size_t read_count = min(write_count, fill_count);
-    size_t pad_zero_count = write_count - read_count;
-
-    // TODO try passing a callback instead of NULL that does nothing
-    pa_stream_write(stream, _ring_buffer->read_ptr(), read_count, NULL, 0, PA_SEEK_RELATIVE);
-    _underrun_count += (int)((bool)pad_zero_count);
-    _ring_buffer->advance_read_ptr(read_count);
-}
-
 OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
         const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
-    _ring_buffer(NULL),
-    _stream(NULL),
-    _underrun_count(0)
+    _stream(NULL)
 {
     audio_hardware->block_until_ready();
 
@@ -416,7 +403,6 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
         panic("unable to create pulseaudio stream");
 
     pa_stream_set_state_callback(_stream, stream_state_callback, this);
-    pa_stream_set_write_callback(_stream, stream_write_callback, this);
 
     int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channels.length(), sample_rate);
     int buffer_length = latency * bytes_per_second;
@@ -432,14 +418,31 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
     if (err)
         panic("unable to connect pulseaudio playback stream");
 
-    _ring_buffer = create<RingBuffer>(buffer_length);
-
     *ok = true;
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {
+    pa_stream_set_state_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
-    if (_ring_buffer)
-        destroy(_ring_buffer, 1);
+}
+
+int OpenPlaybackDevice::writable_size() {
+    return pa_stream_writable_size(_stream);
+}
+
+void OpenPlaybackDevice::begin_write(char **data, int *byte_count) {
+    size_t size_t_byte_count = *byte_count;
+    if (pa_stream_begin_write(_stream, (void**)data, &size_t_byte_count))
+        panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+    *byte_count = size_t_byte_count;
+}
+
+void OpenPlaybackDevice::write(char *data, int byte_count) {
+    if (pa_stream_write(_stream, data, byte_count, NULL, 0, PA_SEEK_RELATIVE))
+        panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+}
+
+void OpenPlaybackDevice::clear_buffer() {
+    pa_operation_unref(pa_stream_flush(_stream, NULL, NULL));
 }

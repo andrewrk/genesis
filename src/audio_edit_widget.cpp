@@ -82,10 +82,10 @@ AudioEditWidget::~AudioEditWidget() {
 }
 
 void AudioEditWidget::destroy_audio_file() {
-    if (!_audio_file)
-        return;
-    destroy(_audio_file, 1);
-    _audio_file = NULL;
+    if (_audio_file) {
+        destroy(_audio_file, 1);
+        _audio_file = NULL;
+    }
 }
 
 void AudioEditWidget::destroy_all_ui() {
@@ -179,32 +179,47 @@ void * AudioEditWidget::playback_thread() {
         if (pthread_mutex_lock(&_playback_mutex))
             panic("pthread_mutex_lock failure");
 
-        int free_byte_count = _playback_device->_ring_buffer->free_count();
+        int free_byte_count = _playback_device->writable_size();
         int bytes_per_frame = get_bytes_per_frame(SampleFormatInt32, _audio_file->channels.length());
         int free_frame_count = free_byte_count / bytes_per_frame;
         if (_playback_active) {
-            // calculate the playback range
             long playback_range_start, playback_range_end;
             calculate_playback_range(&playback_range_start, &playback_range_end);
 
-            int channel_count = _audio_file->channels.length();
-            int32_t *samples = reinterpret_cast<int32_t*>(_playback_device->_ring_buffer->write_ptr());
-            clamp_playback_write_head(playback_range_start, playback_range_end);
-            for (int i = 0; i < free_frame_count; i += 1) {
-                for (int ch = 0; ch < channel_count; ch += 1) {
-                    double sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
-                    samples[i * channel_count + ch] = (int32_t)(sample * 2147483647.0);
-                }
-                _playback_write_head += 1;
+            while (free_frame_count > 0) {
+                char *buffer_ptr;
+                int buffer_size = free_frame_count * bytes_per_frame;
+                _playback_device->begin_write(&buffer_ptr, &buffer_size);
+                int32_t *samples = reinterpret_cast<int32_t*>(buffer_ptr);
+                int this_buffer_frame_count = buffer_size / bytes_per_frame;
+                free_frame_count -= this_buffer_frame_count;
+
                 clamp_playback_write_head(playback_range_start, playback_range_end);
+                int channel_count = _audio_file->channels.length();
+                for (int i = 0; i < this_buffer_frame_count; i += 1) {
+                    for (int ch = 0; ch < channel_count; ch += 1) {
+                        double sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
+                        samples[i * channel_count + ch] = (int32_t)(sample * 2147483647.0);
+                    }
+                    _playback_write_head += 1;
+                    clamp_playback_write_head(playback_range_start, playback_range_end);
+                }
+                _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
             }
-            _playback_device->_ring_buffer->advance_write_ptr(free_frame_count * bytes_per_frame);
 
             _playback_cursor_frame = _playback_write_head -
                 (_playback_device_latency * _playback_device_sample_rate);
         } else {
-            memset(_playback_device->_ring_buffer->write_ptr(), 0, free_byte_count);
-            _playback_device->_ring_buffer->advance_write_ptr(free_byte_count);
+            // write zeroes
+            while (free_frame_count > 0) {
+                char *buffer_ptr;
+                int buffer_size = free_frame_count * bytes_per_frame;
+                _playback_device->begin_write(&buffer_ptr, &buffer_size);
+                int this_buffer_frame_count = buffer_size / bytes_per_frame;
+                free_frame_count -= this_buffer_frame_count;
+                memset(buffer_ptr, 0, this_buffer_frame_count * bytes_per_frame);
+                _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
+            }
         }
         struct timespec tms;
         clock_gettime(CLOCK_MONOTONIC, &tms);
@@ -457,9 +472,7 @@ void AudioEditWidget::set_playback_selection(long start, long end) {
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:
-            if (event->button != MouseButtonLeft)
-                break;
-            {
+            if (event->button == MouseButtonLeft) {
                 CursorPosition pos;
                 if (get_frame_and_channel(event->x, event->y, &pos)) {
                     _selection.start = pos.frame;
@@ -474,6 +487,7 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                     set_playback_selection(frame, frame);
                     _playback_select_down = true;
                     scroll_playback_cursor_into_view();
+                    restart_play();
                     break;
                 }
             }
@@ -537,7 +551,7 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
 }
 
 void AudioEditWidget::clear_playback_buffer() {
-    _playback_device->_ring_buffer->clear();
+    _playback_device->clear_buffer();
     if (pthread_cond_signal(&_playback_cond))
         panic("pthread_cond_signal failure");
 }

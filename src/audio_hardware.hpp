@@ -4,7 +4,6 @@
 #include "list.hpp"
 #include "sample_format.hpp"
 #include "channel_layouts.hpp"
-#include "ring_buffer.hpp"
 #include "string.hpp"
 
 #include <pulse/pulseaudio.h>
@@ -37,22 +36,20 @@ public:
             int sample_rate, bool *ok);
     ~OpenPlaybackDevice();
 
-    RingBuffer *_ring_buffer;
+    int writable_size();
+    void begin_write(char **data, int *byte_count);
+    void write(char *data, int byte_count);
+    void clear_buffer();
+
     AudioHardware *_audio_hardware;
     pa_stream *_stream;
-    int _underrun_count;
 
 private:
 
     void stream_state_callback(pa_stream *stream);
-    void stream_write_callback(pa_stream *stream, size_t nbytes);
 
     static void stream_state_callback(pa_stream *stream, void *userdata) {
         return static_cast<OpenPlaybackDevice*>(userdata)->stream_state_callback(stream);
-    }
-
-    static void stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
-        return static_cast<OpenPlaybackDevice*>(userdata)->stream_write_callback(stream, nbytes);
     }
 };
 
