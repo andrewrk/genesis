@@ -44,6 +44,9 @@ make
 
 ## Roadmap
 
+ 0. Menu system
+ 0. Widget layouts
+ 0. Scroll bar
  0. Record audio
  0. Multiplayer
  0. Undo/Redo
@@ -101,3 +104,16 @@ modify the effects, and then create 10 projects which are drum loops using the
 samples. A third user might use 2-3 of these drum loops, edit them to modify
 the tempo, and produce a song with them and publish the song. Yet another user
 might edit the song, produce a remix, and then publish the remix.
+
+## License
+
+Genesis is licensed with the Lesser General Public License. A full copy of the
+license text is included in the LICENSE file, but here's a non-normative
+summary:
+
+As a user you have access to the source code, and if you are willing to compile
+from source yourself, you can get the software for free.
+
+As a company, this means you may freely use the source code in your software,
+the only restriction being that if you modify Genesis source code, you must
+contribute those modifications back to the Genesis project.
