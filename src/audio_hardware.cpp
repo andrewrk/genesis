@@ -411,12 +411,12 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
     sample_spec.rate = sample_rate;
     sample_spec.channels = channel_layout->channels.length();
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
-    pa_stream *stream = pa_stream_new(audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
-    if (!stream)
+    _stream = pa_stream_new(audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    if (!_stream)
         panic("unable to create pulseaudio stream");
 
-    pa_stream_set_state_callback(stream, stream_state_callback, this);
-    pa_stream_set_write_callback(stream, stream_write_callback, this);
+    pa_stream_set_state_callback(_stream, stream_state_callback, this);
+    pa_stream_set_write_callback(_stream, stream_write_callback, this);
 
     int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channels.length(), sample_rate);
     int buffer_length = latency * bytes_per_second;
@@ -428,7 +428,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
     buffer_attr.minreq = UINT32_MAX;
     buffer_attr.fragsize = UINT32_MAX;
 
-    int err = pa_stream_connect_playback(stream, device_name, &buffer_attr, PA_STREAM_NOFLAGS, NULL, NULL);
+    int err = pa_stream_connect_playback(_stream, device_name, &buffer_attr, PA_STREAM_NOFLAGS, NULL, NULL);
     if (err)
         panic("unable to connect pulseaudio playback stream");
 
