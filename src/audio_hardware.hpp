@@ -3,34 +3,57 @@
 
 #include "list.hpp"
 #include "sample_format.hpp"
+#include "channel_layouts.hpp"
 #include "ring_buffer.hpp"
+#include "string.hpp"
+
+#include <pulse/pulseaudio.h>
+#include <pthread.h>
+#include <atomic>
+using std::atomic_int;
+using std::atomic_bool;
 
 struct AudioDevice {
-    const char * name;
-    int max_input_channels;
-    int max_output_channels;
-    double default_low_input_latency;
-    double default_low_output_latency;
-    double default_high_input_latency;
-    double default_high_output_latency;
+    String name;
+    String description;
+    ChannelLayout channel_layout;
+    SampleFormat default_sample_format;
+    double default_output_latency;
     double default_sample_rate;
+};
+
+struct AudioDevicesInfo {
+    List<AudioDevice> devices;
+    // can be -1 when default device is unknown
+    int default_output_index;
 };
 
 class AudioHardware;
 typedef void PaStream;
 class OpenPlaybackDevice {
 public:
-    OpenPlaybackDevice(AudioHardware *audio_hardware, int device_index,
-            int channel_count, SampleFormat sample_format, double latency,
+    OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
+            const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
             int sample_rate, bool *ok);
     ~OpenPlaybackDevice();
 
     RingBuffer *_ring_buffer;
     AudioHardware *_audio_hardware;
-    int _channel_count;
-    unsigned long _bytes_per_frame;
-    PaStream *_stream;
+    pa_stream *_stream;
     int _underrun_count;
+
+private:
+
+    void stream_state_callback(pa_stream *stream);
+    void stream_write_callback(pa_stream *stream, size_t nbytes);
+
+    static void stream_state_callback(pa_stream *stream, void *userdata) {
+        return static_cast<OpenPlaybackDevice*>(userdata)->stream_state_callback(stream);
+    }
+
+    static void stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
+        return static_cast<OpenPlaybackDevice*>(userdata)->stream_write_callback(stream, nbytes);
+    }
 };
 
 class AudioHardware {
@@ -38,23 +61,74 @@ public:
     AudioHardware();
     ~AudioHardware();
 
-    // calling this invalidates all pointers to AudioDevice instances
-    // as well as all pointers to OpenPlaybackDevices
-    void rescan_devices();
-
-    const List<AudioDevice> *devices() const {
-        return &_devices;
+    // the device list is valid only for the duration of the callback
+    void set_on_devices_change(void (*on_devices_change)(AudioHardware *, const AudioDevicesInfo *)) {
+        _on_devices_change = on_devices_change;
     }
 
-    int _default_input_index;
-    int _default_output_index;
+    // call this to trigger a device scan. this results in one device list event
+    // going onto the event queue. call flush_events() to dispatch the events
+    void scan_devices();
 
+    // call this and on_devices_change will be called 0 or 1 times, and then
+    // this function will return
+    void flush_events();
+
+    // called from the OpenPlaybackDevice constructor
+    void block_until_ready();
+
+    void *_userdata;
+
+
+
+    pa_context *_context;
 private:
-    bool _initialized;
-    List<AudioDevice> _devices;
+    atomic_int _device_scan_requests;
+    void (*_on_devices_change)(AudioHardware *, const AudioDevicesInfo *);
 
-    void deinitialize();
-    void initialize();
+    // the one that we're working on building
+    AudioDevicesInfo *_current_audio_devices_info;
+    String _default_audio_device_name;
+
+    // this one is ready to be read with flush_events. protected by mutex
+    AudioDevicesInfo *_ready_audio_devices_info;
+
+    bool _have_device_list;
+    bool _have_default_sink;
+
+    atomic_bool _ready_flag;
+    pthread_cond_t _ready_cond;
+    pthread_mutex_t _thread_mutex;
+    pthread_t _pulseaudio_thread_id;
+
+    pa_mainloop *_main_loop;
+    atomic_bool _thread_exit_flag;
+
+    void context_state_callback(pa_context *context);
+    void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol);
+    void server_info_callback(pa_context *context, const pa_server_info *info);
+
+    void *pulseaudio_thread();
+    void destroy_current_audio_devices_info();
+    void destroy_ready_audio_devices_info();
+    void initialize_current_device_list();
+    void set_ready_flag();
+    void finish_device_query();
+    int perform_operation(pa_operation *op, int *return_value);
+
+    static void context_state_callback(pa_context *context, void *userdata) {
+        return static_cast<AudioHardware*>(userdata)->context_state_callback(context);
+    }
+    static void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol, void *userdata) {
+        return static_cast<AudioHardware*>(userdata)->sink_info_callback(context, info, eol);
+    }
+    static void server_info_callback(pa_context *context, const pa_server_info *info, void *userdata) {
+        return static_cast<AudioHardware*>(userdata)->server_info_callback(context, info);
+    }
+
+    static void *pulseaudio_thread(void *arg) {
+        return static_cast<AudioHardware*>(arg)->pulseaudio_thread();
+    }
 
     AudioHardware(const AudioHardware &copy) = delete;
     AudioHardware &operator=(const AudioHardware &copy) = delete;

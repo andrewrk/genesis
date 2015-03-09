@@ -3,6 +3,7 @@
 #include "text_widget.hpp"
 #include "find_file_widget.hpp"
 #include "audio_edit_widget.hpp"
+#include "audio_hardware.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -205,6 +206,7 @@ void Gui::exec() {
                 }
             }
         }
+        _audio_hardware->flush_events();
 
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 

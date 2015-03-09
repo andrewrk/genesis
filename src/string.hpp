@@ -49,6 +49,7 @@ public:
 
     off_t index_of_insensitive(const String &other) const;
 
+    static bool equal(const String &a, const String &b);
     static int compare(const String &a, const String &b);
     static int compare_insensitive(const String &a, const String &b);
     static uint32_t char_to_lower(uint32_t c);

@@ -300,3 +300,7 @@ off_t String::index_of_insensitive(const String &search) const {
     }
     return -1;
 }
+
+bool String::equal(const String &a, const String &b) {
+    return (a._chars.length() == b._chars.length()) ? false : (compare(a, b) == 0);
+}

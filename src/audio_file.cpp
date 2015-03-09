@@ -525,6 +525,7 @@ static AVSampleFormat to_libav_sample_format(ExportSampleFormat format) {
             case SampleFormatInt32:  return AV_SAMPLE_FMT_S32P;
             case SampleFormatFloat:  return AV_SAMPLE_FMT_FLTP;
             case SampleFormatDouble: return AV_SAMPLE_FMT_DBLP;
+            case SampleFormatInvalid: panic("invalid sample format");
         }
     } else {
         switch (format.sample_format) {
@@ -533,6 +534,7 @@ static AVSampleFormat to_libav_sample_format(ExportSampleFormat format) {
             case SampleFormatInt32:  return AV_SAMPLE_FMT_S32;
             case SampleFormatFloat:  return AV_SAMPLE_FMT_FLT;
             case SampleFormatDouble: return AV_SAMPLE_FMT_DBL;
+            case SampleFormatInvalid: panic("invalid sample format");
         }
     }
     panic("unrecognized sample format");
@@ -883,17 +885,6 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
 void audio_file_init(void) {
     avcodec_register_all();
     av_register_all();
-}
-
-int sample_format_byte_count(enum SampleFormat format) {
-    switch (format) {
-        case SampleFormatUInt8:  return 1;
-        case SampleFormatInt16:  return 2;
-        case SampleFormatInt32:  return 4;
-        case SampleFormatFloat:  return 4;
-        case SampleFormatDouble: return 8;
-    }
-    panic("unrecognized sample format");
 }
 
 bool codec_supports_sample_rate(const char *format_short_name,

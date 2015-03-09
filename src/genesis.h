@@ -6,7 +6,10 @@ extern "C"
 {
 #endif
 
+#define GENESIS_VERSION_STRING "0.0.0"
+
 void genesis_init(void);
+
 
 #ifdef __cplusplus
 }

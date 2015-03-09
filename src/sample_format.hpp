@@ -9,6 +9,7 @@ enum SampleFormat {
     SampleFormatInt32,
     SampleFormatFloat,
     SampleFormatDouble,
+    SampleFormatInvalid,
 };
 
 static inline int get_bytes_per_sample(SampleFormat sample_format) {
@@ -18,6 +19,7 @@ static inline int get_bytes_per_sample(SampleFormat sample_format) {
     case SampleFormatInt32: return 4;
     case SampleFormatFloat: return 4;
     case SampleFormatDouble: return 8;
+    case SampleFormatInvalid: panic("invalid sample format");
     }
     panic("invalid sample format");
 }

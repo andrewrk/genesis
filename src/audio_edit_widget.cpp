@@ -221,14 +221,11 @@ void AudioEditWidget::open_playback_device() {
     if (_playback_device)
         close_playback_device();
 
-    const List<AudioDevice> *devices = _audio_hardware->devices();
-    int selected_index = _audio_hardware->_default_output_index;
-    fprintf(stderr, "Opening playback device: %s\n", devices->at(selected_index).name);
-    _playback_device_latency = devices->at(selected_index).default_low_output_latency;
+    _playback_device_latency = 0.008;
     _playback_device_sample_rate = _audio_file->sample_rate;
     bool ok;
-    _playback_device = create<OpenPlaybackDevice>(_audio_hardware, selected_index,
-            _audio_file->channels.length(), SampleFormatInt32, _playback_device_latency,
+    _playback_device = create<OpenPlaybackDevice>(_audio_hardware, nullptr,
+            _audio_file->channel_layout, SampleFormatInt32, _playback_device_latency,
             _audio_file->sample_rate, &ok);
 
     if (!ok)

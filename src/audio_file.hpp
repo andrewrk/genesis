@@ -36,8 +36,6 @@ void audio_file_get_supported_sample_rates(const char *format_short_name,
 void audio_file_get_supported_sample_formats(const char *format_short_name,
         const char *codec_short_name, const char *filename, List<ExportSampleFormat> &out);
 
-int sample_format_byte_count(enum SampleFormat format);
-
 bool codec_supports_sample_rate(const char *format_short_name,
         const char *codec_short_name, const char *filename, int sample_rate);
 

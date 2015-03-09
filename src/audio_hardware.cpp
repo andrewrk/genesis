@@ -1,144 +1,445 @@
 #include "audio_hardware.hpp"
 #include "util.hpp"
+#include "genesis.h"
 
-#include <portaudio.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
+
+void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_info) {
+    for (int i = 0; i < devices_info->devices.length(); i += 1) {
+        fprintf(stderr, "device: %s", devices_info->devices.at(i).name.encode().raw());
+    }
+}
 
 AudioHardware::AudioHardware() :
-    _initialized(false)
+    _userdata(NULL),
+    _device_scan_requests(0),
+    _on_devices_change(default_on_devices_change),
+    _current_audio_devices_info(NULL),
+    _ready_audio_devices_info(NULL),
+    _ready_flag(false),
+    _thread_exit_flag(false)
 {
-    rescan_devices();
+    if (pthread_mutex_init(&_thread_mutex, NULL))
+        panic("pthread_mutex_init failure");
+    if (pthread_cond_init(&_ready_cond, NULL))
+        panic("pthread_cond_init failure");
+
+    _main_loop = pa_mainloop_new();
+    if (!_main_loop)
+        panic("unable to create pulseaudio mainloop");
+
+    pa_mainloop_api *main_loop_api = pa_mainloop_get_api(_main_loop);
+
+    pa_proplist *props = pa_proplist_new();
+    if (!props)
+        panic("unable to allocate property list");
+    pa_proplist_sets(props, PA_PROP_APPLICATION_NAME, "Genesis Audio Software");
+    pa_proplist_sets(props, PA_PROP_APPLICATION_VERSION, GENESIS_VERSION_STRING);
+    pa_proplist_sets(props, PA_PROP_APPLICATION_ID, "me.andrewkelley.genesis");
+
+    _context = pa_context_new_with_proplist(main_loop_api, "Genesis", props);
+    if (!_context)
+        panic("unable to create pulseaudio context");
+
+    pa_proplist_free(props);
+
+    pa_context_set_state_callback(_context, context_state_callback, this);
+    int err = pa_context_connect(_context, NULL, (pa_context_flags_t)0, NULL);
+    if (err)
+        panic("pulseaudio context connect failed");
+
+    if (pthread_create(&_pulseaudio_thread_id, NULL, pulseaudio_thread, this))
+        panic("unable to create playback thread");
+
 }
 
 AudioHardware::~AudioHardware() {
-    deinitialize();
+    _thread_exit_flag = true;
+    pa_mainloop_wakeup(_main_loop);
+    pthread_join(_pulseaudio_thread_id, NULL);
+
+    destroy_current_audio_devices_info();
+    destroy_ready_audio_devices_info();
+
+    pa_context_disconnect(_context);
+    pa_context_unref(_context);
+    pa_mainloop_free(_main_loop);
+
+    if (pthread_cond_destroy(&_ready_cond))
+        panic("pthread_cond_destroy failure");
+    if (pthread_mutex_destroy(&_thread_mutex))
+        panic("pthread_mutex_destroy failure");
 }
 
-void AudioHardware::deinitialize() {
-    if (!_initialized)
+void AudioHardware::destroy_ready_audio_devices_info() {
+    if (_ready_audio_devices_info) {
+        destroy(_ready_audio_devices_info, 1);
+        _ready_audio_devices_info = NULL;
+    }
+}
+
+void AudioHardware::destroy_current_audio_devices_info() {
+    if (_current_audio_devices_info) {
+        destroy(_current_audio_devices_info, 1);
+        _current_audio_devices_info = NULL;
+    }
+}
+
+void AudioHardware::initialize_current_device_list() {
+    destroy_current_audio_devices_info();
+    _current_audio_devices_info = create<AudioDevicesInfo>();
+}
+
+void AudioHardware::set_ready_flag() {
+    _ready_flag = true;
+    pthread_mutex_lock(&_thread_mutex);
+    pthread_cond_signal(&_ready_cond);
+    pthread_mutex_unlock(&_thread_mutex);
+}
+
+void AudioHardware::context_state_callback(pa_context *context) {
+    switch (pa_context_get_state(context)) {
+    case PA_CONTEXT_UNCONNECTED: // The context hasn't been connected yet.
+        return;
+    case PA_CONTEXT_CONNECTING: // A connection is being established.
+        return;
+    case PA_CONTEXT_AUTHORIZING: // The client is authorizing itself to the daemon.
+        return;
+    case PA_CONTEXT_SETTING_NAME: // The client is passing its application name to the daemon.
+        return;
+    case PA_CONTEXT_READY: // The connection is established, the context is ready to execute operations.
+    case PA_CONTEXT_TERMINATED: // The connection was terminated cleanly.
+        set_ready_flag();
+        return;
+    case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
+        panic("pulsaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
+    }
+}
+
+static double usec_to_sec(pa_usec_t usec) {
+    return (double)usec / (double)PA_USEC_PER_SEC;
+}
+
+static SampleFormat sample_format_from_pulseaudio(pa_sample_spec sample_spec) {
+    switch (sample_spec.format) {
+    case PA_SAMPLE_U8:        return SampleFormatUInt8;
+    case PA_SAMPLE_S16NE:     return SampleFormatInt16;
+    case PA_SAMPLE_S32NE:     return SampleFormatInt32;
+    case PA_SAMPLE_FLOAT32NE: return SampleFormatFloat;
+    default:                  return SampleFormatInvalid;
+    }
+}
+
+static int sample_rate_from_pulseaudio(pa_sample_spec sample_spec) {
+    return sample_spec.rate;
+}
+
+void AudioHardware::finish_device_query() {
+    if (!_have_device_list || !_have_default_sink)
         return;
 
-    PaError err = Pa_Terminate();
-    if (err != paNoError)
-        panic("unable to terminate PortAudio: %s", Pa_GetErrorText(err));
-
-    _initialized = false;
-}
-
-void AudioHardware::initialize() {
-    if (_initialized)
-        return;
-
-    PaError err = Pa_Initialize();
-
-    if (err != paNoError)
-        panic("unable to init PortAudio: %s", Pa_GetErrorText(err));
-
-    _initialized = true;
-}
-
-void AudioHardware::rescan_devices() {
-    deinitialize();
-    initialize();
-
-    _devices.resize(Pa_GetDeviceCount());
-    for (int i = 0; i < _devices.length(); i += 1) {
-        const PaDeviceInfo *device_info = Pa_GetDeviceInfo(i);
-        AudioDevice *audio_device = &_devices.at(i);
-        audio_device->name = device_info->name;
-        audio_device->max_input_channels = device_info->maxInputChannels;
-        audio_device->max_output_channels = device_info->maxOutputChannels;
-        audio_device->default_low_input_latency = device_info->defaultLowInputLatency;
-        audio_device->default_low_output_latency = device_info->defaultLowOutputLatency;
-        audio_device->default_high_input_latency = device_info->defaultHighInputLatency;
-        audio_device->default_high_output_latency = device_info->defaultHighOutputLatency;
-        audio_device->default_sample_rate = device_info->defaultSampleRate;
+    // based on the default sink name, figure out the default output index
+    _current_audio_devices_info->default_output_index = -1;
+    for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1) {
+        AudioDevice *audio_device = &_current_audio_devices_info->devices.at(i);
+        if (String::equal(audio_device->name, _default_audio_device_name)) {
+            _current_audio_devices_info->default_output_index = i;
+            break;
+        }
     }
 
-    _default_input_index = Pa_GetDefaultInputDevice();
-    _default_output_index = Pa_GetDefaultOutputDevice();
+    pthread_mutex_lock(&_thread_mutex);
+    destroy_ready_audio_devices_info();
+    _ready_audio_devices_info = _current_audio_devices_info;
+    _current_audio_devices_info = NULL;
+    pthread_mutex_unlock(&_thread_mutex);
 }
 
-static PaSampleFormat to_portaudio_sample_format(SampleFormat sample_format) {
+static ChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
+    switch (pos) {
+    case PA_CHANNEL_POSITION_MONO: return ChannelIdFrontCenter;
+    case PA_CHANNEL_POSITION_FRONT_LEFT: return ChannelIdFrontLeft;
+    case PA_CHANNEL_POSITION_FRONT_RIGHT: return ChannelIdFrontRight;
+    case PA_CHANNEL_POSITION_FRONT_CENTER: return ChannelIdFrontCenter;
+    case PA_CHANNEL_POSITION_REAR_CENTER: return ChannelIdBackCenter;
+    case PA_CHANNEL_POSITION_REAR_LEFT: return ChannelIdBackLeft;
+    case PA_CHANNEL_POSITION_REAR_RIGHT: return ChannelIdBackRight;
+    case PA_CHANNEL_POSITION_LFE: return ChannelIdLowFrequency;
+    case PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER: return ChannelIdFrontLeftOfCenter;
+    case PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER: return ChannelIdFrontRightOfCenter;
+    case PA_CHANNEL_POSITION_SIDE_LEFT: return ChannelIdSideLeft;
+    case PA_CHANNEL_POSITION_SIDE_RIGHT: return ChannelIdSideRight;
+    case PA_CHANNEL_POSITION_TOP_CENTER: return ChannelIdTopCenter;
+    case PA_CHANNEL_POSITION_TOP_FRONT_LEFT: return ChannelIdTopFrontLeft;
+    case PA_CHANNEL_POSITION_TOP_FRONT_RIGHT: return ChannelIdTopFrontRight;
+    case PA_CHANNEL_POSITION_TOP_FRONT_CENTER: return ChannelIdTopFrontCenter;
+    case PA_CHANNEL_POSITION_TOP_REAR_LEFT: return ChannelIdTopBackLeft;
+    case PA_CHANNEL_POSITION_TOP_REAR_RIGHT: return ChannelIdTopBackRight;
+    case PA_CHANNEL_POSITION_TOP_REAR_CENTER: return ChannelIdTopBackCenter;
+
+    default:
+        panic("cannot map pulseaudio channel to genesis");
+    }
+}
+
+static void set_from_pulseaudio_channel_map(pa_channel_map channel_map, ChannelLayout *channel_layout) {
+    channel_layout->channels.clear();
+    for (int i = 0; i < channel_map.channels; i += 1) {
+        channel_layout->channels.append(from_pulseaudio_channel_pos(channel_map.map[i]));
+    }
+}
+
+void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *info, int eol) {
+    if (eol) {
+        _have_device_list = true;
+        finish_device_query();
+    } else {
+        List<AudioDevice> *devices = &_current_audio_devices_info->devices;
+        _current_audio_devices_info->devices.resize(devices->length() + 1);
+        AudioDevice *audio_device = &devices->at(devices->length() - 1);
+        audio_device->name = String(info->name);
+        audio_device->description = String(info->description);
+        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
+        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
+        audio_device->default_output_latency = usec_to_sec(info->configured_latency);
+        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+    }
+}
+
+void AudioHardware::server_info_callback(pa_context *context, const pa_server_info *info) {
+    _default_audio_device_name = info->default_sink_name;
+
+    _have_default_sink = true;
+    finish_device_query();
+}
+
+int AudioHardware::perform_operation(pa_operation *op, int *return_value) {
+    int total_dispatch_count = 0;
+    for (;;) {
+        switch (pa_operation_get_state(op)) {
+        case PA_OPERATION_RUNNING:
+            {
+                int dispatch_count = pa_mainloop_iterate(_main_loop, 1, return_value);
+                if (dispatch_count >= 0) {
+                    total_dispatch_count += dispatch_count;
+                    continue;
+                } else {
+                    return dispatch_count;
+                }
+            }
+        case PA_OPERATION_DONE:
+            pa_operation_unref(op);
+            return total_dispatch_count;
+        case PA_OPERATION_CANCELLED:
+            pa_operation_unref(op);
+            return -1;
+        }
+    }
+}
+
+void *AudioHardware::pulseaudio_thread() {
+    int return_value;
+    while (pa_mainloop_iterate(_main_loop, 1, &return_value) >= 0) {
+        if (_thread_exit_flag)
+            break;
+        if (_device_scan_requests >= 1) {
+            _device_scan_requests -= 1;
+
+            _have_device_list = false;
+            _have_default_sink = false;
+
+            initialize_current_device_list();
+            pa_operation *list_sink_op = pa_context_get_sink_info_list(_context, sink_info_callback, this);
+            pa_operation *server_info_op = pa_context_get_server_info(_context, server_info_callback, this);
+
+            if (perform_operation(list_sink_op, &return_value) < 0)
+                break;
+            if (perform_operation(server_info_op, &return_value) < 0)
+                break;
+        }
+    }
+    return nullptr;
+}
+
+void AudioHardware::scan_devices() {
+    _device_scan_requests += 1;
+    pa_mainloop_wakeup(_main_loop);
+}
+
+void AudioHardware::flush_events() {
+    pthread_mutex_lock(&_thread_mutex);
+
+    AudioDevicesInfo *devices_info = _ready_audio_devices_info;
+    _ready_audio_devices_info = NULL;
+
+    pthread_mutex_unlock(&_thread_mutex);
+
+    if (devices_info) {
+        _on_devices_change(this, devices_info);
+        destroy(devices_info, 1);
+    }
+}
+
+void AudioHardware::block_until_ready() {
+    if (_ready_flag)
+        return;
+    pthread_mutex_lock(&_thread_mutex);
+    while (!_ready_flag) {
+        pthread_cond_wait(&_ready_cond, &_thread_mutex);
+    }
+    pthread_mutex_unlock(&_thread_mutex);
+}
+
+static pa_sample_format_t to_pulseaudio_sample_format(SampleFormat sample_format) {
     switch (sample_format) {
     case SampleFormatUInt8:
-        return paUInt8;
+        return PA_SAMPLE_U8;
     case SampleFormatInt16:
-        return paInt16;
+        return PA_SAMPLE_S16NE;
     case SampleFormatInt32:
-        return paInt32;
+        return PA_SAMPLE_S32NE;
     case SampleFormatFloat:
-        return paFloat32;
+        return PA_SAMPLE_FLOAT32NE;
     case SampleFormatDouble:
-        panic("cannot use double sample format with portaudio");
+        panic("cannot use double sample format with pulseaudio");
+    case SampleFormatInvalid:
+        panic("invalid sample format");
     }
     panic("invalid sample format");
 }
 
-static int playback_callback(const void *input_buffer, void *output_void_ptr,
-        unsigned long frame_count, const PaStreamCallbackTimeInfo* time_info,
-        PaStreamCallbackFlags status_flags, void *user_data)
-{
-    OpenPlaybackDevice *playback_device = reinterpret_cast<OpenPlaybackDevice*>(user_data);
-    char *output_buffer = reinterpret_cast<char*>(output_void_ptr);
-
-    unsigned long fill_count = playback_device->_ring_buffer->fill_count();
-    unsigned long write_count = frame_count * playback_device->_bytes_per_frame;
-    unsigned long read_count = min(write_count, fill_count);
-    unsigned long pad_zero_count = write_count - read_count;
-
-    memcpy(output_buffer, playback_device->_ring_buffer->read_ptr(), read_count);
-    memset(output_buffer + read_count, 0, pad_zero_count);
-    playback_device->_underrun_count += (int)((bool)pad_zero_count);
-    playback_device->_ring_buffer->advance_read_ptr(read_count);
-
-    return paContinue;
+static pa_channel_position_t to_pulseaudio_channel_pos(ChannelId channel_id) {
+    switch (channel_id) {
+    case ChannelIdFrontLeft:
+        return PA_CHANNEL_POSITION_FRONT_LEFT;
+    case ChannelIdFrontRight:
+        return PA_CHANNEL_POSITION_FRONT_RIGHT;
+    case ChannelIdFrontCenter:
+        return PA_CHANNEL_POSITION_FRONT_CENTER;
+    case ChannelIdLowFrequency:
+        return PA_CHANNEL_POSITION_LFE;
+    case ChannelIdBackLeft:
+        return PA_CHANNEL_POSITION_REAR_LEFT;
+    case ChannelIdBackRight:
+        return PA_CHANNEL_POSITION_REAR_RIGHT;
+    case ChannelIdFrontLeftOfCenter:
+        return PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER;
+    case ChannelIdFrontRightOfCenter:
+        return PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER;
+    case ChannelIdBackCenter:
+        return PA_CHANNEL_POSITION_REAR_CENTER;
+    case ChannelIdSideLeft:
+        return PA_CHANNEL_POSITION_SIDE_LEFT;
+    case ChannelIdSideRight:
+        return PA_CHANNEL_POSITION_SIDE_RIGHT;
+    case ChannelIdTopCenter:
+        return PA_CHANNEL_POSITION_TOP_CENTER;
+    case ChannelIdTopFrontLeft:
+        return PA_CHANNEL_POSITION_TOP_FRONT_LEFT;
+    case ChannelIdTopFrontCenter:
+        return PA_CHANNEL_POSITION_TOP_FRONT_CENTER;
+    case ChannelIdTopFrontRight:
+        return PA_CHANNEL_POSITION_TOP_FRONT_RIGHT;
+    case ChannelIdTopBackLeft:
+        return PA_CHANNEL_POSITION_TOP_REAR_LEFT;
+    case ChannelIdTopBackCenter:
+        return PA_CHANNEL_POSITION_TOP_REAR_CENTER;
+    case ChannelIdTopBackRight:
+        return PA_CHANNEL_POSITION_TOP_REAR_RIGHT;
+    case ChannelIdStereoLeft:
+    case ChannelIdStereoRight:
+    case ChannelIdWideLeft:
+    case ChannelIdWideRight:
+    case ChannelIdSurroundDirectLeft:
+    case ChannelIdSurroundDirectRight:
+    case ChannelIdLowFrequency2:
+        panic("unable to map channel id to pulseaudio");
+    }
+    panic("invalid channel id");
 }
 
-OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, int device_index,
-        int channel_count, SampleFormat sample_format, double latency,
+static pa_channel_map to_pulseaudio_channel_map(const ChannelLayout *channel_layout) {
+    pa_channel_map channel_map;
+    channel_map.channels = channel_layout->channels.length();
+
+    if (channel_layout->channels.length() > PA_CHANNELS_MAX)
+        panic("channel layout greater than pulseaudio max channels");
+
+    for (int i = 0; i < channel_layout->channels.length(); i += 1)
+        channel_map.map[i] = to_pulseaudio_channel_pos(channel_layout->channels.at(i));
+
+    return channel_map;
+}
+
+void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
+    switch (pa_stream_get_state(stream)) {
+        case PA_STREAM_UNCONNECTED:
+        case PA_STREAM_CREATING:
+        case PA_STREAM_READY:
+        case PA_STREAM_TERMINATED:
+            break;
+        case PA_STREAM_FAILED:
+            panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
+            break;
+    }
+}
+
+void OpenPlaybackDevice::stream_write_callback(pa_stream *stream, size_t write_count) {
+    size_t fill_count = _ring_buffer->fill_count();
+    size_t read_count = min(write_count, fill_count);
+    size_t pad_zero_count = write_count - read_count;
+
+    // TODO try passing a callback instead of NULL that does nothing
+    pa_stream_write(stream, _ring_buffer->read_ptr(), read_count, NULL, 0, PA_SEEK_RELATIVE);
+    _underrun_count += (int)((bool)pad_zero_count);
+    _ring_buffer->advance_read_ptr(read_count);
+}
+
+OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
+        const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
     _ring_buffer(NULL),
-    _channel_count(channel_count),
     _stream(NULL),
     _underrun_count(0)
 {
-    PaStreamParameters out_params;
-    out_params.channelCount = channel_count;
-    out_params.device = device_index;
-    out_params.hostApiSpecificStreamInfo = NULL;
-    out_params.sampleFormat = to_portaudio_sample_format(sample_format);
-    out_params.suggestedLatency = latency;
-    out_params.hostApiSpecificStreamInfo = NULL;
+    audio_hardware->block_until_ready();
 
-    PaError err = Pa_OpenStream(&_stream, NULL, &out_params, sample_rate, paFramesPerBufferUnspecified,
-                paClipOff|paDitherOff, playback_callback, this);
+    pa_sample_spec sample_spec;
+    sample_spec.format = to_pulseaudio_sample_format(sample_format);
+    sample_spec.rate = sample_rate;
+    sample_spec.channels = channel_layout->channels.length();
+    pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
+    pa_stream *stream = pa_stream_new(audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    if (!stream)
+        panic("unable to create pulseaudio stream");
 
-    if (err) {
-        panic("unable to init PortAudio: %s", Pa_GetErrorText(err));
-        *ok = false;
-        return;
-    }
+    pa_stream_set_state_callback(stream, stream_state_callback, this);
+    pa_stream_set_write_callback(stream, stream_write_callback, this);
 
-    _ring_buffer = create<RingBuffer>(latency * get_bytes_per_second(sample_format, channel_count, sample_rate));
-    _bytes_per_frame = get_bytes_per_frame(sample_format, channel_count);
+    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channels.length(), sample_rate);
+    int buffer_length = latency * bytes_per_second;
 
-    err = Pa_StartStream(_stream);
-    if (err) {
-        panic("unable to start portaudio stream: %s", Pa_GetErrorText(err));
-        *ok = false;
-        return;
-    }
+    pa_buffer_attr buffer_attr;
+    buffer_attr.maxlength = buffer_length;
+    buffer_attr.tlength = buffer_length;
+    buffer_attr.prebuf = buffer_attr.maxlength;
+    buffer_attr.minreq = UINT32_MAX;
+    buffer_attr.fragsize = UINT32_MAX;
+
+    int err = pa_stream_connect_playback(stream, device_name, &buffer_attr, PA_STREAM_NOFLAGS, NULL, NULL);
+    if (err)
+        panic("unable to connect pulseaudio playback stream");
+
+    _ring_buffer = create<RingBuffer>(buffer_length);
 
     *ok = true;
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {
-    if (_stream) {
-        Pa_AbortStream(_stream);
-        Pa_CloseStream(_stream);
-    }
+    pa_stream_disconnect(_stream);
+    pa_stream_unref(_stream);
     if (_ring_buffer)
         destroy(_ring_buffer, 1);
 }

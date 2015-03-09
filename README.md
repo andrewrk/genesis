@@ -37,16 +37,16 @@ genesis is programmed in a tiny subset of C++:
 ```
 sudo apt-get install libsdl2-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
-    libavformat-dev libavutil-dev libavfilter-dev
+    libavformat-dev libavutil-dev libavfilter-dev libpulse-dev
 make
 ./build/genesis
 ```
 
 ## Roadmap
 
+ 0. Record audio
  0. Multiplayer
  0. Undo/Redo
- 0. Record audio
 
 ## Grand Plans
 
