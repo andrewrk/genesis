@@ -8,7 +8,8 @@
 
 void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_info) {
     for (int i = 0; i < devices_info->devices.length(); i += 1) {
-        fprintf(stderr, "device: %s", devices_info->devices.at(i).name.encode().raw());
+        const char *default_str = (i == devices_info->default_output_index) ? " (default)" : "";
+        fprintf(stderr, "device: %s%s\n", devices_info->devices.at(i).name.encode().raw(), default_str);
     }
 }
 
