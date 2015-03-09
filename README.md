@@ -2,7 +2,9 @@
 
 ## Status
 
-Not cool yet.
+Not ready for serious users yet.
+
+![](https://s3.amazonaws.com/superjoe/temp/genesis-deb4513.png)
 
 ## The Vision
 
@@ -74,12 +76,13 @@ network. Downloading from the plugin registry will be like downloading a
 torrent. By default Genesis will act as a peer on LANs when other instances of
 Genesis request plugins over the LAN.
 
-Plugins must be provided as source code and compile against a strict whitelist
-API provided by Genesis. No syscalls or third party code execution are allowed.
-This will provide compile-time safety, preventing malicious code and run-time
-segmentation faults. Plugins have a fixed allocation pool in memory and may not
-ask for more memory at runtime. The strict API will ensure that plugins run on
-all supported platforms.
+It's not clear how this goal will be accomplished, but we will attempt to build
+a system where these constraints are met:
+
+ * Plugins are provided as source code that is guaranteed to build on all
+   supported platforms.
+ * Plugins either have compile-time protection against malicious code and
+   crashes (such as segfaults) or run-time protection.
 
 DRM will never be supported although paid plugins are not out of the question,
 as long as the restraint is met that if a user wants another user to join their
