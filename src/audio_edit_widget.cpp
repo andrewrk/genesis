@@ -333,7 +333,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
             continue;
 
         _gui->fill_rect(_waveform_sel_bg_color,
-                _left + per_channel_data->left + sel_start_x, _top + per_channel_data->top,
+                _left + sel_start_x, _top + per_channel_data->top,
                 sel_end_x - sel_start_x, per_channel_data->height);
     }
 
@@ -344,7 +344,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
     int playback_sel_start_x = timeline_pos_at_frame(playback_start);
     int playback_sel_end_x = timeline_pos_at_frame(playback_end);
     _gui->fill_rect(_timeline_sel_bg_color,
-            _left + timeline_left() + playback_sel_start_x, _top + timeline_top(),
+            _left + playback_sel_start_x, _top + timeline_top(),
             playback_sel_end_x - playback_sel_start_x, _timeline_height);
 
 
@@ -365,7 +365,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
     glDisable(GL_STENCIL_TEST);
 
     _gui->fill_rect(_playback_cursor_color,
-            _left + timeline_left() + pos_at_frame(_playback_cursor_frame), _top + timeline_top(),
+            _left + pos_at_frame(_playback_cursor_frame), _top + timeline_top(),
             2, _timeline_height);
 }
 
@@ -378,15 +378,13 @@ int AudioEditWidget::wave_width() const {
 }
 
 long AudioEditWidget::frame_at_pos(int x) {
-    float percent_x = (x - wave_start_left() + _scroll_x) / (float)wave_width();
-    percent_x = clamp(0.0f, percent_x, 1.0f);
-    long frame_at_end = _frames_per_pixel * wave_width();
+    long frame = (x - wave_start_left() + _scroll_x) * _frames_per_pixel;
     long frame_count = get_display_frame_count();
-    return min((long)(frame_at_end * percent_x), frame_count);
+    return clamp(0L, frame, frame_count);
 }
 
 int AudioEditWidget::pos_at_frame(long frame) {
-    return frame / _frames_per_pixel - _scroll_x;
+    return frame / _frames_per_pixel - _scroll_x + wave_start_left();
 }
 
 long AudioEditWidget::timeline_frame_at_pos(int x) {
@@ -452,10 +450,14 @@ void AudioEditWidget::scroll_frame_into_view(long frame) {
     }
 
     if (scrolled) {
-        int max_scroll_x = max(0, get_full_wave_width() - wave_width());
-        _scroll_x = clamp(0, _scroll_x, max_scroll_x);
+        clamp_scroll_x();
         update_model();
     }
+}
+
+void AudioEditWidget::clamp_scroll_x() {
+    int max_scroll_x = max(0, get_full_wave_width() - wave_width());
+    _scroll_x = clamp(0, _scroll_x, max_scroll_x);
 }
 
 void AudioEditWidget::set_playback_selection(long start, long end) {
@@ -464,6 +466,7 @@ void AudioEditWidget::set_playback_selection(long start, long end) {
 
     _playback_selection.start = start;
     _playback_selection.end = end;
+    _playback_write_head = _playback_selection.start;
 
     if (pthread_mutex_unlock(&_playback_mutex))
         panic("pthread_mutex_unlock fail");
@@ -487,7 +490,6 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                     set_playback_selection(frame, frame);
                     _playback_select_down = true;
                     scroll_playback_cursor_into_view();
-                    restart_play();
                     break;
                 }
             }
@@ -504,14 +506,24 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
 
             break;
         case MouseActionMove:
-            if (!event->buttons.left)
-                break;
-            if (_select_down) {
-                _selection.end = frame_at_pos(event->x);
-                scroll_cursor_into_view();
-            } else if (_playback_select_down) {
-                set_playback_selection(_playback_selection.start, timeline_frame_at_pos(event->x));
-                scroll_playback_cursor_into_view();
+            {
+                CursorPosition pos;
+                if (get_timeline_frame(event->x, event->y) != -1 ||
+                   get_frame_and_channel(event->x, event->y, &pos))
+                {
+                    SDL_SetCursor(_gui->_cursor_ibeam);
+                } else {
+                    SDL_SetCursor(_gui->_cursor_default);
+                }
+                if (event->buttons.left) {
+                    if (_select_down) {
+                        _selection.end = frame_at_pos(event->x);
+                        scroll_cursor_into_view();
+                    } else if (_playback_select_down) {
+                        set_playback_selection(_playback_selection.start, timeline_frame_at_pos(event->x));
+                        scroll_playback_cursor_into_view();
+                    }
+                }
             }
             break;
         case MouseActionDbl:
@@ -519,16 +531,31 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
     }
 }
 
+void AudioEditWidget::change_zoom_mouse_anchor(double new_frames_per_pixel, int anchor_pixel_x) {
+    change_zoom_frame_anchor(new_frames_per_pixel, frame_at_pos(anchor_pixel_x));
+}
+
+void AudioEditWidget::change_zoom_frame_anchor(double new_frames_per_pixel, long anchor_frame) {
+    int old_x = pos_at_frame(anchor_frame);
+    _frames_per_pixel = new_frames_per_pixel;
+    int new_x = pos_at_frame(anchor_frame);
+    _scroll_x += (new_x - old_x);
+    clamp_scroll_x();
+    update_model();
+}
+
 void AudioEditWidget::on_mouse_wheel(const MouseWheelEvent *event) {
-    fprintf(stderr, "wheel: %d ctrl: %s\n", event->y, event->modifiers.ctrl() ? "yes" : "no");
+    if (event->modifiers.ctrl()) {
+        if (event->wheel_y > 0) {
+            change_zoom_mouse_anchor(_frames_per_pixel * 0.8, event->x);
+        } else if (event->wheel_y < 0) {
+            change_zoom_mouse_anchor(_frames_per_pixel * 1.2, event->x);
+        }
+    }
 }
 
 void AudioEditWidget::on_mouse_out(const MouseEvent *event) {
     SDL_SetCursor(_gui->_cursor_default);
-}
-
-void AudioEditWidget::on_mouse_over(const MouseEvent *event) {
-    SDL_SetCursor(_gui->_cursor_ibeam);
 }
 
 void AudioEditWidget::on_key_event(const KeyEvent *event) {
@@ -547,7 +574,22 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
         case VirtKeyReturn:
             restart_play();
             break;
+        case VirtKey0:
+            zoom_100();
+            break;
+        case VirtKeyRight:
+            scroll_by(32);
+            break;
+        case VirtKeyLeft:
+            scroll_by(-32);
+            break;
     }
+}
+
+void AudioEditWidget::scroll_by(int x) {
+    _scroll_x += x;
+    clamp_scroll_x();
+    update_model();
 }
 
 void AudioEditWidget::clear_playback_buffer() {
@@ -650,10 +692,10 @@ void AudioEditWidget::update_model() {
 
         pixels.resize(width * height);
         for (int x = 0; x < width; x += 1) {
-            long start_frame = x * _frames_per_pixel;
+            long start_frame = (x + _scroll_x) * _frames_per_pixel;
             if (start_frame < samples->length()) {
                 long end_frame = min(
-                        (long)((x + 1) * _frames_per_pixel),
+                        (long)((x + _scroll_x + 1) * _frames_per_pixel),
                         samples->length());
                 double min_sample =  1.0;
                 double max_sample = -1.0;

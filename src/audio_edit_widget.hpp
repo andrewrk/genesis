@@ -28,7 +28,6 @@ public:
     int height() const override { return _height; }
     void on_mouse_move(const MouseEvent *event) override;
     void on_mouse_out(const MouseEvent *event) override;
-    void on_mouse_over(const MouseEvent *event) override;
     void on_key_event(const KeyEvent *event) override;
     void on_mouse_wheel(const MouseWheelEvent *event) override;
 
@@ -94,7 +93,7 @@ private:
 
     Selection _selection;
     Selection _playback_selection; // protected by mutex
-    int _scroll_x; // in pixels
+    int _scroll_x; // number of pixels scrolled to the right
     double _frames_per_pixel;
     bool _select_down;
     bool _playback_select_down;
@@ -157,6 +156,10 @@ private:
     void calculate_playback_range(long *start, long *end);
     void clear_playback_buffer();
     void set_playback_selection(long start, long end);
+    void clamp_scroll_x();
+    void change_zoom_mouse_anchor(double new_frames_per_pixel, int anchor_pixel_x);
+    void change_zoom_frame_anchor(double new_frames_per_pixel, long anchor_frame);
+    void scroll_by(int x);
 
     static void *playback_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();

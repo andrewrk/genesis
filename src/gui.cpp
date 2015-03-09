@@ -31,7 +31,9 @@ Gui::Gui(SDL_Window *window, ResourceBundle *resource_bundle,
     _img_null((Image*)_spritesheet.get_image_info("img/null.png")),
     _userdata(NULL),
     _on_key_event(default_on_key_event),
-    _audio_hardware(audio_hardware)
+    _audio_hardware(audio_hardware),
+    _last_mouse_x(0),
+    _last_mouse_y(0)
 {
     glGenVertexArrays(1, &_primitive_vertex_array);
     glBindVertexArray(_primitive_vertex_array);
@@ -229,6 +231,8 @@ void Gui::exec() {
             case SDL_MOUSEWHEEL:
                 {
                     MouseWheelEvent wheel_event = {
+                        _last_mouse_x,
+                        _last_mouse_y,
                         event.wheel.x,
                         event.wheel.y,
                         get_key_modifiers(),
@@ -366,6 +370,9 @@ bool Gui::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event
 }
 
 void Gui::on_mouse_move(const MouseEvent *event) {
+    _last_mouse_x = event->x;
+    _last_mouse_y = event->y;
+
     // if we're pressing a mouse button, the mouse over widget gets the event
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
     if (_mouse_over_widget) {
@@ -456,7 +463,10 @@ void Gui::on_mouse_wheel(const MouseWheelEvent *event) {
     if (!_focus_widget)
         return;
 
-    _focus_widget->on_mouse_wheel(event);
+    MouseWheelEvent modified_event = *event;
+    modified_event.x -= _focus_widget->left();
+    modified_event.y -= _focus_widget->top();
+    _focus_widget->on_mouse_wheel(&modified_event);
 }
 
 void Gui::set_clipboard_string(const String &str) {

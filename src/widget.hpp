@@ -16,7 +16,7 @@ public:
     virtual int height() const = 0;
     virtual void on_mouse_move(const MouseEvent *) = 0;
     virtual void on_mouse_out(const MouseEvent *) = 0;
-    virtual void on_mouse_over(const MouseEvent *) = 0;
+    virtual void on_mouse_over(const MouseEvent *) {}
     virtual void on_gain_focus() {}
     virtual void on_lose_focus() {}
     virtual void on_text_input(const TextInputEvent *event) {}

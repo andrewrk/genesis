@@ -103,6 +103,8 @@ public:
 
     AudioHardware *_audio_hardware;
 
+    int _last_mouse_x, _last_mouse_y;
+
 private:
 
     void resize();

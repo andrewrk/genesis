@@ -35,6 +35,8 @@ struct MouseEvent {
 struct MouseWheelEvent {
     int x;
     int y;
+    int wheel_x;
+    int wheel_y;
     KeyModifiers modifiers;
 };
 
