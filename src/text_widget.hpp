@@ -7,12 +7,14 @@
 #include "gui.hpp"
 #include "widget.hpp"
 
+class SpritesheetImage;
+
 class TextWidget : public Widget {
 public:
     TextWidget(Gui *gui);
     ~TextWidget() {}
 
-    void draw(const glm::mat4 &projection) override;
+    void draw(GuiWindow *window, const glm::mat4 &projection) override;
     int left() const override { return _left; }
     int top() const override { return _top; }
     int width() const override;
@@ -96,7 +98,7 @@ public:
         _hover_color = color;
     }
 
-    void set_icon(Gui::Image *icon);
+    void set_icon(const SpritesheetImage *icon);
 
     void *_userdata;
 
@@ -149,7 +151,7 @@ private:
     bool _hover_on;
     bool _text_interaction_on;
 
-    Gui::Image *_icon_img;
+    const SpritesheetImage *_icon_img;
     glm::mat4 _icon_model;
 
     bool _hovering;

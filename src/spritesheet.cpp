@@ -1,6 +1,7 @@
 #include "spritesheet.hpp"
 #include "png_image.hpp"
 #include "gui.hpp"
+#include "vertex_array.hpp"
 
 #include <rucksack/rucksack.h>
 
@@ -49,27 +50,18 @@ Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
     float full_height = tex_image._height;
     for (long i = 0; i < images.length(); i += 1) {
         RuckSackImage *image = images.at(i);
-        GLuint vertex_array;
-        GLuint vertex_buffer;
-        GLuint tex_coord_buffer;
-        glGenVertexArrays(1, &vertex_array);
-        glBindVertexArray(vertex_array);
 
-        glGenBuffers(1, &vertex_buffer);
-        glGenBuffers(1, &tex_coord_buffer);
-
-        _info_dict.put(image->key, {
-                image->x,
-                image->y,
-                image->width,
-                image->height,
-                image->anchor_x,
-                image->anchor_y,
-                image->r90 == 1,
-                vertex_array,
-                vertex_buffer,
-                tex_coord_buffer,
-        });
+        SpritesheetImage *img = create<SpritesheetImage>();
+        img->x = image->x;
+        img->y = image->y;
+        img->width = image->width;
+        img->height = image->height;
+        img->anchor_x = image->anchor_x;
+        img->anchor_y = image->anchor_y;
+        img->r90 = (image->r90 == 1);
+        glGenBuffers(1, &img->vertex_buffer);
+        glGenBuffers(1, &img->tex_coord_buffer);
+        img->spritesheet = this;
 
         {
             GLfloat vertexes[4][3];
@@ -106,10 +98,8 @@ Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
                 vertexes[3][1] = image->height;
                 vertexes[3][2] = 0.0f;
             }
-            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+            glBindBuffer(GL_ARRAY_BUFFER, img->vertex_buffer);
             glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_STATIC_DRAW);
-            glEnableVertexAttribArray(_gui->_shader_program_manager->_texture_attrib_position);
-            glVertexAttribPointer(_gui->_shader_program_manager->_texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
         }
 
         {
@@ -125,34 +115,53 @@ Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
 
             coords[3][0] = (image->x + image->width) / full_width;
             coords[3][1] = image->y / full_height;
-            glBindBuffer(GL_ARRAY_BUFFER, tex_coord_buffer);
+            glBindBuffer(GL_ARRAY_BUFFER, img->tex_coord_buffer);
             glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_STATIC_DRAW);
-            glEnableVertexAttribArray(_gui->_shader_program_manager->_texture_attrib_tex_coord);
-            glVertexAttribPointer(_gui->_shader_program_manager->_texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
         }
+
+        img->vertex_array = create<VertexArray>(_gui, static_init_vertex_array, img);
+        _info_dict.put(image->key, img);
     }
 
     rucksack_texture_close(texture);
 }
 
-Spritesheet::~Spritesheet() {}
+Spritesheet::~Spritesheet() {
+    auto it = _info_dict.entry_iterator();
+    for (;;) {
+        auto *entry = it.next();
+        if (!entry)
+            break;
+        destroy(entry->value, 1);
+    }
+}
 
-void Spritesheet::draw(const ImageInfo *image, const glm::mat4 &mvp) const {
-    _gui->_shader_program_manager->_texture_shader_program.bind();
+void Spritesheet::init_vertex_array(SpritesheetImage *img) {
+    glBindBuffer(GL_ARRAY_BUFFER, img->vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-    _gui->_shader_program_manager->_texture_shader_program.set_uniform(
-            _gui->_shader_program_manager->_texture_uniform_mvp, mvp);
+    glBindBuffer(GL_ARRAY_BUFFER, img->tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+}
 
-    _gui->_shader_program_manager->_texture_shader_program.set_uniform(
-            _gui->_shader_program_manager->_texture_uniform_tex, 0);
+void Spritesheet::draw(GuiWindow *window, const SpritesheetImage *image, const glm::mat4 &mvp) const {
+    _gui->_shader_program_manager._texture_shader_program.bind();
 
-    glBindVertexArray(image->vertex_array);
+    _gui->_shader_program_manager._texture_shader_program.set_uniform(
+            _gui->_shader_program_manager._texture_uniform_mvp, mvp);
+
+    _gui->_shader_program_manager._texture_shader_program.set_uniform(
+            _gui->_shader_program_manager._texture_uniform_tex, 0);
+
+    image->vertex_array->bind(window);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-const Spritesheet::ImageInfo *Spritesheet::get_image_info(const ByteBuffer &key) const {
-    return &_info_dict.get(key);
+const SpritesheetImage *Spritesheet::get_image_info(const ByteBuffer &key) const {
+    return _info_dict.get(key);
 }

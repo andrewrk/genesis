@@ -16,8 +16,9 @@ static AudioFile *create_empty_audio_file() {
     return audio_file;
 }
 
-AudioEditWidget::AudioEditWidget(Gui *gui, AudioHardware *audio_hardware) :
+AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware *audio_hardware) :
     Widget(),
+    _gui_window(gui_window),
     _gui(gui),
     _left(0),
     _top(0),
@@ -97,7 +98,7 @@ void AudioEditWidget::destroy_all_ui() {
 
 void AudioEditWidget::destroy_per_channel_data(PerChannelData *per_channel_data) {
     destroy(per_channel_data->waveform_texture, 1);
-    _gui->destroy_widget(per_channel_data->channel_name_widget);
+    _gui_window->destroy_widget(per_channel_data->channel_name_widget);
     destroy(per_channel_data, 1);
 }
 
@@ -293,21 +294,21 @@ AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i)
     return per_channel_data;
 }
 
-void AudioEditWidget::draw(const glm::mat4 &projection) {
-    _gui->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
+void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
+    _gui_window->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
-    _gui->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
+    _gui_window->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
             timeline_width(), _timeline_height);
 
     for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         glm::mat4 mvp = projection * per_channel_data->waveform_model;
-        per_channel_data->waveform_texture->draw(_waveform_fg_color, mvp);
+        per_channel_data->waveform_texture->draw(window, _waveform_fg_color, mvp);
 
         TextWidget *channel_name_widget = per_channel_data->channel_name_widget;
         if (channel_name_widget->_is_visible)
-            channel_name_widget->draw(projection);
+            channel_name_widget->draw(window, projection);
     }
 
     long start = _selection.start;
@@ -332,7 +333,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
         if (!_selection.channels.at(i))
             continue;
 
-        _gui->fill_rect(_waveform_sel_bg_color,
+        _gui_window->fill_rect(_waveform_sel_bg_color,
                 _left + sel_start_x, _top + per_channel_data->top,
                 sel_end_x - sel_start_x, per_channel_data->height);
     }
@@ -343,7 +344,7 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
         playback_end += 1;
     int playback_sel_start_x = timeline_pos_at_frame(playback_start);
     int playback_sel_end_x = timeline_pos_at_frame(playback_end);
-    _gui->fill_rect(_timeline_sel_bg_color,
+    _gui_window->fill_rect(_timeline_sel_bg_color,
             _left + playback_sel_start_x, _top + timeline_top(),
             playback_sel_end_x - playback_sel_start_x, _timeline_height);
 
@@ -359,12 +360,12 @@ void AudioEditWidget::draw(const glm::mat4 &projection) {
             continue;
 
         glm::mat4 mvp = projection * per_channel_data->waveform_model;
-        per_channel_data->waveform_texture->draw(_waveform_sel_fg_color, mvp);
+        per_channel_data->waveform_texture->draw(window, _waveform_sel_fg_color, mvp);
     }
 
     glDisable(GL_STENCIL_TEST);
 
-    _gui->fill_rect(_playback_cursor_color,
+    _gui_window->fill_rect(_playback_cursor_color,
             _left + pos_at_frame(_playback_cursor_frame), _top + timeline_top(),
             2, _timeline_height);
 }

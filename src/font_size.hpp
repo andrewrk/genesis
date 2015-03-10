@@ -20,8 +20,6 @@ class FontSize {
 public:
     FontSize(FT_Face font_face, int font_size);
     ~FontSize();
-    FontSize &operator=(const FontSize&) = delete;
-    FontSize(const FontSize&) = delete;
 
     FontCacheValue font_cache_entry(uint32_t codepoint);
 
@@ -33,6 +31,9 @@ private:
 
     FT_Face _font_face;
     int _font_size;
+
+    FontSize &operator=(const FontSize&) = delete;
+    FontSize(const FontSize&) = delete;
 };
 
 #endif

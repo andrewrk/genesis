@@ -8,9 +8,12 @@
 #include "hash_map.hpp"
 #include "string.hpp"
 #include "font_size.hpp"
-#include "widget.hpp"
 #include "resource_bundle.hpp"
 #include "spritesheet.hpp"
+#include "audio_hardware.hpp"
+#include "gui_window.hpp"
+#include "static_geometry.hpp"
+#include "vertex_array.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -18,105 +21,86 @@
 
 uint32_t hash_int(const int &x);
 
-class TextWidget;
-class FindFileWidget;
-class AudioEditWidget;
+class GlobalSdlContext {
+public:
+    GlobalSdlContext();
+    ~GlobalSdlContext();
+private:
+    GlobalSdlContext(const GlobalSdlContext &copy) = delete;
+    GlobalSdlContext &operator=(const GlobalSdlContext &copy) = delete;
+};
+
 class AudioHardware;
 class Gui {
 public:
-    Gui(SDL_Window *window, ResourceBundle *resource_bundle,
-            ShaderProgramManager *shader_program_manager, AudioHardware *audio_hardware);
+    Gui(ResourceBundle *resource_bundle);
     ~Gui();
 
     void exec();
 
-    TextWidget *create_text_widget();
-    FindFileWidget *create_find_file_widget();
-    AudioEditWidget *create_audio_edit_widget();
-
-    void destroy_widget(Widget *widget);
-    void set_focus_widget(Widget *widget);
+    GuiWindow *create_window(bool with_borders);
+    void destroy_window(GuiWindow *window);
 
     FontSize *get_font_size(int font_size);
 
-
-    FT_Face _default_font_face;
-
-    void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
-    void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
-
-    typedef Spritesheet::ImageInfo Image;
-    void draw_image(const Image *img, int x, int y, int w, int h);
-    void draw_image(const Image *img, const glm::mat4 &mvp);
+    void fill_rect(GuiWindow *window, const glm::vec4 &color, const glm::mat4 &mvp);
+    void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
 
     void start_text_editing(int x, int y, int w, int h);
     void stop_text_editing();
+
 
     void set_clipboard_string(const String &str);
     String get_clipboard_string() const;
     bool clipboard_has_string() const;
 
-    bool try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event);
+    bool _running;
+    List<GuiWindow*> _window_list;
+    List<VertexArray*> _vertex_array_list;
+    GuiWindow *_focus_window;
 
-    // return true if you ate the event
-    void set_on_key_event(bool (*fn)(Gui *, const KeyEvent *event)) {
-        _on_key_event = fn;
-    }
+    GlobalSdlContext _global_sdl_context;
+    // utility window has 2 purposes. 1. to give us an OpenGL context before a
+    // real window is created, and 2. for use as a tool tip, menu, or dropdown
+    GuiWindow *_utility_window;
+    ShaderProgramManager _shader_program_manager;
+    StaticGeometry _static_geometry;
 
-    ShaderProgramManager *_shader_program_manager;
+    AudioHardware _audio_hardware;
 
     SDL_Cursor* _cursor_ibeam;
     SDL_Cursor* _cursor_default;
 
-    SDL_Window *_window;
-
-
     FT_Library _ft_library;
-
-    int _width;
-    int _height;
-
-    glm::mat4 _projection;
-
-    List<Widget *> _widget_list;
+    FT_Face _default_font_face;
 
     // key is font size
     HashMap<int, FontSize *, hash_int> _font_size_cache;
 
-    GLuint _primitive_vertex_array;
-    GLuint _primitive_vertex_buffer;
-
-    Widget *_mouse_over_widget;
-    Widget *_focus_widget;
-
     ResourceBundle *_resource_bundle;
     ByteBuffer _default_font_buffer;
 
+
     Spritesheet _spritesheet;
 
-    Image *_img_entry_dir;
-    Image *_img_entry_file;
-    Image *_img_null;
-
-    void *_userdata;
-    bool (*_on_key_event)(Gui *, const KeyEvent *event);
-
-    AudioHardware *_audio_hardware;
-
-    int _last_mouse_x, _last_mouse_y;
+    const SpritesheetImage *_img_entry_dir;
+    const SpritesheetImage *_img_entry_file;
+    const SpritesheetImage *_img_null;
 
 private:
+    GuiWindow * get_window_from_sdl_id(Uint32 id);
+    VertexArray _primitive_vertex_array;
 
-    void resize();
-    void on_mouse_move(const MouseEvent *event);
-    void on_text_input(const TextInputEvent *event);
-    void on_key_event(const KeyEvent *event);
-    void on_mouse_wheel(const MouseWheelEvent *event);
-    void init_widget(Widget *widget);
     static KeyModifiers get_key_modifiers();
+    void init_primitive_vertex_array();
+
+    static void init_primitive_vertex_array(void *userdata) {
+        return static_cast<Gui*>(userdata)->init_primitive_vertex_array();
+    }
 
     Gui(const Gui &copy) = delete;
     Gui &operator=(const Gui &copy) = delete;
+
 };
 
 #endif

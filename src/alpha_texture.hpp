@@ -3,22 +3,21 @@
 
 #include "byte_buffer.hpp"
 #include "glm.hpp"
+#include "vertex_array.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
 
 class Gui;
+class GuiWindow;
 class AlphaTexture {
 public:
     AlphaTexture(Gui *gui);
     ~AlphaTexture();
 
-    AlphaTexture(const AlphaTexture &copy) = delete;
-    AlphaTexture &operator=(const AlphaTexture &copy) = delete;
-
     void send_pixels(const ByteBuffer &pixels, int width, int height);
 
-    void draw(const glm::vec4 &color, const glm::mat4 &mvp);
+    void draw(GuiWindow *window, const glm::vec4 &color, const glm::mat4 &mvp);
 
     Gui *_gui;
     int _width;
@@ -26,9 +25,16 @@ public:
 
 private:
     GLuint _texture_id;
-    GLuint _vertex_array;
-    GLuint _vertex_buffer;
-    GLuint _tex_coord_buffer;
+    VertexArray _vertex_array;
+
+    void init_vertex_array();
+
+    static void static_init_vertex_array(void *userdata) {
+        return static_cast<AlphaTexture*>(userdata)->init_vertex_array();
+    }
+
+    AlphaTexture(const AlphaTexture &copy) = delete;
+    AlphaTexture &operator=(const AlphaTexture &copy) = delete;
 };
 
 #endif

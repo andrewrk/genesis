@@ -18,10 +18,10 @@ class AudioHardware;
 class OpenPlaybackDevice;
 class AudioEditWidget : public Widget {
 public:
-    AudioEditWidget(Gui *gui, AudioHardware *audio_hardware);
+    AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware *audio_hardware);
     ~AudioEditWidget() override;
 
-    void draw(const glm::mat4 &projection) override;
+    void draw(GuiWindow *window, const glm::mat4 &projection) override;
     int left() const override { return _left; }
     int top() const override { return _top; }
     int width() const override { return _width; }
@@ -40,6 +40,7 @@ public:
     void save_as(const ByteBuffer &file_path, ExportSampleFormat export_sample_format);
 
 private:
+    GuiWindow *_gui_window;
     Gui *_gui;
 
     int _left;

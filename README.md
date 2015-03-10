@@ -3,10 +3,10 @@
 ## Status
 
  * Not ready for serious users yet.
- * Ability to open any format audio file and zoom and scroll around.
- * Ability to play a selection (supported audio backends: pulseaudio).
- * Ability to delete sections of audio.
- * Ability to save as any format audio file.
+ * You can open any format audio file and zoom and scroll around.
+ * You can play a selection (supported audio backends: pulseaudio).
+ * You can delete sections of audio.
+ * You can save as any format audio file.
 
 ![](https://s3.amazonaws.com/superjoe/temp/genesis-deb4513.png)
 
@@ -26,7 +26,7 @@
  * Never require the user to restart the program
  * Let's get these things right the first time around:
    - Undo/redo
-   - Ability to edit multiple projects at once. Mix and match
+   - Ability to edit multiple projects at once.
    - Support for N audio channels instead of hardcoded stereo
 
 ## Contributing
@@ -41,15 +41,21 @@ genesis is programmed in a tiny subset of C++:
 ### Building and Running
 
 ```
+sudo apt-add-repository ppa:andrewrk/rucksack
+sudo apt-get update
 sudo apt-get install libsdl2-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
-    libavformat-dev libavutil-dev libavfilter-dev libpulse-dev
+    libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack \
+    librucksack-dev
 make
 ./build/genesis
 ```
 
 ## Roadmap
 
+ 0. use 32-bit float instead of double in memory
+ 0. use GLFW instead of SDL2
+ 0. Label use stencil instead of render slice API
  0. Menu system
  0. Widget layouts
  0. Scroll bar

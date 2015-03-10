@@ -10,6 +10,8 @@
 #include <epoxy/glx.h>
 
 class Gui;
+class VertexArray;
+class GuiWindow;
 
 class Label {
 public:
@@ -40,7 +42,7 @@ public:
         return _height;
     }
 
-    void draw(const glm::mat4 &mvp, const glm::vec4 &color);
+    void draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color);
 
     int cursor_at_pos(int x, int y) const;
     void pos_at_cursor(int index, int &x, int &y) const;
@@ -56,7 +58,7 @@ public:
 
     // start and end are character indexes
     void set_sel_slice(int start, int end); // -1 for full
-    void draw_sel_slice(const glm::mat4 &mvp, const glm::vec4 &color);
+    void draw_sel_slice(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color);
 
     // start and end are pixels
     void set_slice(int start_x, int end_x); // -1 for full
@@ -81,7 +83,7 @@ private:
     int _width;
     int _height;
     GLuint _texture_id;
-    GLuint _vertex_array;
+    VertexArray *_vertex_array;
     GLuint _vertex_buffer;
     GLuint _tex_coord_buffer;
 
@@ -97,7 +99,7 @@ private:
     // character indexes
     int _render_sel_slice_start;
     int _render_sel_slice_end;
-    GLuint _slice_vertex_array;
+    VertexArray *_slice_vertex_array;
     GLuint _slice_vertex_buffer;
     GLuint _slice_tex_coord_buffer;
 
@@ -108,6 +110,17 @@ private:
     void update_render_sel_slice();
     void update_render_slice();
     void get_render_coords(int &start_x, int &end_x);
+
+    void init_vertex_array();
+    void init_slice_vertex_array();
+
+    static void init_vertex_array_static(void *userdata) {
+        return static_cast<Label*>(userdata)->init_vertex_array();
+    }
+
+    static void init_slice_vertex_array_static(void *userdata) {
+        return static_cast<Label*>(userdata)->init_slice_vertex_array();
+    }
 };
 
 #endif

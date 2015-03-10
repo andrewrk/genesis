@@ -1,6 +1,7 @@
 #include "label.hpp"
 #include "gui.hpp"
 #include "debug.hpp"
+#include "vertex_array.hpp"
 
 #include <epoxy/gl.h>
 #include <epoxy/glx.h>
@@ -30,9 +31,6 @@ Label::Label(Gui *gui) :
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glGenVertexArrays(1, &_vertex_array);
-    glBindVertexArray(_vertex_array);
-
     glGenBuffers(1, &_vertex_buffer);
     glGenBuffers(1, &_tex_coord_buffer);
 
@@ -46,9 +44,6 @@ Label::Label(Gui *gui) :
     };
     glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(_gui->_shader_program_manager->_text_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager->_text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
 
     GLfloat coords[4][2] = {
         {0, 0},
@@ -58,13 +53,9 @@ Label::Label(Gui *gui) :
     };
     glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
     glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(_gui->_shader_program_manager->_text_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager->_text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
-    assert_no_gl_error();
 
-    glGenVertexArrays(1, &_slice_vertex_array);
-    glBindVertexArray(_slice_vertex_array);
+    _vertex_array = create<VertexArray>(_gui, init_vertex_array_static, this);
 
     glGenBuffers(1, &_slice_vertex_buffer);
     glGenBuffers(1, &_slice_tex_coord_buffer);
@@ -72,15 +63,12 @@ Label::Label(Gui *gui) :
     // send dummy vertex data for the slice
     glBindBuffer(GL_ARRAY_BUFFER, _slice_vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(_gui->_shader_program_manager->_text_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager->_text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     // dummy tex coord data for the slice
     glBindBuffer(GL_ARRAY_BUFFER, _slice_tex_coord_buffer);
     glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(_gui->_shader_program_manager->_text_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager->_text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
+    _slice_vertex_array = create<VertexArray>(_gui, init_slice_vertex_array_static, this);
 
     update();
 }
@@ -88,52 +76,73 @@ Label::Label(Gui *gui) :
 Label::~Label() {
     glDeleteBuffers(1, &_slice_tex_coord_buffer);
     glDeleteBuffers(1, &_slice_vertex_buffer);
-    glDeleteVertexArrays(1, &_slice_vertex_array);
+    destroy(_slice_vertex_array, 1);
 
     glDeleteBuffers(1, &_tex_coord_buffer);
     glDeleteBuffers(1, &_vertex_buffer);
-    glDeleteVertexArrays(1, &_vertex_array);
+    destroy(_vertex_array, 1);
+
     glDeleteTextures(1, &_texture_id);
 }
 
-void Label::draw(const glm::mat4 &mvp, const glm::vec4 &color) {
+void Label::init_vertex_array() {
+    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+}
+
+void Label::init_slice_vertex_array() {
+    glBindBuffer(GL_ARRAY_BUFFER, _slice_vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _slice_tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+}
+
+void Label::draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color) {
     if (_text.length() == 0)
         return;
 
-    _gui->_shader_program_manager->_text_shader_program.bind();
+    _gui->_shader_program_manager._text_shader_program.bind();
 
-    _gui->_shader_program_manager->_text_shader_program.set_uniform(
-            _gui->_shader_program_manager->_text_uniform_color, color);
+    _gui->_shader_program_manager._text_shader_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_color, color);
 
-    _gui->_shader_program_manager->_text_shader_program.set_uniform(
-            _gui->_shader_program_manager->_text_uniform_tex, 0);
+    _gui->_shader_program_manager._text_shader_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_tex, 0);
 
-    _gui->_shader_program_manager->_text_shader_program.set_uniform(
-            _gui->_shader_program_manager->_text_uniform_mvp, mvp);
+    _gui->_shader_program_manager._text_shader_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_mvp, mvp);
 
-    glBindVertexArray(_vertex_array);
+    _vertex_array->bind(window);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void Label::draw_sel_slice(const glm::mat4 &mvp, const glm::vec4 &color) {
+void Label::draw_sel_slice(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color) {
     if (_text.length() == 0)
         return;
 
-    _gui->_shader_program_manager->_text_shader_program.bind();
+    _gui->_shader_program_manager._text_shader_program.bind();
 
-    _gui->_shader_program_manager->_text_shader_program.set_uniform(
-            _gui->_shader_program_manager->_text_uniform_color, color);
+    _gui->_shader_program_manager._text_shader_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_color, color);
 
-    _gui->_shader_program_manager->_text_shader_program.set_uniform(
-            _gui->_shader_program_manager->_text_uniform_tex, 0);
+    _gui->_shader_program_manager._text_shader_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_tex, 0);
 
-    _gui->_shader_program_manager->_text_shader_program.set_uniform(
-            _gui->_shader_program_manager->_text_uniform_mvp, mvp);
+    _gui->_shader_program_manager._text_shader_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_mvp, mvp);
 
-    glBindVertexArray(_slice_vertex_array);
+    _slice_vertex_array->bind(window);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 
@@ -335,8 +344,6 @@ void Label::update_render_sel_slice() {
     float tex_start_x = ((float)start_x) / ((float)_width);
     float tex_end_x = tex_start_x + width / ((float)_width);
 
-    glBindVertexArray(_slice_vertex_array);
-
     glBindBuffer(GL_ARRAY_BUFFER, _slice_vertex_buffer);
     GLfloat vertexes[4][3] = {
         {0.0f, 0.0f, 0.0f},
@@ -377,8 +384,6 @@ void Label::update_render_slice() {
     float width = end_x - start_x;
     float tex_start_x = ((float)start_x) / ((float)_width);
     float tex_end_x = tex_start_x + width / ((float)_width);
-
-    glBindVertexArray(_vertex_array);
 
     glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
     GLfloat vertexes[4][3] = {

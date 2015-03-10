@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 
 enum VirtKey {
+    VirtKeyInvalid = -1,
     VirtKeyReturn = SDLK_RETURN,
     VirtKeyEscape = SDLK_ESCAPE,
     VirtKeyBackspace = SDLK_BACKSPACE,

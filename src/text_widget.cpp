@@ -1,5 +1,6 @@
 #include "text_widget.hpp"
 #include "gui.hpp"
+#include "gui_window.hpp"
 
 static bool default_on_key_event(TextWidget *, const KeyEvent *event) {
     return false;
@@ -53,39 +54,39 @@ TextWidget::TextWidget(Gui *gui) :
     update_model();
 }
 
-void TextWidget::draw(const glm::mat4 &projection) {
+void TextWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     bool should_hover = (_hover_on && _hovering);
     if (_background_on || should_hover) {
         glm::mat4 bg_mvp = projection * _bg_model;
         glm::vec4 color = should_hover ? _hover_color : _background_color;
-        _gui->fill_rect(color, bg_mvp);
+        _gui->fill_rect(window, color, bg_mvp);
     }
 
     if (_icon_img) {
         glm::mat4 icon_mvp = projection * _icon_model;
-        _gui->draw_image(_icon_img, icon_mvp);
+        _gui->draw_image(window, _icon_img, icon_mvp);
     }
 
     glm::mat4 label_mvp = projection * _label_model;
     if (_text_interaction_on) {
         if (_placeholder_label.text().length() > 0 && _label.text().length() == 0)
-            _placeholder_label.draw(label_mvp, _placeholder_color);
+            _placeholder_label.draw(window, label_mvp, _placeholder_color);
     }
 
-    _label.draw(label_mvp, _text_color);
+    _label.draw(window, label_mvp, _text_color);
 
     if (_text_interaction_on && _have_focus && _cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
             // draw cursor
             glm::mat4 cursor_mvp = projection * _cursor_model;
-            _gui->fill_rect(_selection_color, cursor_mvp);
+            _gui->fill_rect(window, _selection_color, cursor_mvp);
         } else {
             // draw selection rectangle
             glm::mat4 sel_mvp = projection * _sel_model;
-            _gui->fill_rect(_selection_color, sel_mvp);
+            _gui->fill_rect(window, _selection_color, sel_mvp);
 
             glm::mat4 sel_text_mvp = projection * _sel_text_model;
-            _label.draw_sel_slice(sel_text_mvp, _sel_text_color);
+            _label.draw_sel_slice(window, sel_text_mvp, _sel_text_color);
         }
     }
 }
@@ -535,7 +536,7 @@ void TextWidget::set_text(const String &text) {
     set_selection(_cursor_start, _cursor_end);
 }
 
-void TextWidget::set_icon(Gui::Image *icon) {
+void TextWidget::set_icon(const SpritesheetImage *icon) {
     _icon_img = icon;
     update_model();
     update_selection_model();

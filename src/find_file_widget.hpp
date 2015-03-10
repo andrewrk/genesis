@@ -7,23 +7,20 @@
 #include "path.hpp"
 
 class Gui;
+class GuiWindow;
+
 class FindFileWidget : public Widget {
 public:
-    FindFileWidget(Gui *gui);
+    FindFileWidget(GuiWindow *window, Gui *gui);
     ~FindFileWidget();
 
-    void draw(const glm::mat4 &projection) override;
+    void draw(GuiWindow *window, const glm::mat4 &projection) override;
     int left() const override { return _left; }
     int top() const override { return _top; }
     int width() const override;
     int height() const override;
     void on_mouse_move(const MouseEvent *event) override;
-    void on_mouse_out(const MouseEvent *event) override;
-    void on_mouse_over(const MouseEvent *event) override;
     void on_gain_focus() override;
-    void on_lose_focus() override;
-    void on_text_input(const TextInputEvent *event) override;
-    void on_key_event(const KeyEvent *event) override;
 
     enum Mode {
         ModeOpen,
@@ -66,6 +63,7 @@ private:
     TextWidget *_current_path_widget;
     TextWidget *_filter_widget;
 
+    GuiWindow *_gui_window;
     Gui *_gui;
 
     ByteBuffer _current_path;

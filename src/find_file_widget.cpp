@@ -1,5 +1,6 @@
 #include "find_file_widget.hpp"
 #include "os.hpp"
+#include "gui_window.hpp"
 
 static void default_on_choose_file(FindFileWidget *find_file_widget,
         const ByteBuffer &file_path)
@@ -7,7 +8,7 @@ static void default_on_choose_file(FindFileWidget *find_file_widget,
     fprintf(stderr, "you have chosen: %s\n", file_path.raw());
 }
 
-FindFileWidget::FindFileWidget(Gui *gui) :
+FindFileWidget::FindFileWidget(GuiWindow *gui_window, Gui *gui) :
     Widget(),
     _left(0),
     _top(0),
@@ -18,6 +19,7 @@ FindFileWidget::FindFileWidget(Gui *gui) :
     _padding_top(4),
     _padding_bottom(4),
     _margin(4),
+    _gui_window(gui_window),
     _gui(gui),
     _show_hidden_files(false),
     _on_choose_file(default_on_choose_file)
@@ -38,8 +40,8 @@ FindFileWidget::FindFileWidget(Gui *gui) :
 }
 
 FindFileWidget::~FindFileWidget() {
-    _gui->destroy_widget(_current_path_widget);
-    _gui->destroy_widget(_filter_widget);
+    _gui_window->destroy_widget(_current_path_widget);
+    _gui_window->destroy_widget(_filter_widget);
     destroy_all_displayed_entries();
     destroy_all_dir_entries();
 }
@@ -55,7 +57,7 @@ void FindFileWidget::destroy_all_displayed_entries() {
     for (long i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry display_entry = _displayed_entries.at(i);
         destroy((TextWidgetUserData *)display_entry.widget->_userdata, 1);
-        _gui->destroy_widget(display_entry.widget);
+        _gui_window->destroy_widget(display_entry.widget);
     }
     _displayed_entries.clear();
 }
@@ -83,10 +85,10 @@ void FindFileWidget::update_model() {
     }
 }
 
-void FindFileWidget::draw(const glm::mat4 &projection) {
-    _gui->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
-    _current_path_widget->draw(projection);
-    _filter_widget->draw(projection);
+void FindFileWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
+    window->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
+    _current_path_widget->draw(window, projection);
+    _filter_widget->draw(window, projection);
 
     glEnable(GL_STENCIL_TEST);
 
@@ -97,7 +99,7 @@ void FindFileWidget::draw(const glm::mat4 &projection) {
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glClear(GL_STENCIL_BUFFER_BIT);
 
-    _gui->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+    window->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
             _left + _padding_left, _top + _padding_top,
             _width - _padding_left - _padding_right, _height - _padding_bottom - _padding_top);
 
@@ -109,7 +111,7 @@ void FindFileWidget::draw(const glm::mat4 &projection) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
         if (text_widget->_is_visible)
-            text_widget->draw(projection);
+            text_widget->draw(window, projection);
     }
 
     glDisable(GL_STENCIL_TEST);
@@ -127,41 +129,21 @@ void FindFileWidget::on_mouse_move(const MouseEvent *event) {
     MouseEvent mouse_event = *event;
     mouse_event.x += _left;
     mouse_event.y += _top;
-    if (_gui->try_mouse_move_event_on_widget(_current_path_widget, &mouse_event))
+    if (_gui_window->try_mouse_move_event_on_widget(_current_path_widget, &mouse_event))
         return;
-    if (_gui->try_mouse_move_event_on_widget(_filter_widget, &mouse_event))
+    if (_gui_window->try_mouse_move_event_on_widget(_filter_widget, &mouse_event))
         return;
 
     for (long i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
-        if (_gui->try_mouse_move_event_on_widget(text_widget, &mouse_event))
+        if (_gui_window->try_mouse_move_event_on_widget(text_widget, &mouse_event))
             return;
     }
 }
 
-void FindFileWidget::on_mouse_out(const MouseEvent *event) {
-
-}
-
-void FindFileWidget::on_mouse_over(const MouseEvent *event) {
-
-}
-
 void FindFileWidget::on_gain_focus() {
-    _gui->set_focus_widget(_filter_widget);
-}
-
-void FindFileWidget::on_lose_focus() {
-
-}
-
-void FindFileWidget::on_text_input(const TextInputEvent *event) {
-
-}
-
-void FindFileWidget::on_key_event(const KeyEvent *event) {
-
+    _gui_window->set_focus_widget(_filter_widget);
 }
 
 bool FindFileWidget::on_filter_key(const KeyEvent *event) {
