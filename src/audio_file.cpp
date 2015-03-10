@@ -546,7 +546,7 @@ static void write_frames_uint8_planar(const AudioFile *audio_file,
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ch_buf = frame->extended_data[ch];
         for (long i = start; i < end; i += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (uint8_t)((sample * 127.5) + 127.5);
             ch_buf += 1;
         }
@@ -559,7 +559,7 @@ static void write_frames_int16_planar(const AudioFile *audio_file,
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (int16_t)(sample * 32767.0);
             ch_buf += 1;
         }
@@ -572,7 +572,7 @@ static void write_frames_int32_planar(const AudioFile *audio_file,
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (int32_t)(sample * 2147483647.0);
             ch_buf += 1;
         }
@@ -585,7 +585,7 @@ static void write_frames_float_planar(const AudioFile *audio_file,
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (float)sample;
             ch_buf += 1;
         }
@@ -598,7 +598,7 @@ static void write_frames_double_planar(const AudioFile *audio_file,
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = sample;
             ch_buf += 1;
         }
@@ -610,7 +610,7 @@ static void write_frames_uint8(const AudioFile *audio_file,
 {
     for (long i = start; i < end; i += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
 
             *buffer = (uint8_t)((sample * 127.5) + 127.5);
 
@@ -624,7 +624,7 @@ static void write_frames_int16(const AudioFile *audio_file,
 {
     for (long i = start; i < end; i += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
 
             int16_t *int_ptr = reinterpret_cast<int16_t*>(buffer);
             *int_ptr = (int16_t)(sample * 32767.0);
@@ -639,7 +639,7 @@ static void write_frames_int32(const AudioFile *audio_file,
 {
     for (long i = start; i < end; i += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
             *int_ptr = (int32_t)(sample * 2147483647.0);
@@ -654,7 +654,7 @@ static void write_frames_float(const AudioFile *audio_file,
 {
     for (long i = start; i < end; i += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
 
             float *float_ptr = reinterpret_cast<float*>(buffer);
             *float_ptr = (float)sample;
@@ -669,7 +669,7 @@ static void write_frames_double(const AudioFile *audio_file,
 {
     for (long i = start; i < end; i += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            double sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = audio_file->channels.at(ch).samples.at(i);
             double *double_ptr = reinterpret_cast<double*>(buffer);
             *double_ptr = sample;
             buffer += 8;

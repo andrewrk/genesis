@@ -53,7 +53,6 @@ make
 
 ## Roadmap
 
- 0. use 32-bit float instead of double in memory
  0. use GLFW instead of SDL2
  0. Label use stencil instead of render slice API
  0. Menu system

@@ -191,7 +191,7 @@ void * AudioEditWidget::playback_thread() {
                 char *buffer_ptr;
                 int buffer_size = free_frame_count * bytes_per_frame;
                 _playback_device->begin_write(&buffer_ptr, &buffer_size);
-                int32_t *samples = reinterpret_cast<int32_t*>(buffer_ptr);
+                float *samples = reinterpret_cast<float*>(buffer_ptr);
                 int this_buffer_frame_count = buffer_size / bytes_per_frame;
                 free_frame_count -= this_buffer_frame_count;
 
@@ -199,8 +199,8 @@ void * AudioEditWidget::playback_thread() {
                 int channel_count = _audio_file->channels.length();
                 for (int i = 0; i < this_buffer_frame_count; i += 1) {
                     for (int ch = 0; ch < channel_count; ch += 1) {
-                        double sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
-                        samples[i * channel_count + ch] = (int32_t)(sample * 2147483647.0);
+                        float sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
+                        samples[i * channel_count + ch] = sample;
                     }
                     _playback_write_head += 1;
                     clamp_playback_write_head(playback_range_start, playback_range_end);
@@ -241,7 +241,7 @@ void AudioEditWidget::open_playback_device() {
     _playback_device_sample_rate = _audio_file->sample_rate;
     bool ok;
     _playback_device = create<OpenPlaybackDevice>(_audio_hardware, nullptr,
-            _audio_file->channel_layout, SampleFormatInt32, _playback_device_latency,
+            _audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
             _audio_file->sample_rate, &ok);
 
     if (!ok)
@@ -681,7 +681,7 @@ void AudioEditWidget::update_model() {
         per_channel_data->left = wave_start_left();
         per_channel_data->top = top;
 
-        List<double> *samples = &_audio_file->channels.at(i).samples;
+        List<float> *samples = &_audio_file->channels.at(i).samples;
 
         TextWidget *text_widget = per_channel_data->channel_name_widget;
         text_widget->set_pos(_left + wave_start_left(), _top + top);
@@ -698,10 +698,10 @@ void AudioEditWidget::update_model() {
                 long end_frame = min(
                         (long)((x + _scroll_x + 1) * _frames_per_pixel),
                         samples->length());
-                double min_sample =  1.0;
-                double max_sample = -1.0;
+                float min_sample =  1.0;
+                float max_sample = -1.0;
                 for (long frame = start_frame; frame < end_frame; frame += 1) {
-                    double sample = samples->at(frame);
+                    float sample = samples->at(frame);
                     min_sample = min(min_sample, sample);
                     max_sample = max(max_sample, sample);
                 }

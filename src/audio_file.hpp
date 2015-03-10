@@ -13,8 +13,8 @@ struct ExportSampleFormat {
 };
 
 struct Channel {
-    // samples are always stored as 48000, 64-bit float (double) in memory.
-    List<double> samples;
+    // samples are always stored as 48000, 32-bit float in memory.
+    List<float> samples;
 };
 
 struct AudioFile {
