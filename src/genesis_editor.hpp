@@ -4,7 +4,6 @@
 #include "resource_bundle.hpp"
 #include "key_event.hpp"
 #include "find_file_widget.hpp"
-#include "shader_program_manager.hpp"
 #include "gui.hpp"
 
 #include <SDL2/SDL.h>
@@ -15,8 +14,6 @@ class GenesisEditor {
 public:
     GenesisEditor();
     ~GenesisEditor();
-    GenesisEditor(const GenesisEditor &copy) = delete;
-    GenesisEditor &operator=(const GenesisEditor &copy) = delete;
 
     void edit_file(const char *filename);
 
@@ -58,6 +55,8 @@ private:
         return reinterpret_cast<GenesisEditor*>(find_file_widget->_userdata)->on_choose_save_file(file_path);
     }
 
+    GenesisEditor(const GenesisEditor &copy) = delete;
+    GenesisEditor &operator=(const GenesisEditor &copy) = delete;
 };
 
 #endif
