@@ -9,8 +9,11 @@
 void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_info) {
     fprintf(stderr, "\n");
     for (int i = 0; i < devices_info->devices.length(); i += 1) {
+        const AudioDevice *audio_device = &devices_info->devices.at(i);
+        const char *purpose_str = (audio_device->purpose == AudioDevicePurposePlayback) ?
+            "playback" : "recording";
         const char *default_str = (i == devices_info->default_output_index) ? " (default)" : "";
-        fprintf(stderr, "device: %s%s\n", devices_info->devices.at(i).description.encode().raw(), default_str);
+        fprintf(stderr, "%s device: %s%s\n", purpose_str, audio_device->description.encode().raw(), default_str);
     }
 }
 
@@ -151,7 +154,7 @@ static int sample_rate_from_pulseaudio(pa_sample_spec sample_spec) {
 }
 
 void AudioHardware::finish_device_query() {
-    if (!_have_device_list || !_have_default_sink)
+    if (!_have_sink_list || !_have_source_list || !_have_default_sink)
         return;
 
     // based on the default sink name, figure out the default output index
@@ -207,7 +210,7 @@ static void set_from_pulseaudio_channel_map(pa_channel_map channel_map, ChannelL
 
 void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *info, int eol) {
     if (eol) {
-        _have_device_list = true;
+        _have_sink_list = true;
         finish_device_query();
     } else {
         List<AudioDevice> *devices = &_current_audio_devices_info->devices;
@@ -217,8 +220,27 @@ void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *
         audio_device->description = String(info->description);
         set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
         audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
-        audio_device->default_output_latency = usec_to_sec(info->configured_latency);
+        audio_device->default_latency = usec_to_sec(info->configured_latency);
         audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+        audio_device->purpose = AudioDevicePurposePlayback;
+    }
+}
+
+void AudioHardware::source_info_callback(pa_context *context, const pa_source_info *info, int eol) {
+    if (eol) {
+        _have_source_list = true;
+        finish_device_query();
+    } else {
+        List<AudioDevice> *devices = &_current_audio_devices_info->devices;
+        _current_audio_devices_info->devices.resize(devices->length() + 1);
+        AudioDevice *audio_device = &devices->at(devices->length() - 1);
+        audio_device->name = String(info->name);
+        audio_device->description = String(info->description);
+        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
+        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
+        audio_device->default_latency = usec_to_sec(info->configured_latency);
+        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+        audio_device->purpose = AudioDevicePurposeRecording;
     }
 }
 
@@ -276,14 +298,19 @@ void *AudioHardware::pulseaudio_thread() {
         if (_device_scan_requests >= 1) {
             _device_scan_requests = 0;
 
-            _have_device_list = false;
+            _have_sink_list = false;
             _have_default_sink = false;
+            _have_source_list = false;
 
             initialize_current_device_list();
             pa_operation *list_sink_op = pa_context_get_sink_info_list(_context, sink_info_callback, this);
+            pa_operation *list_source_op = pa_context_get_source_info_list(_context,
+                    static_source_info_callback, this);
             pa_operation *server_info_op = pa_context_get_server_info(_context, server_info_callback, this);
 
             if (perform_operation(list_sink_op, &return_value) < 0)
+                break;
+            if (perform_operation(list_source_op, &return_value) < 0)
                 break;
             if (perform_operation(server_info_op, &return_value) < 0)
                 break;
@@ -476,4 +503,71 @@ void OpenPlaybackDevice::write(char *data, int byte_count) {
 
 void OpenPlaybackDevice::clear_buffer() {
     pa_operation_unref(pa_stream_flush(_stream, NULL, NULL));
+}
+
+OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
+        const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        int sample_rate, bool *ok)
+{
+    audio_hardware->block_until_ready();
+
+    pa_sample_spec sample_spec;
+    sample_spec.format = to_pulseaudio_sample_format(sample_format);
+    sample_spec.rate = sample_rate;
+    sample_spec.channels = channel_layout->channels.length();
+
+    pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
+
+    _stream = pa_stream_new(audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    if (!_stream)
+        panic("unable to create pulseaudio stream");
+
+    pa_stream_set_state_callback(_stream, static_stream_state_callback, this);
+
+    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channels.length(), sample_rate);
+    int buffer_length = latency * bytes_per_second;
+
+    pa_buffer_attr buffer_attr;
+    buffer_attr.maxlength = UINT32_MAX;
+    buffer_attr.tlength = UINT32_MAX;
+    buffer_attr.prebuf = UINT32_MAX;
+    buffer_attr.minreq = UINT32_MAX;
+    buffer_attr.fragsize = buffer_length;
+
+    int err = pa_stream_connect_record(_stream, device_name, &buffer_attr, PA_STREAM_NOFLAGS);
+    if (err)
+        panic("unable to connect pulseaudio record stream");
+
+    *ok = true;
+}
+
+OpenRecordingDevice::~OpenRecordingDevice() {
+    pa_stream_set_state_callback(_stream, NULL, this);
+    pa_stream_disconnect(_stream);
+    pa_stream_unref(_stream);
+}
+
+void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
+    switch (pa_stream_get_state(stream)) {
+        case PA_STREAM_UNCONNECTED:
+        case PA_STREAM_CREATING:
+        case PA_STREAM_READY:
+        case PA_STREAM_TERMINATED:
+            break;
+        case PA_STREAM_FAILED:
+            panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
+            break;
+    }
+}
+
+void OpenRecordingDevice::peek(const char **data, int *byte_count) {
+    size_t nbytes;
+    if (pa_stream_peek(_stream, (const void **)&data, &nbytes))
+        panic("pa_stream_peek error");
+    *byte_count = nbytes;
+}
+
+void OpenRecordingDevice::drop() {
+    if (pa_stream_drop(_stream))
+        panic("pa_stream_drop error");
 }

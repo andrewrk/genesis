@@ -12,13 +12,19 @@
 using std::atomic_int;
 using std::atomic_bool;
 
+enum AudioDevicePurpose {
+    AudioDevicePurposePlayback,
+    AudioDevicePurposeRecording,
+};
+
 struct AudioDevice {
     String name;
     String description;
     ChannelLayout channel_layout;
     SampleFormat default_sample_format;
-    double default_output_latency;
+    double default_latency;
     double default_sample_rate;
+    AudioDevicePurpose purpose;
 };
 
 struct AudioDevicesInfo {
@@ -51,6 +57,32 @@ private:
     static void stream_state_callback(pa_stream *stream, void *userdata) {
         return static_cast<OpenPlaybackDevice*>(userdata)->stream_state_callback(stream);
     }
+
+    OpenPlaybackDevice(const OpenPlaybackDevice &copy) = delete;
+    OpenPlaybackDevice &operator=(const OpenPlaybackDevice &copy) = delete;
+};
+
+class OpenRecordingDevice {
+public:
+    OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
+        const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        int sample_rate, bool *ok);
+    ~OpenRecordingDevice();
+
+    void peek(const char **data, int *byte_count);
+    void drop();
+
+private:
+    pa_stream *_stream;
+
+    void stream_state_callback(pa_stream *stream);
+
+    static void static_stream_state_callback(pa_stream *stream, void *userdata) {
+        return static_cast<OpenRecordingDevice*>(userdata)->stream_state_callback(stream);
+    }
+
+    OpenRecordingDevice(const OpenRecordingDevice &copy) = delete;
+    OpenRecordingDevice &operator=(const OpenRecordingDevice &copy) = delete;
 };
 
 class AudioHardware {
@@ -86,7 +118,8 @@ private:
     // this one is ready to be read with flush_events. protected by mutex
     AudioDevicesInfo *_ready_audio_devices_info;
 
-    bool _have_device_list;
+    bool _have_sink_list;
+    bool _have_source_list;
     bool _have_default_sink;
 
     atomic_bool _ready_flag;
@@ -101,6 +134,7 @@ private:
 
     void context_state_callback(pa_context *context);
     void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol);
+    void source_info_callback(pa_context *context, const pa_source_info *info, int eol);
     void server_info_callback(pa_context *context, const pa_server_info *info);
 
     void *pulseaudio_thread();
@@ -118,6 +152,11 @@ private:
     }
     static void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol, void *userdata) {
         return static_cast<AudioHardware*>(userdata)->sink_info_callback(context, info, eol);
+    }
+    static void static_source_info_callback(pa_context *context,
+            const pa_source_info *info, int eol, void *userdata)
+    {
+        return static_cast<AudioHardware*>(userdata)->source_info_callback(context, info, eol);
     }
     static void server_info_callback(pa_context *context, const pa_server_info *info, void *userdata) {
         return static_cast<AudioHardware*>(userdata)->server_info_callback(context, info);
