@@ -294,6 +294,10 @@ AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i)
     return per_channel_data;
 }
 
+int AudioEditWidget::clamp_in_wave_x(int x) {
+    return clamp(wave_start_left(), x, wave_start_left() + wave_width() - 1);
+}
+
 void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     _gui_window->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
@@ -325,8 +329,8 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
 
     glClear(GL_STENCIL_BUFFER_BIT);
 
-    int sel_start_x = pos_at_frame(start);
-    int sel_end_x = pos_at_frame(end);
+    int sel_start_x = clamp_in_wave_x(pos_at_frame(start));
+    int sel_end_x = clamp_in_wave_x(pos_at_frame(end));
     for (long i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
@@ -342,8 +346,8 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     long playback_end = _playback_selection.end;
     if (playback_start == playback_end)
         playback_end += 1;
-    int playback_sel_start_x = timeline_pos_at_frame(playback_start);
-    int playback_sel_end_x = timeline_pos_at_frame(playback_end);
+    int playback_sel_start_x = clamp_in_wave_x(timeline_pos_at_frame(playback_start));
+    int playback_sel_end_x = clamp_in_wave_x(timeline_pos_at_frame(playback_end));
     _gui_window->fill_rect(_timeline_sel_bg_color,
             _left + playback_sel_start_x, _top + timeline_top(),
             playback_sel_end_x - playback_sel_start_x, _timeline_height);
@@ -365,9 +369,12 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
 
     glDisable(GL_STENCIL_TEST);
 
-    _gui_window->fill_rect(_playback_cursor_color,
-            _left + pos_at_frame(_playback_cursor_frame), _top + timeline_top(),
-            2, _timeline_height);
+    int cursor_pos_x = pos_at_frame(_playback_cursor_frame);
+    if (cursor_pos_x >= wave_start_left() && cursor_pos_x < wave_start_left() + wave_width()) {
+        _gui_window->fill_rect(_playback_cursor_color,
+                _left + cursor_pos_x, _top + timeline_top(), 2, _timeline_height);
+    }
+
 }
 
 int AudioEditWidget::wave_start_left() const {

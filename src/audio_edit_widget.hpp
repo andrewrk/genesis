@@ -161,6 +161,7 @@ private:
     void change_zoom_mouse_anchor(double new_frames_per_pixel, int anchor_pixel_x);
     void change_zoom_frame_anchor(double new_frames_per_pixel, long anchor_frame);
     void scroll_by(int x);
+    int clamp_in_wave_x(int x);
 
     static void *playback_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
