@@ -13,11 +13,7 @@ Label::Label(Gui *gui) :
     _gui(gui),
     _width(0),
     _height(0),
-    _text(""),
-    _render_sel_slice_start(-1),
-    _render_sel_slice_end(-1),
-    _render_slice_start_x(-1),
-    _render_slice_end_x(-1)
+    _text("")
 {
     set_font_size(12);
 
@@ -29,7 +25,6 @@ Label::Label(Gui *gui) :
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glGenBuffers(1, &_vertex_buffer);
-    glGenBuffers(1, &_tex_coord_buffer);
 
 
     // send dummy vertex data - real data happens at update()
@@ -42,40 +37,12 @@ Label::Label(Gui *gui) :
     glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_DYNAMIC_DRAW);
 
-    GLfloat coords[4][2] = {
-        {0, 0},
-        {0, 1},
-        {1, 0},
-        {1, 1},
-    };
-    glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_DYNAMIC_DRAW);
-
-
     _vertex_array = create<VertexArray>(_gui, init_vertex_array_static, this);
-
-    glGenBuffers(1, &_slice_vertex_buffer);
-    glGenBuffers(1, &_slice_tex_coord_buffer);
-
-    // send dummy vertex data for the slice
-    glBindBuffer(GL_ARRAY_BUFFER, _slice_vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_DYNAMIC_DRAW);
-
-    // dummy tex coord data for the slice
-    glBindBuffer(GL_ARRAY_BUFFER, _slice_tex_coord_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_DYNAMIC_DRAW);
-
-    _slice_vertex_array = create<VertexArray>(_gui, init_slice_vertex_array_static, this);
 
     update();
 }
 
 Label::~Label() {
-    glDeleteBuffers(1, &_slice_tex_coord_buffer);
-    glDeleteBuffers(1, &_slice_vertex_buffer);
-    destroy(_slice_vertex_array, 1);
-
-    glDeleteBuffers(1, &_tex_coord_buffer);
     glDeleteBuffers(1, &_vertex_buffer);
     destroy(_vertex_array, 1);
 
@@ -87,17 +54,7 @@ void Label::init_vertex_array() {
     glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
     glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-    glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-}
-
-void Label::init_slice_vertex_array() {
-    glBindBuffer(GL_ARRAY_BUFFER, _slice_vertex_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _slice_tex_coord_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
     glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
     glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 }
@@ -118,28 +75,6 @@ void Label::draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 
             _gui->_shader_program_manager._text_uniform_mvp, mvp);
 
     _vertex_array->bind(window);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, _texture_id);
-
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
-void Label::draw_sel_slice(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color) {
-    if (_text.length() == 0)
-        return;
-
-    _gui->_shader_program_manager._text_shader_program.bind();
-
-    _gui->_shader_program_manager._text_shader_program.set_uniform(
-            _gui->_shader_program_manager._text_uniform_color, color);
-
-    _gui->_shader_program_manager._text_shader_program.set_uniform(
-            _gui->_shader_program_manager._text_uniform_tex, 0);
-
-    _gui->_shader_program_manager._text_shader_program.set_uniform(
-            _gui->_shader_program_manager._text_uniform_mvp, mvp);
-
-    _slice_vertex_array->bind(window);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 
@@ -228,14 +163,19 @@ void Label::update() {
     _width = bounding_width;
     _height = bounding_height;
 
-    update_render_slice();
-    update_render_sel_slice();
+    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+    GLfloat vertexes[4][3] = {
+        {0.0f, 0.0f, 0.0f},
+        {0.0f, (float)_height, 0.0f},
+        {(float)_width, 0.0f, 0.0f},
+        {(float)_width, (float)_height, 0.0f},
+    };
+    glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
 
     long img_buf_size =  _width * _height;
-    if (img_buf_size > _img_buffer.length())
-        _img_buffer.resize(img_buf_size);
-
+    _img_buffer.resize(img_buf_size);
     _img_buffer.fill(0);
+
     // second pass to render bitmap
     for (long i = 0; i < _letters.length(); i += 1) {
         Letter *letter = &_letters.at(i);
@@ -298,109 +238,6 @@ void Label::get_slice_dimensions(int start, int end, int &start_x, int &end_x) c
     }
     const Letter *start_letter = &_letters.at(start);
     start_x = start_letter->left;
-}
-
-void Label::set_sel_slice(int start, int end) {
-    _render_sel_slice_start = start;
-    _render_sel_slice_end = end;
-    update_render_sel_slice();
-}
-
-void Label::set_slice(int start_x, int end_x) {
-    _render_slice_start_x = start_x;
-    _render_slice_end_x = end_x;
-    update_render_slice();
-    update_render_sel_slice();
-}
-
-void Label::update_render_sel_slice() {
-    if (_text.length() == 0)
-        return;
-
-    int start, end;
-    if (_render_sel_slice_start == -1) {
-        start = 0;
-        end = _text.length() + 1;
-    } else {
-        start = _render_sel_slice_start;
-        end = _render_sel_slice_end;
-    }
-    int start_x, start_y;
-    int end_x, end_y;
-    pos_at_cursor(start, start_x, start_y);
-    pos_at_cursor(end, end_x, end_y);
-
-    int main_start_x, main_end_x;
-    get_render_coords(main_start_x, main_end_x);
-    if (end_x > main_end_x)
-        end_x = main_end_x;
-    if (start_x < main_start_x)
-        start_x = main_start_x;
-
-    float width = end_x - start_x;
-    float tex_start_x = ((float)start_x) / ((float)_width);
-    float tex_end_x = tex_start_x + width / ((float)_width);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _slice_vertex_buffer);
-    GLfloat vertexes[4][3] = {
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, (float)_height, 0.0f},
-        {width, 0.0f, 0.0f},
-        {width, (float)_height, 0.0f},
-    };
-    glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _slice_tex_coord_buffer);
-    GLfloat coords[4][2] = {
-        {tex_start_x, 0.0f},
-        {tex_start_x, 1.0f},
-        {tex_end_x, 0.0f},
-        {tex_end_x, 1.0f},
-    };
-    glBufferSubData(GL_ARRAY_BUFFER, 0, 2 * 4 * sizeof(GLfloat), coords);
-
-    assert_no_gl_error();
-}
-
-void Label::get_render_coords(int &start_x, int &end_x) {
-    if (_render_slice_start_x == -1) {
-        start_x = 0;
-        end_x = _width;
-    } else {
-        start_x = _render_slice_start_x;
-        end_x = min(_render_slice_end_x, _width);
-    }
-}
-
-void Label::update_render_slice() {
-    if (_text.length() == 0)
-        return;
-
-    int start_x, end_x;
-    get_render_coords(start_x, end_x);
-    float width = end_x - start_x;
-    float tex_start_x = ((float)start_x) / ((float)_width);
-    float tex_end_x = tex_start_x + width / ((float)_width);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-    GLfloat vertexes[4][3] = {
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, (float)_height, 0.0f},
-        {width, 0.0f, 0.0f},
-        {width, (float)_height, 0.0f},
-    };
-    glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _tex_coord_buffer);
-    GLfloat coords[4][2] = {
-        {tex_start_x, 0.0f},
-        {tex_start_x, 1.0f},
-        {tex_end_x, 0.0f},
-        {tex_end_x, 1.0f},
-    };
-    glBufferSubData(GL_ARRAY_BUFFER, 0, 2 * 4 * sizeof(GLfloat), coords);
-
-    assert_no_gl_error();
 }
 
 void Label::replace_text(int start, int end, String text) {

@@ -54,13 +54,6 @@ public:
         return _font_size->_max_below_size;
     }
 
-    // start and end are character indexes
-    void set_sel_slice(int start, int end); // -1 for full
-    void draw_sel_slice(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color);
-
-    // start and end are pixels
-    void set_slice(int start_x, int end_x); // -1 for full
-
     void replace_text(int start, int end, String text);
 
 private:
@@ -83,7 +76,6 @@ private:
     GLuint _texture_id;
     VertexArray *_vertex_array;
     GLuint _vertex_buffer;
-    GLuint _tex_coord_buffer;
 
     String _text;
     glm::vec4 _color;
@@ -94,30 +86,10 @@ private:
     // cached from _text on update()
     List<Letter> _letters;
 
-    // character indexes
-    int _render_sel_slice_start;
-    int _render_sel_slice_end;
-    VertexArray *_slice_vertex_array;
-    GLuint _slice_vertex_buffer;
-    GLuint _slice_tex_coord_buffer;
-
-    // in pixels
-    int _render_slice_start_x;
-    int _render_slice_end_x;
-
-    void update_render_sel_slice();
-    void update_render_slice();
-    void get_render_coords(int &start_x, int &end_x);
-
     void init_vertex_array();
-    void init_slice_vertex_array();
 
     static void init_vertex_array_static(void *userdata) {
         return static_cast<Label*>(userdata)->init_vertex_array();
-    }
-
-    static void init_slice_vertex_array_static(void *userdata) {
-        return static_cast<Label*>(userdata)->init_slice_vertex_array();
     }
 };
 

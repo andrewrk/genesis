@@ -53,6 +53,7 @@ public:
     void set_font_size(int size) {
         _label.set_font_size(size);
         _label.update();
+        update_model();
     }
 
     void set_pos(int new_left, int new_top) {
@@ -134,7 +135,6 @@ private:
 
     glm::mat4 _sel_model;
     glm::mat4 _cursor_model;
-    glm::mat4 _sel_text_model;
 
     bool _have_focus;
 
@@ -178,6 +178,7 @@ private:
 
     int label_start_x() const;
     int label_start_y() const;
+    int label_area_width() const;
 
     TextWidget(const TextWidget &copy) = delete;
     TextWidget &operator=(const TextWidget &copy) = delete;

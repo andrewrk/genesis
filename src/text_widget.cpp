@@ -74,7 +74,29 @@ void TextWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
             _placeholder_label.draw(window, label_mvp, _placeholder_color);
     }
 
+    glEnable(GL_STENCIL_TEST);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    window->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            _left + label_start_x(), _top + label_start_y(),
+            label_area_width(), _label.height());
+
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
     _label.draw(window, label_mvp, _text_color);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glClear(GL_STENCIL_BUFFER_BIT);
 
     if (_text_interaction_on && _have_focus && _cursor_start != -1 && _cursor_end != -1) {
         if (_cursor_start == _cursor_end) {
@@ -82,14 +104,20 @@ void TextWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
             glm::mat4 cursor_mvp = projection * _cursor_model;
             _gui->fill_rect(window, _selection_color, cursor_mvp);
         } else {
+
             // draw selection rectangle
             glm::mat4 sel_mvp = projection * _sel_model;
             _gui->fill_rect(window, _selection_color, sel_mvp);
 
-            glm::mat4 sel_text_mvp = projection * _sel_text_model;
-            _label.draw_sel_slice(window, sel_text_mvp, _sel_text_color);
+            glStencilFunc(GL_EQUAL, 1, 0xFF);
+            glStencilMask(0x00);
+
+            _label.draw(window, label_mvp, _sel_text_color);
         }
     }
+
+    glDisable(GL_STENCIL_TEST);
+
 }
 
 void TextWidget::update_model() {
@@ -103,19 +131,10 @@ void TextWidget::update_model() {
                         glm::vec3(scale_x, scale_y, 0.0f));
     }
 
-    int slice_start_x, slice_end_x;
-    if (_auto_size) {
-        slice_start_x = -1;
-        slice_end_x = -1;
-    } else {
-        slice_start_x = _scroll_x;
-        slice_end_x = _scroll_x + _width - label_start_x() - _padding_right;
-    }
-    _label.set_slice(slice_start_x, slice_end_x);
-
-    float label_left = _left + label_start_x();
+    float label_left = _left + label_start_x() - _scroll_x;
     float label_top = _top + label_start_y();
-    _label_model = glm::translate(glm::mat4(1.0f), glm::vec3(label_left, label_top, 0.0f));
+    _label_model = glm::translate(glm::mat4(1.0f),
+            glm::vec3(label_left, label_top, 0.0f));
 
     _bg_model = glm::scale(
                     glm::translate(
@@ -200,6 +219,14 @@ int TextWidget::label_start_y() const {
     return (height() - _label.height()) / 2;
 }
 
+int TextWidget::label_area_width() const {
+    if (_auto_size) {
+        return _label.width();
+    } else {
+        return _width - label_start_x() - _padding_right;
+    }
+}
+
 int TextWidget::cursor_at_pos(int x, int y) const {
     int inner_x = x - label_start_x();
     int inner_y = y - label_start_y();
@@ -235,25 +262,18 @@ void TextWidget::update_selection_model() {
     } else {
         int start, end;
         get_cursor_slice(start, end);
-        _label.set_sel_slice(start, end);
         int start_x, end_x;
         _label.get_slice_dimensions(start, end, start_x, end_x);
         start_x -= _scroll_x;
         end_x -= _scroll_x;
-        int max_end_x = width() - label_start_x() - _padding_right;
-        int min_start_x = 0;
-        start_x = max(min_start_x, start_x);
-        end_x = min(max_end_x, end_x);
+        start_x = max(0, start_x);
+        end_x = min(label_area_width(), end_x);
         int sel_width = end_x - start_x;
         _sel_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
                             glm::vec3(_left + label_start_x() + start_x, _top + _padding_top, 0.0f)),
                         glm::vec3(sel_width, sel_height, 1.0f));
-        float label_left = _left + label_start_x();
-        float label_top = _top + label_start_y();
-        _sel_text_model = glm::translate(glm::mat4(1.0f),
-                glm::vec3(label_left + start_x, label_top, 0.0f));
     }
 }
 
@@ -462,11 +482,7 @@ void TextWidget::paste() {
 }
 
 int TextWidget::width() const {
-    if (_auto_size) {
-        return _label.width() + label_start_x() + _padding_right;
-    } else {
-        return _width;
-    }
+    return label_area_width() + label_start_x() + _padding_right;
 }
 
 int TextWidget::height() const {
