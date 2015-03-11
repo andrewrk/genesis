@@ -7,9 +7,10 @@
 #include <stdint.h>
 
 void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_info) {
+    fprintf(stderr, "\n");
     for (int i = 0; i < devices_info->devices.length(); i += 1) {
         const char *default_str = (i == devices_info->default_output_index) ? " (default)" : "";
-        fprintf(stderr, "device: %s%s\n", devices_info->devices.at(i).name.encode().raw(), default_str);
+        fprintf(stderr, "device: %s%s\n", devices_info->devices.at(i).description.encode().raw(), default_str);
     }
 }
 
@@ -56,6 +57,7 @@ AudioHardware::AudioHardware() :
     if (pthread_create(&_pulseaudio_thread_id, NULL, pulseaudio_thread, this))
         panic("unable to create playback thread");
 
+    scan_devices();
 }
 
 AudioHardware::~AudioHardware() {
@@ -80,25 +82,8 @@ void AudioHardware::subscribe_callback(pa_context *context,
         pa_subscription_event_type_t event_bits, uint32_t index)
 {
     int facility = (event_bits & PA_SUBSCRIPTION_EVENT_FACILITY_MASK);
-    int event_type = (event_bits & PA_SUBSCRIPTION_EVENT_TYPE_MASK);
-
-    if (facility == PA_SUBSCRIPTION_EVENT_SOURCE) {
-        if (event_type == PA_SUBSCRIPTION_EVENT_NEW) {
-            fprintf(stderr, "input device added\n");
-        } else if (event_type == PA_SUBSCRIPTION_EVENT_REMOVE) {
-            fprintf(stderr, "input device removed\n");
-        } else if (event_type == PA_SUBSCRIPTION_EVENT_CHANGE) {
-            fprintf(stderr, "input device changed\n");
-        }
-    } else if (facility == PA_SUBSCRIPTION_EVENT_SINK) {
-        if (event_type == PA_SUBSCRIPTION_EVENT_NEW) {
-            fprintf(stderr, "output device added\n");
-        } else if (event_type == PA_SUBSCRIPTION_EVENT_REMOVE) {
-            fprintf(stderr, "output device removed\n");
-        } else if (event_type == PA_SUBSCRIPTION_EVENT_CHANGE) {
-            fprintf(stderr, "output device changed\n");
-        }
-    }
+    if (facility == PA_SUBSCRIPTION_EVENT_SOURCE || facility == PA_SUBSCRIPTION_EVENT_SINK)
+        scan_devices();
 }
 
 void AudioHardware::destroy_ready_audio_devices_info() {
@@ -285,7 +270,7 @@ void *AudioHardware::pulseaudio_thread() {
     if (perform_operation(subscribe_op, &return_value) < 0)
         return nullptr;
 
-    while (pa_mainloop_iterate(_main_loop, 1, &return_value) >= 0) {
+    for (;;) {
         if (_thread_exit_flag)
             break;
         if (_device_scan_requests >= 1) {
@@ -303,6 +288,8 @@ void *AudioHardware::pulseaudio_thread() {
             if (perform_operation(server_info_op, &return_value) < 0)
                 break;
         }
+        if (pa_mainloop_iterate(_main_loop, 1, &return_value) < 0)
+            break;
     }
     return nullptr;
 }

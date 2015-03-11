@@ -63,10 +63,6 @@ public:
         _on_devices_change = on_devices_change;
     }
 
-    // call this to trigger a device scan. this results in one device list event
-    // going onto the event queue. call flush_events() to dispatch the events
-    void scan_devices();
-
     // call this and on_devices_change will be called 0 or 1 times, and then
     // this function will return
     void flush_events();
@@ -101,6 +97,8 @@ private:
     pa_mainloop *_main_loop;
     atomic_bool _thread_exit_flag;
 
+    void scan_devices();
+
     void context_state_callback(pa_context *context);
     void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol);
     void server_info_callback(pa_context *context, const pa_server_info *info);
@@ -113,6 +111,7 @@ private:
     void finish_device_query();
     int perform_operation(pa_operation *op, int *return_value);
     void subscribe_callback(pa_context *context, pa_subscription_event_type_t event_type, uint32_t index);
+
 
     static void context_state_callback(pa_context *context, void *userdata) {
         return static_cast<AudioHardware*>(userdata)->context_state_callback(context);
