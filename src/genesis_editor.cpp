@@ -118,3 +118,12 @@ void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
 void GenesisEditor::edit_file(const char *filename) {
     on_choose_file(filename);
 }
+
+void GenesisEditor::create_new_file() {
+    destroy_audio_edit_widget();
+
+    _audio_edit_widget = _gui_window->create_audio_edit_widget();
+    _audio_edit_widget->set_pos(10, 10);
+    _audio_edit_widget->set_size(_gui_window->_width - 20, _gui_window->_height - 20);
+    _gui_window->set_focus_widget(_audio_edit_widget);
+}

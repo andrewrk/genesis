@@ -112,6 +112,7 @@ private:
     void set_ready_flag();
     void finish_device_query();
     int perform_operation(pa_operation *op, int *return_value);
+    void subscribe_callback(pa_context *context, pa_subscription_event_type_t event_type, uint32_t index);
 
     static void context_state_callback(pa_context *context, void *userdata) {
         return static_cast<AudioHardware*>(userdata)->context_state_callback(context);
@@ -125,6 +126,12 @@ private:
 
     static void *pulseaudio_thread(void *arg) {
         return static_cast<AudioHardware*>(arg)->pulseaudio_thread();
+    }
+
+    static void static_subscribe_callback(pa_context *context,
+            pa_subscription_event_type_t event_type, uint32_t index, void *userdata)
+    {
+        return static_cast<AudioHardware*>(userdata)->subscribe_callback(context, event_type, index);
     }
 
     AudioHardware(const AudioHardware &copy) = delete;

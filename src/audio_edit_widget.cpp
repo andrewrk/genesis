@@ -607,6 +607,9 @@ void AudioEditWidget::clear_playback_buffer() {
 }
 
 void AudioEditWidget::toggle_play() {
+    if (!_playback_device)
+        return;
+
     if (pthread_mutex_lock(&_playback_mutex))
         panic("pthread_mutex_lock failure");
 
@@ -618,6 +621,9 @@ void AudioEditWidget::toggle_play() {
 }
 
 void AudioEditWidget::restart_play() {
+    if (!_playback_device)
+        return;
+
     if (pthread_mutex_lock(&_playback_mutex))
         panic("pthread_mutex_lock failure");
 

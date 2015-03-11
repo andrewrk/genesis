@@ -14,6 +14,7 @@ public:
     ~GenesisEditor();
 
     void edit_file(const char *filename);
+    void create_new_file();
 
     void exec();
 

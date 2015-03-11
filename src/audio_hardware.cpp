@@ -46,7 +46,9 @@ AudioHardware::AudioHardware() :
 
     pa_proplist_free(props);
 
+    pa_context_set_subscribe_callback(_context, static_subscribe_callback, this);
     pa_context_set_state_callback(_context, context_state_callback, this);
+
     int err = pa_context_connect(_context, NULL, (pa_context_flags_t)0, NULL);
     if (err)
         panic("pulseaudio context connect failed");
@@ -72,6 +74,31 @@ AudioHardware::~AudioHardware() {
         panic("pthread_cond_destroy failure");
     if (pthread_mutex_destroy(&_thread_mutex))
         panic("pthread_mutex_destroy failure");
+}
+
+void AudioHardware::subscribe_callback(pa_context *context,
+        pa_subscription_event_type_t event_bits, uint32_t index)
+{
+    int facility = (event_bits & PA_SUBSCRIPTION_EVENT_FACILITY_MASK);
+    int event_type = (event_bits & PA_SUBSCRIPTION_EVENT_TYPE_MASK);
+
+    if (facility == PA_SUBSCRIPTION_EVENT_SOURCE) {
+        if (event_type == PA_SUBSCRIPTION_EVENT_NEW) {
+            fprintf(stderr, "input device added\n");
+        } else if (event_type == PA_SUBSCRIPTION_EVENT_REMOVE) {
+            fprintf(stderr, "input device removed\n");
+        } else if (event_type == PA_SUBSCRIPTION_EVENT_CHANGE) {
+            fprintf(stderr, "input device changed\n");
+        }
+    } else if (facility == PA_SUBSCRIPTION_EVENT_SINK) {
+        if (event_type == PA_SUBSCRIPTION_EVENT_NEW) {
+            fprintf(stderr, "output device added\n");
+        } else if (event_type == PA_SUBSCRIPTION_EVENT_REMOVE) {
+            fprintf(stderr, "output device removed\n");
+        } else if (event_type == PA_SUBSCRIPTION_EVENT_CHANGE) {
+            fprintf(stderr, "output device changed\n");
+        }
+    }
 }
 
 void AudioHardware::destroy_ready_audio_devices_info() {
@@ -113,6 +140,7 @@ void AudioHardware::context_state_callback(pa_context *context) {
     case PA_CONTEXT_READY: // The connection is established, the context is ready to execute operations.
     case PA_CONTEXT_TERMINATED: // The connection was terminated cleanly.
         set_ready_flag();
+        pa_mainloop_wakeup(_main_loop);
         return;
     case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
         panic("pulsaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
@@ -242,11 +270,26 @@ int AudioHardware::perform_operation(pa_operation *op, int *return_value) {
 
 void *AudioHardware::pulseaudio_thread() {
     int return_value;
+
+    // wait until we get to the ready state
+    while (!_ready_flag) {
+        if (pa_mainloop_iterate(_main_loop, 1, &return_value) < 0)
+            return nullptr;
+    }
+
+    pa_subscription_mask_t events = (pa_subscription_mask_t)(
+            PA_SUBSCRIPTION_MASK_SINK|PA_SUBSCRIPTION_MASK_SOURCE);
+    pa_operation *subscribe_op = pa_context_subscribe(_context, events, nullptr, this);
+    if (!subscribe_op)
+        panic("pa_context_subscribe failed: %s", pa_strerror(pa_context_errno(_context)));
+    if (perform_operation(subscribe_op, &return_value) < 0)
+        return nullptr;
+
     while (pa_mainloop_iterate(_main_loop, 1, &return_value) >= 0) {
         if (_thread_exit_flag)
             break;
         if (_device_scan_requests >= 1) {
-            _device_scan_requests -= 1;
+            _device_scan_requests = 0;
 
             _have_device_list = false;
             _have_default_sink = false;
