@@ -3,9 +3,7 @@
 
 #include "util.hpp"
 #include "glm.hpp"
-
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
+#include "glfw.hpp"
 
 class ShaderProgram {
 public:

@@ -3,12 +3,10 @@
 
 #include "util.hpp"
 #include "byte_buffer.hpp"
+#include "glfw.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
-
 static inline void assert_no_gl_error() {
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {

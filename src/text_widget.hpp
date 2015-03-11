@@ -8,10 +8,11 @@
 #include "widget.hpp"
 
 class SpritesheetImage;
+class GuiWindow;
 
 class TextWidget : public Widget {
 public:
-    TextWidget(Gui *gui);
+    TextWidget(GuiWindow *gui_window, Gui *gui);
     ~TextWidget() {}
 
     void draw(GuiWindow *window, const glm::mat4 &projection) override;
@@ -124,6 +125,7 @@ private:
     int _icon_size_h;
     int _icon_margin;
 
+    GuiWindow *_gui_window;
     Gui *_gui;
 
     int _cursor_start;

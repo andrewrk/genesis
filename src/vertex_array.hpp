@@ -2,9 +2,7 @@
 #define VERTEX_ARRAY_HPP
 
 #include "list.hpp"
-
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
+#include "glfw.hpp"
 
 class Gui;
 class GuiWindow;

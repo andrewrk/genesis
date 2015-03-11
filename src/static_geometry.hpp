@@ -1,8 +1,7 @@
 #ifndef STATIC_GEOMETRY_HPP
 #define STATIC_GEOMETRY_HPP
 
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
+#include "glfw.hpp"
 
 class StaticGeometry {
 public:

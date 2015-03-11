@@ -5,9 +5,7 @@
 #include "string.hpp"
 #include "glm.hpp"
 #include "font_size.hpp"
-
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
+#include "glfw.hpp"
 
 class Gui;
 class VertexArray;

@@ -104,6 +104,16 @@ static inline T euclidean_mod(T a, T base) {
     return (a < 0) ? ((a % base + base) % base) : (a % base);
 }
 
+template <typename T>
+static inline T sign(T x) {
+    if (x > 0)
+        return 1;
+    else if (x < 0)
+        return -1;
+    else
+        return 0;
+}
+
 template<typename T, int(*Comparator)(T, T)>
 void insertion_sort(T * in_place_list, int size) {
     for (int top = 1; top < size; top++) {

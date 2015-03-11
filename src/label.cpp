@@ -3,9 +3,6 @@
 #include "debug.hpp"
 #include "vertex_array.hpp"
 
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
-
 
 static void ft_ok(FT_Error err) {
     if (err)

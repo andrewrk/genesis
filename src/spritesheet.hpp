@@ -4,9 +4,7 @@
 #include "shader_program.hpp"
 #include "byte_buffer.hpp"
 #include "hash_map.hpp"
-
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
+#include "glfw.hpp"
 
 class VertexArray;
 class Spritesheet;

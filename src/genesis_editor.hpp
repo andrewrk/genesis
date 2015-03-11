@@ -6,8 +6,6 @@
 #include "find_file_widget.hpp"
 #include "gui.hpp"
 
-#include <SDL2/SDL.h>
-
 class AudioEditWidget;
 class GuiWindow;
 class GenesisEditor {
@@ -28,6 +26,7 @@ private:
     AudioEditWidget *_audio_edit_widget;
 
     bool on_key_event(GuiWindow *window, const KeyEvent *event);
+    bool on_text_event(GuiWindow *window, const TextInputEvent *event);
     void on_close_event(GuiWindow *window);
 
     void destroy_find_file_widget();
@@ -43,11 +42,15 @@ private:
         return reinterpret_cast<GenesisEditor*>(window->_userdata)->on_key_event(window, event);
     }
 
+    static bool static_on_text_event(GuiWindow *window, const TextInputEvent *event) {
+        return reinterpret_cast<GenesisEditor*>(window->_userdata)->on_text_event(window, event);
+    }
+
     static void static_on_close_event(GuiWindow *window) {
         return reinterpret_cast<GenesisEditor*>(window->_userdata)->on_close_event(window);
     }
 
-    static void on_choose_file(FindFileWidget *find_file_widget, const ByteBuffer &file_path) {
+    static void static_on_choose_file(FindFileWidget *find_file_widget, const ByteBuffer &file_path) {
         return reinterpret_cast<GenesisEditor*>(find_file_widget->_userdata)->on_choose_file(file_path);
     }
 

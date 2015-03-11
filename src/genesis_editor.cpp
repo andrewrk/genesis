@@ -12,6 +12,7 @@ GenesisEditor::GenesisEditor() :
     _gui_window = _gui.create_window(true);
     _gui_window->_userdata = this;
     _gui_window->set_on_key_event(static_on_key_event);
+    _gui_window->set_on_text_event(static_on_text_event);
     _gui_window->set_on_close_event(static_on_close_event);
 }
 
@@ -39,6 +40,10 @@ void GenesisEditor::destroy_audio_edit_widget() {
     _audio_edit_widget = NULL;
 }
 
+bool GenesisEditor::on_text_event(GuiWindow *window, const TextInputEvent *event) {
+    return false;
+}
+
 bool GenesisEditor::on_key_event(GuiWindow *window, const KeyEvent *event) {
     if (event->action != KeyActionDown)
         return false;
@@ -47,15 +52,17 @@ bool GenesisEditor::on_key_event(GuiWindow *window, const KeyEvent *event) {
         default:
             return false;
         case VirtKeyO:
-            if (!event->modifiers.ctrl())
-                return false;
-            show_open_file();
-            return true;
+            if (key_mod_only_ctrl(event->modifiers)) {
+                show_open_file();
+                return true;
+            }
+            return false;
         case VirtKeyS:
-            if (!event->modifiers.ctrl())
-                return false;
-            show_save_file();
-            return true;
+            if (key_mod_only_ctrl(event->modifiers)) {
+                show_save_file();
+                return true;
+            }
+            return false;
     }
     return false;
 }
@@ -80,7 +87,7 @@ void GenesisEditor::show_open_file() {
     destroy_audio_edit_widget();
     ensure_find_file_widget();
     _find_file_widget->set_mode(FindFileWidget::ModeOpen);
-    _find_file_widget->set_on_choose_file(on_choose_file);
+    _find_file_widget->set_on_choose_file(static_on_choose_file);
     _gui_window->set_focus_widget(_find_file_widget);
 }
 

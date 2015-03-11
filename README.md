@@ -43,7 +43,7 @@ genesis is programmed in a tiny subset of C++:
 ```
 sudo apt-add-repository ppa:andrewrk/rucksack
 sudo apt-get update
-sudo apt-get install libsdl2-dev libepoxy-dev libglm-dev \
+sudo apt-get install libglfw3-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
     libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack \
     librucksack-dev
@@ -53,7 +53,6 @@ make
 
 ## Roadmap
 
- 0. use GLFW instead of SDL2
  0. Label use stencil instead of render slice API
  0. Menu system
  0. Widget layouts

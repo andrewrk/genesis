@@ -14,7 +14,7 @@ static bool default_on_mouse_event(TextWidget *, const MouseEvent *event) {
     return false;
 }
 
-TextWidget::TextWidget(Gui *gui) :
+TextWidget::TextWidget(GuiWindow *gui_window, Gui *gui) :
     Widget(),
     _userdata(NULL),
     _label(gui),
@@ -32,6 +32,7 @@ TextWidget::TextWidget(Gui *gui) :
     _icon_size_w(16),
     _icon_size_h(16),
     _icon_margin(4),
+    _gui_window(gui_window),
     _gui(gui),
     _cursor_start(0),
     _cursor_end(0),
@@ -124,14 +125,13 @@ void TextWidget::update_model() {
 }
 
 void TextWidget::on_mouse_over(const MouseEvent *event) {
-    if (_text_interaction_on) {
-        SDL_SetCursor(_gui->_cursor_ibeam);
-    }
+    if (_text_interaction_on)
+        _gui_window->set_cursor_beam();
     _hovering = true;
 }
 
 void TextWidget::on_mouse_out(const MouseEvent *event) {
-    SDL_SetCursor(_gui->_cursor_default);
+    _gui_window->set_cursor_default();
     _hovering = false;
 }
 
@@ -265,27 +265,21 @@ void TextWidget::set_selection(int start, int end) {
 
 void TextWidget::on_gain_focus() {
     _have_focus = true;
-    _gui->start_text_editing(left(), top(), width(), height());
 }
 
 void TextWidget::on_lose_focus() {
     _have_focus = false;
-    _gui->stop_text_editing();
 }
 
 void TextWidget::on_text_input(const TextInputEvent *event) {
     if (!_text_interaction_on)
         return;
 
-    if (event->action == TextInputActionCandidate) {
-        // 1. Need a ttf font that supports more characters
-        // 2. Support displaying this event
-        panic("TODO text editing event support");
-    }
-
     int start, end;
     get_cursor_slice(start, end);
-    replace_text(start, end, event->text, 1);
+    String one_char;
+    one_char.append(event->codepoint);
+    replace_text(start, end, one_char, 1);
 }
 
 void TextWidget::replace_text(int start, int end, const String &text, int cursor_modifier) {
@@ -319,13 +313,13 @@ void TextWidget::on_key_event(const KeyEvent *event) {
     get_cursor_slice(start, end);
     switch (event->virt_key) {
         case VirtKeyLeft:
-            if (event->modifiers.ctrl() && event->modifiers.shift()) {
+            if (key_mod_ctrl(event->modifiers) && key_mod_shift(event->modifiers)) {
                 int new_end = backward_word();
                 set_selection(_cursor_start, new_end);
-            } else if (event->modifiers.ctrl()) {
+            } else if (key_mod_ctrl(event->modifiers)) {
                 int new_start = backward_word();
                 set_selection(new_start, new_start);
-            } else if (event->modifiers.shift()) {
+            } else if (key_mod_shift(event->modifiers)) {
                 set_selection(_cursor_start, _cursor_end - 1);
             } else {
                 if (start == end) {
@@ -336,13 +330,13 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             }
             break;
         case VirtKeyRight:
-            if (event->modifiers.ctrl() && event->modifiers.shift()) {
+            if (key_mod_ctrl(event->modifiers) && key_mod_shift(event->modifiers)) {
                 int new_end = forward_word();
                 set_selection(_cursor_start, new_end);
-            } else if (event->modifiers.ctrl()) {
+            } else if (key_mod_ctrl(event->modifiers)) {
                 int new_start = forward_word();
                 set_selection(new_start, new_start);
-            } else if (event->modifiers.shift()) {
+            } else if (key_mod_shift(event->modifiers)) {
                 set_selection(_cursor_start, _cursor_end + 1);
             } else {
                 if (start == end) {
@@ -354,7 +348,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             break;
         case VirtKeyBackspace:
             if (start == end) {
-                if (event->modifiers.ctrl()) {
+                if (key_mod_ctrl(event->modifiers)) {
                     int new_start = backward_word();
                     replace_text(new_start, start, "", 0);
                 } else {
@@ -366,7 +360,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             break;
         case VirtKeyDelete:
             if (start == end) {
-                if (event->modifiers.ctrl()) {
+                if (key_mod_ctrl(event->modifiers)) {
                     int new_start = forward_word();
                     replace_text(start, new_start, "", 0);
                 } else {
@@ -377,33 +371,33 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             }
             break;
         case VirtKeyHome:
-            if (event->modifiers.shift()) {
+            if (key_mod_shift(event->modifiers)) {
                 set_selection(_cursor_start, 0);
             } else {
                 set_selection(0, 0);
             }
             break;
         case VirtKeyEnd:
-            if (event->modifiers.shift()) {
+            if (key_mod_shift(event->modifiers)) {
                 set_selection(_cursor_start, _label.text().length());
             } else {
                 set_selection(_label.text().length(), _label.text().length());
             }
             break;
         case VirtKeyA:
-            if (event->modifiers.ctrl())
+            if (key_mod_ctrl(event->modifiers))
                 select_all();
             break;
         case VirtKeyX:
-            if (event->modifiers.ctrl())
+            if (key_mod_ctrl(event->modifiers))
                 cut();
             break;
         case VirtKeyC:
-            if (event->modifiers.ctrl())
+            if (key_mod_ctrl(event->modifiers))
                 copy();
             break;
         case VirtKeyV:
-            if (event->modifiers.ctrl())
+            if (key_mod_ctrl(event->modifiers))
                 paste();
             break;
         default:
@@ -448,22 +442,22 @@ void TextWidget::select_all() {
 void TextWidget::cut() {
     int start, end;
     get_cursor_slice(start, end);
-    _gui->set_clipboard_string(_label.text().substring(start, end));
+    _gui_window->set_clipboard_string(_label.text().substring(start, end));
     replace_text(start, end, "", 0);
 }
 
 void TextWidget::copy() {
     int start, end;
     get_cursor_slice(start, end);
-    _gui->set_clipboard_string(_label.text().substring(start, end));
+    _gui_window->set_clipboard_string(_label.text().substring(start, end));
 }
 
 void TextWidget::paste() {
-    if (!_gui->clipboard_has_string())
+    if (!_gui_window->clipboard_has_string())
         return;
     int start, end;
     get_cursor_slice(start, end);
-    String str = _gui->get_clipboard_string();
+    String str = _gui_window->get_clipboard_string();
     replace_text(start, end, str, str.length());
 }
 

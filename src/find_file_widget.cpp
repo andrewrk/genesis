@@ -24,8 +24,8 @@ FindFileWidget::FindFileWidget(GuiWindow *gui_window, Gui *gui) :
     _show_hidden_files(false),
     _on_choose_file(default_on_choose_file)
 {
-    _current_path_widget = create<TextWidget>(_gui);
-    _filter_widget = create<TextWidget>(_gui);
+    _current_path_widget = create<TextWidget>(_gui_window, _gui);
+    _filter_widget = create<TextWidget>(_gui_window, _gui);
 
     _current_path_widget->set_background_on(false);
     _current_path_widget->set_text_interaction(false);
@@ -155,13 +155,13 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
         return true;
     }
 
-    if (event->virt_key == VirtKeyH && event->modifiers.ctrl()) {
+    if (event->virt_key == VirtKeyH && key_mod_ctrl(event->modifiers)) {
         _show_hidden_files = !_show_hidden_files;
         update_entries_display();
         return true;
     }
 
-    if (event->virt_key == VirtKeyReturn) {
+    if (event->virt_key == VirtKeyEnter) {
         if (_displayed_entries.length() > 0)
             choose_dir_entry(_displayed_entries.at(0).entry);
         return true;
@@ -216,7 +216,7 @@ void FindFileWidget::update_entries_display() {
         DirEntry *entry = _entries.at(i);
         String text(entry->name, &ok);
         if (should_show_entry(entry, text, search_words)) {
-            TextWidget *text_widget = create<TextWidget>(_gui);
+            TextWidget *text_widget = create<TextWidget>(_gui_window,_gui);
             text_widget->set_background_on(false);
             text_widget->set_text_interaction(false);
             text_widget->set_text(text);

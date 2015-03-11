@@ -282,7 +282,7 @@ void AudioEditWidget::init_selection(Selection &selection) {
 
 AudioEditWidget::PerChannelData *AudioEditWidget::create_per_channel_data(int i) {
     String channel_name = audio_file_channel_name(_audio_file, i);
-    TextWidget *text_widget = create<TextWidget>(_gui);
+    TextWidget *text_widget = create<TextWidget>(_gui_window, _gui);
     text_widget->set_text(channel_name);
     text_widget->set_background_on(false);
     text_widget->set_text_interaction(false);
@@ -512,9 +512,9 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                 if (get_timeline_frame(event->x, event->y) != -1 ||
                    get_frame_and_channel(event->x, event->y, &pos))
                 {
-                    SDL_SetCursor(_gui->_cursor_ibeam);
+                    _gui_window->set_cursor_beam();
                 } else {
-                    SDL_SetCursor(_gui->_cursor_default);
+                    _gui_window->set_cursor_default();
                 }
                 if (event->buttons.left) {
                     if (_select_down) {
@@ -546,7 +546,7 @@ void AudioEditWidget::change_zoom_frame_anchor(double new_frames_per_pixel, long
 }
 
 void AudioEditWidget::on_mouse_wheel(const MouseWheelEvent *event) {
-    if (event->modifiers.ctrl()) {
+    if (key_mod_ctrl(event->modifiers)) {
         if (event->wheel_y > 0) {
             change_zoom_mouse_anchor(_frames_per_pixel * 0.8, event->x);
         } else if (event->wheel_y < 0) {
@@ -556,7 +556,7 @@ void AudioEditWidget::on_mouse_wheel(const MouseWheelEvent *event) {
 }
 
 void AudioEditWidget::on_mouse_out(const MouseEvent *event) {
-    SDL_SetCursor(_gui->_cursor_default);
+    _gui_window->set_cursor_default();
 }
 
 void AudioEditWidget::on_key_event(const KeyEvent *event) {
@@ -572,7 +572,7 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
         case VirtKeySpace:
             toggle_play();
             break;
-        case VirtKeyReturn:
+        case VirtKeyEnter:
             restart_play();
             break;
         case VirtKey0:

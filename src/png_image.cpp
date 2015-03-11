@@ -1,7 +1,5 @@
 #include "png_image.hpp"
-
-#include <epoxy/gl.h>
-#include <epoxy/glx.h>
+#include "glfw.hpp"
 
 #include <png.h>
 

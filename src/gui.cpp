@@ -12,22 +12,28 @@ static void ft_ok(FT_Error err) {
         panic("freetype error");
 }
 
-GlobalSdlContext::GlobalSdlContext() {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-        panic("SDL initialize");
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 1);
+static void panic_on_glfw_error(int error, const char* description) {
+    panic("GLFW error: %s", description);
 }
 
-GlobalSdlContext::~GlobalSdlContext() {
-    SDL_Quit();
+GlobalGlfwContext::GlobalGlfwContext() {
+    glfwSetErrorCallback(panic_on_glfw_error);
+
+    if (!glfwInit())
+        panic("GLFW initialize");
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_DEPTH_BITS, 0);
+    glfwWindowHint(GLFW_STENCIL_BITS, 1);
+
+}
+
+GlobalGlfwContext::~GlobalGlfwContext() {
+    glfwTerminate();
 }
 
 void Gui::init_primitive_vertex_array() {
@@ -53,13 +59,13 @@ Gui::Gui(ResourceBundle *resource_bundle) :
     ft_ok(FT_New_Memory_Face(_ft_library, (FT_Byte*)_default_font_buffer.raw(),
                 _default_font_buffer.length(), 0, &_default_font_face));
 
-    _cursor_default = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
-    _cursor_ibeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+    _cursor_default = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    _cursor_ibeam = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 }
 
 Gui::~Gui() {
-    SDL_FreeCursor(_cursor_default);
-    SDL_FreeCursor(_cursor_ibeam);
+    glfwDestroyCursor(_cursor_default);
+    glfwDestroyCursor(_cursor_ibeam);
 
     auto it = _font_size_cache.entry_iterator();
     for (;;) {
@@ -74,188 +80,17 @@ Gui::~Gui() {
     FT_Done_FreeType(_ft_library);
 }
 
-KeyModifiers Gui::get_key_modifiers() {
-    const uint8_t *key_state = SDL_GetKeyboardState(NULL);
-    return {
-        (bool)key_state[SDL_SCANCODE_LSHIFT],
-        (bool)key_state[SDL_SCANCODE_RSHIFT],
-        (bool)key_state[SDL_SCANCODE_LCTRL],
-        (bool)key_state[SDL_SCANCODE_RCTRL],
-        (bool)key_state[SDL_SCANCODE_LALT],
-        (bool)key_state[SDL_SCANCODE_RALT],
-        (bool)key_state[SDL_SCANCODE_LGUI],
-        (bool)key_state[SDL_SCANCODE_RGUI],
-        (bool)key_state[SDL_SCANCODE_NUMLOCKCLEAR],
-        (bool)key_state[SDL_SCANCODE_CAPSLOCK],
-        (bool)key_state[SDL_SCANCODE_MODE],
-    };
-}
-
-GuiWindow * Gui::get_window_from_sdl_id(Uint32 id) {
-    SDL_Window *window = SDL_GetWindowFromID(id);
-    if (!window)
-        return nullptr;
-    for (int i = 0; i < _window_list.length(); i += 1) {
-        GuiWindow *gui_window = _window_list.at(i);
-        if (gui_window->_window == window)
-            return gui_window;
-    }
-    return nullptr;
-}
-
 void Gui::exec() {
     while (_running) {
-        SDL_Event event;
-        while(SDL_PollEvent(&event)) {
-            switch (event.type) {
-            case SDL_KEYDOWN:
-            case SDL_KEYUP:
-                {
-                    KeyEvent key_event = {
-                        (event.key.state == SDL_PRESSED) ? KeyActionDown : KeyActionUp,
-                        (VirtKey)event.key.keysym.sym,
-                        {
-                            (bool)(event.key.keysym.mod & KMOD_LSHIFT),
-                            (bool)(event.key.keysym.mod & KMOD_RSHIFT),
-                            (bool)(event.key.keysym.mod & KMOD_LCTRL),
-                            (bool)(event.key.keysym.mod & KMOD_RCTRL),
-                            (bool)(event.key.keysym.mod & KMOD_LALT),
-                            (bool)(event.key.keysym.mod & KMOD_RALT),
-                            (bool)(event.key.keysym.mod & KMOD_LGUI),
-                            (bool)(event.key.keysym.mod & KMOD_RGUI),
-                            (bool)(event.key.keysym.mod & KMOD_NUM),
-                            (bool)(event.key.keysym.mod & KMOD_CAPS),
-                            (bool)(event.key.keysym.mod & KMOD_MODE),
-                        },
-                    };
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.key.windowID);
-                    if (gui_window)
-                        gui_window->on_key_event(&key_event);
-                }
-                break;
-            case SDL_QUIT:
-                _running = false;
-                break;
-            case SDL_WINDOWEVENT:
-                {
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.window.windowID);
-                    if (!gui_window)
-                        break;
-                    switch (event.window.event) {
-                    case SDL_WINDOWEVENT_RESIZED:
-                    case SDL_WINDOWEVENT_MAXIMIZED:
-                    case SDL_WINDOWEVENT_RESTORED:
-                        gui_window->resize();
-                        break;
-                    case SDL_WINDOWEVENT_CLOSE:
-                        gui_window->on_close();
-                        break;
-                    }
-                }
-                break;
-            case SDL_MOUSEMOTION:
-                {
-                    bool left = event.motion.state & SDL_BUTTON_LMASK;
-                    bool middle = event.motion.state & SDL_BUTTON_MMASK;
-                    bool right = event.motion.state & SDL_BUTTON_RMASK;
-                    MouseEvent mouse_event = {
-                        event.motion.x,
-                        event.motion.y,
-                        MouseButtonNone,
-                        MouseActionMove,
-                        MouseButtons {left, middle, right},
-                        get_key_modifiers(),
-                    };
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.motion.windowID);
-                    if (gui_window)
-                        gui_window->on_mouse_move(&mouse_event);
-                }
-                break;
-            case SDL_MOUSEBUTTONDOWN:
-            case SDL_MOUSEBUTTONUP:
-                {
-                    MouseButton btn;
-                    if (event.button.button == SDL_BUTTON_LEFT) {
-                        btn = MouseButtonLeft;
-                    } else if (event.button.button == SDL_BUTTON_MIDDLE) {
-                        btn = MouseButtonMiddle;
-                    } else if (event.button.button == SDL_BUTTON_RIGHT) {
-                        btn = MouseButtonRight;
-                    } else {
-                        break;
-                    }
-                    bool left = event.button.state & SDL_BUTTON_LMASK;
-                    bool middle = event.button.state & SDL_BUTTON_MMASK;
-                    bool right = event.button.state & SDL_BUTTON_RMASK;
-                    MouseAction action;
-                    if (event.button.type == SDL_MOUSEBUTTONDOWN) {
-                        if (event.button.clicks == 1) {
-                            action = MouseActionDown;
-                        } else {
-                            action = MouseActionDbl;
-                        }
-                    } else {
-                        action = MouseActionUp;
-                    }
-                    MouseEvent mouse_event = {
-                        event.button.x,
-                        event.button.y,
-                        btn,
-                        action,
-                        MouseButtons {left, middle, right},
-                        get_key_modifiers(),
-                    };
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.button.windowID);
-                    if (gui_window)
-                        gui_window->on_mouse_move(&mouse_event);
-                }
-                break;
-            case SDL_TEXTEDITING:
-                {
-                    TextInputEvent text_event = {
-                        TextInputActionCandidate,
-                        String(event.edit.text),
-                    };
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.edit.windowID);
-                    if (gui_window)
-                        gui_window->on_text_input(&text_event);
-                    break;
-                }
-            case SDL_TEXTINPUT:
-                {
-                    TextInputEvent text_event = {
-                        TextInputActionCommit,
-                        String(event.text.text),
-                    };
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.text.windowID);
-                    if (gui_window)
-                        gui_window->on_text_input(&text_event);
-                    break;
-                }
-            case SDL_MOUSEWHEEL:
-                {
-                    GuiWindow *gui_window = get_window_from_sdl_id(event.wheel.windowID);
-                    if (gui_window) {
-                        MouseWheelEvent wheel_event = {
-                            gui_window->_last_mouse_x,
-                            gui_window->_last_mouse_y,
-                            event.wheel.x,
-                            event.wheel.y,
-                            get_key_modifiers(),
-                        };
-
-                        gui_window->on_mouse_wheel(&wheel_event);
-                    }
-                    break;
-                }
-            }
-        }
+        glfwPollEvents();
         _audio_hardware.flush_events();
 
-        for (long i = 0; i < _window_list.length(); i += 1) {
+        // draw the utility window last because it's the one with vsync on
+        for (long i = 1; i < _window_list.length(); i += 1) {
             GuiWindow *_gui_window = _window_list.at(i);
             _gui_window->draw();
         }
+        _utility_window->draw();
     }
 }
 
@@ -317,38 +152,3 @@ void Gui::destroy_window(GuiWindow *window) {
     if (_window_list.length() == 1)
         _running = false;
 }
-
-void Gui::set_clipboard_string(const String &str) {
-    int err = SDL_SetClipboardText(str.encode().raw());
-    if (err)
-        fprintf(stderr, "Error setting clipboard text: %s\n", SDL_GetError());
-}
-
-String Gui::get_clipboard_string() const {
-    char* clip_text = SDL_GetClipboardText();
-    bool ok;
-    String str = String::decode(clip_text, &ok);
-    SDL_free(clip_text);
-    if (!ok)
-        fprintf(stderr, "Reading invalid UTF-8 from the clipboard\n");
-    return str;
-}
-
-bool Gui::clipboard_has_string() const {
-    return SDL_HasClipboardText();
-}
-
-void Gui::start_text_editing(int x, int y, int w, int h) {
-    SDL_Rect rect;
-    rect.x = x;
-    rect.y = y;
-    rect.w = w;
-    rect.h = h;
-    SDL_SetTextInputRect(&rect);
-    SDL_StartTextInput();
-}
-
-void Gui::stop_text_editing() {
-    SDL_StopTextInput();
-}
-
