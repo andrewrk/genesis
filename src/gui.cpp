@@ -88,8 +88,10 @@ void Gui::exec() {
         // draw the utility window last because it's the one with vsync on
         for (long i = 1; i < _window_list.length(); i += 1) {
             GuiWindow *_gui_window = _window_list.at(i);
+            _gui_window->bind();
             _gui_window->draw();
         }
+        _utility_window->bind();
         _utility_window->draw();
     }
 }
@@ -140,15 +142,20 @@ void Gui::destroy_window(GuiWindow *window) {
         panic("window did not have its gui index set");
 
     int index = window->_gui_index;
-    _window_list.swap_remove(index);
-    if (index < _window_list.length())
-        _window_list.at(index)->_gui_index = index;
     for (int i = 0; i < _vertex_array_list.length(); i += 1) {
         VertexArray *vertex_array = _vertex_array_list.at(i);
         vertex_array->remove_index(index);
     }
+    _window_list.swap_remove(index);
+    if (index < _window_list.length())
+        _window_list.at(index)->_gui_index = index;
     destroy(window, 1);
 
     if (_window_list.length() == 1)
         _running = false;
+}
+
+GuiWindow *Gui::get_bound_window() {
+    GLFWwindow *window = glfwGetCurrentContext();
+    return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window));
 }

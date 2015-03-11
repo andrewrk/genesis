@@ -42,6 +42,10 @@ public:
     void fill_rect(GuiWindow *window, const glm::vec4 &color, const glm::mat4 &mvp);
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
 
+
+    GuiWindow *get_bound_window();
+
+
     bool _running;
     List<GuiWindow*> _window_list;
     List<VertexArray*> _vertex_array_list;

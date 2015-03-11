@@ -53,7 +53,6 @@ make
 
 ## Roadmap
 
- 0. Label use stencil instead of render slice API
  0. Menu system
  0. Widget layouts
  0. Scroll bar

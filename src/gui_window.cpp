@@ -50,7 +50,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
         panic("unable to create window");
     glfwSetWindowUserPointer(_window, this);
 
-    glfwMakeContextCurrent(_window);
+    bind();
     // utility window is the only one that has vsync on, and we draw it last
     glfwSwapInterval(is_normal_window ? 0 : 1);
 
@@ -96,13 +96,17 @@ void GuiWindow::window_iconify_callback(int iconified) {
     _is_iconified = iconified;
 }
 
-void GuiWindow::draw() {
-    if (_is_iconified)
-        return;
-    if (!_is_visible)
-        return;
-
+void GuiWindow::bind() {
     glfwMakeContextCurrent(_window);
+}
+
+void GuiWindow::draw() {
+    if (_gui->_utility_window != this) {
+        if (_is_iconified)
+            return;
+        if (!_is_visible)
+            return;
+    }
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
@@ -111,7 +115,6 @@ void GuiWindow::draw() {
         if (widget->_is_visible)
             widget->draw(this, _projection);
     }
-
     glfwSwapBuffers(_window);
 }
 

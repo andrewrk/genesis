@@ -20,6 +20,7 @@ public:
     GuiWindow(Gui *gui, bool is_normal_window);
     ~GuiWindow();
 
+    void bind();
     void draw();
 
     TextWidget *create_text_widget();
