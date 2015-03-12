@@ -13,7 +13,7 @@ OBJECTS = build/main.o build/util.o build/byte_buffer.o build/os.o \
 		  build/genesis.o build/channel_layouts.o build/texture.o \
 		  build/shader_program_manager.o build/alpha_texture.o \
 		  build/audio_file.o build/audio_hardware.o build/static_geometry.o \
-		  build/vertex_array.o build/gui_window.o
+		  build/vertex_array.o build/gui_window.o build/select_widget.o
 
 GENERATE_UNICODE_DATA_OBJECTS = build/generate_unicode_data.o build/util.o \
 								build/byte_buffer.o

@@ -10,9 +10,15 @@ void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_
     fprintf(stderr, "\n");
     for (int i = 0; i < devices_info->devices.length(); i += 1) {
         const AudioDevice *audio_device = &devices_info->devices.at(i);
-        const char *purpose_str = (audio_device->purpose == AudioDevicePurposePlayback) ?
-            "playback" : "recording";
-        const char *default_str = (i == devices_info->default_output_index) ? " (default)" : "";
+        const char *purpose_str;
+        const char *default_str;
+        if (audio_device->purpose == AudioDevicePurposePlayback) {
+            purpose_str = "playback";
+            default_str = (i == devices_info->default_output_index) ? " (default)" : "";
+        } else {
+            purpose_str = "recording";
+            default_str = (i == devices_info->default_input_index) ? " (default)" : "";
+        }
         fprintf(stderr, "%s device: %s%s\n", purpose_str, audio_device->description.encode().raw(), default_str);
     }
 }
@@ -159,10 +165,15 @@ void AudioHardware::finish_device_query() {
 
     // based on the default sink name, figure out the default output index
     _current_audio_devices_info->default_output_index = -1;
+    _current_audio_devices_info->default_input_index = -1;
     for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1) {
         AudioDevice *audio_device = &_current_audio_devices_info->devices.at(i);
-        if (String::equal(audio_device->name, _default_audio_device_name)) {
+        if (String::equal(audio_device->name, _default_sink_name)) {
             _current_audio_devices_info->default_output_index = i;
+            break;
+        }
+        if (String::equal(audio_device->name, _default_source_name)) {
+            _current_audio_devices_info->default_input_index = i;
             break;
         }
     }
@@ -245,7 +256,8 @@ void AudioHardware::source_info_callback(pa_context *context, const pa_source_in
 }
 
 void AudioHardware::server_info_callback(pa_context *context, const pa_server_info *info) {
-    _default_audio_device_name = info->default_sink_name;
+    _default_sink_name = info->default_sink_name;
+    _default_source_name = info->default_source_name;
 
     _have_default_sink = true;
     finish_device_query();

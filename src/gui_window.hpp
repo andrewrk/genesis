@@ -13,7 +13,8 @@ class Widget;
 class TextWidget;
 class FindFileWidget;
 class AudioEditWidget;
-class SpritesheetImage;
+struct SpritesheetImage;
+class SelectWidget;
 
 class GuiWindow {
 public:
@@ -23,6 +24,7 @@ public:
     void bind();
     void draw();
 
+    SelectWidget *create_select_widget();
     TextWidget *create_text_widget();
     FindFileWidget *create_find_file_widget();
     AudioEditWidget *create_audio_edit_widget();

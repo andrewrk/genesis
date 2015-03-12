@@ -16,7 +16,12 @@ public:
     ~List() {
         destroy(_items, _capacity);
     }
-    List(List &other) = delete;
+    List(const List &other) {
+        resize(other._length);
+        for (long i = 0; i < _length; i += 1) {
+            _items[i] = other._items[i];
+        }
+    }
     List<T>& operator= (const List<T> &other) {
         resize(other._length);
         for (long i = 0; i < _length; i += 1) {

@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 
-glm::vec4 parse_color(const char *color) {
+static glm::vec4 parse_color(const char *color) {
     if (color[0] == '#')
         color += 1;
     size_t len = strlen(color);

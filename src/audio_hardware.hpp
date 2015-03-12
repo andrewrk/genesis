@@ -31,6 +31,7 @@ struct AudioDevicesInfo {
     List<AudioDevice> devices;
     // can be -1 when default device is unknown
     int default_output_index;
+    int default_input_index;
 };
 
 class AudioHardware;
@@ -113,7 +114,8 @@ private:
 
     // the one that we're working on building
     AudioDevicesInfo *_current_audio_devices_info;
-    String _default_audio_device_name;
+    String _default_sink_name;
+    String _default_source_name;
 
     // this one is ready to be read with flush_events. protected by mutex
     AudioDevicesInfo *_ready_audio_devices_info;

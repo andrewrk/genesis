@@ -67,12 +67,20 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
 
     init_selection(_selection);
     init_selection(_playback_selection);
+
+    _select_playback_device = create<SelectWidget>(gui_window, gui);
+    _select_playback_device->append_choice("Playback Device");
+
+    _audio_hardware->_userdata = this;
+    _audio_hardware->set_on_devices_change(static_on_devices_change);
 }
 
 AudioEditWidget::~AudioEditWidget() {
     close_playback_device();
     destroy_audio_file();
     destroy_all_ui();
+
+    _gui_window->destroy_widget(_select_playback_device);
 
     if (pthread_cond_destroy(&_playback_cond))
         panic("pthread_cond_destroy failure");
@@ -87,6 +95,22 @@ void AudioEditWidget::destroy_audio_file() {
         destroy(_audio_file, 1);
         _audio_file = NULL;
     }
+}
+
+void AudioEditWidget::on_devices_change(const AudioDevicesInfo *info) {
+    _select_playback_device->clear();
+    _playback_device_list.clear();
+
+    for (int i = 0; i < info->devices.length(); i += 1) {
+        const AudioDevice *audio_device = &info->devices.at(i);
+        if (audio_device->purpose == AudioDevicePurposePlayback) {
+            _select_playback_device->append_choice(audio_device->description);
+            _playback_device_list.resize(_playback_device_list.length() + 1);
+            _playback_device_list.at(_playback_device_list.length() - 1) = *audio_device;
+        }
+    }
+    int index = (info->default_output_index >= 0) ? info->default_output_index : 0;
+    _select_playback_device->select_index(index);
 }
 
 void AudioEditWidget::destroy_all_ui() {
@@ -299,9 +323,11 @@ int AudioEditWidget::clamp_in_wave_x(int x) {
 }
 
 void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
-    _gui_window->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
+    window->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
-    _gui_window->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
+    _select_playback_device->draw(window, projection);
+
+    window->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
             timeline_width(), _timeline_height);
 
     for (long i = 0; i < _channel_list.length(); i += 1) {
@@ -337,7 +363,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
         if (!_selection.channels.at(i))
             continue;
 
-        _gui_window->fill_rect(_waveform_sel_bg_color,
+        window->fill_rect(_waveform_sel_bg_color,
                 _left + sel_start_x, _top + per_channel_data->top,
                 sel_end_x - sel_start_x, per_channel_data->height);
     }
@@ -348,7 +374,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
         playback_end += 1;
     int playback_sel_start_x = clamp_in_wave_x(timeline_pos_at_frame(playback_start));
     int playback_sel_end_x = clamp_in_wave_x(timeline_pos_at_frame(playback_end));
-    _gui_window->fill_rect(_timeline_sel_bg_color,
+    window->fill_rect(_timeline_sel_bg_color,
             _left + playback_sel_start_x, _top + timeline_top(),
             playback_sel_end_x - playback_sel_start_x, _timeline_height);
 
@@ -371,7 +397,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
 
     int cursor_pos_x = pos_at_frame(_playback_cursor_frame);
     if (cursor_pos_x >= wave_start_left() && cursor_pos_x < wave_start_left() + wave_width()) {
-        _gui_window->fill_rect(_playback_cursor_color,
+        window->fill_rect(_playback_cursor_color,
                 _left + cursor_pos_x, _top + timeline_top(), 2, _timeline_height);
     }
 
@@ -481,6 +507,9 @@ void AudioEditWidget::set_playback_selection(long start, long end) {
 }
 
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
+    if (_gui_window->try_mouse_move_event_on_widget(_select_playback_device, event))
+        return;
+
     switch (event->action) {
         case MouseActionDown:
             if (event->button == MouseButtonLeft) {
@@ -674,7 +703,7 @@ void AudioEditWidget::set_size(int width, int height) {
 }
 
 int AudioEditWidget::timeline_top() const {
-    return _padding_top;
+    return _padding_top + _select_playback_device->height() + _margin;
 }
 
 int AudioEditWidget::timeline_left() const {
@@ -686,6 +715,8 @@ int AudioEditWidget::timeline_width() const {
 }
 
 void AudioEditWidget::update_model() {
+    _select_playback_device->set_pos(_left + _margin, _top + _margin);
+
     ByteBuffer pixels;
     int top = timeline_top() + _timeline_height + _margin;
 

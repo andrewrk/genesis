@@ -7,6 +7,7 @@
 #include "alpha_texture.hpp"
 #include "genesis.h"
 #include "audio_file.hpp"
+#include "select_widget.hpp"
 
 #include <pthread.h>
 #include <atomic>
@@ -16,6 +17,8 @@ using std::atomic_long;
 class Gui;
 class AudioHardware;
 class OpenPlaybackDevice;
+class OpenRecordingDevice;
+
 class AudioEditWidget : public Widget {
 public:
     AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware *audio_hardware);
@@ -114,6 +117,14 @@ private:
     double _playback_device_latency;
     int _playback_device_sample_rate;
 
+    SelectWidget *_select_playback_device;
+
+    OpenRecordingDevice *_recording_device;
+
+    // kept in sync with _select_playback_device options
+    List<AudioDevice> _playback_device_list;
+
+
     void update_model();
 
     void destroy_audio_file();
@@ -163,8 +174,14 @@ private:
     void scroll_by(int x);
     int clamp_in_wave_x(int x);
 
+    void on_devices_change(const AudioDevicesInfo *info);
+
     static void *playback_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
+    }
+
+    static void static_on_devices_change(AudioHardware *audio_hardware, const AudioDevicesInfo *info) {
+        return static_cast<AudioEditWidget*>(audio_hardware->_userdata)->on_devices_change(info);
     }
 
     AudioEditWidget(const AudioEditWidget &copy) = delete;

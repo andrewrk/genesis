@@ -7,7 +7,7 @@
 #include "gui.hpp"
 #include "widget.hpp"
 
-class SpritesheetImage;
+struct SpritesheetImage;
 class GuiWindow;
 
 class TextWidget : public Widget {

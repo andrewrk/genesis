@@ -5,6 +5,7 @@
 #include "text_widget.hpp"
 #include "find_file_widget.hpp"
 #include "audio_edit_widget.hpp"
+#include "select_widget.hpp"
 
 static bool default_on_key_event(GuiWindow *, const KeyEvent *event) {
     return false;
@@ -304,6 +305,12 @@ void GuiWindow::init_widget(Widget *widget) {
     widget->_is_visible = true;
     widget->_gui_index = _widget_list.length();
     _widget_list.append(widget);
+}
+
+SelectWidget * GuiWindow::create_select_widget() {
+    SelectWidget *select_widget = create<SelectWidget>(this, _gui);
+    init_widget(select_widget);
+    return select_widget;
 }
 
 TextWidget * GuiWindow::create_text_widget() {
