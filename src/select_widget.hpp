@@ -37,6 +37,7 @@ public:
     void select_index(int index);
 
     void on_mouse_move(const MouseEvent *event);
+    void on_mouse_over(const MouseEvent *event);
 
     void set_on_selected_index_change(void (*fn)(SelectWidget *)) {
         _on_selected_index_change = fn;

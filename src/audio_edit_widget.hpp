@@ -118,11 +118,14 @@ private:
     int _playback_device_sample_rate;
 
     SelectWidget *_select_playback_device;
+    SelectWidget *_select_recording_device;
 
     OpenRecordingDevice *_recording_device;
 
     // kept in sync with _select_playback_device options
     List<AudioDevice> _playback_device_list;
+    // kept in sync with _select_recording_device options
+    List<AudioDevice> _recording_device_list;
 
 
     void update_model();

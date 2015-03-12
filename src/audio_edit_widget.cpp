@@ -69,7 +69,7 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     init_selection(_playback_selection);
 
     _select_playback_device = create<SelectWidget>(gui_window, gui);
-    _select_playback_device->append_choice("Playback Device");
+    _select_recording_device = create<SelectWidget>(gui_window, gui);
 
     _audio_hardware->_userdata = this;
     _audio_hardware->set_on_devices_change(static_on_devices_change);
@@ -80,6 +80,7 @@ AudioEditWidget::~AudioEditWidget() {
     destroy_audio_file();
     destroy_all_ui();
 
+    _gui_window->destroy_widget(_select_recording_device);
     _gui_window->destroy_widget(_select_playback_device);
 
     if (pthread_cond_destroy(&_playback_cond))
@@ -99,7 +100,9 @@ void AudioEditWidget::destroy_audio_file() {
 
 void AudioEditWidget::on_devices_change(const AudioDevicesInfo *info) {
     _select_playback_device->clear();
+    _select_recording_device->clear();
     _playback_device_list.clear();
+    _recording_device_list.clear();
 
     for (int i = 0; i < info->devices.length(); i += 1) {
         const AudioDevice *audio_device = &info->devices.at(i);
@@ -107,10 +110,19 @@ void AudioEditWidget::on_devices_change(const AudioDevicesInfo *info) {
             _select_playback_device->append_choice(audio_device->description);
             _playback_device_list.resize(_playback_device_list.length() + 1);
             _playback_device_list.at(_playback_device_list.length() - 1) = *audio_device;
+        } else {
+            _select_recording_device->append_choice(audio_device->description);
+            _recording_device_list.resize(_recording_device_list.length() + 1);
+            _recording_device_list.at(_recording_device_list.length() - 1) = *audio_device;
         }
     }
-    int index = (info->default_output_index >= 0) ? info->default_output_index : 0;
-    _select_playback_device->select_index(index);
+    int playback_index = (info->default_output_index >= 0) ? info->default_output_index : 0;
+    _select_playback_device->select_index(playback_index);
+
+    int recording_index = (info->default_input_index >= 0) ? info->default_input_index : 0;
+    _select_playback_device->select_index(recording_index);
+
+    update_model();
 }
 
 void AudioEditWidget::destroy_all_ui() {
@@ -326,6 +338,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     window->fill_rect(glm::vec4(0.5f, 0.5f, 0.5f, 1.0f), _left, _top, _width, _height);
 
     _select_playback_device->draw(window, projection);
+    _select_recording_device->draw(window, projection);
 
     window->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
             timeline_width(), _timeline_height);
@@ -508,6 +521,8 @@ void AudioEditWidget::set_playback_selection(long start, long end) {
 
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
     if (_gui_window->try_mouse_move_event_on_widget(_select_playback_device, event))
+        return;
+    if (_gui_window->try_mouse_move_event_on_widget(_select_recording_device, event))
         return;
 
     switch (event->action) {
@@ -703,7 +718,8 @@ void AudioEditWidget::set_size(int width, int height) {
 }
 
 int AudioEditWidget::timeline_top() const {
-    return _padding_top + _select_playback_device->height() + _margin;
+    int button_row_height = max(_select_playback_device->height(), _select_recording_device->height());
+    return _padding_top + button_row_height + _margin;
 }
 
 int AudioEditWidget::timeline_left() const {
@@ -716,6 +732,9 @@ int AudioEditWidget::timeline_width() const {
 
 void AudioEditWidget::update_model() {
     _select_playback_device->set_pos(_left + _margin, _top + _margin);
+    _select_recording_device->set_pos(
+            _select_playback_device->left() + _select_playback_device->width() + _margin * 2,
+            _select_playback_device->top());
 
     ByteBuffer pixels;
     int top = timeline_top() + _timeline_height + _margin;

@@ -105,3 +105,7 @@ void SelectWidget::on_mouse_move(const MouseEvent *event) {
         break;
     }
 }
+
+void SelectWidget::on_mouse_over(const MouseEvent *event) {
+    _gui_window->set_cursor_default();
+}
