@@ -47,36 +47,15 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     _playback_select_down(false),
     _audio_hardware(audio_hardware),
     _playback_device(NULL),
-    _playback_thread_created(false),
     _playback_thread_join_flag(false),
     _playback_write_head(0),
     _playback_active(false),
     _playback_cursor_frame(0),
     _recording_device(NULL),
-    _recording_thread_created(false),
     _recording_thread_join_flag(false),
     _initialized_default_device_indexes(false),
     _want_update_model(false)
 {
-    if (pthread_mutex_init(&_playback_mutex, NULL))
-        panic("pthread_mutex_init failure");
-    if (pthread_condattr_init(&_playback_condattr))
-        panic("pthread_condattr_init failure");
-    if (pthread_condattr_setclock(&_playback_condattr, CLOCK_MONOTONIC))
-        panic("pthread_condattr_setclock failure");
-    if (pthread_cond_init(&_playback_cond, &_playback_condattr))
-        panic("pthread_cond_init failure");
-
-
-    if (pthread_mutex_init(&_recording_mutex, NULL))
-        panic("pthread_mutex_init failure");
-    if (pthread_condattr_init(&_recording_condattr))
-        panic("pthread_condattr_init failure");
-    if (pthread_condattr_setclock(&_recording_condattr, CLOCK_MONOTONIC))
-        panic("pthread_condattr_setclock failure");
-    if (pthread_cond_init(&_recording_cond, &_recording_condattr))
-        panic("pthread_cond_init failure");
-
     init_selection(_selection);
     init_selection(_playback_selection);
 
@@ -102,13 +81,6 @@ AudioEditWidget::~AudioEditWidget() {
 
     _gui_window->destroy_widget(_select_recording_device);
     _gui_window->destroy_widget(_select_playback_device);
-
-    if (pthread_cond_destroy(&_playback_cond))
-        panic("pthread_cond_destroy failure");
-    if (pthread_condattr_destroy(&_playback_condattr))
-        panic("pthread_condattr_destroy failure");
-    if (pthread_mutex_destroy(&_playback_mutex))
-        panic("pthread_mutex_destroy failure");
 }
 
 void AudioEditWidget::destroy_audio_file() {
@@ -186,13 +158,12 @@ void AudioEditWidget::load_file(const ByteBuffer &file_path) {
 }
 
 void AudioEditWidget::close_playback_device() {
-    if (_playback_thread_created) {
+    if (_playback_thread.running()) {
         _playback_thread_join_flag = true;
-        pthread_mutex_lock(&_playback_mutex);
-        pthread_cond_signal(&_playback_cond);
-        pthread_mutex_unlock(&_playback_mutex);
-        pthread_join(_playback_thread, NULL);
-        _playback_thread_created = false;
+        _playback_mutex.lock();
+        _playback_cond.signal();
+        _playback_mutex.unlock();
+        _playback_thread.join();
     }
 
     if (_playback_device) {
@@ -248,10 +219,9 @@ void AudioEditWidget::clamp_playback_write_head(long start, long end) {
     _playback_write_head = start + euclidean_mod((_playback_write_head - start), end - start);
 }
 
-void * AudioEditWidget::playback_thread() {
+void AudioEditWidget::playback_thread() {
     while (!_playback_thread_join_flag) {
-        if (pthread_mutex_lock(&_playback_mutex))
-            panic("pthread_mutex_lock failure");
+        _playback_mutex.lock();
 
         int free_byte_count = _playback_device->writable_size();
         int bytes_per_frame = get_bytes_per_frame(SampleFormatInt32, _audio_file->channels.length());
@@ -295,15 +265,9 @@ void * AudioEditWidget::playback_thread() {
                 _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
             }
         }
-        struct timespec tms;
-        clock_gettime(CLOCK_MONOTONIC, &tms);
-        tms.tv_nsec += _playback_thread_wait_nanos;
-        pthread_cond_timedwait(&_playback_cond, &_playback_mutex, &tms);
-
-        if (pthread_mutex_unlock(&_playback_mutex))
-            panic("pthread_mutex_unlock failure");
+        _playback_cond.timed_wait(&_playback_mutex, _playback_thread_wakeup_timeout);
+        _playback_mutex.unlock();
     }
-    return NULL;
 }
 
 void AudioEditWidget::flush_events() {
@@ -313,10 +277,9 @@ void AudioEditWidget::flush_events() {
     }
 }
 
-void * AudioEditWidget::recording_thread() {
+void AudioEditWidget::recording_thread() {
     while (!_recording_thread_join_flag) {
-        if (pthread_mutex_lock(&_recording_mutex))
-            panic("pthread_mutex_lock failure");
+        _recording_mutex.lock();
 
         int bytes_per_frame = get_bytes_per_frame(SampleFormatFloat, _audio_file->channels.length());
         const char *data;
@@ -353,15 +316,9 @@ void * AudioEditWidget::recording_thread() {
             _want_update_model = true;
         }
 
-        struct timespec tms;
-        clock_gettime(CLOCK_MONOTONIC, &tms);
-        tms.tv_nsec += _recording_thread_wait_nanos;
-        pthread_cond_timedwait(&_recording_cond, &_recording_mutex, &tms);
-
-        if (pthread_mutex_unlock(&_recording_mutex))
-            panic("pthread_mutex_unlock failure");
+        _recording_cond.timed_wait(&_recording_mutex, _recording_thread_wakeup_timeout);
+        _recording_mutex.unlock();
     }
-    return NULL;
 }
 
 void AudioEditWidget::open_playback_device() {
@@ -383,10 +340,8 @@ void AudioEditWidget::open_playback_device() {
         panic("could not open playback device");
 
     _playback_thread_join_flag = false;
-    _playback_thread_wait_nanos = (_playback_device_latency / 10.0) * 1000000000L;
-    if (pthread_create(&_playback_thread, NULL, static_playback_thread, this))
-        panic("unable to create playback thread");
-    _playback_thread_created = true;
+    _playback_thread_wakeup_timeout = _playback_device_latency / 10.0;
+    _playback_thread.start(static_playback_thread, this);
 }
 
 long AudioEditWidget::get_display_frame_count() const {
@@ -607,14 +562,12 @@ void AudioEditWidget::clamp_scroll_x() {
 }
 
 void AudioEditWidget::set_playback_selection(long start, long end) {
-    if (pthread_mutex_lock(&_playback_mutex))
-        panic("pthread_mutex_lock fail");
+    _playback_mutex.lock();
 
     _playback_selection.start = start;
     _playback_selection.end = end;
 
-    if (pthread_mutex_unlock(&_playback_mutex))
-        panic("pthread_mutex_unlock fail");
+    _playback_mutex.unlock();
 }
 
 void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
@@ -772,20 +725,17 @@ void AudioEditWidget::open_recording_device() {
         panic("could not open recording device");
 
     _recording_thread_join_flag = false;
-    _recording_thread_wait_nanos = (recording_latency / 10.0) * 1000000000L;
-    if (pthread_create(&_recording_thread, NULL, static_recording_thread, this))
-        panic("unable to create recording thread");
-    _recording_thread_created = true;
+    _recording_thread_wakeup_timeout = recording_latency / 10.0;
+    _recording_thread.start(static_recording_thread, this);
 }
 
 void AudioEditWidget::close_recording_device() {
-    if (_recording_thread_created) {
+    if (_recording_thread.running()) {
         _recording_thread_join_flag = true;
-        pthread_mutex_lock(&_recording_mutex);
-        pthread_cond_signal(&_recording_cond);
-        pthread_mutex_unlock(&_recording_mutex);
-        pthread_join(_recording_thread, NULL);
-        _recording_thread_created = false;
+        _recording_mutex.lock();
+        _recording_cond.signal();
+        _recording_mutex.unlock();
+        _recording_thread.join();
     }
 
     if (_recording_device) {
@@ -802,37 +752,32 @@ void AudioEditWidget::scroll_by(int x) {
 
 void AudioEditWidget::clear_playback_buffer() {
     _playback_device->clear_buffer();
-    if (pthread_cond_signal(&_playback_cond))
-        panic("pthread_cond_signal failure");
+    _playback_cond.signal();
 }
 
 void AudioEditWidget::toggle_play() {
     if (!_playback_device)
         return;
 
-    if (pthread_mutex_lock(&_playback_mutex))
-        panic("pthread_mutex_lock failure");
+    _playback_mutex.lock();
 
     _playback_active = !_playback_active;
     clear_playback_buffer();
 
-    if (pthread_mutex_unlock(&_playback_mutex))
-        panic("pthread_mutex_unlock failure");
+    _playback_mutex.unlock();
 }
 
 void AudioEditWidget::restart_play() {
     if (!_playback_device)
         return;
 
-    if (pthread_mutex_lock(&_playback_mutex))
-        panic("pthread_mutex_lock failure");
+    _playback_mutex.lock();
 
     _playback_write_head = _playback_selection.start;
     _playback_active = true;
     clear_playback_buffer();
 
-    if (pthread_mutex_unlock(&_playback_mutex))
-        panic("pthread_mutex_unlock failure");
+    _playback_mutex.unlock();
 }
 
 void AudioEditWidget::get_order_correct_selection(const Selection *selection,

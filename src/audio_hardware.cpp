@@ -35,11 +35,6 @@ AudioHardware::AudioHardware() :
     _have_devices_flag(false),
     _thread_exit_flag(false)
 {
-    if (pthread_mutex_init(&_thread_mutex, NULL))
-        panic("pthread_mutex_init failure");
-    if (pthread_cond_init(&_ready_cond, NULL))
-        panic("pthread_cond_init failure");
-
     _main_loop = pa_mainloop_new();
     if (!_main_loop)
         panic("unable to create pulseaudio mainloop");
@@ -66,8 +61,7 @@ AudioHardware::AudioHardware() :
     if (err)
         panic("pulseaudio context connect failed");
 
-    if (pthread_create(&_pulseaudio_thread_id, NULL, pulseaudio_thread, this))
-        panic("unable to create playback thread");
+    _pulseaudio_thread.start(pulseaudio_thread, this);
 
     scan_devices();
 }
@@ -75,7 +69,7 @@ AudioHardware::AudioHardware() :
 AudioHardware::~AudioHardware() {
     _thread_exit_flag = true;
     pa_mainloop_wakeup(_main_loop);
-    pthread_join(_pulseaudio_thread_id, NULL);
+    _pulseaudio_thread.join();
 
     destroy_current_audio_devices_info();
     destroy_ready_audio_devices_info();
@@ -83,11 +77,6 @@ AudioHardware::~AudioHardware() {
     pa_context_disconnect(_context);
     pa_context_unref(_context);
     pa_mainloop_free(_main_loop);
-
-    if (pthread_cond_destroy(&_ready_cond))
-        panic("pthread_cond_destroy failure");
-    if (pthread_mutex_destroy(&_thread_mutex))
-        panic("pthread_mutex_destroy failure");
 }
 
 void AudioHardware::clear_on_devices_change() {
@@ -123,9 +112,9 @@ void AudioHardware::initialize_current_device_list() {
 
 void AudioHardware::set_ready_flag() {
     _ready_flag = true;
-    pthread_mutex_lock(&_thread_mutex);
-    pthread_cond_signal(&_ready_cond);
-    pthread_mutex_unlock(&_thread_mutex);
+    _thread_mutex.lock();
+    _ready_cond.signal();
+    _thread_mutex.unlock();
 }
 
 void AudioHardware::context_state_callback(pa_context *context) {
@@ -186,13 +175,13 @@ void AudioHardware::finish_device_query() {
         }
     }
 
-    pthread_mutex_lock(&_thread_mutex);
+    _thread_mutex.lock();
     destroy_ready_audio_devices_info();
     _ready_audio_devices_info = _current_audio_devices_info;
     _current_audio_devices_info = NULL;
     _have_devices_flag = true;
-    pthread_cond_signal(&_ready_cond);
-    pthread_mutex_unlock(&_thread_mutex);
+    _ready_cond.signal();
+    _thread_mutex.unlock();
 }
 
 static ChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
@@ -297,13 +286,13 @@ int AudioHardware::perform_operation(pa_operation *op, int *return_value) {
     }
 }
 
-void *AudioHardware::pulseaudio_thread() {
+void AudioHardware::pulseaudio_thread() {
     int return_value;
 
     // wait until we get to the ready state
     while (!_ready_flag) {
         if (pa_mainloop_iterate(_main_loop, 1, &return_value) < 0)
-            return nullptr;
+            return;
     }
 
     pa_subscription_mask_t events = (pa_subscription_mask_t)(
@@ -312,7 +301,7 @@ void *AudioHardware::pulseaudio_thread() {
     if (!subscribe_op)
         panic("pa_context_subscribe failed: %s", pa_strerror(pa_context_errno(_context)));
     if (perform_operation(subscribe_op, &return_value) < 0)
-        return nullptr;
+        return;
 
     for (;;) {
         if (_thread_exit_flag)
@@ -340,7 +329,6 @@ void *AudioHardware::pulseaudio_thread() {
         if (pa_mainloop_iterate(_main_loop, 1, &return_value) < 0)
             break;
     }
-    return nullptr;
 }
 
 void AudioHardware::scan_devices() {
@@ -352,7 +340,7 @@ void AudioHardware::flush_events() {
     AudioDevicesInfo *old_devices_info = nullptr;
     bool change = false;
 
-    pthread_mutex_lock(&_thread_mutex);
+    _thread_mutex.lock();
 
     if (_ready_audio_devices_info) {
         old_devices_info = _safe_devices_info;
@@ -361,7 +349,7 @@ void AudioHardware::flush_events() {
         change = true;
     }
 
-    pthread_mutex_unlock(&_thread_mutex);
+    _thread_mutex.unlock();
 
     if (change)
         _on_devices_change(this);
@@ -373,21 +361,21 @@ void AudioHardware::flush_events() {
 void AudioHardware::block_until_ready() {
     if (_ready_flag)
         return;
-    pthread_mutex_lock(&_thread_mutex);
+    _thread_mutex.lock();
     while (!_ready_flag) {
-        pthread_cond_wait(&_ready_cond, &_thread_mutex);
+        _ready_cond.wait(&_thread_mutex);
     }
-    pthread_mutex_unlock(&_thread_mutex);
+    _thread_mutex.unlock();
 }
 
 void AudioHardware::block_until_have_devices() {
     if (_have_devices_flag)
         return;
-    pthread_mutex_lock(&_thread_mutex);
+    _thread_mutex.lock();
     while (!_have_devices_flag) {
-        pthread_cond_wait(&_ready_cond, &_thread_mutex);
+        _ready_cond.wait(&_thread_mutex);
     }
-    pthread_mutex_unlock(&_thread_mutex);
+    _thread_mutex.unlock();
 }
 
 static pa_sample_format_t to_pulseaudio_sample_format(SampleFormat sample_format) {

@@ -5,9 +5,9 @@
 #include "sample_format.hpp"
 #include "channel_layouts.hpp"
 #include "string.hpp"
+#include "threads.hpp"
 
 #include <pulse/pulseaudio.h>
-#include <pthread.h>
 #include <atomic>
 using std::atomic_int;
 using std::atomic_bool;
@@ -135,9 +135,9 @@ private:
 
     atomic_bool _ready_flag;
     atomic_bool _have_devices_flag;
-    pthread_cond_t _ready_cond;
-    pthread_mutex_t _thread_mutex;
-    pthread_t _pulseaudio_thread_id;
+    MutexCond _ready_cond;
+    Mutex _thread_mutex;
+    Thread _pulseaudio_thread;
 
     pa_mainloop *_main_loop;
     atomic_bool _thread_exit_flag;
@@ -149,7 +149,7 @@ private:
     void source_info_callback(pa_context *context, const pa_source_info *info, int eol);
     void server_info_callback(pa_context *context, const pa_server_info *info);
 
-    void *pulseaudio_thread();
+    void pulseaudio_thread();
     void destroy_current_audio_devices_info();
     void destroy_ready_audio_devices_info();
     void initialize_current_device_list();
@@ -174,7 +174,7 @@ private:
         return static_cast<AudioHardware*>(userdata)->server_info_callback(context, info);
     }
 
-    static void *pulseaudio_thread(void *arg) {
+    static void pulseaudio_thread(void *arg) {
         return static_cast<AudioHardware*>(arg)->pulseaudio_thread();
     }
 

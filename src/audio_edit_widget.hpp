@@ -8,8 +8,8 @@
 #include "genesis.h"
 #include "audio_file.hpp"
 #include "select_widget.hpp"
+#include "threads.hpp"
 
-#include <pthread.h>
 #include <atomic>
 using std::atomic_bool;
 using std::atomic_long;
@@ -72,7 +72,7 @@ private:
     glm::vec4 _timeline_sel_fg_color;
     glm::vec4 _playback_cursor_color;
 
-    AudioFile *_audio_file;
+    AudioFile *_audio_file; // protected by mutex
 
     struct PerChannelData {
         TextWidget *channel_name_widget;
@@ -106,15 +106,13 @@ private:
 
     AudioHardware *_audio_hardware;
     OpenPlaybackDevice *_playback_device;
-    pthread_t _playback_thread;
-    bool _playback_thread_created;
-    pthread_mutex_t _playback_mutex;
-    pthread_condattr_t _playback_condattr;
-    pthread_cond_t _playback_cond;
+    Thread _playback_thread;
+    Mutex _playback_mutex;
+    MutexCond _playback_cond;
     atomic_bool _playback_thread_join_flag;
     long _playback_write_head; // protected by mutex
     bool _playback_active; // protected by mutex
-    long _playback_thread_wait_nanos;
+    double _playback_thread_wakeup_timeout;
     atomic_long _playback_cursor_frame;
     double _playback_device_latency;
     int _playback_device_sample_rate;
@@ -123,13 +121,12 @@ private:
     SelectWidget *_select_recording_device;
 
     OpenRecordingDevice *_recording_device;
-    pthread_t _recording_thread;
+    Thread _recording_thread;
     bool _recording_thread_created;
-    pthread_mutex_t _recording_mutex;
-    pthread_condattr_t _recording_condattr;
-    pthread_cond_t _recording_cond;
+    Mutex _recording_mutex;
+    MutexCond _recording_cond;
     atomic_bool _recording_thread_join_flag;
-    long _recording_thread_wait_nanos;
+    double _recording_thread_wakeup_timeout;
 
     // kept in sync with _select_playback_device options
     List<const AudioDevice*> _playback_device_list;
@@ -178,8 +175,8 @@ private:
     void close_playback_device();
     void open_playback_device();
 
-    void * playback_thread();
-    void * recording_thread();
+    void playback_thread();
+    void recording_thread();
 
     void clamp_playback_write_head(long start, long end);
     void calculate_playback_range(long *start, long *end);
@@ -197,11 +194,11 @@ private:
 
     void on_playback_index_changed();
 
-    static void *static_playback_thread(void *arg) {
+    static void static_playback_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
     }
 
-    static void *static_recording_thread(void *arg) {
+    static void static_recording_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->recording_thread();
     }
 
