@@ -51,7 +51,8 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     _playback_thread_join_flag(false),
     _playback_write_head(0),
     _playback_active(false),
-    _playback_cursor_frame(0)
+    _playback_cursor_frame(0),
+    _initialized_default_device_indexes(false)
 {
     if (pthread_mutex_init(&_playback_mutex, NULL))
         panic("pthread_mutex_init failure");
@@ -69,10 +70,15 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     init_selection(_playback_selection);
 
     _select_playback_device = create<SelectWidget>(gui_window, gui);
+    _select_playback_device->_userdata = this;
+    _select_playback_device->set_on_selected_index_change(static_on_playback_index_changed);
+
     _select_recording_device = create<SelectWidget>(gui_window, gui);
+    _select_recording_device->_userdata = this;
 
     _audio_hardware->_userdata = this;
     _audio_hardware->set_on_devices_change(static_on_devices_change);
+    _audio_hardware->flush_events();
 }
 
 AudioEditWidget::~AudioEditWidget() {
@@ -116,11 +122,15 @@ void AudioEditWidget::on_devices_change(const AudioDevicesInfo *info) {
             _recording_device_list.at(_recording_device_list.length() - 1) = *audio_device;
         }
     }
-    int playback_index = (info->default_output_index >= 0) ? info->default_output_index : 0;
-    _select_playback_device->select_index(playback_index);
+    if (!_initialized_default_device_indexes) {
+        int playback_index = (info->default_output_index >= 0) ? info->default_output_index : 0;
+        _select_playback_device->select_index(playback_index);
 
-    int recording_index = (info->default_input_index >= 0) ? info->default_input_index : 0;
-    _select_recording_device->select_index(recording_index);
+        int recording_index = (info->default_input_index >= 0) ? info->default_input_index : 0;
+        _select_recording_device->select_index(recording_index);
+
+        _initialized_default_device_indexes = true;
+    }
 
     update_model();
 }
@@ -275,8 +285,12 @@ void AudioEditWidget::open_playback_device() {
 
     _playback_device_latency = 0.008;
     _playback_device_sample_rate = _audio_file->sample_rate;
+
+    AudioDevice *selected_playback_device = &_playback_device_list.at(_select_playback_device->selected_index());
+
     bool ok;
-    _playback_device = create<OpenPlaybackDevice>(_audio_hardware, nullptr,
+    _playback_device = create<OpenPlaybackDevice>(_audio_hardware,
+            selected_playback_device->name.encode().raw(),
             _audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
             _audio_file->sample_rate, &ok);
 
@@ -636,12 +650,22 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
             scroll_by(-32);
             break;
         case VirtKeyR:
-            if (key_mod_only_ctrl(event->modifiers)) {
-                // TODO
-                fprintf(stderr, "start recording\n");
-            }
+            if (key_mod_only_ctrl(event->modifiers))
+                start_recording();
             break;
     }
+}
+
+void AudioEditWidget::start_recording() {
+    /*
+    bool ok;
+    _recording_device = create<OpenRecordingDevice>(_audio_hardware, nullptr,
+            _audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
+            _audio_file->sample_rate, &ok);
+
+    if (!ok)
+        panic("could not open playback device");
+        */
 }
 
 void AudioEditWidget::scroll_by(int x) {
@@ -825,3 +849,6 @@ void AudioEditWidget::save_as(const ByteBuffer &file_path,
     audio_file_save(file_path, NULL, NULL, _audio_file);
 }
 
+void AudioEditWidget::on_playback_index_changed() {
+    open_playback_device();
+}

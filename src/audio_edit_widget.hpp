@@ -127,6 +127,8 @@ private:
     // kept in sync with _select_recording_device options
     List<AudioDevice> _recording_device_list;
 
+    bool _initialized_default_device_indexes;
+
 
     void update_model();
 
@@ -178,6 +180,9 @@ private:
     int clamp_in_wave_x(int x);
 
     void on_devices_change(const AudioDevicesInfo *info);
+    void start_recording();
+
+    void on_playback_index_changed();
 
     static void *playback_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
@@ -185,6 +190,10 @@ private:
 
     static void static_on_devices_change(AudioHardware *audio_hardware, const AudioDevicesInfo *info) {
         return static_cast<AudioEditWidget*>(audio_hardware->_userdata)->on_devices_change(info);
+    }
+
+    static void static_on_playback_index_changed(SelectWidget *select_widget) {
+        return static_cast<AudioEditWidget*>(select_widget->_userdata)->on_playback_index_changed();
     }
 
     AudioEditWidget(const AudioEditWidget &copy) = delete;

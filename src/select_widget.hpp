@@ -43,6 +43,10 @@ public:
         _on_selected_index_change = fn;
     }
 
+    int selected_index() const { return _selected_index; }
+
+    void *_userdata;
+
 private:
     GuiWindow *_gui_window;
     Gui *_gui;
