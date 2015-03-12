@@ -12,7 +12,6 @@ enum MouseAction {
     MouseActionMove,
     MouseActionDown,
     MouseActionUp,
-    MouseActionDbl,
 };
 
 struct MouseButtons {
@@ -28,6 +27,7 @@ struct MouseEvent {
     MouseAction action;
     MouseButtons buttons;
     int modifiers;
+    bool is_double_click;
 };
 
 struct MouseWheelEvent {

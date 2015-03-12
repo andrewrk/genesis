@@ -101,8 +101,6 @@ void SelectWidget::on_mouse_move(const MouseEvent *event) {
         break;
     case MouseActionMove:
         break;
-    case MouseActionDbl:
-        break;
     }
 }
 

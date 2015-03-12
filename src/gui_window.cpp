@@ -221,11 +221,12 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
     bool right = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
     MouseAction mouse_action = (action == GLFW_PRESS) ? MouseActionDown : MouseActionUp;
+    bool is_double_click = false;
     if (mouse_action == MouseActionDown) {
         double this_click_time = glfwGetTime();
         if (_last_click_button == btn) {
             if (this_click_time - _last_click_time < _double_click_timeout)
-                mouse_action = MouseActionDbl;
+                is_double_click = true;
         }
         _last_click_time = this_click_time;
     }
@@ -236,6 +237,7 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
         mouse_action,
         MouseButtons {left, middle, right},
         mods,
+        is_double_click,
     };
     on_mouse_move(&mouse_event);
 }

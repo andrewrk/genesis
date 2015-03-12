@@ -164,13 +164,23 @@ void TextWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:
             if (event->button == MouseButtonLeft) {
-                int index = cursor_at_pos(event->x + _scroll_x, event->y);
-                _cursor_start = index;
-                _cursor_end = index;
-                _select_down = true;
-                scroll_cursor_into_view();
-                break;
+                if (event->is_double_click) {
+                    int start = advance_word_from_index(_cursor_end + 1, -1);
+                    int end = advance_word_from_index(_cursor_end - 1, 1);
+                    set_selection(start, end);
+                    _dbl_select_start = start;
+                    _dbl_select_end = end;
+                    _mouse_down_dbl = true;
+                    _select_down = true;
+                } else {
+                    int index = cursor_at_pos(event->x + _scroll_x, event->y);
+                    _cursor_start = index;
+                    _cursor_end = index;
+                    _select_down = true;
+                    scroll_cursor_into_view();
+                }
             }
+            break;
         case MouseActionUp:
             if (event->button == MouseButtonLeft && _select_down) {
                 _select_down = false;
@@ -192,17 +202,6 @@ void TextWidget::on_mouse_move(const MouseEvent *event) {
                     _cursor_end = new_end;
                 }
                 scroll_cursor_into_view();
-            }
-            break;
-        case MouseActionDbl:
-            if (event->button == MouseButtonLeft) {
-                int start = advance_word_from_index(_cursor_end + 1, -1);
-                int end = advance_word_from_index(_cursor_end - 1, 1);
-                set_selection(start, end);
-                _dbl_select_start = start;
-                _dbl_select_end = end;
-                _mouse_down_dbl = true;
-                _select_down = true;
             }
             break;
     }

@@ -527,7 +527,6 @@ void AudioEditWidget::set_playback_selection(long start, long end) {
 
     _playback_selection.start = start;
     _playback_selection.end = end;
-    _playback_write_head = _playback_selection.start;
 
     if (pthread_mutex_unlock(&_playback_mutex))
         panic("pthread_mutex_unlock fail");
@@ -591,8 +590,6 @@ void AudioEditWidget::on_mouse_move(const MouseEvent *event) {
                     }
                 }
             }
-            break;
-        case MouseActionDbl:
             break;
     }
 }

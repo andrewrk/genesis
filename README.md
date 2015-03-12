@@ -53,10 +53,10 @@ make
 
 ## Roadmap
 
+ 0. Record audio
  0. Menu system
  0. Widget layouts
  0. Scroll bar
- 0. Record audio
  0. Multiplayer
  0. Undo/Redo
 
