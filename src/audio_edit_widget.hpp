@@ -33,6 +33,8 @@ public:
     void on_mouse_out(const MouseEvent *event) override;
     void on_key_event(const KeyEvent *event) override;
     void on_mouse_wheel(const MouseWheelEvent *event) override;
+    void flush_events() override;
+
 
 
     void load_file(const ByteBuffer &file_path);
@@ -112,7 +114,7 @@ private:
     atomic_bool _playback_thread_join_flag;
     long _playback_write_head; // protected by mutex
     bool _playback_active; // protected by mutex
-    int _playback_thread_wait_nanos;
+    long _playback_thread_wait_nanos;
     atomic_long _playback_cursor_frame;
     double _playback_device_latency;
     int _playback_device_sample_rate;
@@ -121,13 +123,22 @@ private:
     SelectWidget *_select_recording_device;
 
     OpenRecordingDevice *_recording_device;
+    pthread_t _recording_thread;
+    bool _recording_thread_created;
+    pthread_mutex_t _recording_mutex;
+    pthread_condattr_t _recording_condattr;
+    pthread_cond_t _recording_cond;
+    atomic_bool _recording_thread_join_flag;
+    long _recording_thread_wait_nanos;
 
     // kept in sync with _select_playback_device options
-    List<AudioDevice> _playback_device_list;
+    List<const AudioDevice*> _playback_device_list;
     // kept in sync with _select_recording_device options
-    List<AudioDevice> _recording_device_list;
+    List<const AudioDevice*> _recording_device_list;
 
     bool _initialized_default_device_indexes;
+
+    atomic_bool _want_update_model;
 
 
     void update_model();
@@ -168,6 +179,7 @@ private:
     void open_playback_device();
 
     void * playback_thread();
+    void * recording_thread();
 
     void clamp_playback_write_head(long start, long end);
     void calculate_playback_range(long *start, long *end);
@@ -179,17 +191,22 @@ private:
     void scroll_by(int x);
     int clamp_in_wave_x(int x);
 
-    void on_devices_change(const AudioDevicesInfo *info);
-    void start_recording();
+    void on_devices_change();
+    void open_recording_device();
+    void close_recording_device();
 
     void on_playback_index_changed();
 
-    static void *playback_thread(void *arg) {
+    static void *static_playback_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
     }
 
-    static void static_on_devices_change(AudioHardware *audio_hardware, const AudioDevicesInfo *info) {
-        return static_cast<AudioEditWidget*>(audio_hardware->_userdata)->on_devices_change(info);
+    static void *static_recording_thread(void *arg) {
+        return reinterpret_cast<AudioEditWidget*>(arg)->recording_thread();
+    }
+
+    static void static_on_devices_change(AudioHardware *audio_hardware) {
+        return static_cast<AudioEditWidget*>(audio_hardware->_userdata)->on_devices_change();
     }
 
     static void static_on_playback_index_changed(SelectWidget *select_widget) {

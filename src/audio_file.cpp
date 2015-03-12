@@ -286,11 +286,11 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
         audio_file->tags.put(tag->key, value);
     }
 
-    audio_file->channel_layout = genesis_from_libav_channel_layout(codec_ctx->channel_layout);
+    audio_file->channel_layout = *genesis_from_libav_channel_layout(codec_ctx->channel_layout);
     audio_file->sample_rate = codec_ctx->sample_rate;
     audio_file->export_sample_format = from_libav_sample_format(codec_ctx->sample_fmt);
     audio_file->export_bit_rate = 320 * 1000;
-    long channel_count = audio_file->channel_layout->channels.length();
+    long channel_count = audio_file->channel_layout.channels.length();
 
     void (*import_frame)(const AVFrame *, AudioFile *);
     switch (codec_ctx->sample_fmt) {
@@ -685,7 +685,7 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
     get_format_and_codec(format_short_name, codec_short_name, file_path.raw(), &oformat, &codec);
 
     uint64_t out_channel_layout = closest_supported_channel_layout(
-            codec, genesis_to_libav_channel_layout(audio_file->channel_layout));
+            codec, genesis_to_libav_channel_layout(&audio_file->channel_layout));
 
     AVFormatContext *fmt_ctx = avformat_alloc_context();
     if (!fmt_ctx)

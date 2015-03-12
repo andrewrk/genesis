@@ -9,7 +9,7 @@
 static AudioFile *create_empty_audio_file() {
     AudioFile *audio_file = create<AudioFile>();
     audio_file->channels.resize(2);
-    audio_file->channel_layout = genesis_get_channel_layout(ChannelLayoutIdStereo);
+    audio_file->channel_layout = *genesis_get_channel_layout(ChannelLayoutIdStereo);
     audio_file->sample_rate = 48000;
     audio_file->export_sample_format = {SampleFormatInt32, false};
     audio_file->export_bit_rate = 320 * 1000;
@@ -52,18 +52,29 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     _playback_write_head(0),
     _playback_active(false),
     _playback_cursor_frame(0),
-    _initialized_default_device_indexes(false)
+    _recording_device(NULL),
+    _recording_thread_created(false),
+    _recording_thread_join_flag(false),
+    _initialized_default_device_indexes(false),
+    _want_update_model(false)
 {
     if (pthread_mutex_init(&_playback_mutex, NULL))
         panic("pthread_mutex_init failure");
-
     if (pthread_condattr_init(&_playback_condattr))
         panic("pthread_condattr_init failure");
-
     if (pthread_condattr_setclock(&_playback_condattr, CLOCK_MONOTONIC))
         panic("pthread_condattr_setclock failure");
-
     if (pthread_cond_init(&_playback_cond, &_playback_condattr))
+        panic("pthread_cond_init failure");
+
+
+    if (pthread_mutex_init(&_recording_mutex, NULL))
+        panic("pthread_mutex_init failure");
+    if (pthread_condattr_init(&_recording_condattr))
+        panic("pthread_condattr_init failure");
+    if (pthread_condattr_setclock(&_recording_condattr, CLOCK_MONOTONIC))
+        panic("pthread_condattr_setclock failure");
+    if (pthread_cond_init(&_recording_cond, &_recording_condattr))
         panic("pthread_cond_init failure");
 
     init_selection(_selection);
@@ -78,10 +89,13 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
 
     _audio_hardware->_userdata = this;
     _audio_hardware->set_on_devices_change(static_on_devices_change);
-    _audio_hardware->flush_events();
+    on_devices_change();
 }
 
 AudioEditWidget::~AudioEditWidget() {
+    _audio_hardware->clear_on_devices_change();
+
+    close_recording_device();
     close_playback_device();
     destroy_audio_file();
     destroy_all_ui();
@@ -104,34 +118,51 @@ void AudioEditWidget::destroy_audio_file() {
     }
 }
 
-void AudioEditWidget::on_devices_change(const AudioDevicesInfo *info) {
+void AudioEditWidget::on_devices_change() {
+    const AudioDevicesInfo *info = _audio_hardware->devices_info();
+
     _select_playback_device->clear();
     _select_recording_device->clear();
     _playback_device_list.clear();
     _recording_device_list.clear();
 
+    int default_playback_index = 0;
+    int default_recording_index = 0;
+
+    if (!info) {
+        update_model();
+        return;
+    }
+
     for (int i = 0; i < info->devices.length(); i += 1) {
         const AudioDevice *audio_device = &info->devices.at(i);
+
         if (audio_device->purpose == AudioDevicePurposePlayback) {
+            int this_index = _playback_device_list.length();
+
             _select_playback_device->append_choice(audio_device->description);
-            _playback_device_list.resize(_playback_device_list.length() + 1);
-            _playback_device_list.at(_playback_device_list.length() - 1) = *audio_device;
+            _playback_device_list.append(audio_device);
+
+            if (info->default_output_index == i)
+                default_playback_index = this_index;
         } else {
+            int this_index = _recording_device_list.length();
+
             _select_recording_device->append_choice(audio_device->description);
-            _recording_device_list.resize(_recording_device_list.length() + 1);
-            _recording_device_list.at(_recording_device_list.length() - 1) = *audio_device;
+            _recording_device_list.append(audio_device);
+
+            if (info->default_input_index == i)
+                default_recording_index = this_index;
         }
     }
     if (!_initialized_default_device_indexes) {
-        int playback_index = (info->default_output_index >= 0) ? info->default_output_index : 0;
-        _select_playback_device->select_index(playback_index);
-
-        int recording_index = (info->default_input_index >= 0) ? info->default_input_index : 0;
-        _select_recording_device->select_index(recording_index);
+        _select_playback_device->select_index(default_playback_index);
+        _select_recording_device->select_index(default_recording_index);
 
         _initialized_default_device_indexes = true;
     }
 
+    open_playback_device();
     update_model();
 }
 
@@ -166,19 +197,15 @@ void AudioEditWidget::close_playback_device() {
 
     if (_playback_device) {
         destroy(_playback_device, 1);
-        _playback_device = NULL;
+        _playback_device = nullptr;
     }
 }
 
 static String audio_file_channel_name(const AudioFile *audio_file, int index) {
-    if (audio_file->channel_layout) {
-        if (index < audio_file->channel_layout->channels.length())
-            return genesis_get_channel_name(audio_file->channel_layout->channels.at(index));
-        else
-            return ByteBuffer::format("Channel %d (extra)", index + 1);
-    } else {
-        return ByteBuffer::format("Channel %d", index + 1);
-    }
+    if (index < audio_file->channel_layout.channels.length())
+        return genesis_get_channel_name(audio_file->channel_layout.channels.at(index));
+    else
+        return ByteBuffer::format("Channel %d (extra)", index + 1);
 }
 
 void AudioEditWidget::edit_audio_file(AudioFile *audio_file) {
@@ -279,27 +306,85 @@ void * AudioEditWidget::playback_thread() {
     return NULL;
 }
 
+void AudioEditWidget::flush_events() {
+    if (_want_update_model) {
+        _want_update_model = false;
+        update_model();
+    }
+}
+
+void * AudioEditWidget::recording_thread() {
+    while (!_recording_thread_join_flag) {
+        if (pthread_mutex_lock(&_recording_mutex))
+            panic("pthread_mutex_lock failure");
+
+        int bytes_per_frame = get_bytes_per_frame(SampleFormatFloat, _audio_file->channels.length());
+        const char *data;
+        int byte_count;
+        _recording_device->peek(&data, &byte_count);
+        int frame_count = byte_count / bytes_per_frame;
+        // TODO handle the case where buffer contains part of a frame
+        /*
+        if (frame_count * bytes_per_frame != byte_count)
+            panic("partial frame");
+            */
+        int channel_count = _audio_file->channels.length();
+        if (!data && byte_count > 0) {
+            // there's a hole. fill with silence
+            fprintf(stderr, "recording: dropped %d frames\n", frame_count);
+            for (int i = 0; i < frame_count; i += 1) {
+                for (int ch = 0; ch < channel_count; ch += 1) {
+                    _audio_file->channels.at(ch).samples.append(0.0f);
+                }
+            }
+            _recording_device->drop();
+            _want_update_model = true;
+        } else if (data) {
+            fprintf(stderr, "got %d frames\n", frame_count);
+            const float *sample_ptr = reinterpret_cast<const float*>(data);
+            for (int i = 0; i < frame_count; i += 1) {
+                for (int ch = 0; ch < channel_count; ch += 1) {
+                    float sample = *sample_ptr;
+                    _audio_file->channels.at(ch).samples.append(sample);
+                    sample_ptr += 1;
+                }
+            }
+            _recording_device->drop();
+            _want_update_model = true;
+        }
+
+        struct timespec tms;
+        clock_gettime(CLOCK_MONOTONIC, &tms);
+        tms.tv_nsec += _recording_thread_wait_nanos;
+        pthread_cond_timedwait(&_recording_cond, &_recording_mutex, &tms);
+
+        if (pthread_mutex_unlock(&_recording_mutex))
+            panic("pthread_mutex_unlock failure");
+    }
+    return NULL;
+}
+
 void AudioEditWidget::open_playback_device() {
-    if (_playback_device)
-        close_playback_device();
+    if (_playback_device || _playback_device_list.length() == 0)
+        return;
 
     _playback_device_latency = 0.008;
     _playback_device_sample_rate = _audio_file->sample_rate;
 
-    AudioDevice *selected_playback_device = &_playback_device_list.at(_select_playback_device->selected_index());
+    const AudioDevice *selected_playback_device = _playback_device_list.at(_select_playback_device->selected_index());
 
     bool ok;
     _playback_device = create<OpenPlaybackDevice>(_audio_hardware,
             selected_playback_device->name.encode().raw(),
-            _audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
+            &_audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
             _audio_file->sample_rate, &ok);
 
     if (!ok)
         panic("could not open playback device");
 
     _playback_thread_join_flag = false;
-    _playback_thread_wait_nanos = (_playback_device_latency / 10.0) * 1000000000;
-    if (pthread_create(&_playback_thread, NULL, playback_thread, this))
+    _playback_thread_wait_nanos = (_playback_device_latency / 10.0) * 1000000000L;
+    if (pthread_create(&_playback_thread, NULL, static_playback_thread, this))
         panic("unable to create playback thread");
     _playback_thread_created = true;
 }
@@ -647,22 +732,66 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
             scroll_by(-32);
             break;
         case VirtKeyR:
-            if (key_mod_only_ctrl(event->modifiers))
-                start_recording();
+            if (key_mod_only_ctrl(event->modifiers)) {
+                if (_recording_device) {
+                    close_recording_device();
+                } else {
+                    open_recording_device();
+                }
+            }
             break;
     }
 }
 
-void AudioEditWidget::start_recording() {
-    /*
+void AudioEditWidget::open_recording_device() {
+    if (_recording_device || _recording_device_list.length() == 0)
+        return;
+
+    const AudioDevice *selected_recording_device = _recording_device_list.at(_select_recording_device->selected_index());
+
+    AudioFile *audio_file = create<AudioFile>();
+    audio_file->channels.resize(selected_recording_device->channel_layout.channels.length());
+    audio_file->channel_layout = selected_recording_device->channel_layout;
+    audio_file->sample_rate = selected_recording_device->default_sample_rate;
+    audio_file->export_sample_format = {SampleFormatInt32, false};
+    audio_file->export_bit_rate = 320 * 1000;
+
+    edit_audio_file(audio_file);
+
+    _frames_per_pixel = 500.0;
+
+    double recording_latency = 0.17;
+
     bool ok;
-    _recording_device = create<OpenRecordingDevice>(_audio_hardware, nullptr,
-            _audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
-            _audio_file->sample_rate, &ok);
+    _recording_device = create<OpenRecordingDevice>(_audio_hardware,
+            selected_recording_device->name.encode().raw(),
+            &selected_recording_device->channel_layout, SampleFormatFloat,
+            recording_latency, selected_recording_device->default_sample_rate, &ok);
 
     if (!ok)
-        panic("could not open playback device");
-        */
+        panic("could not open recording device");
+
+    _recording_thread_join_flag = false;
+    _recording_thread_wait_nanos = (recording_latency / 10.0) * 1000000000L;
+    if (pthread_create(&_recording_thread, NULL, static_recording_thread, this))
+        panic("unable to create recording thread");
+    _recording_thread_created = true;
+}
+
+void AudioEditWidget::close_recording_device() {
+    if (_recording_thread_created) {
+        _recording_thread_join_flag = true;
+        pthread_mutex_lock(&_recording_mutex);
+        pthread_cond_signal(&_recording_cond);
+        pthread_mutex_unlock(&_recording_mutex);
+        pthread_join(_recording_thread, NULL);
+        _recording_thread_created = false;
+    }
+
+    if (_recording_device) {
+        destroy(_recording_device, 1);
+        _recording_device = nullptr;
+    }
 }
 
 void AudioEditWidget::scroll_by(int x) {
@@ -788,13 +917,15 @@ void AudioEditWidget::update_model() {
                 long end_frame = min(
                         (long)((x + _scroll_x + 1) * _frames_per_pixel),
                         samples->length());
-                float min_sample =  1.0;
-                float max_sample = -1.0;
+                float min_sample =  1.0f;
+                float max_sample = -1.0f;
                 for (long frame = start_frame; frame < end_frame; frame += 1) {
                     float sample = samples->at(frame);
                     min_sample = min(min_sample, sample);
                     max_sample = max(max_sample, sample);
                 }
+                min_sample = clamp(-1.0f, min_sample, 1.0f);
+                max_sample = clamp(-1.0f, max_sample, 1.0f);
 
                 int y_min = (min_sample + 1.0) / 2.0 * height;
                 int y_max = (max_sample + 1.0) / 2.0 * height;
@@ -847,5 +978,6 @@ void AudioEditWidget::save_as(const ByteBuffer &file_path,
 }
 
 void AudioEditWidget::on_playback_index_changed() {
+    close_playback_device();
     open_playback_device();
 }

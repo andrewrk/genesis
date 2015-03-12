@@ -24,6 +24,8 @@ public:
     virtual void on_key_event(const KeyEvent *) {}
     virtual void on_mouse_wheel(const MouseWheelEvent *) {}
 
+    virtual void flush_events() {}
+
     int _gui_index;
     bool _is_visible;
 };

@@ -6,7 +6,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
-void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_info) {
+void default_on_devices_change(AudioHardware *audio_hardware) {
+    const AudioDevicesInfo *devices_info = audio_hardware->devices_info();
     fprintf(stderr, "\n");
     for (int i = 0; i < devices_info->devices.length(); i += 1) {
         const AudioDevice *audio_device = &devices_info->devices.at(i);
@@ -25,11 +26,13 @@ void default_on_devices_change(AudioHardware *, const AudioDevicesInfo *devices_
 
 AudioHardware::AudioHardware() :
     _userdata(NULL),
-    _device_scan_requests(0),
+    _device_scan_requests(1),
     _on_devices_change(default_on_devices_change),
     _current_audio_devices_info(NULL),
     _ready_audio_devices_info(NULL),
+    _safe_devices_info(NULL),
     _ready_flag(false),
+    _have_devices_flag(false),
     _thread_exit_flag(false)
 {
     if (pthread_mutex_init(&_thread_mutex, NULL))
@@ -85,6 +88,10 @@ AudioHardware::~AudioHardware() {
         panic("pthread_cond_destroy failure");
     if (pthread_mutex_destroy(&_thread_mutex))
         panic("pthread_mutex_destroy failure");
+}
+
+void AudioHardware::clear_on_devices_change() {
+    _on_devices_change = default_on_devices_change;
 }
 
 void AudioHardware::subscribe_callback(pa_context *context,
@@ -183,6 +190,8 @@ void AudioHardware::finish_device_query() {
     destroy_ready_audio_devices_info();
     _ready_audio_devices_info = _current_audio_devices_info;
     _current_audio_devices_info = NULL;
+    _have_devices_flag = true;
+    pthread_cond_signal(&_ready_cond);
     pthread_mutex_unlock(&_thread_mutex);
 }
 
@@ -340,17 +349,25 @@ void AudioHardware::scan_devices() {
 }
 
 void AudioHardware::flush_events() {
+    AudioDevicesInfo *old_devices_info = nullptr;
+    bool change = false;
+
     pthread_mutex_lock(&_thread_mutex);
 
-    AudioDevicesInfo *devices_info = _ready_audio_devices_info;
-    _ready_audio_devices_info = NULL;
+    if (_ready_audio_devices_info) {
+        old_devices_info = _safe_devices_info;
+        _safe_devices_info = _ready_audio_devices_info;
+        _ready_audio_devices_info = nullptr;
+        change = true;
+    }
 
     pthread_mutex_unlock(&_thread_mutex);
 
-    if (devices_info) {
-        _on_devices_change(this, devices_info);
-        destroy(devices_info, 1);
-    }
+    if (change)
+        _on_devices_change(this);
+
+    if (old_devices_info)
+        destroy(old_devices_info, 1);
 }
 
 void AudioHardware::block_until_ready() {
@@ -358,6 +375,16 @@ void AudioHardware::block_until_ready() {
         return;
     pthread_mutex_lock(&_thread_mutex);
     while (!_ready_flag) {
+        pthread_cond_wait(&_ready_cond, &_thread_mutex);
+    }
+    pthread_mutex_unlock(&_thread_mutex);
+}
+
+void AudioHardware::block_until_have_devices() {
+    if (_have_devices_flag)
+        return;
+    pthread_mutex_lock(&_thread_mutex);
+    while (!_have_devices_flag) {
         pthread_cond_wait(&_ready_cond, &_thread_mutex);
     }
     pthread_mutex_unlock(&_thread_mutex);
@@ -485,7 +512,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
     buffer_attr.minreq = UINT32_MAX;
     buffer_attr.fragsize = UINT32_MAX;
 
-    int err = pa_stream_connect_playback(_stream, device_name, &buffer_attr, PA_STREAM_NOFLAGS, NULL, NULL);
+    int err = pa_stream_connect_playback(_stream, device_name, &buffer_attr, PA_STREAM_ADJUST_LATENCY, NULL, NULL);
     if (err)
         panic("unable to connect pulseaudio playback stream");
 
@@ -520,7 +547,8 @@ void OpenPlaybackDevice::clear_buffer() {
 
 OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
         const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
-        int sample_rate, bool *ok)
+        int sample_rate, bool *ok) :
+    _stream_ready(false)
 {
     audio_hardware->block_until_ready();
 
@@ -542,12 +570,12 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
 
     pa_buffer_attr buffer_attr;
     buffer_attr.maxlength = UINT32_MAX;
-    buffer_attr.tlength = UINT32_MAX;
+    buffer_attr.tlength = buffer_length;
     buffer_attr.prebuf = UINT32_MAX;
     buffer_attr.minreq = UINT32_MAX;
     buffer_attr.fragsize = buffer_length;
 
-    int err = pa_stream_connect_record(_stream, device_name, &buffer_attr, PA_STREAM_NOFLAGS);
+    int err = pa_stream_connect_record(_stream, device_name, &buffer_attr, PA_STREAM_ADJUST_LATENCY);
     if (err)
         panic("unable to connect pulseaudio record stream");
 
@@ -564,8 +592,10 @@ void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
     switch (pa_stream_get_state(stream)) {
         case PA_STREAM_UNCONNECTED:
         case PA_STREAM_CREATING:
-        case PA_STREAM_READY:
         case PA_STREAM_TERMINATED:
+            break;
+        case PA_STREAM_READY:
+            _stream_ready = true;
             break;
         case PA_STREAM_FAILED:
             panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
@@ -574,13 +604,18 @@ void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
 }
 
 void OpenRecordingDevice::peek(const char **data, int *byte_count) {
-    size_t nbytes;
-    if (pa_stream_peek(_stream, (const void **)&data, &nbytes))
-        panic("pa_stream_peek error");
-    *byte_count = nbytes;
+    if (_stream_ready) {
+        size_t nbytes;
+        if (pa_stream_peek(_stream, (const void **)data, &nbytes))
+            panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+        *byte_count = nbytes;
+    } else {
+        *data = nullptr;
+        *byte_count = 0;
+    }
 }
 
 void OpenRecordingDevice::drop() {
     if (pa_stream_drop(_stream))
-        panic("pa_stream_drop error");
+        panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
 }

@@ -101,6 +101,13 @@ void GuiWindow::bind() {
     glfwMakeContextCurrent(_window);
 }
 
+void GuiWindow::flush_events() {
+    for (long i = 0; i < _widget_list.length(); i += 1) {
+        Widget *widget = _widget_list.at(i);
+        widget->flush_events();
+    }
+}
+
 void GuiWindow::draw() {
     if (_gui->_utility_window != this) {
         if (_is_iconified)

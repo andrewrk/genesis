@@ -24,4 +24,3 @@ void os_init() {
     os_dir_path = path_join(os_home_dir, "genesis");
     os_sample_path = path_join(os_dir_path, "samples");
 }
-

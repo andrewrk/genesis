@@ -19,7 +19,7 @@ struct Channel {
 
 struct AudioFile {
     List<Channel> channels;
-    const ChannelLayout *channel_layout;
+    ChannelLayout channel_layout;
     int sample_rate;
     // export_* used when saving audio file to disk
     ExportSampleFormat export_sample_format;

@@ -38,7 +38,7 @@ void SelectWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     glm::mat4 bg_mvp = projection * _bg_model;
     _gui->fill_rect(window, _bg_color, bg_mvp);
 
-    if (_label_list.length() >= 0) {
+    if (_label_list.length() > 0) {
         int index = clamp(0, _selected_index, (int)(_label_list.length() - 1));
         glm::mat4 label_mvp = projection * _text_model;
         _label_list.at(index)->draw(window, label_mvp, _text_color);

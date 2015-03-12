@@ -84,6 +84,9 @@ void Gui::exec() {
     while (_running) {
         glfwPollEvents();
         _audio_hardware.flush_events();
+        for (long i = 0; i < _window_list.length(); i += 1) {
+            _window_list.at(i)->flush_events();
+        }
 
         // draw the utility window first because it's the one with vsync on
         _utility_window->bind();

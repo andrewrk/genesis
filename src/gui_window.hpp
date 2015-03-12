@@ -57,6 +57,8 @@ public:
     String get_clipboard_string() const;
     bool clipboard_has_string() const;
 
+    void flush_events();
+
 
     void *_userdata;
     // index into Gui's list of windows

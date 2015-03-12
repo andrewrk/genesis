@@ -75,6 +75,7 @@ public:
 
 private:
     pa_stream *_stream;
+    atomic_bool _stream_ready;
 
     void stream_state_callback(pa_stream *stream);
 
@@ -92,16 +93,21 @@ public:
     ~AudioHardware();
 
     // the device list is valid only for the duration of the callback
-    void set_on_devices_change(void (*on_devices_change)(AudioHardware *, const AudioDevicesInfo *)) {
+    void set_on_devices_change(void (*on_devices_change)(AudioHardware *)) {
         _on_devices_change = on_devices_change;
+    }
+    void clear_on_devices_change();
+
+    const AudioDevicesInfo *devices_info() const {
+        return _safe_devices_info;
     }
 
     // call this and on_devices_change will be called 0 or 1 times, and then
     // this function will return
     void flush_events();
 
-    // called from the OpenPlaybackDevice constructor
     void block_until_ready();
+    void block_until_have_devices();
 
     void *_userdata;
 
@@ -110,7 +116,7 @@ public:
     pa_context *_context;
 private:
     atomic_int _device_scan_requests;
-    void (*_on_devices_change)(AudioHardware *, const AudioDevicesInfo *);
+    void (*_on_devices_change)(AudioHardware *);
 
     // the one that we're working on building
     AudioDevicesInfo *_current_audio_devices_info;
@@ -120,11 +126,15 @@ private:
     // this one is ready to be read with flush_events. protected by mutex
     AudioDevicesInfo *_ready_audio_devices_info;
 
+    // this one is safe to read from the gui thread
+    AudioDevicesInfo *_safe_devices_info;
+
     bool _have_sink_list;
     bool _have_source_list;
     bool _have_default_sink;
 
     atomic_bool _ready_flag;
+    atomic_bool _have_devices_flag;
     pthread_cond_t _ready_cond;
     pthread_mutex_t _thread_mutex;
     pthread_t _pulseaudio_thread_id;
