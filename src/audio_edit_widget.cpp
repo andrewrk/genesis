@@ -120,7 +120,7 @@ void AudioEditWidget::on_devices_change(const AudioDevicesInfo *info) {
     _select_playback_device->select_index(playback_index);
 
     int recording_index = (info->default_input_index >= 0) ? info->default_input_index : 0;
-    _select_playback_device->select_index(recording_index);
+    _select_recording_device->select_index(recording_index);
 
     update_model();
 }
@@ -634,6 +634,12 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
             break;
         case VirtKeyLeft:
             scroll_by(-32);
+            break;
+        case VirtKeyR:
+            if (key_mod_only_ctrl(event->modifiers)) {
+                // TODO
+                fprintf(stderr, "start recording\n");
+            }
             break;
     }
 }

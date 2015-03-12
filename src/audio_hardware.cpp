@@ -168,13 +168,14 @@ void AudioHardware::finish_device_query() {
     _current_audio_devices_info->default_input_index = -1;
     for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1) {
         AudioDevice *audio_device = &_current_audio_devices_info->devices.at(i);
-        if (String::equal(audio_device->name, _default_sink_name)) {
+        if (audio_device->purpose == AudioDevicePurposePlayback &&
+            String::equal(audio_device->name, _default_sink_name))
+        {
             _current_audio_devices_info->default_output_index = i;
-            break;
-        }
-        if (String::equal(audio_device->name, _default_source_name)) {
+        } else if (audio_device->purpose == AudioDevicePurposeRecording &&
+            String::equal(audio_device->name, _default_source_name))
+        {
             _current_audio_devices_info->default_input_index = i;
-            break;
         }
     }
 
