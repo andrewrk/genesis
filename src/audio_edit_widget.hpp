@@ -73,6 +73,7 @@ private:
     glm::vec4 _playback_cursor_color;
 
     AudioFile *_audio_file; // protected by mutex
+    Mutex _audio_file_mutex;
 
     struct PerChannelData {
         TextWidget *channel_name_widget;
@@ -127,6 +128,7 @@ private:
     MutexCond _recording_cond;
     atomic_bool _recording_thread_join_flag;
     double _recording_thread_wakeup_timeout;
+    ByteBuffer _record_part_frame_bytes;
 
     // kept in sync with _select_playback_device options
     List<const AudioDevice*> _playback_device_list;
@@ -137,7 +139,9 @@ private:
 
     atomic_bool _want_update_model;
 
+    long _display_frame_count;
 
+    void schedule_update_model();
     void update_model();
 
     void destroy_audio_file();
@@ -154,7 +158,7 @@ private:
     void scroll_playback_cursor_into_view();
     void scroll_frame_into_view(long frame);
     void zoom_100();
-    long get_display_frame_count() const;
+    long calc_display_frame_count() const;
     int get_full_wave_width() const;
     void delete_selection();
     void clamp_selection();

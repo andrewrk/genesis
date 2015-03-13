@@ -530,7 +530,10 @@ void OpenPlaybackDevice::write(char *data, int byte_count) {
 }
 
 void OpenPlaybackDevice::clear_buffer() {
-    pa_operation_unref(pa_stream_flush(_stream, NULL, NULL));
+    pa_operation *op = pa_stream_flush(_stream, NULL, NULL);
+    if (!op)
+        panic("pa_stream_flush failed: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+    pa_operation_unref(op);
 }
 
 OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
