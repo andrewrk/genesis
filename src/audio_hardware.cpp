@@ -26,20 +26,19 @@ void default_on_devices_change(AudioHardware *audio_hardware) {
 
 AudioHardware::AudioHardware() :
     _userdata(NULL),
-    _device_scan_requests(1),
+    _device_scan_queued(false),
     _on_devices_change(default_on_devices_change),
     _current_audio_devices_info(NULL),
     _ready_audio_devices_info(NULL),
     _safe_devices_info(NULL),
     _ready_flag(false),
-    _have_devices_flag(false),
-    _thread_exit_flag(false)
+    _have_devices_flag(false)
 {
-    _main_loop = pa_mainloop_new();
+    _main_loop = pa_threaded_mainloop_new();
     if (!_main_loop)
         panic("unable to create pulseaudio mainloop");
 
-    pa_mainloop_api *main_loop_api = pa_mainloop_get_api(_main_loop);
+    pa_mainloop_api *main_loop_api = pa_threaded_mainloop_get_api(_main_loop);
 
     pa_proplist *props = pa_proplist_new();
     if (!props)
@@ -61,22 +60,20 @@ AudioHardware::AudioHardware() :
     if (err)
         panic("pulseaudio context connect failed");
 
-    _pulseaudio_thread.start(pulseaudio_thread, this);
-
-    scan_devices();
+    if (pa_threaded_mainloop_start(_main_loop))
+        panic("unable to start pulseaudio main loop");
 }
 
 AudioHardware::~AudioHardware() {
-    _thread_exit_flag = true;
-    pa_mainloop_wakeup(_main_loop);
-    _pulseaudio_thread.join();
+    pa_threaded_mainloop_stop(_main_loop);
 
     destroy_current_audio_devices_info();
     destroy_ready_audio_devices_info();
 
     pa_context_disconnect(_context);
     pa_context_unref(_context);
-    pa_mainloop_free(_main_loop);
+
+    pa_threaded_mainloop_free(_main_loop);
 }
 
 void AudioHardware::clear_on_devices_change() {
@@ -88,7 +85,7 @@ void AudioHardware::subscribe_callback(pa_context *context,
 {
     int facility = (event_bits & PA_SUBSCRIPTION_EVENT_FACILITY_MASK);
     if (facility == PA_SUBSCRIPTION_EVENT_SOURCE || facility == PA_SUBSCRIPTION_EVENT_SINK)
-        scan_devices();
+        _device_scan_queued = true;
 }
 
 void AudioHardware::destroy_ready_audio_devices_info() {
@@ -110,13 +107,6 @@ void AudioHardware::initialize_current_device_list() {
     _current_audio_devices_info = create<AudioDevicesInfo>();
 }
 
-void AudioHardware::set_ready_flag() {
-    _ready_flag = true;
-    _thread_mutex.lock();
-    _ready_cond.signal();
-    _thread_mutex.unlock();
-}
-
 void AudioHardware::context_state_callback(pa_context *context) {
     switch (pa_context_get_state(context)) {
     case PA_CONTEXT_UNCONNECTED: // The context hasn't been connected yet.
@@ -128,9 +118,13 @@ void AudioHardware::context_state_callback(pa_context *context) {
     case PA_CONTEXT_SETTING_NAME: // The client is passing its application name to the daemon.
         return;
     case PA_CONTEXT_READY: // The connection is established, the context is ready to execute operations.
+        _ready_flag = true;
+        pa_threaded_mainloop_signal(_main_loop, 0);
+        subscribe_to_events();
+        _device_scan_queued = true;
+        return;
     case PA_CONTEXT_TERMINATED: // The connection was terminated cleanly.
-        set_ready_flag();
-        pa_mainloop_wakeup(_main_loop);
+        pa_threaded_mainloop_signal(_main_loop, 0);
         return;
     case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
         panic("pulsaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
@@ -175,13 +169,11 @@ void AudioHardware::finish_device_query() {
         }
     }
 
-    _thread_mutex.lock();
     destroy_ready_audio_devices_info();
     _ready_audio_devices_info = _current_audio_devices_info;
     _current_audio_devices_info = NULL;
     _have_devices_flag = true;
-    _ready_cond.signal();
-    _thread_mutex.unlock();
+    pa_threaded_mainloop_signal(_main_loop, 0);
 }
 
 static ChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
@@ -234,6 +226,7 @@ void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *
         audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
         audio_device->purpose = AudioDevicePurposePlayback;
     }
+    pa_threaded_mainloop_signal(_main_loop, 0);
 }
 
 void AudioHardware::source_info_callback(pa_context *context, const pa_source_info *info, int eol) {
@@ -252,6 +245,7 @@ void AudioHardware::source_info_callback(pa_context *context, const pa_source_in
         audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
         audio_device->purpose = AudioDevicePurposeRecording;
     }
+    pa_threaded_mainloop_signal(_main_loop, 0);
 }
 
 void AudioHardware::server_info_callback(pa_context *context, const pa_server_info *info) {
@@ -260,25 +254,18 @@ void AudioHardware::server_info_callback(pa_context *context, const pa_server_in
 
     _have_default_sink = true;
     finish_device_query();
+    pa_threaded_mainloop_signal(_main_loop, 0);
 }
 
-int AudioHardware::perform_operation(pa_operation *op, int *return_value) {
-    int total_dispatch_count = 0;
+int AudioHardware::perform_operation(pa_operation *op) {
     for (;;) {
         switch (pa_operation_get_state(op)) {
         case PA_OPERATION_RUNNING:
-            {
-                int dispatch_count = pa_mainloop_iterate(_main_loop, 1, return_value);
-                if (dispatch_count >= 0) {
-                    total_dispatch_count += dispatch_count;
-                    continue;
-                } else {
-                    return dispatch_count;
-                }
-            }
+            pa_threaded_mainloop_wait(_main_loop);
+            continue;
         case PA_OPERATION_DONE:
             pa_operation_unref(op);
-            return total_dispatch_count;
+            return 0;
         case PA_OPERATION_CANCELLED:
             pa_operation_unref(op);
             return -1;
@@ -286,61 +273,51 @@ int AudioHardware::perform_operation(pa_operation *op, int *return_value) {
     }
 }
 
-void AudioHardware::pulseaudio_thread() {
-    int return_value;
-
-    // wait until we get to the ready state
-    while (!_ready_flag) {
-        if (pa_mainloop_iterate(_main_loop, 1, &return_value) < 0)
-            return;
-    }
-
+void AudioHardware::subscribe_to_events() {
     pa_subscription_mask_t events = (pa_subscription_mask_t)(
             PA_SUBSCRIPTION_MASK_SINK|PA_SUBSCRIPTION_MASK_SOURCE);
     pa_operation *subscribe_op = pa_context_subscribe(_context, events, nullptr, this);
     if (!subscribe_op)
         panic("pa_context_subscribe failed: %s", pa_strerror(pa_context_errno(_context)));
-    if (perform_operation(subscribe_op, &return_value) < 0)
-        return;
-
-    for (;;) {
-        if (_thread_exit_flag)
-            break;
-        if (_device_scan_requests >= 1) {
-            _device_scan_requests = 0;
-
-            _have_sink_list = false;
-            _have_default_sink = false;
-            _have_source_list = false;
-
-            initialize_current_device_list();
-            pa_operation *list_sink_op = pa_context_get_sink_info_list(_context, sink_info_callback, this);
-            pa_operation *list_source_op = pa_context_get_source_info_list(_context,
-                    static_source_info_callback, this);
-            pa_operation *server_info_op = pa_context_get_server_info(_context, server_info_callback, this);
-
-            if (perform_operation(list_sink_op, &return_value) < 0)
-                break;
-            if (perform_operation(list_source_op, &return_value) < 0)
-                break;
-            if (perform_operation(server_info_op, &return_value) < 0)
-                break;
-        }
-        if (pa_mainloop_iterate(_main_loop, 1, &return_value) < 0)
-            break;
-    }
+    pa_operation_unref(subscribe_op);
 }
 
 void AudioHardware::scan_devices() {
-    _device_scan_requests += 1;
-    pa_mainloop_wakeup(_main_loop);
+    _have_sink_list = false;
+    _have_default_sink = false;
+    _have_source_list = false;
+
+    initialize_current_device_list();
+
+    pa_threaded_mainloop_lock(_main_loop);
+
+    pa_operation *list_sink_op = pa_context_get_sink_info_list(_context, sink_info_callback, this);
+    pa_operation *list_source_op = pa_context_get_source_info_list(_context,
+            static_source_info_callback, this);
+    pa_operation *server_info_op = pa_context_get_server_info(_context, server_info_callback, this);
+
+    if (perform_operation(list_sink_op))
+        panic("list sinks failed");
+    if (perform_operation(list_source_op))
+        panic("list sources failed");
+    if (perform_operation(server_info_op))
+        panic("get server info failed");
+
+    pa_threaded_mainloop_signal(_main_loop, 0);
+
+    pa_threaded_mainloop_unlock(_main_loop);
 }
 
 void AudioHardware::flush_events() {
+    if (_device_scan_queued) {
+        _device_scan_queued = false;
+        scan_devices();
+    }
+
     AudioDevicesInfo *old_devices_info = nullptr;
     bool change = false;
 
-    _thread_mutex.lock();
+    pa_threaded_mainloop_lock(_main_loop);
 
     if (_ready_audio_devices_info) {
         old_devices_info = _safe_devices_info;
@@ -349,7 +326,7 @@ void AudioHardware::flush_events() {
         change = true;
     }
 
-    _thread_mutex.unlock();
+    pa_threaded_mainloop_unlock(_main_loop);
 
     if (change)
         _on_devices_change(this);
@@ -361,21 +338,21 @@ void AudioHardware::flush_events() {
 void AudioHardware::block_until_ready() {
     if (_ready_flag)
         return;
-    _thread_mutex.lock();
+    pa_threaded_mainloop_lock(_main_loop);
     while (!_ready_flag) {
-        _ready_cond.wait(&_thread_mutex);
+        pa_threaded_mainloop_wait(_main_loop);
     }
-    _thread_mutex.unlock();
+    pa_threaded_mainloop_unlock(_main_loop);
 }
 
 void AudioHardware::block_until_have_devices() {
     if (_have_devices_flag)
         return;
-    _thread_mutex.lock();
+    pa_threaded_mainloop_lock(_main_loop);
     while (!_have_devices_flag) {
-        _ready_cond.wait(&_thread_mutex);
+        pa_threaded_mainloop_wait(_main_loop);
     }
-    _thread_mutex.unlock();
+    pa_threaded_mainloop_unlock(_main_loop);
 }
 
 static pa_sample_format_t to_pulseaudio_sample_format(SampleFormat sample_format) {

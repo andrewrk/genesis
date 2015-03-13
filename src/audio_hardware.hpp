@@ -5,11 +5,9 @@
 #include "sample_format.hpp"
 #include "channel_layouts.hpp"
 #include "string.hpp"
-#include "threads.hpp"
 
 #include <pulse/pulseaudio.h>
 #include <atomic>
-using std::atomic_int;
 using std::atomic_bool;
 
 enum AudioDevicePurpose {
@@ -115,7 +113,7 @@ public:
 
     pa_context *_context;
 private:
-    atomic_int _device_scan_requests;
+    atomic_bool _device_scan_queued;
     void (*_on_devices_change)(AudioHardware *);
 
     // the one that we're working on building
@@ -135,13 +133,10 @@ private:
 
     atomic_bool _ready_flag;
     atomic_bool _have_devices_flag;
-    MutexCond _ready_cond;
-    Mutex _thread_mutex;
-    Thread _pulseaudio_thread;
 
-    pa_mainloop *_main_loop;
-    atomic_bool _thread_exit_flag;
+    pa_threaded_mainloop *_main_loop;
 
+    void subscribe_to_events();
     void scan_devices();
 
     void context_state_callback(pa_context *context);
@@ -149,15 +144,13 @@ private:
     void source_info_callback(pa_context *context, const pa_source_info *info, int eol);
     void server_info_callback(pa_context *context, const pa_server_info *info);
 
-    void pulseaudio_thread();
     void destroy_current_audio_devices_info();
     void destroy_ready_audio_devices_info();
     void initialize_current_device_list();
     void set_ready_flag();
     void finish_device_query();
-    int perform_operation(pa_operation *op, int *return_value);
+    int perform_operation(pa_operation *op);
     void subscribe_callback(pa_context *context, pa_subscription_event_type_t event_type, uint32_t index);
-
 
     static void context_state_callback(pa_context *context, void *userdata) {
         return static_cast<AudioHardware*>(userdata)->context_state_callback(context);
@@ -172,10 +165,6 @@ private:
     }
     static void server_info_callback(pa_context *context, const pa_server_info *info, void *userdata) {
         return static_cast<AudioHardware*>(userdata)->server_info_callback(context, info);
-    }
-
-    static void pulseaudio_thread(void *arg) {
-        return static_cast<AudioHardware*>(arg)->pulseaudio_thread();
     }
 
     static void static_subscribe_callback(pa_context *context,
