@@ -558,7 +558,7 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
 
     pa_buffer_attr buffer_attr;
     buffer_attr.maxlength = UINT32_MAX;
-    buffer_attr.tlength = buffer_length;
+    buffer_attr.tlength = UINT32_MAX;
     buffer_attr.prebuf = UINT32_MAX;
     buffer_attr.minreq = UINT32_MAX;
     buffer_attr.fragsize = buffer_length;

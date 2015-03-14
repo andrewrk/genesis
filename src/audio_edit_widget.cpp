@@ -302,11 +302,8 @@ void AudioEditWidget::recording_thread() {
             if (byte_count > 0) {
                 int bytes_per_frame = get_bytes_per_frame(SampleFormatFloat, _audio_file->channels.length());
                 int frame_count = byte_count / bytes_per_frame;
-                // TODO handle the case where buffer contains part of a frame
-                /*
                 if (frame_count * bytes_per_frame != byte_count)
                     panic("partial frame");
-                    */
                 int channel_count = _audio_file->channels.length();
                 if (data) {
                     fprintf(stderr, "got %d frames\n", frame_count);
