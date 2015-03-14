@@ -72,6 +72,7 @@ public:
     void drop();
 
 private:
+    AudioHardware *_audio_hardware;
     pa_stream *_stream;
     atomic_bool _stream_ready;
 
@@ -175,6 +176,9 @@ private:
 
     AudioHardware(const AudioHardware &copy) = delete;
     AudioHardware &operator=(const AudioHardware &copy) = delete;
+
+    friend class OpenPlaybackDevice;
+    friend class OpenRecordingDevice;
 };
 
 #endif

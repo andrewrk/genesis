@@ -452,16 +452,20 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
 OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
         const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
+    _audio_hardware(audio_hardware),
     _stream(NULL)
 {
-    audio_hardware->block_until_ready();
+    if (!_audio_hardware->_ready_flag)
+        panic("audio hardware not ready");
+
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
 
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
     sample_spec.rate = sample_rate;
     sample_spec.channels = channel_layout->channels.length();
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
-    _stream = pa_stream_new(audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    _stream = pa_stream_new(_audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
     if (!_stream)
         panic("unable to create pulseaudio stream");
 
@@ -482,12 +486,18 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
         panic("unable to connect pulseaudio playback stream");
 
     *ok = true;
+
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+
     pa_stream_set_state_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
+
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 int OpenPlaybackDevice::writable_size() {
@@ -496,29 +506,39 @@ int OpenPlaybackDevice::writable_size() {
 
 void OpenPlaybackDevice::begin_write(char **data, int *byte_count) {
     size_t size_t_byte_count = *byte_count;
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     if (pa_stream_begin_write(_stream, (void**)data, &size_t_byte_count))
         panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
     *byte_count = size_t_byte_count;
 }
 
 void OpenPlaybackDevice::write(char *data, int byte_count) {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     if (pa_stream_write(_stream, data, byte_count, NULL, 0, PA_SEEK_RELATIVE))
         panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 void OpenPlaybackDevice::clear_buffer() {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     pa_operation *op = pa_stream_flush(_stream, NULL, NULL);
     if (!op)
         panic("pa_stream_flush failed: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
     pa_operation_unref(op);
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
         const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
+    _audio_hardware(audio_hardware),
     _stream_ready(false)
 {
-    audio_hardware->block_until_ready();
+    if (!_audio_hardware->_ready_flag)
+        panic("audio hardware not ready");
+
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
 
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
@@ -527,7 +547,7 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
 
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
 
-    _stream = pa_stream_new(audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    _stream = pa_stream_new(_audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
     if (!_stream)
         panic("unable to create pulseaudio stream");
 
@@ -548,12 +568,18 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
         panic("unable to connect pulseaudio record stream");
 
     *ok = true;
+
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 OpenRecordingDevice::~OpenRecordingDevice() {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+
     pa_stream_set_state_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
+
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
@@ -573,9 +599,11 @@ void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
 
 void OpenRecordingDevice::peek(const char **data, int *byte_count) {
     if (_stream_ready) {
+        pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
         size_t nbytes;
         if (pa_stream_peek(_stream, (const void **)data, &nbytes))
             panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+        pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
         *byte_count = nbytes;
     } else {
         *data = nullptr;
@@ -584,6 +612,8 @@ void OpenRecordingDevice::peek(const char **data, int *byte_count) {
 }
 
 void OpenRecordingDevice::drop() {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     if (pa_stream_drop(_stream))
         panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
