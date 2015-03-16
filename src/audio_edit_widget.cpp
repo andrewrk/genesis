@@ -9,7 +9,7 @@
 static AudioFile *create_empty_audio_file() {
     AudioFile *audio_file = create<AudioFile>();
     audio_file->channels.resize(2);
-    audio_file->channel_layout = *genesis_get_channel_layout(ChannelLayoutIdStereo);
+    audio_file->channel_layout = *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdStereo);
     audio_file->sample_rate = 48000;
     audio_file->export_sample_format = {SampleFormatInt32, false};
     audio_file->export_bit_rate = 320 * 1000;
@@ -173,8 +173,8 @@ void AudioEditWidget::close_playback_device() {
 }
 
 static String audio_file_channel_name(const AudioFile *audio_file, int index) {
-    if (index < audio_file->channel_layout.channels.length())
-        return genesis_get_channel_name(audio_file->channel_layout.channels.at(index));
+    if (index < audio_file->channel_layout.channel_count)
+        return genesis_get_channel_name(audio_file->channel_layout.channels[index]);
     else
         return ByteBuffer::format("Channel %d (extra)", index + 1);
 }
@@ -718,7 +718,7 @@ void AudioEditWidget::open_recording_device() {
     const AudioDevice *selected_recording_device = _recording_device_list.at(_select_recording_device->selected_index());
 
     AudioFile *audio_file = create<AudioFile>();
-    audio_file->channels.resize(selected_recording_device->channel_layout.channels.length());
+    audio_file->channels.resize(selected_recording_device->channel_layout.channel_count);
     audio_file->channel_layout = selected_recording_device->channel_layout;
     audio_file->sample_rate = selected_recording_device->default_sample_rate;
     audio_file->export_sample_format = {SampleFormatInt32, false};

@@ -3,7 +3,7 @@
 
 #include "list.hpp"
 #include "sample_format.hpp"
-#include "channel_layouts.hpp"
+#include "channel_layout.h"
 #include "string.hpp"
 
 #include <pulse/pulseaudio.h>
@@ -18,7 +18,7 @@ enum AudioDevicePurpose {
 struct AudioDevice {
     String name;
     String description;
-    ChannelLayout channel_layout;
+    GenesisChannelLayout channel_layout;
     SampleFormat default_sample_format;
     double default_latency;
     double default_sample_rate;
@@ -37,7 +37,7 @@ typedef void PaStream;
 class OpenPlaybackDevice {
 public:
     OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
-            const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+            const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
             int sample_rate, bool *ok);
     ~OpenPlaybackDevice();
 
@@ -64,7 +64,7 @@ private:
 class OpenRecordingDevice {
 public:
     OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
-        const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok);
     ~OpenRecordingDevice();
 

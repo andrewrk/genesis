@@ -224,6 +224,59 @@ static int decode_frame(AudioFile *audio_file, AVPacket *pkt,
     return decoded_byte_count;
 }
 
+static GenesisChannelId from_libav_channel_id(uint64_t libav_channel_id) {
+    switch (libav_channel_id) {
+        case AV_CH_FRONT_LEFT:            return GenesisChannelIdFrontLeft;
+        case AV_CH_FRONT_RIGHT:           return GenesisChannelIdFrontRight;
+        case AV_CH_FRONT_CENTER:          return GenesisChannelIdFrontCenter;
+        case AV_CH_LOW_FREQUENCY:         return GenesisChannelIdLowFrequency;
+        case AV_CH_BACK_LEFT:             return GenesisChannelIdBackLeft;
+        case AV_CH_BACK_RIGHT:            return GenesisChannelIdBackRight;
+        case AV_CH_FRONT_LEFT_OF_CENTER:  return GenesisChannelIdFrontLeftOfCenter;
+        case AV_CH_FRONT_RIGHT_OF_CENTER: return GenesisChannelIdFrontRightOfCenter;
+        case AV_CH_BACK_CENTER:           return GenesisChannelIdBackCenter;
+        case AV_CH_SIDE_LEFT:             return GenesisChannelIdSideLeft;
+        case AV_CH_SIDE_RIGHT:            return GenesisChannelIdSideRight;
+        case AV_CH_TOP_CENTER:            return GenesisChannelIdTopCenter;
+        case AV_CH_TOP_FRONT_LEFT:        return GenesisChannelIdTopFrontLeft;
+        case AV_CH_TOP_FRONT_CENTER:      return GenesisChannelIdTopFrontCenter;
+        case AV_CH_TOP_FRONT_RIGHT:       return GenesisChannelIdTopFrontRight;
+        case AV_CH_TOP_BACK_LEFT:         return GenesisChannelIdTopBackLeft;
+        case AV_CH_TOP_BACK_CENTER:       return GenesisChannelIdTopBackCenter;
+        case AV_CH_TOP_BACK_RIGHT:        return GenesisChannelIdTopBackRight;
+
+        default: return GenesisChannelIdInvalid;
+    }
+}
+
+static enum GenesisError channel_layout_init_from_libav(uint64_t libav_channel_layout,
+        GenesisChannelLayout *layout)
+{
+    int channel_count = av_get_channel_layout_nb_channels(libav_channel_layout);
+    if (layout->channel_count > GENESIS_MAX_CHANNELS)
+        return GenesisErrorMaxChannelsExceeded;
+
+    layout->channel_count = channel_count;
+    for (int i = 0; i < layout->channel_count; i += 1) {
+        uint64_t libav_channel_id = av_channel_layout_extract_channel(libav_channel_layout, i);
+        GenesisChannelId channel_id = from_libav_channel_id(libav_channel_id);
+        layout->channels[i] = channel_id;
+    }
+
+    int builtin_layout_count = genesis_channel_layout_builtin_count();
+    for (int i = 0; i < builtin_layout_count; i += 1) {
+        const GenesisChannelLayout *builtin_layout = genesis_channel_layout_get_builtin(i);
+        if (genesis_channel_layout_equal(builtin_layout, layout)) {
+            layout->name = builtin_layout->name;
+            return GenesisErrorNone;
+        }
+    }
+
+    layout->name = nullptr;
+    return GenesisErrorNone;
+}
+
+
 void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
     AVFormatContext *ic = avformat_alloc_context();
     if (!ic)
@@ -286,11 +339,14 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
         audio_file->tags.put(tag->key, value);
     }
 
-    audio_file->channel_layout = *genesis_from_libav_channel_layout(codec_ctx->channel_layout);
+    GenesisError genesis_err = channel_layout_init_from_libav(codec_ctx->channel_layout,
+           &audio_file->channel_layout);
+    if (genesis_err)
+        panic("unable to determine channel layout: %s", genesis_error_string(genesis_err));
     audio_file->sample_rate = codec_ctx->sample_rate;
     audio_file->export_sample_format = from_libav_sample_format(codec_ctx->sample_fmt);
     audio_file->export_bit_rate = 320 * 1000;
-    long channel_count = audio_file->channel_layout.channels.length();
+    long channel_count = audio_file->channel_layout.channel_count;
 
     void (*import_frame)(const AVFrame *, AudioFile *);
     switch (codec_ctx->sample_fmt) {
@@ -677,6 +733,41 @@ static void write_frames_double(const AudioFile *audio_file,
     }
 }
 
+static uint64_t to_libav_channel_id(enum GenesisChannelId channel_id) {
+    switch (channel_id) {
+    case GenesisChannelIdInvalid: panic("invalid channel id");
+    case GenesisChannelIdFrontLeft: return AV_CH_FRONT_LEFT;
+    case GenesisChannelIdFrontRight: return AV_CH_FRONT_RIGHT;
+    case GenesisChannelIdFrontCenter: return AV_CH_FRONT_CENTER;
+    case GenesisChannelIdLowFrequency: return AV_CH_LOW_FREQUENCY;
+    case GenesisChannelIdBackLeft: return AV_CH_BACK_LEFT;
+    case GenesisChannelIdBackRight: return AV_CH_BACK_RIGHT;
+    case GenesisChannelIdFrontLeftOfCenter: return AV_CH_FRONT_LEFT_OF_CENTER;
+    case GenesisChannelIdFrontRightOfCenter: return AV_CH_FRONT_RIGHT_OF_CENTER;
+    case GenesisChannelIdBackCenter: return AV_CH_BACK_CENTER;
+    case GenesisChannelIdSideLeft: return AV_CH_SIDE_LEFT;
+    case GenesisChannelIdSideRight: return AV_CH_SIDE_RIGHT;
+    case GenesisChannelIdTopCenter: return AV_CH_TOP_CENTER;
+    case GenesisChannelIdTopFrontLeft: return AV_CH_TOP_FRONT_LEFT;
+    case GenesisChannelIdTopFrontCenter: return AV_CH_TOP_FRONT_CENTER;
+    case GenesisChannelIdTopFrontRight: return AV_CH_TOP_FRONT_RIGHT;
+    case GenesisChannelIdTopBackLeft: return AV_CH_TOP_BACK_LEFT;
+    case GenesisChannelIdTopBackCenter: return AV_CH_TOP_BACK_CENTER;
+    case GenesisChannelIdTopBackRight: return AV_CH_TOP_BACK_RIGHT;
+    }
+    panic("invalid channel id");
+}
+
+
+static uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layout) {
+    uint64_t result = 0;
+    for (int i = 0; i < channel_layout->channel_count; i += 1) {
+        GenesisChannelId channel_id = channel_layout->channels[i];
+        result |= to_libav_channel_id(channel_id);
+    }
+    return result;
+}
+
 void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         const char *codec_short_name, const AudioFile *audio_file)
 {
@@ -684,8 +775,8 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
     AVOutputFormat *oformat;
     get_format_and_codec(format_short_name, codec_short_name, file_path.raw(), &oformat, &codec);
 
-    uint64_t out_channel_layout = closest_supported_channel_layout(
-            codec, genesis_to_libav_channel_layout(&audio_file->channel_layout));
+    uint64_t target_channel_layout = channel_layout_to_libav(&audio_file->channel_layout);
+    uint64_t out_channel_layout = closest_supported_channel_layout(codec, target_channel_layout);
 
     AVFormatContext *fmt_ctx = avformat_alloc_context();
     if (!fmt_ctx)
@@ -904,3 +995,4 @@ bool codec_supports_sample_format(const char *format_short_name,
     get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
     return libav_codec_supports_sample_format(codec, format);
 }
+

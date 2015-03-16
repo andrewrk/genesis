@@ -4,7 +4,7 @@
 #include "list.hpp"
 #include "hash_map.hpp"
 #include "string.hpp"
-#include "channel_layouts.hpp"
+#include "channel_layout.h"
 #include "sample_format.hpp"
 
 struct ExportSampleFormat {
@@ -19,7 +19,7 @@ struct Channel {
 
 struct AudioFile {
     List<Channel> channels;
-    ChannelLayout channel_layout;
+    GenesisChannelLayout channel_layout;
     int sample_rate;
     // export_* used when saving audio file to disk
     ExportSampleFormat export_sample_format;

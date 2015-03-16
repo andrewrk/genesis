@@ -10,10 +10,11 @@ OBJECTS = build/main.o build/util.o build/byte_buffer.o build/os.o \
 		  build/label.o build/debug.o build/text_widget.o build/font_size.o \
 		  build/find_file_widget.o build/resource_bundle.o build/png_image.o \
 		  build/spritesheet.o build/genesis_editor.o build/audio_edit_widget.o \
-		  build/genesis.o build/channel_layouts.o build/texture.o \
+		  build/genesis.o build/channel_layout.o build/texture.o \
 		  build/shader_program_manager.o build/alpha_texture.o \
 		  build/audio_file.o build/audio_hardware.o build/static_geometry.o \
-		  build/vertex_array.o build/gui_window.o build/select_widget.o
+		  build/vertex_array.o build/gui_window.o build/select_widget.o \
+		  build/error.o
 
 GENERATE_UNICODE_DATA_OBJECTS = build/generate_unicode_data.o build/util.o \
 								build/byte_buffer.o

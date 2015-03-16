@@ -176,37 +176,37 @@ void AudioHardware::finish_device_query() {
     pa_threaded_mainloop_signal(_main_loop, 0);
 }
 
-static ChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
+static GenesisChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
     switch (pos) {
-    case PA_CHANNEL_POSITION_MONO: return ChannelIdFrontCenter;
-    case PA_CHANNEL_POSITION_FRONT_LEFT: return ChannelIdFrontLeft;
-    case PA_CHANNEL_POSITION_FRONT_RIGHT: return ChannelIdFrontRight;
-    case PA_CHANNEL_POSITION_FRONT_CENTER: return ChannelIdFrontCenter;
-    case PA_CHANNEL_POSITION_REAR_CENTER: return ChannelIdBackCenter;
-    case PA_CHANNEL_POSITION_REAR_LEFT: return ChannelIdBackLeft;
-    case PA_CHANNEL_POSITION_REAR_RIGHT: return ChannelIdBackRight;
-    case PA_CHANNEL_POSITION_LFE: return ChannelIdLowFrequency;
-    case PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER: return ChannelIdFrontLeftOfCenter;
-    case PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER: return ChannelIdFrontRightOfCenter;
-    case PA_CHANNEL_POSITION_SIDE_LEFT: return ChannelIdSideLeft;
-    case PA_CHANNEL_POSITION_SIDE_RIGHT: return ChannelIdSideRight;
-    case PA_CHANNEL_POSITION_TOP_CENTER: return ChannelIdTopCenter;
-    case PA_CHANNEL_POSITION_TOP_FRONT_LEFT: return ChannelIdTopFrontLeft;
-    case PA_CHANNEL_POSITION_TOP_FRONT_RIGHT: return ChannelIdTopFrontRight;
-    case PA_CHANNEL_POSITION_TOP_FRONT_CENTER: return ChannelIdTopFrontCenter;
-    case PA_CHANNEL_POSITION_TOP_REAR_LEFT: return ChannelIdTopBackLeft;
-    case PA_CHANNEL_POSITION_TOP_REAR_RIGHT: return ChannelIdTopBackRight;
-    case PA_CHANNEL_POSITION_TOP_REAR_CENTER: return ChannelIdTopBackCenter;
+    case PA_CHANNEL_POSITION_MONO: return GenesisChannelIdFrontCenter;
+    case PA_CHANNEL_POSITION_FRONT_LEFT: return GenesisChannelIdFrontLeft;
+    case PA_CHANNEL_POSITION_FRONT_RIGHT: return GenesisChannelIdFrontRight;
+    case PA_CHANNEL_POSITION_FRONT_CENTER: return GenesisChannelIdFrontCenter;
+    case PA_CHANNEL_POSITION_REAR_CENTER: return GenesisChannelIdBackCenter;
+    case PA_CHANNEL_POSITION_REAR_LEFT: return GenesisChannelIdBackLeft;
+    case PA_CHANNEL_POSITION_REAR_RIGHT: return GenesisChannelIdBackRight;
+    case PA_CHANNEL_POSITION_LFE: return GenesisChannelIdLowFrequency;
+    case PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER: return GenesisChannelIdFrontLeftOfCenter;
+    case PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER: return GenesisChannelIdFrontRightOfCenter;
+    case PA_CHANNEL_POSITION_SIDE_LEFT: return GenesisChannelIdSideLeft;
+    case PA_CHANNEL_POSITION_SIDE_RIGHT: return GenesisChannelIdSideRight;
+    case PA_CHANNEL_POSITION_TOP_CENTER: return GenesisChannelIdTopCenter;
+    case PA_CHANNEL_POSITION_TOP_FRONT_LEFT: return GenesisChannelIdTopFrontLeft;
+    case PA_CHANNEL_POSITION_TOP_FRONT_RIGHT: return GenesisChannelIdTopFrontRight;
+    case PA_CHANNEL_POSITION_TOP_FRONT_CENTER: return GenesisChannelIdTopFrontCenter;
+    case PA_CHANNEL_POSITION_TOP_REAR_LEFT: return GenesisChannelIdTopBackLeft;
+    case PA_CHANNEL_POSITION_TOP_REAR_RIGHT: return GenesisChannelIdTopBackRight;
+    case PA_CHANNEL_POSITION_TOP_REAR_CENTER: return GenesisChannelIdTopBackCenter;
 
     default:
         panic("cannot map pulseaudio channel to genesis");
     }
 }
 
-static void set_from_pulseaudio_channel_map(pa_channel_map channel_map, ChannelLayout *channel_layout) {
-    channel_layout->channels.clear();
+static void set_from_pulseaudio_channel_map(pa_channel_map channel_map, GenesisChannelLayout *channel_layout) {
+    channel_layout->channel_count = channel_map.channels;
     for (int i = 0; i < channel_map.channels; i += 1) {
-        channel_layout->channels.append(from_pulseaudio_channel_pos(channel_map.map[i]));
+        channel_layout->channels[i] = from_pulseaudio_channel_pos(channel_map.map[i]);
     }
 }
 
@@ -373,65 +373,59 @@ static pa_sample_format_t to_pulseaudio_sample_format(SampleFormat sample_format
     panic("invalid sample format");
 }
 
-static pa_channel_position_t to_pulseaudio_channel_pos(ChannelId channel_id) {
+static pa_channel_position_t to_pulseaudio_channel_pos(GenesisChannelId channel_id) {
     switch (channel_id) {
-    case ChannelIdFrontLeft:
+    case GenesisChannelIdInvalid:
+        panic("invalid channel id");
+    case GenesisChannelIdFrontLeft:
         return PA_CHANNEL_POSITION_FRONT_LEFT;
-    case ChannelIdFrontRight:
+    case GenesisChannelIdFrontRight:
         return PA_CHANNEL_POSITION_FRONT_RIGHT;
-    case ChannelIdFrontCenter:
+    case GenesisChannelIdFrontCenter:
         return PA_CHANNEL_POSITION_FRONT_CENTER;
-    case ChannelIdLowFrequency:
+    case GenesisChannelIdLowFrequency:
         return PA_CHANNEL_POSITION_LFE;
-    case ChannelIdBackLeft:
+    case GenesisChannelIdBackLeft:
         return PA_CHANNEL_POSITION_REAR_LEFT;
-    case ChannelIdBackRight:
+    case GenesisChannelIdBackRight:
         return PA_CHANNEL_POSITION_REAR_RIGHT;
-    case ChannelIdFrontLeftOfCenter:
+    case GenesisChannelIdFrontLeftOfCenter:
         return PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER;
-    case ChannelIdFrontRightOfCenter:
+    case GenesisChannelIdFrontRightOfCenter:
         return PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER;
-    case ChannelIdBackCenter:
+    case GenesisChannelIdBackCenter:
         return PA_CHANNEL_POSITION_REAR_CENTER;
-    case ChannelIdSideLeft:
+    case GenesisChannelIdSideLeft:
         return PA_CHANNEL_POSITION_SIDE_LEFT;
-    case ChannelIdSideRight:
+    case GenesisChannelIdSideRight:
         return PA_CHANNEL_POSITION_SIDE_RIGHT;
-    case ChannelIdTopCenter:
+    case GenesisChannelIdTopCenter:
         return PA_CHANNEL_POSITION_TOP_CENTER;
-    case ChannelIdTopFrontLeft:
+    case GenesisChannelIdTopFrontLeft:
         return PA_CHANNEL_POSITION_TOP_FRONT_LEFT;
-    case ChannelIdTopFrontCenter:
+    case GenesisChannelIdTopFrontCenter:
         return PA_CHANNEL_POSITION_TOP_FRONT_CENTER;
-    case ChannelIdTopFrontRight:
+    case GenesisChannelIdTopFrontRight:
         return PA_CHANNEL_POSITION_TOP_FRONT_RIGHT;
-    case ChannelIdTopBackLeft:
+    case GenesisChannelIdTopBackLeft:
         return PA_CHANNEL_POSITION_TOP_REAR_LEFT;
-    case ChannelIdTopBackCenter:
+    case GenesisChannelIdTopBackCenter:
         return PA_CHANNEL_POSITION_TOP_REAR_CENTER;
-    case ChannelIdTopBackRight:
+    case GenesisChannelIdTopBackRight:
         return PA_CHANNEL_POSITION_TOP_REAR_RIGHT;
-    case ChannelIdStereoLeft:
-    case ChannelIdStereoRight:
-    case ChannelIdWideLeft:
-    case ChannelIdWideRight:
-    case ChannelIdSurroundDirectLeft:
-    case ChannelIdSurroundDirectRight:
-    case ChannelIdLowFrequency2:
-        panic("unable to map channel id to pulseaudio");
     }
     panic("invalid channel id");
 }
 
-static pa_channel_map to_pulseaudio_channel_map(const ChannelLayout *channel_layout) {
+static pa_channel_map to_pulseaudio_channel_map(const GenesisChannelLayout *channel_layout) {
     pa_channel_map channel_map;
-    channel_map.channels = channel_layout->channels.length();
+    channel_map.channels = channel_layout->channel_count;
 
-    if (channel_layout->channels.length() > PA_CHANNELS_MAX)
+    if ((unsigned)channel_layout->channel_count > PA_CHANNELS_MAX)
         panic("channel layout greater than pulseaudio max channels");
 
-    for (int i = 0; i < channel_layout->channels.length(); i += 1)
-        channel_map.map[i] = to_pulseaudio_channel_pos(channel_layout->channels.at(i));
+    for (int i = 0; i < channel_layout->channel_count; i += 1)
+        channel_map.map[i] = to_pulseaudio_channel_pos(channel_layout->channels[i]);
 
     return channel_map;
 }
@@ -450,7 +444,7 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
 }
 
 OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
-        const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
     _audio_hardware(audio_hardware),
     _stream(NULL)
@@ -463,7 +457,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
     sample_spec.rate = sample_rate;
-    sample_spec.channels = channel_layout->channels.length();
+    sample_spec.channels = channel_layout->channel_count;
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
     _stream = pa_stream_new(_audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
     if (!_stream)
@@ -471,7 +465,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
 
     pa_stream_set_state_callback(_stream, stream_state_callback, this);
 
-    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channels.length(), sample_rate);
+    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
     int buffer_length = latency * bytes_per_second;
 
     pa_buffer_attr buffer_attr;
@@ -530,7 +524,7 @@ void OpenPlaybackDevice::clear_buffer() {
 }
 
 OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
-        const ChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
     _audio_hardware(audio_hardware),
     _stream_ready(false)
@@ -543,7 +537,7 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
     sample_spec.rate = sample_rate;
-    sample_spec.channels = channel_layout->channels.length();
+    sample_spec.channels = channel_layout->channel_count;
 
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
 
@@ -553,7 +547,7 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
 
     pa_stream_set_state_callback(_stream, static_stream_state_callback, this);
 
-    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channels.length(), sample_rate);
+    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
     int buffer_length = latency * bytes_per_second;
 
     pa_buffer_attr buffer_attr;

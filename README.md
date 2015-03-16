@@ -52,14 +52,27 @@ make
 
 ## Roadmap
 
- 0. Record audio
- 0. Menu system
- 0. Widget layouts
- 0. Scroll bar
- 0. Multiplayer
- 0. Undo/Redo
+ 0. Mixer UI
+ 0. Recording Input Device
+ 0. Playback Output Device
+ 0. Synth Input Device
+ 0. Sampler Input Device
+ 0. Mixer Line Input/Output Device
 
 ## Grand Plans
+
+## Nodes
+
+A node is the basic component in the audio pipeline. At the end of the audio
+graph is likely a playback node - one that sends its audio to a playback
+device. A node can have these things, all time-synchronized:
+
+ * Audio input
+ * Note data input
+ * Audio output
+ * Note data output
+ * Parameters input
+ * Controller output
 
 ### Multiplayer and Peer-to-Peer
 
