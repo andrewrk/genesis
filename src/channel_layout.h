@@ -1,13 +1,14 @@
 #ifndef GENESIS_CHANNEL_LAYOUT_H
 #define GENESIS_CHANNEL_LAYOUT_H
 
+#include "error.h"
+#include <stdint.h>
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-#include "error.h"
-#include <stdint.h>
 
 // must correlate to channel_names
 enum GenesisChannelId {
@@ -74,7 +75,7 @@ bool genesis_channel_layout_equal(const struct GenesisChannelLayout *a,
 const char *genesis_get_channel_name(enum GenesisChannelId id);
 
 int genesis_channel_layout_builtin_count(void);
-const GenesisChannelLayout *genesis_channel_layout_get_builtin(int index);
+const struct GenesisChannelLayout *genesis_channel_layout_get_builtin(int index);
 
 #ifdef __cplusplus
 }

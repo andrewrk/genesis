@@ -2,6 +2,7 @@
 #include "list.hpp"
 #include "audio_edit_widget.hpp"
 #include "gui_window.hpp"
+#include "genesis.h"
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("build/resources.bundle"),
@@ -9,6 +10,10 @@ GenesisEditor::GenesisEditor() :
     _find_file_widget(NULL),
     _audio_edit_widget(NULL)
 {
+    _genesis_context = genesis_create_context();
+    if (!_genesis_context)
+        panic("unable to create genesis context");
+
     _gui_window = _gui.create_window(true);
     _gui_window->_userdata = this;
     _gui_window->set_on_key_event(static_on_key_event);
@@ -20,6 +25,8 @@ GenesisEditor::~GenesisEditor() {}
 
 void GenesisEditor::on_close_event(GuiWindow *window) {
     _gui.destroy_window(_gui_window);
+
+    genesis_destroy_context(_genesis_context);
 }
 
 void GenesisEditor::exec() {

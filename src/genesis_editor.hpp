@@ -8,6 +8,8 @@
 
 class AudioEditWidget;
 class GuiWindow;
+struct GenesisContext;
+
 class GenesisEditor {
 public:
     GenesisEditor();
@@ -19,6 +21,7 @@ public:
     void exec();
 
 private:
+    GenesisContext *_genesis_context;
     ResourceBundle _resource_bundle;
     Gui _gui;
     GuiWindow *_gui_window;

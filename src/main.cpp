@@ -1,7 +1,6 @@
 #include "util.hpp"
 #include "os.hpp"
 #include "genesis_editor.hpp"
-#include "genesis.h"
 
 static int print_usage(char *arg0) {
     fprintf(stderr, "%s [filename]\n", arg0);
@@ -9,7 +8,6 @@ static int print_usage(char *arg0) {
 }
 
 int main(int argc, char *argv[]) {
-    genesis_init();
     os_init();
 
     const char *input_filename = NULL;

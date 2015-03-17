@@ -19,24 +19,36 @@ OBJECTS = build/main.o build/util.o build/byte_buffer.o build/os.o \
 GENERATE_UNICODE_DATA_OBJECTS = build/generate_unicode_data.o build/util.o \
 								build/byte_buffer.o
 
+SYNTH_EXAMPLE_OBJECTS = build/synth.o
+
 TEST_OBJECTS = build/test.o build/util.o build/byte_buffer.o build/string.o
 
 CPP_FLAGS += -nodefaultlibs -fno-exceptions -fno-rtti -Ibuild -Isrc -g -Wall -Werror -I/usr/include/freetype2
+C_FLAGS += -pedantic -Werror -Wall -g -Isrc
 COMPILE_CPP = g++ -c -std=c++11 -o $@ -MMD -MP -MF $@.d $(CPP_FLAGS) $<
+COMPILE_C = gcc -c -std=c99 -o $@ -MMD -MP -MF $@.d $(C_FLAGS) $<
 
 build/genesis: $(OBJECTS)
 	g++ -o $@ $(OBJECTS) -lfreetype -lavformat -lavcodec -lavutil -lglfw -lepoxy -lGLU -lGL -lpng -lrucksack -pthread -lm -lpulse
 all: build/genesis
+
+build/synth: $(SYNTH_EXAMPLE_OBJECTS) $(OBJECTS)
+	gcc -o $@ $(SYNTH_EXAMPLE_OBJECTS) $(OBJECTS)
+all: build/synth
 
 all: build/resources.bundle
 
 build/%.o: src/%.cpp
 	$(COMPILE_CPP)
 
+build/%.o: example/%.c
+	$(COMPILE_C)
+
 %/resources.bundle:
 	rucksack bundle assets.json $@ --deps $@.d
 
 $(OBJECTS): | build
+$(GENERATE_UNICODE_DATA_OBJECTS): | build
 build:
 	mkdir -p $@
 

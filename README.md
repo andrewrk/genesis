@@ -52,12 +52,10 @@ make
 
 ## Roadmap
 
- 0. Mixer UI
- 0. Recording Input Device
- 0. Playback Output Device
- 0. Synth Input Device
- 0. Sampler Input Device
- 0. Mixer Line Input/Output Device
+ 0. example synth program which makes a note sound
+   0. builtin simple sine wave input device
+   0. builtin playback output device
+   0. building a pipeline
 
 ## Grand Plans
 
@@ -126,6 +124,19 @@ modify the effects, and then create 10 projects which are drum loops using the
 samples. A third user might use 2-3 of these drum loops, edit them to modify
 the tempo, and produce a song with them and publish the song. Yet another user
 might edit the song, produce a remix, and then publish the remix.
+
+### Panicking
+
+While Genesis is in heavy development and things are changing quickly, the
+`panic` function will be used nearly everywhere instead of error checking. Once
+Genesis's user interface, backend, and API begin to stabilize, there will be
+a global code audit where `panic` usage is replaced with robust error checking
+and handling.
+
+For example, memory allocation functions currently call `panic` for out of
+memory conditions. Once the codebase begins to stabilize, this will be removed
+and everywhere that allocates memory must check for a null pointer and report
+the appropriate error.
 
 ## License
 
