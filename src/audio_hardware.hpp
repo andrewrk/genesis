@@ -4,25 +4,21 @@
 #include "list.hpp"
 #include "sample_format.hpp"
 #include "channel_layout.h"
-#include "string.hpp"
+#include "byte_buffer.hpp"
+#include "genesis.h"
 
 #include <pulse/pulseaudio.h>
 #include <atomic>
 using std::atomic_bool;
 
-enum AudioDevicePurpose {
-    AudioDevicePurposePlayback,
-    AudioDevicePurposeRecording,
-};
-
 struct AudioDevice {
-    String name;
-    String description;
+    ByteBuffer name;
+    ByteBuffer description;
     GenesisChannelLayout channel_layout;
     SampleFormat default_sample_format;
     double default_latency;
     double default_sample_rate;
-    AudioDevicePurpose purpose;
+    GenesisAudioDevicePurpose purpose;
 };
 
 struct AudioDevicesInfo {
@@ -119,8 +115,8 @@ private:
 
     // the one that we're working on building
     AudioDevicesInfo *_current_audio_devices_info;
-    String _default_sink_name;
-    String _default_source_name;
+    ByteBuffer _default_sink_name;
+    ByteBuffer _default_source_name;
 
     // this one is ready to be read with flush_events. protected by mutex
     AudioDevicesInfo *_ready_audio_devices_info;

@@ -7,21 +7,7 @@
 #include <stdint.h>
 
 void default_on_devices_change(AudioHardware *audio_hardware) {
-    const AudioDevicesInfo *devices_info = audio_hardware->devices_info();
-    fprintf(stderr, "\n");
-    for (int i = 0; i < devices_info->devices.length(); i += 1) {
-        const AudioDevice *audio_device = &devices_info->devices.at(i);
-        const char *purpose_str;
-        const char *default_str;
-        if (audio_device->purpose == AudioDevicePurposePlayback) {
-            purpose_str = "playback";
-            default_str = (i == devices_info->default_output_index) ? " (default)" : "";
-        } else {
-            purpose_str = "recording";
-            default_str = (i == devices_info->default_input_index) ? " (default)" : "";
-        }
-        fprintf(stderr, "%s device: %s%s\n", purpose_str, audio_device->description.encode().raw(), default_str);
-    }
+    // do nothing
 }
 
 AudioHardware::AudioHardware() :
@@ -118,10 +104,10 @@ void AudioHardware::context_state_callback(pa_context *context) {
     case PA_CONTEXT_SETTING_NAME: // The client is passing its application name to the daemon.
         return;
     case PA_CONTEXT_READY: // The connection is established, the context is ready to execute operations.
+        _device_scan_queued = true;
+        subscribe_to_events();
         _ready_flag = true;
         pa_threaded_mainloop_signal(_main_loop, 0);
-        subscribe_to_events();
-        _device_scan_queued = true;
         return;
     case PA_CONTEXT_TERMINATED: // The connection was terminated cleanly.
         pa_threaded_mainloop_signal(_main_loop, 0);
@@ -158,12 +144,12 @@ void AudioHardware::finish_device_query() {
     _current_audio_devices_info->default_input_index = -1;
     for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1) {
         AudioDevice *audio_device = &_current_audio_devices_info->devices.at(i);
-        if (audio_device->purpose == AudioDevicePurposePlayback &&
-            String::equal(audio_device->name, _default_sink_name))
+        if (audio_device->purpose == GenesisAudioDevicePurposePlayback &&
+            ByteBuffer::equal(audio_device->name, _default_sink_name))
         {
             _current_audio_devices_info->default_output_index = i;
-        } else if (audio_device->purpose == AudioDevicePurposeRecording &&
-            String::equal(audio_device->name, _default_source_name))
+        } else if (audio_device->purpose == GenesisAudioDevicePurposeRecording &&
+            ByteBuffer::equal(audio_device->name, _default_source_name))
         {
             _current_audio_devices_info->default_input_index = i;
         }
@@ -218,13 +204,13 @@ void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *
         List<AudioDevice> *devices = &_current_audio_devices_info->devices;
         _current_audio_devices_info->devices.resize(devices->length() + 1);
         AudioDevice *audio_device = &devices->at(devices->length() - 1);
-        audio_device->name = String(info->name);
-        audio_device->description = String(info->description);
+        audio_device->name = info->name;
+        audio_device->description = info->description;
         set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
         audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
         audio_device->default_latency = usec_to_sec(info->configured_latency);
         audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
-        audio_device->purpose = AudioDevicePurposePlayback;
+        audio_device->purpose = GenesisAudioDevicePurposePlayback;
     }
     pa_threaded_mainloop_signal(_main_loop, 0);
 }
@@ -237,13 +223,13 @@ void AudioHardware::source_info_callback(pa_context *context, const pa_source_in
         List<AudioDevice> *devices = &_current_audio_devices_info->devices;
         _current_audio_devices_info->devices.resize(devices->length() + 1);
         AudioDevice *audio_device = &devices->at(devices->length() - 1);
-        audio_device->name = String(info->name);
-        audio_device->description = String(info->description);
+        audio_device->name = info->name;
+        audio_device->description = info->description;
         set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
         audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
         audio_device->default_latency = usec_to_sec(info->configured_latency);
         audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
-        audio_device->purpose = AudioDevicePurposeRecording;
+        audio_device->purpose = GenesisAudioDevicePurposeRecording;
     }
     pa_threaded_mainloop_signal(_main_loop, 0);
 }

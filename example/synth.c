@@ -1,4 +1,5 @@
 #include "genesis.h"
+#include <stdio.h>
 
 static void run(struct GenesisNode *node) {
     for (;;) {
@@ -13,23 +14,27 @@ static void run(struct GenesisNode *node) {
     }
 }
 
-int main(int argc, char * argv[]) {
-    genesis_init();
+int main(int argc, char **argv) {
+    struct GenesisContext *context = genesis_create_context();
+    if (!context) {
+        fprintf(stderr, "unable to create context\n");
+        return 1;
+    }
 
-    struct GenesisNodeDescriptor *synth_descr = genesis_node_descriptor_find("synth");
+    struct GenesisNodeDescriptor *synth_descr = genesis_node_descriptor_find(context, "synth");
     if (!synth_descr) {
         fprintf(stderr, "unable to find synth\n");
         return 1;
     }
     fprintf(stderr, "synth: %s\n", synth_descr->description);
 
-    struct GenesisNode *synth_node = genesis_create_node(synth_descr);
+    struct GenesisNode *synth_node = genesis_node_create(synth_descr);
     if (!synth_node) {
         fprintf(stderr, "unable to create synth node\n");
         return 1;
     }
 
-    struct GenesisOutputDevice *out_device = genesis_get_default_output_device();
+    struct GenesisOutputDevice *out_device = genesis_get_default_output_device(context);
     if (!out_device) {
         fprintf(stderr, "unable to get default output device\n");
         return 1;
@@ -41,7 +46,7 @@ int main(int argc, char * argv[]) {
         return 1;
     }
 
-    struct GenesisNode *out_node = genesis_create_node(out_node_info);
+    struct GenesisNode *out_node = genesis_node_create(out_node_info);
     if (!out_node) {
         fprintf(stderr, "unable to create out node\n");
         return 1;

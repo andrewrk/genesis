@@ -3,7 +3,7 @@
 
 #include "list.hpp"
 #include "hash_map.hpp"
-#include "string.hpp"
+#include "byte_buffer.hpp"
 #include "channel_layout.h"
 #include "sample_format.hpp"
 
@@ -24,7 +24,7 @@ struct AudioFile {
     // export_* used when saving audio file to disk
     ExportSampleFormat export_sample_format;
     int export_bit_rate;
-    HashMap<ByteBuffer, String, ByteBuffer::hash> tags;
+    HashMap<ByteBuffer, ByteBuffer, ByteBuffer::hash> tags;
 };
 
 void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file);

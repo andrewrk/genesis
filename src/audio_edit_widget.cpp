@@ -109,7 +109,7 @@ void AudioEditWidget::on_devices_change() {
     for (int i = 0; i < info->devices.length(); i += 1) {
         const AudioDevice *audio_device = &info->devices.at(i);
 
-        if (audio_device->purpose == AudioDevicePurposePlayback) {
+        if (audio_device->purpose == GenesisAudioDevicePurposePlayback) {
             int this_index = _playback_device_list.length();
 
             _select_playback_device->append_choice(audio_device->description);
@@ -348,7 +348,7 @@ void AudioEditWidget::open_playback_device() {
 
     bool ok;
     _playback_device = create<OpenPlaybackDevice>(_audio_hardware,
-            selected_playback_device->name.encode().raw(),
+            selected_playback_device->name.raw(),
             &_audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
             _audio_file->sample_rate, &ok);
 
@@ -732,7 +732,7 @@ void AudioEditWidget::open_recording_device() {
 
     bool ok;
     _recording_device = create<OpenRecordingDevice>(_audio_hardware,
-            selected_recording_device->name.encode().raw(),
+            selected_recording_device->name.raw(),
             &selected_recording_device->channel_layout, SampleFormatFloat,
             recording_latency, selected_recording_device->default_sample_rate, &ok);
 

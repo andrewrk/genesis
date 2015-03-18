@@ -108,6 +108,10 @@ public:
         return h;
     }
 
+    static bool equal(const ByteBuffer &a, const ByteBuffer &b) {
+        return (a.length() == b.length()) ? (compare(a, b) == 0) : false;
+    }
+
     static int compare(const ByteBuffer &a, const ByteBuffer &b) {
         return memcmp(a.raw(), b.raw(), min(a.length(), b.length()) + 1);
     }

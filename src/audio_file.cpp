@@ -334,9 +334,7 @@ void audio_file_load(const ByteBuffer &file_path, AudioFile *audio_file) {
     AVDictionaryEntry *tag = NULL;
     audio_file->tags.clear();
     while ((tag = av_dict_get(ic->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
-        bool ok;
-        String value(tag->value, &ok);
-        audio_file->tags.put(tag->key, value);
+        audio_file->tags.put(tag->key, tag->value);
     }
 
     GenesisError genesis_err = channel_layout_init_from_libav(codec_ctx->channel_layout,
@@ -817,7 +815,7 @@ void audio_file_save(const ByteBuffer &file_path, const char *format_short_name,
         auto *entry = it.next();
         if (!entry)
             break;
-        av_dict_set(&fmt_ctx->metadata, entry->key.raw(), entry->value.encode().raw(),
+        av_dict_set(&fmt_ctx->metadata, entry->key.raw(), entry->value.raw(),
                 AV_DICT_IGNORE_SUFFIX);
     }
 

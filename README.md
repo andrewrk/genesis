@@ -46,20 +46,25 @@ sudo apt-get update
 sudo apt-get install libglfw3-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
     libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack
+mkdir build
+cd build
+cmake ..
 make
-./build/genesis
+./genesis
 ```
 
 ## Roadmap
 
+ 0. example program which watches devices
+ 0. example program which opens an audio file, normalizes the volume, and saves it
  0. example synth program which makes a note sound
-   0. builtin simple sine wave input device
-   0. builtin playback output device
-   0. building a pipeline
+    0. builtin simple sine wave input device
+    0. builtin playback output device
+    0. building a pipeline
 
 ## Grand Plans
 
-## Nodes
+### Nodes
 
 A node is the basic component in the audio pipeline. At the end of the audio
 graph is likely a playback node - one that sends its audio to a playback
