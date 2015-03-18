@@ -1,13 +1,16 @@
 #include "genesis.h"
+
 #include <stdio.h>
+#include <string.h>
 
-int main(int argc, char **argv) {
-    struct GenesisContext *context = genesis_create_context();
-    if (!context) {
-        fprintf(stderr, "unable to create context\n");
-        return 1;
-    }
+// list or keep a watch on audio devices
 
+static int usage(char *exe) {
+    fprintf(stderr, "Usage: %s [--watch]\n", exe);
+    return 1;
+}
+
+static int list_devices(struct GenesisContext *context) {
     int count = genesis_audio_device_count(context);
     if (count < 0) {
         fprintf(stderr, "unable to find devices\n");
@@ -31,6 +34,42 @@ int main(int argc, char **argv) {
         fprintf(stderr, "%s device: %s%s\n", purpose_str, description, default_str);
     }
     fprintf(stderr, "%d devices found\n", count);
+    return 0;
+}
 
-    genesis_destroy_context(context);
+static void on_devices_change(void *userdata) {
+    struct GenesisContext *context = userdata;
+    fprintf(stderr, "devices changed\n");
+    list_devices(context);
+}
+
+int main(int argc, char **argv) {
+    char *exe = argv[0];
+    bool watch = false;
+
+    for (int i = 1; i < argc; i += 1) {
+        char *arg = argv[i];
+        if (strcmp("--watch", arg) == 0) {
+            watch = true;
+        } else {
+            return usage(exe);
+        }
+    }
+
+    struct GenesisContext *context = genesis_create_context();
+    if (!context) {
+        fprintf(stderr, "unable to create context\n");
+        return 1;
+    }
+
+    if (watch) {
+        genesis_audio_device_set_callback(context, on_devices_change, context);
+        for (;;) {
+            genesis_wait_events(context);
+        }
+    } else {
+        int err = list_devices(context);
+        genesis_destroy_context(context);
+        return err;
+    }
 }

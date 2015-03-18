@@ -6,6 +6,9 @@
 struct GenesisContext {
     List<GenesisNodeDescriptor> node_descriptors;
     AudioHardware audio_hardware;
+
+    void (*devices_change_callback)(void *userdata);
+    void *devices_change_callback_userdata;
 };
 
 struct GenesisPortDescriptorAudio {
@@ -39,10 +42,19 @@ struct GenesisNode {
     struct GenesisPort *ports;
 };
 
+static void on_devices_change(AudioHardware *audio_hardware) {
+    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->_userdata);
+    if (context->devices_change_callback)
+        context->devices_change_callback(context->devices_change_callback_userdata);
+}
+
 struct GenesisContext *genesis_create_context(void) {
     audio_file_init();
 
     GenesisContext *context = create<GenesisContext>();
+
+    context->audio_hardware.set_on_devices_change(on_devices_change);
+    context->audio_hardware._userdata = context;
 
     context->node_descriptors.resize(1);
     GenesisNodeDescriptor *node_descr = &context->node_descriptors.at(0);
@@ -73,6 +85,14 @@ void genesis_destroy_context(struct GenesisContext *context) {
 
 void genesis_flush_events(struct GenesisContext *context) {
     context->audio_hardware.flush_events();
+}
+
+void genesis_wait_events(struct GenesisContext *context) {
+    context->audio_hardware.wait_events();
+}
+
+void genesis_wakeup(struct GenesisContext *context) {
+    context->audio_hardware.wakeup();
 }
 
 struct GenesisNodeDescriptor *genesis_node_descriptor_find(
@@ -165,4 +185,12 @@ const char *genesis_audio_device_description(const struct GenesisAudioDevice *au
 enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct GenesisAudioDevice *audio_device) {
     const AudioDevice *device = reinterpret_cast<const AudioDevice *>(audio_device);
     return device->purpose;
+}
+
+void genesis_audio_device_set_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata),
+        void *userdata)
+{
+    context->devices_change_callback_userdata = userdata;
+    context->devices_change_callback = callback;
 }

@@ -70,8 +70,10 @@ void AudioHardware::subscribe_callback(pa_context *context,
         pa_subscription_event_type_t event_bits, uint32_t index)
 {
     int facility = (event_bits & PA_SUBSCRIPTION_EVENT_FACILITY_MASK);
-    if (facility == PA_SUBSCRIPTION_EVENT_SOURCE || facility == PA_SUBSCRIPTION_EVENT_SINK)
+    if (facility == PA_SUBSCRIPTION_EVENT_SOURCE || facility == PA_SUBSCRIPTION_EVENT_SINK) {
         _device_scan_queued = true;
+        pa_threaded_mainloop_signal(_main_loop, 0);
+    }
 }
 
 void AudioHardware::destroy_ready_audio_devices_info() {
@@ -291,6 +293,17 @@ void AudioHardware::scan_devices() {
 
     pa_threaded_mainloop_signal(_main_loop, 0);
 
+    pa_threaded_mainloop_unlock(_main_loop);
+}
+
+void AudioHardware::wait_events() {
+    flush_events();
+    pa_threaded_mainloop_wait(_main_loop);
+}
+
+void AudioHardware::wakeup() {
+    pa_threaded_mainloop_lock(_main_loop);
+    pa_threaded_mainloop_signal(_main_loop, 0);
     pa_threaded_mainloop_unlock(_main_loop);
 }
 

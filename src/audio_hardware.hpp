@@ -101,6 +101,9 @@ public:
     // this function will return
     void flush_events();
 
+    void wait_events();
+    void wakeup();
+
     void block_until_ready();
     void block_until_have_devices();
 

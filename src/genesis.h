@@ -14,6 +14,12 @@ struct GenesisContext *genesis_create_context(void);
 void genesis_destroy_context(struct GenesisContext *context);
 void genesis_flush_events(struct GenesisContext *context);
 
+// flushes events as they occur, blocks until you call genesis_wakeup
+void genesis_wait_events(struct GenesisContext *context);
+
+// makes genesis_wait_events stop blocking
+void genesis_wakeup(struct GenesisContext *context);
+
 enum GenesisChannelConfig {
     // there is a fixed channel layout that must be respected
     GenesisChannelConfigFixed,
@@ -74,6 +80,11 @@ const char *genesis_audio_device_name(const struct GenesisAudioDevice *device);
 const char *genesis_audio_device_description(const struct GenesisAudioDevice *device);
 
 enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct GenesisAudioDevice *device);
+
+// set callback to be called when audio devices change
+void genesis_audio_device_set_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata),
+        void *userdata);
 
 
 
