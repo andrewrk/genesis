@@ -123,13 +123,13 @@ static double usec_to_sec(pa_usec_t usec) {
     return (double)usec / (double)PA_USEC_PER_SEC;
 }
 
-static SampleFormat sample_format_from_pulseaudio(pa_sample_spec sample_spec) {
+static GenesisSampleFormat sample_format_from_pulseaudio(pa_sample_spec sample_spec) {
     switch (sample_spec.format) {
-    case PA_SAMPLE_U8:        return SampleFormatUInt8;
-    case PA_SAMPLE_S16NE:     return SampleFormatInt16;
-    case PA_SAMPLE_S32NE:     return SampleFormatInt32;
-    case PA_SAMPLE_FLOAT32NE: return SampleFormatFloat;
-    default:                  return SampleFormatInvalid;
+    case PA_SAMPLE_U8:        return GenesisSampleFormatUInt8;
+    case PA_SAMPLE_S16NE:     return GenesisSampleFormatInt16;
+    case PA_SAMPLE_S32NE:     return GenesisSampleFormatInt32;
+    case PA_SAMPLE_FLOAT32NE: return GenesisSampleFormatFloat;
+    default:                  return GenesisSampleFormatInvalid;
     }
 }
 
@@ -354,19 +354,21 @@ void AudioHardware::block_until_have_devices() {
     pa_threaded_mainloop_unlock(_main_loop);
 }
 
-static pa_sample_format_t to_pulseaudio_sample_format(SampleFormat sample_format) {
+static pa_sample_format_t to_pulseaudio_sample_format(GenesisSampleFormat sample_format) {
     switch (sample_format) {
-    case SampleFormatUInt8:
+    case GenesisSampleFormatUInt8:
         return PA_SAMPLE_U8;
-    case SampleFormatInt16:
+    case GenesisSampleFormatInt16:
         return PA_SAMPLE_S16NE;
-    case SampleFormatInt32:
+    case GenesisSampleFormatInt24:
+        return PA_SAMPLE_S24NE;
+    case GenesisSampleFormatInt32:
         return PA_SAMPLE_S32NE;
-    case SampleFormatFloat:
+    case GenesisSampleFormatFloat:
         return PA_SAMPLE_FLOAT32NE;
-    case SampleFormatDouble:
+    case GenesisSampleFormatDouble:
         panic("cannot use double sample format with pulseaudio");
-    case SampleFormatInvalid:
+    case GenesisSampleFormatInvalid:
         panic("invalid sample format");
     }
     panic("invalid sample format");
@@ -443,7 +445,7 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
 }
 
 OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
-        const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
     _audio_hardware(audio_hardware),
     _stream(NULL)
@@ -523,7 +525,7 @@ void OpenPlaybackDevice::clear_buffer() {
 }
 
 OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
-        const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
     _audio_hardware(audio_hardware),
     _stream_ready(false)

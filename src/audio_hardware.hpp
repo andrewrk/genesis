@@ -2,7 +2,7 @@
 #define AUDIO_HARDWARE_HPP
 
 #include "list.hpp"
-#include "sample_format.hpp"
+#include "sample_format.h"
 #include "channel_layout.h"
 #include "byte_buffer.hpp"
 #include "genesis.h"
@@ -15,7 +15,7 @@ struct AudioDevice {
     ByteBuffer name;
     ByteBuffer description;
     GenesisChannelLayout channel_layout;
-    SampleFormat default_sample_format;
+    GenesisSampleFormat default_sample_format;
     double default_latency;
     double default_sample_rate;
     GenesisAudioDevicePurpose purpose;
@@ -33,7 +33,7 @@ typedef void PaStream;
 class OpenPlaybackDevice {
 public:
     OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
-            const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+            const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
             int sample_rate, bool *ok);
     ~OpenPlaybackDevice();
 
@@ -60,7 +60,7 @@ private:
 class OpenRecordingDevice {
 public:
     OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
-        const GenesisChannelLayout *channel_layout, SampleFormat sample_format, double latency,
+        const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
         int sample_rate, bool *ok);
     ~OpenRecordingDevice();
 

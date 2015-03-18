@@ -16,11 +16,13 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
     )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
     "${CMAKE_SOURCE_DIR}/src/genesis.h"
     "${CMAKE_SOURCE_DIR}/src/channel_layout.h"
+    "${CMAKE_SOURCE_DIR}/src/sample_format.h"
     "${CMAKE_SOURCE_DIR}/src/error.h"
     ${CONFIGURE_OUT_FILE}
     )
@@ -194,7 +196,22 @@ include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(list_devices libgenesis_shared)
 add_dependencies(list_devices libgenesis_shared)
 
-# TODO add synth example
+add_executable(normalize_audio example/normalize_audio.c)
+set_target_properties(normalize_audio PROPERTIES
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${EXAMPLE_CFLAGS})
+include_directories(${EXAMPLE_INCLUDES})
+target_link_libraries(normalize_audio libgenesis_shared)
+add_dependencies(normalize_audio libgenesis_shared)
+
+add_executable(list_supported_formats example/list_supported_formats.c)
+set_target_properties(list_supported_formats PROPERTIES
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${EXAMPLE_CFLAGS})
+include_directories(${EXAMPLE_INCLUDES})
+target_link_libraries(list_supported_formats libgenesis_shared)
+add_dependencies(list_supported_formats libgenesis_shared)
+
 
 
 add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})

@@ -77,6 +77,13 @@ public:
         _length = length;
     }
 
+    T & add_one() {
+        long at_index = _length;
+        _length += 1;
+        ensure_capacity(_length);
+        return _items[at_index];
+    }
+
     T *raw() const {
         return _items;
     }

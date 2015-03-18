@@ -2,6 +2,7 @@
 #define UTIL_HPP
 
 #include <stdlib.h>
+#include <math.h>
 #include <new>
 
 void panic(const char *format, ...) __attribute__((cold)) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
@@ -12,6 +13,15 @@ __attribute__((malloc)) static inline T * create(Args... args) {
     T * ptr = reinterpret_cast<T*>(malloc(sizeof(T)));
     if (!ptr)
         panic("create: out of memory");
+    new (ptr) T(args...);
+    return ptr;
+}
+
+// same as create, except zeroes allocated memory before calling constructor
+// and returns NULL instead of panicking
+template<typename T, typename... Args>
+__attribute__((malloc)) static inline T * create_zero(Args... args) {
+    T * ptr = reinterpret_cast<T*>(calloc(1, sizeof(T)));
     new (ptr) T(args...);
     return ptr;
 }
@@ -68,30 +78,61 @@ static inline void destroy(T * ptr, size_t count) {
     free(ptr);
 }
 
+template <typename T, long n>
+constexpr long array_length(const T (&)[n]) {
+    return n;
+}
+
+static inline float abs(float x) {
+    return fabsf(x);
+}
+
+static inline double abs(double x) {
+    return fabs(x);
+}
+
 template<typename T>
 static inline T abs(T x) {
     return (x < 0) ? -x : x;
 }
 
 template<typename T>
-static inline T clamp(T min, T value, T max) {
-    if (value < min) {
-        return min;
-    } else if (value > max) {
-        return max;
-    } else {
-        return value;
-    }
+static inline T clamp(T min_value, T value, T max_value) {
+    return max(min(value, max_value), min_value);
 }
 
-template <typename T, long n>
-constexpr long array_length(const T (&)[n]) {
-    return n;
+static inline float abs_diff(float a, float b) {
+    return fdimf(a, b);
+}
+
+static inline double abs_diff(double a, double b) {
+    return fdim(a, b);
+}
+
+template<typename T>
+static inline T abs_diff(T a, T b) {
+    return abs(a - b);
+}
+
+static inline float min(float a, float b) {
+    return fminf(a, b);
+}
+
+static inline double min(double a, double b) {
+    return fmin(a, b);
 }
 
 template <typename T>
 static inline T min(T a, T b) {
     return (a <= b) ? a : b;
+}
+
+static inline float max(float a, float b) {
+    return fmaxf(a, b);
+}
+
+static inline double max(double a, double b) {
+    return fmax(a, b);
 }
 
 template <typename T>

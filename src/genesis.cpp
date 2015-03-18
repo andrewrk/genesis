@@ -9,6 +9,9 @@ struct GenesisContext {
 
     void (*devices_change_callback)(void *userdata);
     void *devices_change_callback_userdata;
+
+    List<GenesisAudioFileFormat> out_formats;
+    List<GenesisAudioFileFormat> in_formats;
 };
 
 struct GenesisPortDescriptorAudio {
@@ -51,7 +54,12 @@ static void on_devices_change(AudioHardware *audio_hardware) {
 struct GenesisContext *genesis_create_context(void) {
     audio_file_init();
 
-    GenesisContext *context = create<GenesisContext>();
+    GenesisContext *context = create_zero<GenesisContext>();
+    if (!context)
+        return nullptr;
+
+    audio_file_get_out_formats(context->out_formats);
+    audio_file_get_in_formats(context->in_formats);
 
     context->audio_hardware.set_on_devices_change(on_devices_change);
     context->audio_hardware._userdata = context;
@@ -193,4 +201,24 @@ void genesis_audio_device_set_callback(struct GenesisContext *context,
 {
     context->devices_change_callback_userdata = userdata;
     context->devices_change_callback = callback;
+}
+
+int genesis_in_format_count(struct GenesisContext *context) {
+    return context->in_formats.length();
+}
+
+int genesis_out_format_count(struct GenesisContext *context) {
+    return context->out_formats.length();
+}
+
+struct GenesisAudioFileFormat *genesis_in_format_index(
+        struct GenesisContext *context, int format_index)
+{
+    return &context->in_formats.at(format_index);
+}
+
+struct GenesisAudioFileFormat *genesis_out_format_index(
+        struct GenesisContext *context, int format_index)
+{
+    return &context->out_formats.at(format_index);
 }

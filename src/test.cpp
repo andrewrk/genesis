@@ -18,7 +18,7 @@ static void debug_print_bb_list(const List<ByteBuffer> &list) {
 }
 
 static void assert_floats_close(double a, double b) {
-    double diff = abs(a - b);
+    double diff = fdim(a, b);
     assert(diff < 0.000001);
 }
 

@@ -1,9 +1,10 @@
 #ifndef GENESIS_GENESIS_H
 #define GENESIS_GENESIS_H
 
-#include "channel_layout.h"
-#include "error.h"
 #include "config.h"
+#include "channel_layout.h"
+#include "sample_format.h"
+#include "error.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,6 +88,40 @@ void genesis_audio_device_set_callback(struct GenesisContext *context,
         void *userdata);
 
 
+
+struct GenesisAudioFile;
+
+struct GenesisAudioFileFormat;
+struct GenesisAudioFileCodec;
+
+struct GenesisExportFormat {
+    enum GenesisSampleFormat sample_format;
+    bool planar;
+    int bit_rate;
+    struct GenesisAudioFileFormat *format;
+    struct GenesisAudioFileCodec *codec;
+};
+enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
+        const char *input_filename, struct GenesisAudioFile **audio_file);
+
+enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
+        const char *output_filename, struct GenesisExportFormat *export_format);
+
+void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file);
+
+int genesis_in_format_count(struct GenesisContext *context);
+int genesis_out_format_count(struct GenesisContext *context);
+struct GenesisAudioFileFormat *genesis_in_format_index(
+        struct GenesisContext *context, int format_index);
+struct GenesisAudioFileFormat *genesis_out_format_index(
+        struct GenesisContext *context, int format_index);
+const char *genesis_audio_file_format_name(const struct GenesisAudioFileFormat *format);
+const char *genesis_audio_file_format_description(const struct GenesisAudioFileFormat *format);
+int genesis_audio_file_format_codec_count(const struct GenesisAudioFileFormat *format);
+struct GenesisAudioFileCodec * genesis_audio_file_format_codec_index(
+        struct GenesisAudioFileFormat *format, int codec_index);
+const char *genesis_audio_file_codec_name(const struct GenesisAudioFileCodec *codec);
+const char *genesis_audio_file_codec_description(const struct GenesisAudioFileCodec *codec);
 
 
 #ifdef __cplusplus
