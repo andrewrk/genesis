@@ -45,7 +45,7 @@ sudo apt-add-repository ppa:andrewrk/rucksack
 sudo apt-get update
 sudo apt-get install libglfw3-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
-    libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack
+    libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack cmake
 mkdir build
 cd build
 cmake ..
