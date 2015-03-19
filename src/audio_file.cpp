@@ -589,7 +589,7 @@ static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
             // libav looks at the most significant bytes
-            *ch_buf = (int32_t)(sample * 8388607.0);
+            *ch_buf = ((int32_t)(sample * 8388607.0)) << 8;
             ch_buf += 1;
         }
     }
@@ -674,7 +674,7 @@ static void write_frames_int24(const GenesisAudioFile *audio_file,
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
             // libav looks at the most significant bytes
-            *int_ptr = (int32_t)(sample * 8388607.0);
+            *int_ptr = ((int32_t)(sample * 8388607.0) << 8);
 
             buffer += 4;
         }
@@ -813,16 +813,9 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         panic("error writing header: %s", buf);
     }
 
-
     AVFrame *frame = av_frame_alloc();
     if (!frame)
         panic("error allocating frame");
-
-    bool var_frame_size_1 = (codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE);
-    bool var_frame_size_2 = (codec_ctx->frame_size == 0);
-
-    if (var_frame_size_1 != var_frame_size_2)
-        panic("inconsistent variable frame size");
 
     int buffer_size;
     if (codec_ctx->frame_size) {
@@ -858,8 +851,6 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
 
     if (is_planar) {
         switch (export_format->sample_format) {
-            case GenesisSampleFormatInvalid:
-                panic("invalid sample format");
             case GenesisSampleFormatUInt8:
                 write_frames = write_frames_uint8_planar;
                 break;
@@ -878,11 +869,11 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
             case GenesisSampleFormatDouble:
                 write_frames = write_frames_double_planar;
                 break;
+            case GenesisSampleFormatInvalid:
+                panic("invalid sample format");
         }
     } else {
         switch (export_format->sample_format) {
-            case GenesisSampleFormatInvalid:
-                panic("invalid sample format");
             case GenesisSampleFormatUInt8:
                 write_frames = write_frames_uint8;
                 break;
@@ -901,6 +892,8 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
             case GenesisSampleFormatDouble:
                 write_frames = write_frames_double;
                 break;
+            case GenesisSampleFormatInvalid:
+                panic("invalid sample format");
         }
     }
 
