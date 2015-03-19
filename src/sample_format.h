@@ -28,6 +28,8 @@ static inline int get_bytes_per_second(enum GenesisSampleFormat sample_format,
     return genesis_get_bytes_per_frame(sample_format, channel_count) * sample_rate;
 }
 
+const char * genesis_sample_format_string(enum GenesisSampleFormat sample_format);
+
 #ifdef __cplusplus
 }
 #endif

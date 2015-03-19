@@ -10,8 +10,8 @@ struct GenesisContext {
     void (*devices_change_callback)(void *userdata);
     void *devices_change_callback_userdata;
 
-    List<GenesisAudioFileFormat> out_formats;
-    List<GenesisAudioFileFormat> in_formats;
+    List<GenesisAudioFileFormat*> out_formats;
+    List<GenesisAudioFileFormat*> in_formats;
 };
 
 struct GenesisPortDescriptorAudio {
@@ -87,8 +87,15 @@ struct GenesisContext *genesis_create_context(void) {
 }
 
 void genesis_destroy_context(struct GenesisContext *context) {
-    if (context)
+    if (context) {
+        for (int i = 0; i < context->out_formats.length(); i += 1) {
+            destroy(context->out_formats.at(i), 1);
+        }
+        for (int i = 0; i < context->in_formats.length(); i += 1) {
+            destroy(context->in_formats.at(i), 1);
+        }
         destroy(context, 1);
+    }
 }
 
 void genesis_flush_events(struct GenesisContext *context) {
@@ -214,11 +221,38 @@ int genesis_out_format_count(struct GenesisContext *context) {
 struct GenesisAudioFileFormat *genesis_in_format_index(
         struct GenesisContext *context, int format_index)
 {
-    return &context->in_formats.at(format_index);
+    return context->in_formats.at(format_index);
 }
 
 struct GenesisAudioFileFormat *genesis_out_format_index(
         struct GenesisContext *context, int format_index)
 {
-    return &context->out_formats.at(format_index);
+    return context->out_formats.at(format_index);
+}
+
+struct GenesisAudioFileCodec *genesis_guess_audio_file_codec(
+        struct GenesisContext *context, const char *filename_hint,
+        const char *format_name, const char *codec_name)
+{
+    return audio_file_guess_audio_file_codec(context->out_formats, filename_hint, format_name, codec_name);
+}
+
+int genesis_audio_file_codec_sample_format_count(const struct GenesisAudioFileCodec *codec) {
+    return codec ? codec->prioritized_sample_formats.length() : 0;
+}
+
+enum GenesisSampleFormat genesis_audio_file_codec_sample_format_index(
+        const struct GenesisAudioFileCodec *codec, int index)
+{
+    return codec->prioritized_sample_formats.at(index);
+}
+
+int genesis_audio_file_codec_sample_rate_count(const struct GenesisAudioFileCodec *codec) {
+    return codec ? codec->prioritized_sample_rates.length() : 0;
+}
+
+int genesis_audio_file_codec_sample_rate_index(
+        const struct GenesisAudioFileCodec *codec, int index)
+{
+    return codec->prioritized_sample_rates.at(index);
 }

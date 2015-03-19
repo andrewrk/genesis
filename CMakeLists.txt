@@ -142,8 +142,8 @@ else()
 endif()
 
 
-set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -g")
-set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -g")
+set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -g -fdiagnostics-color=auto")
+set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -g -fdiagnostics-color=auto")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
 
 configure_file (
@@ -201,7 +201,7 @@ set_target_properties(normalize_audio PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
-target_link_libraries(normalize_audio libgenesis_shared)
+target_link_libraries(normalize_audio libgenesis_shared m)
 add_dependencies(normalize_audio libgenesis_shared)
 
 add_executable(list_supported_formats example/list_supported_formats.c)

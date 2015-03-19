@@ -2,19 +2,13 @@
 
 #include <stdint.h>
 
-/*
-static const ExportSampleFormat prioritized_export_formats[] = {
-    {SampleFormatInt32, false},
-    {SampleFormatFloat, false},
-    {SampleFormatInt16, false},
-    {SampleFormatDouble, false},
-    {SampleFormatUInt8, false},
-
-    {SampleFormatInt32, true},
-    {SampleFormatFloat, true},
-    {SampleFormatInt16, true},
-    {SampleFormatDouble, true},
-    {SampleFormatUInt8, true},
+static const GenesisSampleFormat prioritized_sample_formats[] = {
+    GenesisSampleFormatInt24,
+    GenesisSampleFormatFloat,
+    GenesisSampleFormatInt32,
+    GenesisSampleFormatInt16,
+    GenesisSampleFormatDouble,
+    GenesisSampleFormatUInt8,
 };
 
 static const int prioritized_sample_rates[] = {
@@ -23,6 +17,19 @@ static const int prioritized_sample_rates[] = {
     96000,
     32000,
     16000,
+};
+
+/*
+static const char *prioritized_formats = {
+    "flac",
+    "wav",
+    "ogg",
+    "opus",
+    "mp3",
+    "wav",
+    "mp4",
+    "wma",
+    "wv",
 };
 */
 
@@ -156,35 +163,6 @@ static void import_frame_double_planar(const AVFrame *avframe, GenesisAudioFile 
         }
     }
 }
-
-/*
-static ExportSampleFormat from_libav_sample_format(AVSampleFormat format) {
-    switch (format) {
-        default:
-            panic("invalid sample format");
-        case AV_SAMPLE_FMT_U8:
-            return {SampleFormatUInt8, false};
-        case AV_SAMPLE_FMT_U8P:
-            return {SampleFormatUInt8, true};
-        case AV_SAMPLE_FMT_S16:
-            return {SampleFormatInt16, false};
-        case AV_SAMPLE_FMT_S16P:
-            return {SampleFormatInt16, true};
-        case AV_SAMPLE_FMT_S32:
-            return {SampleFormatInt32, false};
-        case AV_SAMPLE_FMT_S32P:
-            return {SampleFormatInt32, true};
-        case AV_SAMPLE_FMT_FLT:
-            return {SampleFormatFloat, false};
-        case AV_SAMPLE_FMT_FLTP:
-            return {SampleFormatFloat, true};
-        case AV_SAMPLE_FMT_DBL:
-            return {SampleFormatDouble, false};
-        case AV_SAMPLE_FMT_DBLP:
-            return {SampleFormatDouble, true};
-    }
-}
-*/
 
 static int decode_interrupt_cb(void *ctx) {
     return 0;
@@ -354,10 +332,6 @@ enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
     if (genesis_err)
         panic("unable to determine channel layout: %s", genesis_error_string(genesis_err));
     audio_file->sample_rate = codec_ctx->sample_rate;
-    /*
-    audio_file->export_sample_format = from_libav_sample_format(codec_ctx->sample_fmt);
-    audio_file->export_bit_rate = 320 * 1000;
-    */
     long channel_count = audio_file->channel_layout.channel_count;
 
     void (*import_frame)(const AVFrame *, GenesisAudioFile *);
@@ -441,125 +415,24 @@ enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
     return GenesisErrorNone;
 }
 
-/*
-static void get_format_and_codec(const char *format_short_name, const char *codec_short_name,
-        const char *filename, AVOutputFormat **oformat, AVCodec **codec)
+GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
+        List<GenesisAudioFileFormat*> &out_formats, const char *filename_hint,
+        const char *format_name, const char *codec_name)
 {
-    *codec = NULL;
-    *oformat = av_guess_format(format_short_name, filename, NULL);
-    if (!*oformat)
-        return;
-    // av_guess_codec ignores mime_type, filename, and codec_short_name. see
-    // https://bugzilla.libav.org/show_bug.cgi?id=580
-    // because of this we do a workaround to return the correct codec based on
-    // the codec_short_name.
-    if (codec_short_name) {
-        *codec = avcodec_find_encoder_by_name(codec_short_name);
-        if (!*codec) {
-            const AVCodecDescriptor *desc = avcodec_descriptor_get_by_name(codec_short_name);
-            if (desc)
-                *codec = avcodec_find_encoder(desc->id);
+    AVOutputFormat *oformat = av_guess_format(format_name, filename_hint, nullptr);
+    if (!oformat)
+        return nullptr;
+
+    for (int i = 0; i < out_formats.length(); i += 1) {
+        GenesisAudioFileFormat *format = out_formats.at(i);
+        if (format->oformat == oformat) {
+            // there is always guaranteed to be the main codec, and we always
+            // choose it here
+            return &format->codecs.at(0);
         }
     }
-    if (!*codec) {
-        enum AVCodecID codec_id = av_guess_codec(*oformat, codec_short_name,
-                filename, NULL, AVMEDIA_TYPE_AUDIO);
-        *codec = avcodec_find_encoder(codec_id);
-        if (!*codec)
-            return;
-    }
+    return nullptr;
 }
-*/
-
-/*
-static bool libav_codec_supports_sample_rate(const AVCodec *codec, int sample_rate) {
-    if (!codec->supported_samplerates)
-        return true;
-
-    const int *p = codec->supported_samplerates;
-    while (*p) {
-        if (*p == sample_rate)
-            return true;
-
-        p += 1;
-    }
-
-    return false;
-}
-*/
-
-/*
-void audio_file_get_supported_sample_rates(const char *format_short_name,
-        const char *codec_short_name, const char *filename, List<int> &out)
-{
-    out.clear();
-
-    AVOutputFormat *oformat;
-    AVCodec *codec;
-    get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
-    if (!oformat || !codec)
-        panic("could not find codec");
-
-    for (long i = 0; i < array_length(prioritized_sample_rates); i += 1) {
-        int sample_rate = prioritized_sample_rates[i];
-        if (libav_codec_supports_sample_rate(codec, sample_rate))
-            out.append(sample_rate);
-    }
-}
-
-static bool libav_codec_supports_sample_format(const AVCodec *codec, ExportSampleFormat format) {
-    if (!codec->sample_fmts)
-        return true;
-
-    const enum AVSampleFormat *p = (enum AVSampleFormat*) codec->sample_fmts;
-    while (*p != AV_SAMPLE_FMT_NONE) {
-        if (format.planar && format.sample_format == SampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8P)
-            return true;
-        if (format.planar && format.sample_format == SampleFormatInt16 && *p == AV_SAMPLE_FMT_S16P)
-            return true;
-        if (format.planar && format.sample_format == SampleFormatInt32 && *p == AV_SAMPLE_FMT_S32P)
-            return true;
-        if (format.planar && format.sample_format == SampleFormatFloat && *p == AV_SAMPLE_FMT_FLTP)
-            return true;
-        if (format.planar && format.sample_format == SampleFormatDouble && *p == AV_SAMPLE_FMT_DBLP)
-            return true;
-
-        if (!format.planar && format.sample_format == SampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8)
-            return true;
-        if (!format.planar && format.sample_format == SampleFormatInt16 && *p == AV_SAMPLE_FMT_S16)
-            return true;
-        if (!format.planar && format.sample_format == SampleFormatInt32 && *p == AV_SAMPLE_FMT_S32)
-            return true;
-        if (!format.planar && format.sample_format == SampleFormatFloat && *p == AV_SAMPLE_FMT_FLT)
-            return true;
-        if (!format.planar && format.sample_format == SampleFormatDouble && *p == AV_SAMPLE_FMT_DBL)
-            return true;
-
-        p += 1;
-    }
-
-    return false;
-}
-*/
-
-/*
-void audio_file_get_supported_sample_formats(const char *format_short_name,
-        const char *codec_short_name, const char *filename, List<ExportSampleFormat> &out)
-{
-    out.clear();
-
-    AVOutputFormat *oformat;
-    AVCodec *codec;
-    get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
-    if (!oformat || !codec)
-        panic("could not find codec");
-
-    for (long i = 0; i < array_length(prioritized_export_formats); i += 1) {
-        if (libav_codec_supports_sample_format(codec, prioritized_export_formats[i]))
-            out.append(prioritized_export_formats[i]);
-    }
-}
-*/
 
 static uint64_t closest_supported_channel_layout(AVCodec *codec, uint64_t target) {
     // if we can, return exact match. otherwise, return the layout with the
@@ -591,29 +464,77 @@ static uint64_t closest_supported_channel_layout(AVCodec *codec, uint64_t target
     return best;
 }
 
-static void set_codec_ctx_format(AVCodecContext *codec_ctx, GenesisExportFormat *format) {
+static bool get_is_planar(const AVCodec *codec, GenesisSampleFormat sample_format) {
+    if (!codec->sample_fmts)
+        return false;
+
+    const enum AVSampleFormat *p = (enum AVSampleFormat*) codec->sample_fmts;
+    while (*p != AV_SAMPLE_FMT_NONE) {
+        if (sample_format == GenesisSampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8)
+            return false;
+        if (sample_format == GenesisSampleFormatInt16 && *p == AV_SAMPLE_FMT_S16)
+            return false;
+        if (sample_format == GenesisSampleFormatInt24 && *p == AV_SAMPLE_FMT_S32)
+            return false;
+        if (sample_format == GenesisSampleFormatInt32 && *p == AV_SAMPLE_FMT_S32)
+            return false;
+        if (sample_format == GenesisSampleFormatFloat && *p == AV_SAMPLE_FMT_FLT)
+            return false;
+        if (sample_format == GenesisSampleFormatDouble && *p == AV_SAMPLE_FMT_DBL)
+            return false;
+
+        p += 1;
+    }
+
+    p = (enum AVSampleFormat*) codec->sample_fmts;
+    while (*p != AV_SAMPLE_FMT_NONE) {
+        if (sample_format == GenesisSampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8P)
+            return true;
+        if (sample_format == GenesisSampleFormatInt16 && *p == AV_SAMPLE_FMT_S16P)
+            return true;
+        if (sample_format == GenesisSampleFormatInt24 && *p == AV_SAMPLE_FMT_S32P)
+            return true;
+        if (sample_format == GenesisSampleFormatInt32 && *p == AV_SAMPLE_FMT_S32P)
+            return true;
+        if (sample_format == GenesisSampleFormatFloat && *p == AV_SAMPLE_FMT_FLTP)
+            return true;
+        if (sample_format == GenesisSampleFormatDouble && *p == AV_SAMPLE_FMT_DBLP)
+            return true;
+
+        p += 1;
+    }
+
+    panic("format not supported planar or non planar");
+}
+
+static void set_codec_ctx_format(AVCodecContext *codec_ctx, GenesisExportFormat *format,
+        bool *is_planar)
+{
+    *is_planar = get_is_planar(codec_ctx->codec, format->sample_format);
     switch (format->sample_format) {
         case GenesisSampleFormatUInt8:
             codec_ctx->bits_per_raw_sample = 8;
-            codec_ctx->sample_fmt = format->planar ? AV_SAMPLE_FMT_U8P : AV_SAMPLE_FMT_U8;
+            codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_U8P : AV_SAMPLE_FMT_U8;
             return;
         case GenesisSampleFormatInt16:
             codec_ctx->bits_per_raw_sample = 16;
-            codec_ctx->sample_fmt = format->planar ? AV_SAMPLE_FMT_S16P : AV_SAMPLE_FMT_S16;
+            codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_S16P : AV_SAMPLE_FMT_S16;
             return;
         case GenesisSampleFormatInt24:
-            panic("TODO not sure how to make libav encode 24-bits audio");
+            codec_ctx->bits_per_raw_sample = 24;
+            codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_S32P : AV_SAMPLE_FMT_S32;
+            return;
         case GenesisSampleFormatInt32:
             codec_ctx->bits_per_raw_sample = 32;
-            codec_ctx->sample_fmt = format->planar ? AV_SAMPLE_FMT_S32P : AV_SAMPLE_FMT_S32;
+            codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_S32P : AV_SAMPLE_FMT_S32;
             return;
         case GenesisSampleFormatFloat:
             codec_ctx->bits_per_raw_sample = 32;
-            codec_ctx->sample_fmt = format->planar ? AV_SAMPLE_FMT_FLTP : AV_SAMPLE_FMT_FLT;
+            codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_FLTP : AV_SAMPLE_FMT_FLT;
             return;
         case GenesisSampleFormatDouble:
             codec_ctx->bits_per_raw_sample = 64;
-            codec_ctx->sample_fmt = format->planar ? AV_SAMPLE_FMT_DBLP : AV_SAMPLE_FMT_DBL;
+            codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_DBLP : AV_SAMPLE_FMT_DBL;
             return;
         case GenesisSampleFormatInvalid:
             panic("invalid sample format");
@@ -655,6 +576,20 @@ static void write_frames_int32_planar(const GenesisAudioFile *audio_file,
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
             *ch_buf = (int32_t)(sample * 2147483647.0);
+            ch_buf += 1;
+        }
+    }
+}
+
+static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
+        long start, long end, uint8_t *buffer, AVFrame *frame)
+{
+    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
+        for (long i = start; i < end; i += 1) {
+            float sample = audio_file->channels.at(ch).samples.at(i);
+            // libav looks at the most significant bytes
+            *ch_buf = (int32_t)(sample * 8388607.0);
             ch_buf += 1;
         }
     }
@@ -730,6 +665,22 @@ static void write_frames_int32(const GenesisAudioFile *audio_file,
     }
 }
 
+static void write_frames_int24(const GenesisAudioFile *audio_file,
+        long start, long end, uint8_t *buffer, AVFrame *)
+{
+    for (long i = start; i < end; i += 1) {
+        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            float sample = audio_file->channels.at(ch).samples.at(i);
+
+            int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
+            // libav looks at the most significant bytes
+            *int_ptr = (int32_t)(sample * 8388607.0);
+
+            buffer += 4;
+        }
+    }
+}
+
 static void write_frames_float(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
@@ -797,7 +748,10 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         const char *output_filename, struct GenesisExportFormat *export_format)
 {
     AVCodec *codec = export_format->codec->codec;
-    AVOutputFormat *oformat = export_format->format->oformat;
+    AVOutputFormat *oformat = export_format->codec->format->oformat;
+
+    if (!av_codec_is_encoder(codec))
+        panic("not encoder: %s\n", codec->name);
 
     uint64_t target_channel_layout = channel_layout_to_libav(&audio_file->channel_layout);
     uint64_t out_channel_layout = closest_supported_channel_layout(codec, target_channel_layout);
@@ -819,13 +773,20 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     if (!stream)
         panic("unable to create output stream");
 
+    stream->time_base.den = export_format->sample_rate;
+    stream->time_base.num = 1;
+
     AVCodecContext *codec_ctx = stream->codec;
     codec_ctx->bit_rate = export_format->bit_rate;
-    set_codec_ctx_format(codec_ctx, export_format);
-    codec_ctx->sample_rate = audio_file->sample_rate;
+    bool is_planar;
+    set_codec_ctx_format(codec_ctx, export_format, &is_planar);
+    codec_ctx->sample_rate = export_format->sample_rate;
     codec_ctx->channel_layout = out_channel_layout;
     codec_ctx->channels = audio_file->channels.length();
     codec_ctx->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+
+    if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        codec_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
     err = avcodec_open2(codec_ctx, codec, NULL);
     if (err < 0) {
@@ -846,13 +807,22 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     }
 
     err = avformat_write_header(fmt_ctx, NULL);
-    if (err < 0)
-        panic("error writing header");
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("error writing header: %s", buf);
+    }
 
 
     AVFrame *frame = av_frame_alloc();
     if (!frame)
         panic("error allocating frame");
+
+    bool var_frame_size_1 = (codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE);
+    bool var_frame_size_2 = (codec_ctx->frame_size == 0);
+
+    if (var_frame_size_1 != var_frame_size_2)
+        panic("inconsistent variable frame size");
 
     int buffer_size;
     if (codec_ctx->frame_size) {
@@ -886,7 +856,7 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
 
     void (*write_frames)(const GenesisAudioFile *, long, long, uint8_t *, AVFrame *);
 
-    if (export_format->planar) {
+    if (is_planar) {
         switch (export_format->sample_format) {
             case GenesisSampleFormatInvalid:
                 panic("invalid sample format");
@@ -897,7 +867,8 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
                 write_frames = write_frames_int16_planar;
                 break;
             case GenesisSampleFormatInt24:
-                panic("not sure how to make libav encode 24-bit audio");
+                write_frames = write_frames_int24_planar;
+                break;
             case GenesisSampleFormatInt32:
                 write_frames = write_frames_int32_planar;
                 break;
@@ -919,7 +890,8 @@ enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
                 write_frames = write_frames_int16;
                 break;
             case GenesisSampleFormatInt24:
-                panic("not sure how to make libav encode 24-bit audio");
+                write_frames = write_frames_int24;
+                break;
             case GenesisSampleFormatInt32:
                 write_frames = write_frames_int32;
                 break;
@@ -1008,67 +980,68 @@ void audio_file_init(void) {
     av_register_all();
 }
 
-/*
-bool codec_supports_sample_rate(const char *format_short_name,
-        const char *codec_short_name, const char *filename, int sample_rate)
-{
-    AVCodec *codec;
-    AVOutputFormat *oformat;
-    get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
-    return libav_codec_supports_sample_rate(codec, sample_rate);
-}
-
-bool codec_supports_sample_format(const char *format_short_name,
-        const char *codec_short_name, const char *filename, ExportSampleFormat format)
-{
-    AVCodec *codec;
-    AVOutputFormat *oformat;
-    get_format_and_codec(format_short_name, codec_short_name, filename, &oformat, &codec);
-    return libav_codec_supports_sample_format(codec, format);
-}
-*/
-
 void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file) {
     if (audio_file) {
         destroy(audio_file, 1);
     }
 }
 
-void audio_file_get_out_formats(List<GenesisAudioFileFormat> &formats) {
+static void add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {
+    if (!codec)
+        return;
+    GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.add_one();
+    audio_file_codec->codec = codec;
+    audio_file_codec->format = fmt;
+    for (int j = 0; j < array_length(prioritized_sample_formats); j += 1) {
+        if (genesis_audio_file_codec_supports_sample_format(audio_file_codec,
+                    prioritized_sample_formats[j]))
+        {
+            audio_file_codec->prioritized_sample_formats.append(prioritized_sample_formats[j]);
+        }
+    }
+    for (int j = 0; j < array_length(prioritized_sample_rates); j += 1) {
+        if (genesis_audio_file_codec_supports_sample_rate(audio_file_codec,
+                    prioritized_sample_rates[j]))
+        {
+            audio_file_codec->prioritized_sample_rates.append(prioritized_sample_rates[j]);
+        }
+    }
+}
+
+void audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats) {
     formats.clear();
     AVOutputFormat *oformat = nullptr;
     while ((oformat = av_oformat_next(oformat))) {
         if (oformat->audio_codec == AV_CODEC_ID_NONE)
             continue;
-        AVCodec *main_codec = avcodec_find_decoder(oformat->audio_codec);
+        AVCodec *main_codec = avcodec_find_encoder(oformat->audio_codec);
         if (!main_codec)
             continue;
 
-        GenesisAudioFileFormat *fmt = &formats.add_one();
+        GenesisAudioFileFormat *fmt = create<GenesisAudioFileFormat>();
+        formats.append(fmt);
+
         fmt->iformat = nullptr;
         fmt->oformat = oformat;
 
         fmt->codecs.clear();
-        GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.add_one();
-        audio_file_codec->codec = main_codec;
+        add_audio_file_codec(fmt, main_codec);
         for (int i = 0;; i += 1) {
             AVCodecID codec_id = av_codec_get_id(oformat->codec_tag, i);
             if (codec_id == AV_CODEC_ID_NONE)
                 break;
-
-            if (codec_id != oformat->audio_codec) {
-                GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.add_one();
-                audio_file_codec->codec = avcodec_find_decoder(codec_id);
-            }
+            if (codec_id != oformat->audio_codec)
+                add_audio_file_codec(fmt, avcodec_find_encoder(codec_id));
         }
     }
 }
 
-void audio_file_get_in_formats(List<GenesisAudioFileFormat> &formats) {
+void audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
     formats.clear();
     AVInputFormat *iformat = nullptr;
     while ((iformat = av_iformat_next(iformat))) {
-        GenesisAudioFileFormat *fmt = &formats.add_one();
+        GenesisAudioFileFormat *fmt = create<GenesisAudioFileFormat>();
+        formats.append(fmt);
         fmt->iformat = iformat;
         fmt->oformat = nullptr;
 
@@ -1080,6 +1053,7 @@ void audio_file_get_in_formats(List<GenesisAudioFileFormat> &formats) {
 
             GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.add_one();
             audio_file_codec->codec = avcodec_find_decoder(codec_id);
+            audio_file_codec->format = fmt;
         }
     }
 }
@@ -1118,4 +1092,83 @@ const char *genesis_audio_file_codec_name(const struct GenesisAudioFileCodec *au
 
 const char *genesis_audio_file_codec_description(const struct GenesisAudioFileCodec *audio_file_codec) {
     return audio_file_codec->codec->long_name;
+}
+
+struct GenesisChannelLayout genesis_audio_file_channel_layout(const struct GenesisAudioFile *audio_file) {
+    return audio_file->channel_layout;
+}
+
+long genesis_audio_file_frame_count(const struct GenesisAudioFile *audio_file) {
+    return audio_file->channels.at(0).samples.length();
+}
+
+int genesis_audio_file_sample_rate(const struct GenesisAudioFile *audio_file) {
+    return audio_file->sample_rate;
+}
+
+struct GenesisAudioFileIterator genesis_audio_file_iterator(
+        struct GenesisAudioFile *audio_file, int channel_index, long start_frame_index)
+{
+    long frame_count = genesis_audio_file_frame_count(audio_file);
+    return {
+        audio_file,
+        start_frame_index,
+        frame_count,
+        audio_file->channels.at(channel_index).samples.raw(),
+    };
+}
+
+void genesis_audio_file_iterator_next(struct GenesisAudioFileIterator *it) {
+    long frame_count = genesis_audio_file_frame_count(it->audio_file);
+    it->start = frame_count;
+    it->end = frame_count;
+    it->ptr = nullptr;
+}
+
+bool genesis_audio_file_codec_supports_sample_format(
+        const struct GenesisAudioFileCodec *audio_file_codec,
+        enum GenesisSampleFormat sample_format)
+{
+    AVCodec *codec = audio_file_codec->codec;
+
+    if (!codec->sample_fmts)
+        return true;
+
+    const enum AVSampleFormat *p = (enum AVSampleFormat*) codec->sample_fmts;
+    while (*p != AV_SAMPLE_FMT_NONE) {
+        if (sample_format == GenesisSampleFormatUInt8 && (*p == AV_SAMPLE_FMT_U8P || *p == AV_SAMPLE_FMT_U8))
+            return true;
+        if (sample_format == GenesisSampleFormatInt16 && (*p == AV_SAMPLE_FMT_S16P || *p == AV_SAMPLE_FMT_S16))
+            return true;
+        if (sample_format == GenesisSampleFormatInt24 && (*p == AV_SAMPLE_FMT_S32P || *p == AV_SAMPLE_FMT_S32))
+            return true;
+        if (sample_format == GenesisSampleFormatInt32 && (*p == AV_SAMPLE_FMT_S32P || *p == AV_SAMPLE_FMT_S32))
+            return true;
+        if (sample_format == GenesisSampleFormatFloat && (*p == AV_SAMPLE_FMT_FLTP || *p == AV_SAMPLE_FMT_FLT))
+            return true;
+        if (sample_format == GenesisSampleFormatDouble && (*p == AV_SAMPLE_FMT_DBLP || *p == AV_SAMPLE_FMT_DBL))
+            return true;
+
+        p += 1;
+    }
+
+    return false;
+}
+
+bool genesis_audio_file_codec_supports_sample_rate(
+        const struct GenesisAudioFileCodec *audio_file_codec, int sample_rate)
+{
+    AVCodec *codec = audio_file_codec->codec;
+    if (!codec->supported_samplerates)
+        return true;
+
+    const int *p = codec->supported_samplerates;
+    while (*p) {
+        if (*p == sample_rate)
+            return true;
+
+        p += 1;
+    }
+
+    return false;
 }

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 // open an audio file, normalize it, and save it
 
@@ -16,11 +17,15 @@ static int report_error(enum GenesisError err) {
     return 1;
 }
 
+static float clamp(float min_value, float value, float max_value) {
+    return fmaxf(fminf(value, max_value), min_value);
+}
+
 int main(int argc, char **argv) {
     char *input_filename = NULL;
     char *output_filename = NULL;
     char *format = NULL;
-    char *codec = NULL;
+    char *codec_name = NULL;
     int bit_rate_k = 320;
 
     for (int i = 1; i < argc; i += 1) {
@@ -34,14 +39,14 @@ int main(int argc, char **argv) {
             } else if (strcmp(arg, "format") == 0) {
                 format = argv[++i];
             } else if (strcmp(arg, "codec") == 0) {
-                codec = argv[++i];
+                codec_name = argv[++i];
             } else {
                 return usage(argv[0]);
             }
         } else if (!input_filename) {
             input_filename = arg;
         } else if (!output_filename) {
-            input_filename = arg;
+            output_filename = arg;
         } else {
             return usage(argv[0]);
         }
@@ -57,7 +62,7 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisAudioFile *audio_file;
-    enum GenesisError err = genesis_audio_file_open(context, input_filename, &audio_file);
+    enum GenesisError err = genesis_audio_file_load(context, input_filename, &audio_file);
     if (err != GenesisErrorNone)
         return report_error(err);
 
@@ -74,13 +79,13 @@ int main(int argc, char **argv) {
     // calculate the maximum sample value
     float abs_max = 0.0f;
     for (int ch = 0; ch < channel_layout.channel_count; ch += 1) {
-        struct GenesisAudioFileIterator *it = genesis_audio_file_iterator_create(audio_file, ch, 0, frame_count);
-        while (it->start < frame_count) {
-            for (long frame = it->start, long offset = 0; frame < it->end; frame += 1, offset += 1) {
-                float sample = it->ptr[offset];
-                abs_max = max(fabs(sample), abs_max);
+        struct GenesisAudioFileIterator it = genesis_audio_file_iterator(audio_file, ch, 0);
+        while (it.start < frame_count) {
+            for (long frame = it.start, offset = 0; frame < it.end; frame += 1, offset += 1) {
+                float sample = it.ptr[offset];
+                abs_max = fmaxf(fabsf(sample), abs_max);
             }
-            genesis_audio_file_iterator_next(it);
+            genesis_audio_file_iterator_next(&it);
         }
     }
 
@@ -89,20 +94,44 @@ int main(int argc, char **argv) {
     } else if (abs_max < 1.0f) {
         float multiplier = 1.0f / abs_max;
         for (int ch = 0; ch < channel_layout.channel_count; ch += 1) {
-            struct GenesisAudioFileIterator it = genesis_audio_file_iterator_create(audio_file, ch, 0, frame_count);
-            while (it->start < frame_count) {
-                for (long frame = it->start, long offset = 0; frame < it->end; frame += 1, offset += 1) {
-                    float sample = it->ptr[offset];
-                    it->ptr[offset] = clamp(-1.0f, sample * multiplier, 1.0f);
+            struct GenesisAudioFileIterator it = genesis_audio_file_iterator(audio_file, ch, 0);
+            while (it.start < frame_count) {
+                for (long frame = it.start, offset = 0; frame < it.end; frame += 1, offset += 1) {
+                    float sample = it.ptr[offset];
+                    it.ptr[offset] = clamp(-1.0f, sample * multiplier, 1.0f);
                 }
-                genesis_audio_file_iterator_next(it);
+                genesis_audio_file_iterator_next(&it);
             }
         }
     } else {
         fprintf(stderr, "Audio stream is already normalized.\n");
     }
 
-    err = genesis_audio_file_save(audio_file, output_filename, format, codec, bit_rate);
+    struct GenesisExportFormat export_format;
+    export_format.bit_rate = bit_rate_k * 1000;
+    export_format.codec = genesis_guess_audio_file_codec(context, output_filename, format, codec_name);
+    if (!export_format.codec) {
+        fprintf(stderr, "unknown export format\n");
+        return 1;
+    }
+    fprintf(stderr, "out codec: %s\n", genesis_audio_file_codec_description(export_format.codec));
+
+    int sample_format_count = genesis_audio_file_codec_sample_format_count(export_format.codec);
+    if (sample_format_count <= 0) {
+        fprintf(stderr, "unsupported sample format\n");
+        return 1;
+    }
+    export_format.sample_format = genesis_audio_file_codec_sample_format_index(export_format.codec, 0);
+    fprintf(stderr, "out sample format: %s\n", genesis_sample_format_string(export_format.sample_format));
+
+    if (!genesis_audio_file_codec_supports_sample_rate(export_format.codec, sample_rate)) {
+        fprintf(stderr, "unsupported sample rate\n");
+        return 1;
+    }
+    export_format.sample_rate = sample_rate;
+    fprintf(stderr, "out sample rate: %d\n", sample_rate);
+
+    err = genesis_audio_file_export(audio_file, output_filename, &export_format);
     if (err != GenesisErrorNone)
         return report_error(err);
 

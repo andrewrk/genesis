@@ -19,7 +19,10 @@ struct GenesisAudioFile {
 };
 
 struct GenesisAudioFileCodec {
+    GenesisAudioFileFormat *format;
     AVCodec *codec;
+    List<GenesisSampleFormat> prioritized_sample_formats;
+    List<int> prioritized_sample_rates;
 };
 
 struct GenesisAudioFileFormat {
@@ -28,21 +31,11 @@ struct GenesisAudioFileFormat {
     AVInputFormat *iformat;
 };
 
-void audio_file_get_supported_sample_rates(const char *format_short_name,
-        const char *codec_short_name, const char *filename, List<int> &out);
-void audio_file_get_supported_sample_formats(const char *format_short_name,
-        const char *codec_short_name, const char *filename, List<GenesisExportFormat> &out);
-
-bool codec_supports_sample_rate(const char *format_short_name,
-        const char *codec_short_name, const char *filename, int sample_rate);
-
-bool codec_supports_sample_format(const char *format_short_name,
-        const char *codec_short_name, const char *filename, GenesisExportFormat format);
-
-
-
 void audio_file_init(void);
-void audio_file_get_out_formats(List<GenesisAudioFileFormat> &formats);
-void audio_file_get_in_formats(List<GenesisAudioFileFormat> &formats);
+void audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats);
+void audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats);
+GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
+        List<GenesisAudioFileFormat*> &out_formats, const char *filename_hint,
+        const char *format_name, const char *codec_name);
 
 #endif
