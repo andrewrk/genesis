@@ -93,6 +93,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Audio stream is completely silent.\n");
     } else if (abs_max < 1.0f) {
         float multiplier = 1.0f / abs_max;
+        fprintf(stderr, "Amplification factor: %.3f\n", multiplier);
         for (int ch = 0; ch < channel_layout.channel_count; ch += 1) {
             struct GenesisAudioFileIterator it = genesis_audio_file_iterator(audio_file, ch, 0);
             while (it.start < frame_count) {
