@@ -7,12 +7,14 @@
 // print the list of supported input and export formats, codecs, sample formats, and sample rates
 
 int main(int argc, char **argv) {
+    fprintf(stderr, "libgenesis version %s\n", GENESIS_VERSION_STRING);
+
     struct GenesisContext *context = genesis_create_context();
     if (!context) {
         fprintf(stderr, "unable to create context\n");
         return 1;
     }
-    fprintf(stderr, "Import:\n");
+    fprintf(stderr, "\nImport:\n");
     int in_format_count = genesis_in_format_count(context);
     for (int format_index = 0; format_index < in_format_count; format_index += 1) {
         struct GenesisAudioFileFormat *format = genesis_in_format_index(context, format_index);

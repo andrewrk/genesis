@@ -187,6 +187,7 @@ install(FILES
     ${CONFIGURE_OUT_FILE}
     DESTINATION "include/genesis")
 
+# Example Programs
 
 add_executable(list_devices example/list_devices.c)
 set_target_properties(list_devices PROPERTIES
@@ -212,6 +213,13 @@ include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(list_supported_formats libgenesis_shared)
 add_dependencies(list_supported_formats libgenesis_shared)
 
+add_executable(synth example/synth.c)
+set_target_properties(synth PROPERTIES
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${EXAMPLE_CFLAGS})
+include_directories(${EXAMPLE_INCLUDES})
+target_link_libraries(synth libgenesis_shared)
+add_dependencies(synth libgenesis_shared)
 
 
 add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})

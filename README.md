@@ -55,7 +55,6 @@ make
 
 ## Roadmap
 
- 0. example program which opens an audio file, normalizes the volume, and saves it
  0. example synth program which makes a note sound
     0. builtin simple sine wave input device
     0. builtin playback output device
