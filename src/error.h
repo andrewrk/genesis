@@ -10,6 +10,10 @@ enum GenesisError {
     GenesisErrorNone,
     GenesisErrorNoMem,
     GenesisErrorMaxChannelsExceeded,
+    GenesisErrorIncompatiblePorts,
+    GenesisErrorInvalidPortDirection,
+    GenesisErrorIncompatibleSampleRates,
+    GenesisErrorIncompatibleChannelLayouts,
 };
 
 const char *genesis_error_string(enum GenesisError error);

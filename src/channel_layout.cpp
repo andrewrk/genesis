@@ -1,5 +1,6 @@
 #include "channel_layout.h"
 #include "util.hpp"
+#include <stdio.h>
 
 static GenesisChannelLayout builtin_channel_layouts[] = {
     {
@@ -344,4 +345,16 @@ const GenesisChannelLayout *genesis_channel_layout_get_builtin(int index) {
     if (index < 0 || index >= array_length(builtin_channel_layouts))
         panic("channel layout id out of bounds");
     return &builtin_channel_layouts[index];
+}
+
+void genesis_debug_print_channel_layout(const struct GenesisChannelLayout *layout) {
+    if (layout->name) {
+        fprintf(stderr, "%s\n", layout->name);
+    } else {
+        fprintf(stderr, "%s", genesis_get_channel_name(layout->channels[0]));
+        for (int i = 1; i < layout->channel_count; i += 1) {
+            fprintf(stderr, ", %s", genesis_get_channel_name(layout->channels[i]));
+        }
+        fprintf(stderr, "\n");
+    }
 }

@@ -66,14 +66,20 @@ make
 
 A node is the basic component in the audio pipeline. At the end of the audio
 graph is likely a playback node - one that sends its audio to a playback
-device. A node can have these things, all time-synchronized:
+device. A node can have any number of ports. A port is time-synchronized and
+is one of these types:
 
- * Audio input
- * Note data input
- * Audio output
- * Note data output
- * Parameters input
- * Controller output
+ * Audio in/out
+ * Note data in/out
+ * Parameter in/out
+
+### Coordinates
+
+Positions in the audio project are in *floating point whole notes*. This is to
+take into account the fact that the tempo and time signature could change at
+any point in the audio project. You can convert from whole notes to frames by
+calling a utility function which takes into account tempo and time signature
+changes.
 
 ### Multiplayer and Peer-to-Peer
 

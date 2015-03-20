@@ -10,8 +10,9 @@ void default_on_devices_change(AudioHardware *audio_hardware) {
     // do nothing
 }
 
-AudioHardware::AudioHardware() :
+AudioHardware::AudioHardware(GenesisContext *genesis_context) :
     _userdata(NULL),
+    _genesis_context(genesis_context),
     _device_scan_queued(false),
     _on_devices_change(default_on_devices_change),
     _current_audio_devices_info(NULL),
@@ -145,7 +146,7 @@ void AudioHardware::finish_device_query() {
     _current_audio_devices_info->default_output_index = -1;
     _current_audio_devices_info->default_input_index = -1;
     for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1) {
-        AudioDevice *audio_device = &_current_audio_devices_info->devices.at(i);
+        GenesisAudioDevice *audio_device = &_current_audio_devices_info->devices.at(i);
         if (audio_device->purpose == GenesisAudioDevicePurposePlayback &&
             ByteBuffer::equal(audio_device->name, _default_sink_name))
         {
@@ -203,9 +204,10 @@ void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *
         _have_sink_list = true;
         finish_device_query();
     } else {
-        List<AudioDevice> *devices = &_current_audio_devices_info->devices;
+        List<GenesisAudioDevice> *devices = &_current_audio_devices_info->devices;
         _current_audio_devices_info->devices.resize(devices->length() + 1);
-        AudioDevice *audio_device = &devices->at(devices->length() - 1);
+        GenesisAudioDevice *audio_device = &devices->at(devices->length() - 1);
+        audio_device->context = _genesis_context;
         audio_device->name = info->name;
         audio_device->description = info->description;
         set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
@@ -222,9 +224,10 @@ void AudioHardware::source_info_callback(pa_context *context, const pa_source_in
         _have_source_list = true;
         finish_device_query();
     } else {
-        List<AudioDevice> *devices = &_current_audio_devices_info->devices;
+        List<GenesisAudioDevice> *devices = &_current_audio_devices_info->devices;
         _current_audio_devices_info->devices.resize(devices->length() + 1);
-        AudioDevice *audio_device = &devices->at(devices->length() - 1);
+        GenesisAudioDevice *audio_device = &devices->at(devices->length() - 1);
+        audio_device->context = _genesis_context;
         audio_device->name = info->name;
         audio_device->description = info->description;
         set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);

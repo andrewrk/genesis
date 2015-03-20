@@ -11,16 +11,17 @@ static int usage(char *exe) {
 }
 
 static int list_devices(struct GenesisContext *context) {
-    int count = genesis_audio_device_count(context);
+    genesis_refresh_audio_devices(context);
+    int count = genesis_get_audio_device_count(context);
     if (count < 0) {
         fprintf(stderr, "unable to find devices\n");
         return 1;
     }
 
-    int default_playback = genesis_audio_device_default_playback(context);
-    int default_recording = genesis_audio_device_default_recording(context);
+    int default_playback = genesis_get_default_playback_device_index(context);
+    int default_recording = genesis_get_default_recording_device_index(context);
     for (int i = 0; i < count; i += 1) {
-        struct GenesisAudioDevice *device = genesis_audio_device_get(context, i);
+        struct GenesisAudioDevice *device = genesis_get_audio_device(context, i);
         const char *purpose_str;
         const char *default_str;
         if (genesis_audio_device_purpose(device) == GenesisAudioDevicePurposePlayback) {
@@ -63,7 +64,7 @@ int main(int argc, char **argv) {
     }
 
     if (watch) {
-        genesis_audio_device_set_callback(context, on_devices_change, context);
+        genesis_set_audio_device_callback(context, on_devices_change, context);
         for (;;) {
             genesis_wait_events(context);
         }

@@ -77,6 +77,8 @@ public:
         _length = length;
     }
 
+    // remember that every time you call add_one, the previous returned
+    // reference from add_one becomes invalid.
     T & add_one() {
         long at_index = _length;
         _length += 1;

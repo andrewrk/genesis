@@ -77,6 +77,8 @@ const char *genesis_get_channel_name(enum GenesisChannelId id);
 int genesis_channel_layout_builtin_count(void);
 const struct GenesisChannelLayout *genesis_channel_layout_get_builtin(int index);
 
+void genesis_debug_print_channel_layout(const struct GenesisChannelLayout *layout);
+
 #ifdef __cplusplus
 }
 #endif

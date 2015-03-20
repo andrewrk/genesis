@@ -11,18 +11,19 @@
 #include <atomic>
 using std::atomic_bool;
 
-struct AudioDevice {
+struct GenesisAudioDevice {
+    GenesisContext *context;
     ByteBuffer name;
     ByteBuffer description;
     GenesisChannelLayout channel_layout;
     GenesisSampleFormat default_sample_format;
     double default_latency;
-    double default_sample_rate;
+    int default_sample_rate;
     GenesisAudioDevicePurpose purpose;
 };
 
 struct AudioDevicesInfo {
-    List<AudioDevice> devices;
+    List<GenesisAudioDevice> devices;
     // can be -1 when default device is unknown
     int default_output_index;
     int default_input_index;
@@ -84,7 +85,7 @@ private:
 
 class AudioHardware {
 public:
-    AudioHardware();
+    AudioHardware(GenesisContext *context);
     ~AudioHardware();
 
     // the device list is valid only for the duration of the callback
@@ -112,6 +113,7 @@ public:
 
 
     pa_context *_context;
+    GenesisContext *_genesis_context;
 private:
     atomic_bool _device_scan_queued;
     void (*_on_devices_change)(AudioHardware *);

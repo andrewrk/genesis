@@ -15,6 +15,9 @@ extern "C" {
 struct GenesisContext;
 struct GenesisContext *genesis_create_context(void);
 void genesis_destroy_context(struct GenesisContext *context);
+
+// when you call genesis_flush_events, device information becomes invalid
+// and you need to query it again if you want it.
 void genesis_flush_events(struct GenesisContext *context);
 
 // flushes events as they occur, blocks until you call genesis_wakeup
@@ -24,17 +27,52 @@ void genesis_wait_events(struct GenesisContext *context);
 void genesis_wakeup(struct GenesisContext *context);
 
 
+///////////////// Audio Devices
 
-///////////// Pipeline
-enum GenesisChannelConfig {
-    // there is a fixed channel layout that must be respected
-    GenesisChannelConfigFixed,
-    // any channel layout is supported
-    GenesisChannelConfigAny,
-    // any layout; the output layout is the same as the input layout
-    GenesisChannelConfigSame,
+struct GenesisAudioDevice;
+// when you call this, the information you got previously from these
+// functions becomes invalid. This applies to the count of devices and the
+// pointers to each GenesisAudioDevice.
+// note you can also call genesis_wait_events or genesis_flush_events combined
+// with genesis_set_audio_device_callback. the reason to use
+// genesis_refresh_audio_devices is that it blocks until a device list is
+// obtained, useful for programs that want to block.
+void genesis_refresh_audio_devices(struct GenesisContext *context);
+
+// returns -1 on error
+int genesis_get_audio_device_count(struct GenesisContext *context);
+
+// returns NULL on error
+struct GenesisAudioDevice *genesis_get_audio_device(struct GenesisContext *context, int index);
+
+// returns the index of the default playback device
+// returns -1 on error
+int genesis_get_default_playback_device_index(struct GenesisContext *context);
+
+// returns the index of the default recording device
+// returns -1 on error
+int genesis_get_default_recording_device_index(struct GenesisContext *context);
+
+// the name is the identifier for the device. UTF-8 encoded
+const char *genesis_audio_device_name(const struct GenesisAudioDevice *device);
+
+// UTF-8 encoded
+const char *genesis_audio_device_description(const struct GenesisAudioDevice *device);
+
+enum GenesisAudioDevicePurpose {
+    GenesisAudioDevicePurposePlayback,
+    GenesisAudioDevicePurposeRecording,
 };
 
+enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct GenesisAudioDevice *device);
+
+// set callback to be called when audio devices change
+void genesis_set_audio_device_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata),
+        void *userdata);
+
+
+///////////// Pipeline
 enum GenesisPortType {
     GenesisPortTypeAudioIn,
     GenesisPortTypeAudioOut,
@@ -49,50 +87,39 @@ struct GenesisNodeDescriptor;
 struct GenesisNodeDescriptor *genesis_node_descriptor_find(
         struct GenesisContext *context, const char *name);
 const char *genesis_node_descriptor_name(const struct GenesisNodeDescriptor *node_descriptor);
+const char *genesis_node_descriptor_description(const struct GenesisNodeDescriptor *node_descriptor);
+
+struct GenesisNodeDescriptor *genesis_audio_device_create_node_descriptor(
+        struct GenesisAudioDevice *audio_device);
+struct GenesisNodeDescriptor *genesis_create_node_descriptor(
+        struct GenesisContext *context, int port_count);
+
+// returns -1 if not found
+int genesis_node_descriptor_find_port_index(
+        const struct GenesisNodeDescriptor *node_descriptor, const char *name);
 
 
 struct GenesisPort;
 struct GenesisNode;
-struct GenesisNode *genesis_node_create(struct GenesisNodeDescriptor *node_descriptor);
+struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescriptor *node_descriptor);
 void genesis_node_destroy(struct GenesisNode *node);
 
+struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
 
-enum GenesisAudioDevicePurpose {
-    GenesisAudioDevicePurposePlayback,
-    GenesisAudioDevicePurposeRecording,
-};
+enum GenesisError genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
 
-///////////////// Audio Devices
+struct GenesisNode *genesis_port_node(struct GenesisPort *port);
 
-struct GenesisAudioDevice;
-// call flush_events to refresh this information. when you call flush_events,
-// the information you got previously from these methods becomes invalid. This
-// applies to the count of devices and the pointers to each GenesisAudioDevice
+struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
+        struct GenesisNodeDescriptor *node_descriptor, int port_index,
+        enum GenesisPortType port_type);
 
-// returns -1 on error
-int genesis_audio_device_count(struct GenesisContext *context);
+void genesis_port_descriptor_set_run_callback(
+        struct GenesisPortDescriptor *port_descriptor,
+        void (*run)(struct GenesisPort *port));
 
-// returns NULL on error
-struct GenesisAudioDevice *genesis_audio_device_get(struct GenesisContext *context, int index);
+void genesis_debug_print_port_config(struct GenesisPort *port);
 
-// returns -1 on error
-int genesis_audio_device_default_playback(struct GenesisContext *context);
-
-// returns -1 on error
-int genesis_audio_device_default_recording(struct GenesisContext *context);
-
-// the name is the identifier for the device. UTF-8 encoded
-const char *genesis_audio_device_name(const struct GenesisAudioDevice *device);
-
-// UTF-8 encoded
-const char *genesis_audio_device_description(const struct GenesisAudioDevice *device);
-
-enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct GenesisAudioDevice *device);
-
-// set callback to be called when audio devices change
-void genesis_audio_device_set_callback(struct GenesisContext *context,
-        void (*callback)(void *userdata),
-        void *userdata);
 
 
 
