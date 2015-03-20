@@ -2,6 +2,7 @@
 #define THREADS_HPP
 
 #include <pthread.h>
+#include <thread>
 
 class Thread {
 public:
@@ -31,6 +32,13 @@ public:
 
     bool running() const {
         return _run != nullptr;
+    }
+
+    static int concurrency() {
+        unsigned cpu_core_count = std::thread::hardware_concurrency();
+        if (cpu_core_count <= 0)
+            cpu_core_count = 1;
+        return cpu_core_count;
     }
 private:
     pthread_t _thread_id;

@@ -106,6 +106,8 @@ int main(int argc, char **argv) {
 
     genesis_port_descriptor_set_run_callback(input_notes_port_descr, run);
 
+    genesis_start_pipeline(context);
+
     for (;;)
         genesis_wait_events(context);
 }

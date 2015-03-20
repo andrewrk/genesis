@@ -120,6 +120,8 @@ void genesis_port_descriptor_set_run_callback(
 
 void genesis_debug_print_port_config(struct GenesisPort *port);
 
+enum GenesisError genesis_start_pipeline(struct GenesisContext *context);
+
 
 
 

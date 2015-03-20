@@ -2,6 +2,7 @@
 #include "audio_file.hpp"
 #include "list.hpp"
 #include "audio_hardware.hpp"
+#include "threads.hpp"
 
 struct GenesisContext {
     List<GenesisNodeDescriptor*> node_descriptors;
@@ -14,6 +15,8 @@ struct GenesisContext {
     List<GenesisAudioFileFormat*> in_formats;
 
     List<GenesisNode *> leaf_nodes;
+
+    List<Thread *> thread_pool;
 
     GenesisContext() : audio_hardware(this) {}
 };
@@ -73,7 +76,7 @@ struct GenesisNotesPort {
 struct GenesisNode {
     const struct GenesisNodeDescriptor *descriptor;
     int port_count;
-    struct GenesisPort *ports;
+    struct GenesisPort **ports;
 };
 
 static void on_devices_change(AudioHardware *audio_hardware) {
@@ -169,6 +172,39 @@ const char *genesis_node_descriptor_description(const struct GenesisNodeDescript
     return node_descriptor->description.raw();
 }
 
+static GenesisAudioPort *create_audio_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
+    GenesisAudioPort *audio_port = create_zero<GenesisAudioPort>();
+    if (!audio_port)
+        return nullptr;
+    audio_port->port.descriptor = port_descriptor;
+    return audio_port;
+}
+
+static GenesisNotesPort *create_notes_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
+    GenesisNotesPort *notes_port = create_zero<GenesisNotesPort>();
+    if (!notes_port)
+        return nullptr;
+    notes_port->port.descriptor = port_descriptor;
+    return notes_port;
+}
+
+static GenesisPort *create_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
+    switch (port_descriptor->port_type) {
+        case GenesisPortTypeAudioIn:
+        case GenesisPortTypeAudioOut:
+            return &create_audio_port_from_descriptor(port_descriptor)->port;
+
+        case GenesisPortTypeNotesIn:
+        case GenesisPortTypeNotesOut:
+            return &create_notes_port_from_descriptor(port_descriptor)->port;
+
+        case GenesisPortTypeParamIn:
+        case GenesisPortTypeParamOut:
+            panic("unimplemented");
+    }
+    panic("invalid port type");
+}
+
 struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescriptor *node_descriptor) {
     GenesisNode *node = allocate_zero<GenesisNode>(1);
     if (!node) {
@@ -177,22 +213,32 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
     }
     node->descriptor = node_descriptor;
     node->port_count = node_descriptor->port_descriptors.length();
-    node->ports = allocate_zero<GenesisPort>(node->port_count);
+    node->ports = allocate_zero<GenesisPort*>(node->port_count);
     if (!node->ports) {
         genesis_node_destroy(node);
         return nullptr;
     }
     for (int i = 0; i < node->port_count; i += 1) {
-        GenesisPort *port = &node->ports[i];
-        port->descriptor = node_descriptor->port_descriptors.at(i);
+        GenesisPort *port = create_port_from_descriptor(node_descriptor->port_descriptors.at(i));
+        if (!port) {
+            genesis_node_destroy(node);
+            return nullptr;
+        }
+        node->ports[i] = port;
     }
     return node;
 }
 
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
-        if (node->ports)
+        if (node->ports) {
+            for (int i = 0; i < node->port_count; i += 1) {
+                if (node->ports[i]) {
+                    destroy(node->ports[i], 1);
+                }
+            }
             destroy(node->ports, 1);
+        }
         destroy(node, 1);
     }
 }
@@ -449,7 +495,7 @@ struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index) 
     if (port_index < 0 || port_index >= node->port_count)
         return nullptr;
 
-    return &node->ports[port_index];
+    return node->ports[port_index];
 }
 
 struct GenesisNode *genesis_port_node(struct GenesisPort *port) {
@@ -545,4 +591,11 @@ void genesis_debug_print_port_config(struct GenesisPort *port) {
             panic("unimplemented");
     }
     panic("invalid port type");
+}
+
+enum GenesisError genesis_start_pipeline(struct GenesisContext *context) {
+    int cpu_count = Thread::concurrency();
+    fprintf(stderr, "cpu count: %d\n", cpu_count);
+
+    return GenesisErrorNone;
 }
