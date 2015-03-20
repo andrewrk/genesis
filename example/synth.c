@@ -92,10 +92,6 @@ int main(int argc, char **argv) {
     enum GenesisError err = genesis_connect_ports(audio_out_port, audio_in_port);
     if (err) {
         fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
-        fprintf(stderr, "\nout port:\n");
-        genesis_debug_print_port_config(audio_out_port);
-        fprintf(stderr, "\nin port:\n");
-        genesis_debug_print_port_config(audio_in_port);
         return 1;
     }
 
@@ -109,4 +105,7 @@ int main(int argc, char **argv) {
             input_node_descr, 0, GenesisPortTypeNotesOut);
 
     genesis_port_descriptor_set_run_callback(input_notes_port_descr, run);
+
+    for (;;)
+        genesis_wait_events(context);
 }

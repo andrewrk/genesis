@@ -301,7 +301,9 @@ void AudioHardware::scan_devices() {
 
 void AudioHardware::wait_events() {
     flush_events();
+    pa_threaded_mainloop_lock(_main_loop);
     pa_threaded_mainloop_wait(_main_loop);
+    pa_threaded_mainloop_unlock(_main_loop);
 }
 
 void AudioHardware::wakeup() {

@@ -114,10 +114,10 @@ struct GenesisContext *genesis_create_context(void) {
     audio_port->port_descriptor.port_type = GenesisPortTypeAudioOut;
     audio_port->channel_layout =
         *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
-    audio_port->channel_layout_fixed = true;
+    audio_port->channel_layout_fixed = false;
     audio_port->same_channel_layout_index = -1;
     audio_port->sample_rate = 48000;
-    audio_port->sample_rate_fixed = true;
+    audio_port->sample_rate_fixed = false;
     audio_port->same_sample_rate_index = -1;
 
     return context;
@@ -516,9 +516,13 @@ static void debug_print_audio_port_config(GenesisAudioPort *port) {
     resolve_channel_layout(port);
     resolve_sample_rate(port);
 
+    GenesisAudioPortDescriptor *audio_descr = (GenesisAudioPortDescriptor *)port->port.descriptor;
+    const char *chan_layout_fixed = audio_descr->channel_layout_fixed ? "(fixed)" : "(any)";
+    const char *sample_rate_fixed = audio_descr->sample_rate_fixed ? "(fixed)" : "(any)";
+
     fprintf(stderr, "audio port: %s\n", port->port.descriptor->name);
-    fprintf(stderr, "sample rate: %d\n", port->sample_rate);
-    fprintf(stderr, "channel_layout: ");
+    fprintf(stderr, "sample rate: %s %d\n", sample_rate_fixed, port->sample_rate);
+    fprintf(stderr, "channel_layout: %s ", chan_layout_fixed);
     genesis_debug_print_channel_layout(&port->channel_layout);
 }
 
