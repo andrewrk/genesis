@@ -141,6 +141,16 @@ else()
     set(STATUS_EPOXY "not found")
 endif()
 
+find_package(ALSA)
+if(ALSA_FOUND)
+    set(STATUS_ALSA "OK")
+else()
+    set(STATUS_ALSA "not found")
+endif()
+
+# GFTO, -lstdc++ !!
+set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
+set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
 set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -g -fdiagnostics-color=auto")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -g -fdiagnostics-color=auto")
@@ -163,10 +173,12 @@ include_directories(
     ${CMAKE_SOURCE_DIR}
     ${PULSEAUDIO_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}
+    ${ALSA_INCLUDE_DIRS}
     )
 target_link_libraries(libgenesis_shared LINK_PRIVATE
     ${LIBAV_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
+    ${ALSA_LIBRARIES}
     m
     )
 target_link_libraries(libgenesis_shared LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT})
@@ -291,4 +303,5 @@ message(
     "* pulseaudio                   : ${STATUS_PULSEAUDIO}\n"
     "* GLFW                         : ${STATUS_GLFW}\n"
     "* libepoxy                     : ${STATUS_EPOXY}\n"
+    "* ALSA                         : ${STATUS_ALSA}\n"
     )

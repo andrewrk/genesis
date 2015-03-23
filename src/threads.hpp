@@ -1,6 +1,7 @@
 #ifndef THREADS_HPP
 #define THREADS_HPP
 
+#include <unistd.h>
 #include <pthread.h>
 #include <thread>
 
@@ -35,7 +36,7 @@ public:
     }
 
     static int concurrency() {
-        unsigned cpu_core_count = std::thread::hardware_concurrency();
+        long cpu_core_count = sysconf(_SC_NPROCESSORS_ONLN);
         if (cpu_core_count <= 0)
             cpu_core_count = 1;
         return cpu_core_count;
