@@ -55,14 +55,15 @@ int main(int argc, char **argv) {
     if (!input_filename || !output_filename)
         return usage(argv[0]);
 
-    struct GenesisContext *context = genesis_create_context();
-    if (!context) {
-        fprintf(stderr, "unable to create context\n");
+    struct GenesisContext *context;
+    int err = genesis_create_context(&context);
+    if (err) {
+        fprintf(stderr, "unable to create genesis context: %s\n", genesis_error_string(err));
         return 1;
     }
 
     struct GenesisAudioFile *audio_file;
-    enum GenesisError err = genesis_audio_file_load(context, input_filename, &audio_file);
+    err = genesis_audio_file_load(context, input_filename, &audio_file);
     if (err != GenesisErrorNone)
         return report_error(err);
 
