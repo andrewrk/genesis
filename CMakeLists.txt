@@ -15,8 +15,9 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
-    "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
+    "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
     )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS

@@ -14,9 +14,13 @@ enum GenesisError {
     GenesisErrorInvalidPortDirection,
     GenesisErrorIncompatibleSampleRates,
     GenesisErrorIncompatibleChannelLayouts,
+    GenesisErrorOpeningMidiHardware,
+    GenesisErrorInvalidState,
+    GenesisErrorSystemResources,
+    GenesisErrorDecodingAudio,
 };
 
-const char *genesis_error_string(enum GenesisError error);
+const char *genesis_error_string(int error);
 
 #ifdef __cplusplus
 }

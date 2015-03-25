@@ -15,6 +15,7 @@ AudioHardware::AudioHardware(GenesisContext *genesis_context) :
     _genesis_context(genesis_context),
     _device_scan_queued(false),
     _on_devices_change(default_on_devices_change),
+    _on_events_signal(nullptr),
     _current_audio_devices_info(NULL),
     _ready_audio_devices_info(NULL),
     _safe_devices_info(NULL),
@@ -163,6 +164,7 @@ void AudioHardware::finish_device_query() {
     _current_audio_devices_info = NULL;
     _have_devices_flag = true;
     pa_threaded_mainloop_signal(_main_loop, 0);
+    _on_events_signal(this);
 }
 
 static GenesisChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
@@ -205,16 +207,18 @@ void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *
         finish_device_query();
     } else {
         List<GenesisAudioDevice> *devices = &_current_audio_devices_info->devices;
-        _current_audio_devices_info->devices.resize(devices->length() + 1);
-        GenesisAudioDevice *audio_device = &devices->at(devices->length() - 1);
-        audio_device->context = _genesis_context;
-        audio_device->name = info->name;
-        audio_device->description = info->description;
-        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
-        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
-        audio_device->default_latency = usec_to_sec(info->configured_latency);
-        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
-        audio_device->purpose = GenesisAudioDevicePurposePlayback;
+        int err = _current_audio_devices_info->devices.resize(devices->length() + 1);
+        if (!err) {
+            GenesisAudioDevice *audio_device = &devices->at(devices->length() - 1);
+            audio_device->context = _genesis_context;
+            audio_device->name = info->name;
+            audio_device->description = info->description;
+            set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
+            audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
+            audio_device->default_latency = usec_to_sec(info->configured_latency);
+            audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+            audio_device->purpose = GenesisAudioDevicePurposePlayback;
+        }
     }
     pa_threaded_mainloop_signal(_main_loop, 0);
 }
@@ -225,16 +229,18 @@ void AudioHardware::source_info_callback(pa_context *context, const pa_source_in
         finish_device_query();
     } else {
         List<GenesisAudioDevice> *devices = &_current_audio_devices_info->devices;
-        _current_audio_devices_info->devices.resize(devices->length() + 1);
-        GenesisAudioDevice *audio_device = &devices->at(devices->length() - 1);
-        audio_device->context = _genesis_context;
-        audio_device->name = info->name;
-        audio_device->description = info->description;
-        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
-        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
-        audio_device->default_latency = usec_to_sec(info->configured_latency);
-        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
-        audio_device->purpose = GenesisAudioDevicePurposeRecording;
+        int err = _current_audio_devices_info->devices.resize(devices->length() + 1);
+        if (!err) {
+            GenesisAudioDevice *audio_device = &devices->at(devices->length() - 1);
+            audio_device->context = _genesis_context;
+            audio_device->name = info->name;
+            audio_device->description = info->description;
+            set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
+            audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
+            audio_device->default_latency = usec_to_sec(info->configured_latency);
+            audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+            audio_device->purpose = GenesisAudioDevicePurposeRecording;
+        }
     }
     pa_threaded_mainloop_signal(_main_loop, 0);
 }
@@ -296,19 +302,6 @@ void AudioHardware::scan_devices() {
 
     pa_threaded_mainloop_signal(_main_loop, 0);
 
-    pa_threaded_mainloop_unlock(_main_loop);
-}
-
-void AudioHardware::wait_events() {
-    flush_events();
-    pa_threaded_mainloop_lock(_main_loop);
-    pa_threaded_mainloop_wait(_main_loop);
-    pa_threaded_mainloop_unlock(_main_loop);
-}
-
-void AudioHardware::wakeup() {
-    pa_threaded_mainloop_lock(_main_loop);
-    pa_threaded_mainloop_signal(_main_loop, 0);
     pa_threaded_mainloop_unlock(_main_loop);
 }
 

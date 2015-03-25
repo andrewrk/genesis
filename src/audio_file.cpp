@@ -33,135 +33,155 @@ static const char *prioritized_formats = {
 };
 */
 
-static void import_frame_uint8(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_uint8(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
     double min = 0.0;
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
+    int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
             uint8_t sample = *ptr;
             double dbl_sample = (((double)sample) - min) / half_range - 1.0;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_int16(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_int16(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
+    int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_int32(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_int32(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
+    int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_float(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_float(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
+    int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             float *sample = reinterpret_cast<float*>(ptr);
             double dbl_sample = *sample;
-            audio_file->channels.at(ch).samples.append(dbl_sample);
+            err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_double(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_double(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
+    int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
         for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
             double *sample = reinterpret_cast<double*>(ptr);
-            audio_file->channels.at(ch).samples.append(*sample);
+            err = err || audio_file->channels.at(ch).samples.append(*sample);
         }
     }
+    return err;
 }
 
-static void import_frame_uint8_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_uint8_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     double min = 0.0;
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
+    int err = 0;
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 1) {
             uint8_t sample = *ptr;
             double dbl_sample = (((double)sample) - min) / half_range - 1.0;
-            channel->samples.append(dbl_sample);
+            err = err || channel->samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_int16_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_int16_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     double min = (double)INT16_MIN;
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
+    int err = 0;
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
-            channel->samples.append(dbl_sample);
+            err = err || channel->samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_int32_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_int32_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     double min = (double)INT32_MIN;
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
+    int err = 0;
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
-            channel->samples.append(dbl_sample);
+            err = err || channel->samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_float_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_float_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+    int err = 0;
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
             float *sample = reinterpret_cast<float*>(ptr);
             double dbl_sample = *sample;
-            channel->samples.append(dbl_sample);
+            err = err || channel->samples.append(dbl_sample);
         }
     }
+    return err;
 }
 
-static void import_frame_double_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+static int import_frame_double_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
+    int err = 0;
     for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 8) {
             double *sample = reinterpret_cast<double*>(ptr);
-            channel->samples.append(*sample);
+            err = err || channel->samples.append(*sample);
         }
     }
+    return err;
 }
 
 static int decode_interrupt_cb(void *ctx) {
@@ -170,7 +190,7 @@ static int decode_interrupt_cb(void *ctx) {
 
 static int decode_frame(GenesisAudioFile *audio_file, AVPacket *pkt,
         AVCodecContext *codec_ctx, AVFrame *in_frame,
-        void (*import_frame)(const AVFrame *, GenesisAudioFile *))
+        int (*import_frame)(const AVFrame *, GenesisAudioFile *))
 {
     AVPacket pkt_temp = *pkt;
     bool new_packet = true;
@@ -180,10 +200,10 @@ static int decode_frame(GenesisAudioFile *audio_file, AVPacket *pkt,
         int got_frame;
         int len1 = avcodec_decode_audio4(codec_ctx, in_frame, &got_frame, &pkt_temp);
         if (len1 < 0) {
-            char buf[256];
-            av_strerror(len1, buf, sizeof(buf));
-            fprintf(stderr, "error decoding audio: %s\n", buf);
-            return -1;
+            if (len1 == AVERROR(ENOMEM))
+                return -GenesisErrorNoMem;
+            else
+                return -GenesisErrorDecodingAudio;
         }
         pkt_temp.data += len1;
         pkt_temp.size -= len1;
@@ -195,7 +215,9 @@ static int decode_frame(GenesisAudioFile *audio_file, AVPacket *pkt,
             continue;
         }
 
-        import_frame(in_frame, audio_file);
+        int err = import_frame(in_frame, audio_file);
+        if (err)
+            return -GenesisErrorNoMem;
         decoded_byte_count += in_frame->nb_samples *
             av_get_bytes_per_sample((AVSampleFormat)in_frame->format) *
             av_get_channel_layout_nb_channels(in_frame->channel_layout);
@@ -229,7 +251,7 @@ static GenesisChannelId from_libav_channel_id(uint64_t libav_channel_id) {
     }
 }
 
-static enum GenesisError channel_layout_init_from_libav(uint64_t libav_channel_layout,
+static int channel_layout_init_from_libav(uint64_t libav_channel_layout,
         GenesisChannelLayout *layout)
 {
     int channel_count = av_get_channel_layout_nb_channels(libav_channel_layout);
@@ -256,7 +278,7 @@ static enum GenesisError channel_layout_init_from_libav(uint64_t libav_channel_l
     return GenesisErrorNone;
 }
 
-enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
+int genesis_audio_file_load(struct GenesisContext *context,
         const char *input_filename, struct GenesisAudioFile **out_audio_file)
 {
     *out_audio_file = nullptr;
@@ -327,14 +349,14 @@ enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
         audio_file->tags.put(tag->key, tag->value);
     }
 
-    GenesisError genesis_err = channel_layout_init_from_libav(codec_ctx->channel_layout,
+    int genesis_err = channel_layout_init_from_libav(codec_ctx->channel_layout,
            &audio_file->channel_layout);
     if (genesis_err)
         panic("unable to determine channel layout: %s", genesis_error_string(genesis_err));
     audio_file->sample_rate = codec_ctx->sample_rate;
     long channel_count = audio_file->channel_layout.channel_count;
 
-    void (*import_frame)(const AVFrame *, GenesisAudioFile *);
+    int (*import_frame)(const AVFrame *, GenesisAudioFile *);
     switch (codec_ctx->sample_fmt) {
         default:
             panic("unrecognized sample format");
@@ -372,7 +394,11 @@ enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
             break;
     }
 
-    audio_file->channels.resize(channel_count);
+    err = audio_file->channels.resize(channel_count);
+    if (err) {
+        genesis_audio_file_destroy(audio_file);
+        return err;
+    }
     for (long i = 0; i < audio_file->channels.length(); i += 1) {
         audio_file->channels.at(i).samples.clear();
     }
@@ -393,8 +419,10 @@ enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
             av_strerror(err, buf, sizeof(buf));
             panic("unable to read frame: %s", buf);
         }
-        decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame);
+        int negative_err = decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame);
         av_free_packet(&pkt);
+        if (negative_err < 0)
+            break;
     }
 
     // flush
@@ -744,7 +772,7 @@ static uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layo
     return result;
 }
 
-enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
+int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         const char *output_filename, struct GenesisExportFormat *export_format)
 {
     AVCodec *codec = export_format->codec->codec;
@@ -979,29 +1007,40 @@ void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file) {
     }
 }
 
-static void add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {
+static int add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {
     if (!codec)
-        return;
-    GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.add_one();
+        return 0;
+
+    int err = fmt->codecs.resize(fmt->codecs.length() + 1);
+    if (err)
+        return err;
+
+    GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.at(fmt->codecs.length() - 1);
     audio_file_codec->codec = codec;
     audio_file_codec->format = fmt;
     for (int j = 0; j < array_length(prioritized_sample_formats); j += 1) {
         if (genesis_audio_file_codec_supports_sample_format(audio_file_codec,
                     prioritized_sample_formats[j]))
         {
-            audio_file_codec->prioritized_sample_formats.append(prioritized_sample_formats[j]);
+            err = audio_file_codec->prioritized_sample_formats.append(prioritized_sample_formats[j]);
+            if (err)
+                return err;
         }
     }
     for (int j = 0; j < array_length(prioritized_sample_rates); j += 1) {
         if (genesis_audio_file_codec_supports_sample_rate(audio_file_codec,
                     prioritized_sample_rates[j]))
         {
-            audio_file_codec->prioritized_sample_rates.append(prioritized_sample_rates[j]);
+            err = audio_file_codec->prioritized_sample_rates.append(prioritized_sample_rates[j]);
+            if (err)
+                return err;
         }
     }
+
+    return 0;
 }
 
-void audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats) {
+int audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats) {
     formats.clear();
     AVOutputFormat *oformat = nullptr;
     while ((oformat = av_oformat_next(oformat))) {
@@ -1011,30 +1050,50 @@ void audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats) {
         if (!main_codec)
             continue;
 
-        GenesisAudioFileFormat *fmt = create<GenesisAudioFileFormat>();
-        formats.append(fmt);
+        GenesisAudioFileFormat *fmt = create_zero<GenesisAudioFileFormat>();
+        if (!fmt)
+            return GenesisErrorNoMem;
+
+        int err = formats.append(fmt);
+        if (err) {
+            destroy(fmt, 1);
+            return err;
+        }
 
         fmt->iformat = nullptr;
         fmt->oformat = oformat;
 
         fmt->codecs.clear();
-        add_audio_file_codec(fmt, main_codec);
+        err = add_audio_file_codec(fmt, main_codec);
+        if (err)
+            return err;
         for (int i = 0;; i += 1) {
             AVCodecID codec_id = av_codec_get_id(oformat->codec_tag, i);
             if (codec_id == AV_CODEC_ID_NONE)
                 break;
-            if (codec_id != oformat->audio_codec)
-                add_audio_file_codec(fmt, avcodec_find_encoder(codec_id));
+            if (codec_id != oformat->audio_codec) {
+                err = add_audio_file_codec(fmt, avcodec_find_encoder(codec_id));
+                if (err)
+                    return err;
+            }
         }
     }
+
+    return 0;
 }
 
-void audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
+int audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
     formats.clear();
     AVInputFormat *iformat = nullptr;
     while ((iformat = av_iformat_next(iformat))) {
-        GenesisAudioFileFormat *fmt = create<GenesisAudioFileFormat>();
-        formats.append(fmt);
+        GenesisAudioFileFormat *fmt = create_zero<GenesisAudioFileFormat>();
+        if (!fmt)
+            return GenesisErrorNoMem;
+
+        int err = formats.append(fmt);
+        if (err)
+            return err;
+
         fmt->iformat = iformat;
         fmt->oformat = nullptr;
 
@@ -1044,11 +1103,17 @@ void audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
             if (codec_id == AV_CODEC_ID_NONE)
                 break;
 
-            GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.add_one();
+            err = fmt->codecs.resize(fmt->codecs.length() + 1);
+            if (err)
+                return err;
+
+            GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.at(fmt->codecs.length() - 1);
             audio_file_codec->codec = avcodec_find_decoder(codec_id);
             audio_file_codec->format = fmt;
         }
     }
+
+    return 0;
 }
 
 const char *genesis_audio_file_format_name(const struct GenesisAudioFileFormat *format) {

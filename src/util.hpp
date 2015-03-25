@@ -5,7 +5,10 @@
 #include <math.h>
 #include <new>
 
-void panic(const char *format, ...) __attribute__((cold)) __attribute__ ((noreturn)) __attribute__ ((format (printf, 1, 2)));
+void panic(const char *format, ...)
+    __attribute__((cold))
+    __attribute__ ((noreturn))
+    __attribute__ ((format (printf, 1, 2)));
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
 template<typename T, typename... Args>
@@ -22,7 +25,8 @@ __attribute__((malloc)) static inline T * create(Args... args) {
 template<typename T, typename... Args>
 __attribute__((malloc)) static inline T * create_zero(Args... args) {
     T * ptr = reinterpret_cast<T*>(calloc(1, sizeof(T)));
-    new (ptr) T(args...);
+    if (ptr)
+        new (ptr) T(args...);
     return ptr;
 }
 
@@ -38,11 +42,16 @@ __attribute__((malloc)) static inline T * allocate(size_t count) {
     return ptr;
 }
 
-// allocate zeroed memory, do not run constructors and return NULL instead
-// of panicking.
+// allocate zeroed memory and return NULL instead of panicking.
 template<typename T>
 __attribute__((malloc)) static inline T *allocate_zero(size_t count) {
     return reinterpret_cast<T*>(calloc(count, sizeof(T)));
+    T * ptr = reinterpret_cast<T*>(calloc(count, sizeof(T)));
+    if (ptr) {
+        for (size_t i = 0; i < count; i++)
+            new (&ptr[i]) T;
+    }
+    return ptr;
 }
 
 // Pass in a pointer to an array of old_count items.
@@ -67,15 +76,28 @@ static inline T * reallocate(T * old, size_t old_count, size_t new_count) {
     return new_ptr;
 }
 
+// return NULL instead of panicking
+template<typename T>
+static inline T * reallocate_safe(T * old, size_t old_count, size_t new_count) {
+    T * new_ptr = reinterpret_cast<T*>(realloc(old, new_count * sizeof(T)));
+    if (new_ptr) {
+        for (size_t i = old_count; i < new_count; i++)
+            new (&new_ptr[i]) T;
+    }
+    return new_ptr;
+}
+
 // calls destructors and frees the memory.
 // the count parameter is only used to call destructors of array elements.
 // provide a count of 1 if this is not an array,
 // or a count of 0 to skip the destructors.
 template<typename T>
 static inline void destroy(T * ptr, size_t count) {
-    for (size_t i = 0; i < count; i++)
-        ptr[i].~T();
-    free(ptr);
+    if (ptr) {
+        for (size_t i = 0; i < count; i++)
+            ptr[i].~T();
+        free(ptr);
+    }
 }
 
 template <typename T, long n>
@@ -168,5 +190,7 @@ void insertion_sort(T * in_place_list, int size) {
         }
     }
 }
+
+char * create_formatted_str(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
 #endif

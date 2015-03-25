@@ -13,7 +13,7 @@ extern "C" {
 
 ////////// Main Context
 struct GenesisContext;
-struct GenesisContext *genesis_create_context(void);
+int genesis_create_context(struct GenesisContext **context);
 void genesis_destroy_context(struct GenesisContext *context);
 
 // when you call genesis_flush_events, device information becomes invalid
@@ -67,9 +67,33 @@ enum GenesisAudioDevicePurpose {
 enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct GenesisAudioDevice *device);
 
 // set callback to be called when audio devices change
+// callback is always called from genesis_flush_events or genesis_wait_events
 void genesis_set_audio_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata),
         void *userdata);
+
+///////////// MIDI Devices
+
+struct GenesisMidiDevice;
+
+void genesis_refresh_midi_devices(struct GenesisContext *context);
+
+int genesis_get_midi_device_count(struct GenesisContext *context);
+
+struct GenesisMidiDevice *genesis_get_midi_device(struct GenesisContext *context, int index);
+
+int genesis_get_default_midi_device_index(struct GenesisContext *context);
+
+const char *genesis_midi_device_name(const struct GenesisMidiDevice *device);
+const char *genesis_midi_device_description(const struct GenesisMidiDevice *device);
+
+// set callback for when midi devices change
+// callback is always called from genesis_flush_events or genesis_wait_events
+void genesis_set_midi_device_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata),
+        void *userdata);
+
+
 
 
 ///////////// Pipeline
@@ -89,10 +113,14 @@ struct GenesisNodeDescriptor *genesis_node_descriptor_find(
 const char *genesis_node_descriptor_name(const struct GenesisNodeDescriptor *node_descriptor);
 const char *genesis_node_descriptor_description(const struct GenesisNodeDescriptor *node_descriptor);
 
-struct GenesisNodeDescriptor *genesis_audio_device_create_node_descriptor(
-        struct GenesisAudioDevice *audio_device);
+int genesis_audio_device_create_node_descriptor(
+        struct GenesisAudioDevice *audio_device,
+        struct GenesisNodeDescriptor **out_node_descriptor);
+
 struct GenesisNodeDescriptor *genesis_create_node_descriptor(
         struct GenesisContext *context, int port_count);
+
+void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor);
 
 // returns -1 if not found
 int genesis_node_descriptor_find_port_index(
@@ -106,7 +134,7 @@ void genesis_node_destroy(struct GenesisNode *node);
 
 struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
 
-enum GenesisError genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
+int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
 
 struct GenesisNode *genesis_port_node(struct GenesisPort *port);
 
@@ -120,7 +148,7 @@ void genesis_port_descriptor_set_run_callback(
 
 void genesis_debug_print_port_config(struct GenesisPort *port);
 
-enum GenesisError genesis_start_pipeline(struct GenesisContext *context);
+int genesis_start_pipeline(struct GenesisContext *context);
 
 
 
@@ -192,12 +220,12 @@ struct GenesisAudioFileIterator {
     long end;
     float *ptr;
 };
-enum GenesisError genesis_audio_file_load(struct GenesisContext *context,
+int genesis_audio_file_load(struct GenesisContext *context,
         const char *input_filename, struct GenesisAudioFile **audio_file);
 
 void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file);
 
-enum GenesisError genesis_audio_file_export(struct GenesisAudioFile *audio_file,
+int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         const char *output_filename, struct GenesisExportFormat *export_format);
 
 struct GenesisChannelLayout genesis_audio_file_channel_layout(

@@ -32,8 +32,8 @@ struct GenesisAudioFileFormat {
 };
 
 void audio_file_init(void);
-void audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats);
-void audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats);
+int __attribute__((warn_unused_result)) audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats);
+int __attribute__((warn_unused_result)) audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats);
 GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
         List<GenesisAudioFileFormat*> &out_formats, const char *filename_hint,
         const char *format_name, const char *codec_name);

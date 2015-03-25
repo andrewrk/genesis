@@ -15,13 +15,17 @@ public:
         join();
     }
 
-    void start(void (*run)(void *), void *userdata) {
+    int __attribute__((warn_unused_result)) start(void (*run)(void *), void *userdata) {
         if (_run)
-            panic("already started");
+            return GenesisErrorInvalidState;
         _run = run;
         _userdata = userdata;
-        if (pthread_create(&_thread_id, NULL, static_start, this))
-            panic("unable to create thread");
+        if (pthread_create(&_thread_id, NULL, static_start, this)) {
+            _run = nullptr;
+            _userdata = nullptr;
+            return GenesisErrorNoMem;
+        }
+        return 0;
     }
 
     void join() {
@@ -60,12 +64,20 @@ private:
 class Mutex {
 public:
     Mutex() {
-        if (pthread_mutex_init(&_mutex, NULL))
-            panic("pthread_mutex_init failure");
+        _mutex_initialized = false;
+        if (pthread_mutex_init(&_mutex, nullptr)) {
+            _initialization_error = GenesisErrorNoMem;
+            return;
+        }
+        _mutex_initialized = true;
     }
     ~Mutex() {
-        if (pthread_mutex_destroy(&_mutex))
-            panic("pthread_mutex_destroy failure");
+        if (_mutex_initialized)
+            pthread_mutex_destroy(&_mutex);
+    }
+
+    int error() const {
+        return _initialization_error;
     }
 
     void lock() {
@@ -80,6 +92,8 @@ public:
 
     pthread_mutex_t _mutex;
 private:
+    int _initialization_error;
+    bool _mutex_initialized;
 
     Mutex(const Mutex &copy) = delete;
     Mutex &operator=(const Mutex &copy) = delete;
@@ -88,18 +102,35 @@ private:
 class MutexCond {
 public:
     MutexCond() {
-        if (pthread_condattr_init(&_condattr))
-            panic("pthread_condattr_init failure");
-        if (pthread_condattr_setclock(&_condattr, CLOCK_MONOTONIC))
-            panic("pthread_condattr_setclock failure");
-        if (pthread_cond_init(&_cond, &_condattr))
-            panic("pthread_cond_init failure");
+        _condattr_initialized = false;
+        _cond_initialized = false;
+        _initialization_error = 0;
+
+        if (pthread_condattr_init(&_condattr)) {
+            _initialization_error = GenesisErrorNoMem;
+            return;
+        }
+        _condattr_initialized = true;
+        if (pthread_condattr_setclock(&_condattr, CLOCK_MONOTONIC)) {
+            _initialization_error = GenesisErrorNoMem;
+            return;
+        }
+        if (pthread_cond_init(&_cond, &_condattr)) {
+            _initialization_error = GenesisErrorNoMem;
+            return;
+        }
+        _cond_initialized = true;
+
     }
     ~MutexCond() {
-        if (pthread_cond_destroy(&_cond))
-            panic("pthread_cond_destroy failure");
-        if (pthread_condattr_destroy(&_condattr))
-            panic("pthread_condattr_destroy failure");
+        if (_cond_initialized)
+            pthread_cond_destroy(&_cond);
+        if (_condattr_initialized)
+            pthread_condattr_destroy(&_condattr);
+    }
+
+    int error() const {
+        return _initialization_error;
     }
 
     void signal() {
@@ -121,6 +152,9 @@ public:
 private:
     pthread_cond_t _cond;
     pthread_condattr_t _condattr;
+    int _initialization_error;
+    bool _cond_initialized;
+    bool _condattr_initialized;
 
     MutexCond(const MutexCond &copy) = delete;
     MutexCond &operator=(const MutexCond &copy) = delete;

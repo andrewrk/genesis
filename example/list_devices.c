@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-// list or keep a watch on audio devices
+// list or keep a watch on audio and midi devices
 
 static int usage(char *exe) {
     fprintf(stderr, "Usage: %s [--watch]\n", exe);
@@ -12,15 +12,22 @@ static int usage(char *exe) {
 
 static int list_devices(struct GenesisContext *context) {
     genesis_refresh_audio_devices(context);
-    int count = genesis_get_audio_device_count(context);
-    if (count < 0) {
-        fprintf(stderr, "unable to find devices\n");
+    genesis_refresh_midi_devices(context);
+    int audio_count = genesis_get_audio_device_count(context);
+    if (audio_count < 0) {
+        fprintf(stderr, "unable to find audio devices\n");
+        return 1;
+    }
+    int midi_count = genesis_get_midi_device_count(context);
+    if (midi_count < 0) {
+        fprintf(stderr, "unable to find midi devices\n");
         return 1;
     }
 
     int default_playback = genesis_get_default_playback_device_index(context);
     int default_recording = genesis_get_default_recording_device_index(context);
-    for (int i = 0; i < count; i += 1) {
+    int default_midi = genesis_get_default_midi_device_index(context);
+    for (int i = 0; i < audio_count; i += 1) {
         struct GenesisAudioDevice *device = genesis_get_audio_device(context, i);
         const char *purpose_str;
         const char *default_str;
@@ -34,7 +41,13 @@ static int list_devices(struct GenesisContext *context) {
         const char *description = genesis_audio_device_description(device);
         fprintf(stderr, "%s device: %s%s\n", purpose_str, description, default_str);
     }
-    fprintf(stderr, "%d devices found\n", count);
+    for (int i = 0; i < midi_count; i += 1) {
+        struct GenesisMidiDevice *device = genesis_get_midi_device(context, i);
+        const char *default_str = (i == default_midi) ? " (default)" : "";
+        const char *description = genesis_midi_device_description(device);
+        fprintf(stderr, "MIDI-in device: %s%s\n", description, default_str);
+    }
+    fprintf(stderr, "%d devices found\n", audio_count + midi_count);
     return 0;
 }
 
@@ -57,14 +70,16 @@ int main(int argc, char **argv) {
         }
     }
 
-    struct GenesisContext *context = genesis_create_context();
-    if (!context) {
-        fprintf(stderr, "unable to create context\n");
+    struct GenesisContext *context;
+    int err = genesis_create_context(&context);
+    if (err) {
+        fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
         return 1;
     }
 
     if (watch) {
         genesis_set_audio_device_callback(context, on_devices_change, context);
+        genesis_set_midi_device_callback(context, on_devices_change, context);
         for (;;) {
             genesis_wait_events(context);
         }

@@ -94,6 +94,10 @@ public:
     }
     void clear_on_devices_change();
 
+    void set_on_events_signal(void (*on_events_signal)(AudioHardware *)) {
+        _on_events_signal = on_events_signal;
+    }
+
     const AudioDevicesInfo *devices_info() const {
         return _safe_devices_info;
     }
@@ -101,9 +105,6 @@ public:
     // call this and on_devices_change will be called 0 or 1 times, and then
     // this function will return
     void flush_events();
-
-    void wait_events();
-    void wakeup();
 
     void block_until_ready();
     void block_until_have_devices();
@@ -117,6 +118,7 @@ public:
 private:
     atomic_bool _device_scan_queued;
     void (*_on_devices_change)(AudioHardware *);
+    void (*_on_events_signal)(AudioHardware *);
 
     // the one that we're working on building
     AudioDevicesInfo *_current_audio_devices_info;

@@ -7,20 +7,23 @@
 #include <stdarg.h>
 
 ByteBuffer::ByteBuffer() {
-    _buffer.append(0);
+    if (_buffer.append(0))
+        panic("out of memory");
 }
 
 ByteBuffer::ByteBuffer(const char * str) {
-    _buffer.append(0);
+    if (_buffer.append(0))
+        panic("out of memory");
     append(str, strlen(str));
 }
-ByteBuffer::ByteBuffer(const ByteBuffer & copy)
-{
-    _buffer.append(0);
+ByteBuffer::ByteBuffer(const ByteBuffer & copy) {
+    if (_buffer.append(0))
+        panic("out of memory");
     append(copy);
 }
 ByteBuffer::ByteBuffer(const char * str, long length) {
-    _buffer.append(0);
+    if (_buffer.append(0))
+        panic("out of memory");
     append(str, length);
 }
 
@@ -35,7 +38,8 @@ void ByteBuffer::append(const char *str) {
 void ByteBuffer::append(const char *str, long length) {
     long prev_length_plus_null = _buffer.length();
     long new_length_plus_null = prev_length_plus_null + length;
-    _buffer.resize(new_length_plus_null);
+    if (_buffer.resize(new_length_plus_null))
+        panic("out of memory");
     memcpy(_buffer.raw() + prev_length_plus_null - 1, str, length);
     _buffer.at(new_length_plus_null - 1) = 0;
 }
@@ -51,7 +55,8 @@ ByteBuffer ByteBuffer::format(const char *format, ...) {
 
     int required_length = ret + 1;
     ByteBuffer result;
-    result._buffer.resize(required_length);
+    if (result._buffer.resize(required_length))
+        panic("out of memory");
     
     ret = vsnprintf(result._buffer.raw(), required_length, format, ap2);
     if (ret < 0)
@@ -85,7 +90,8 @@ ByteBuffer ByteBuffer::substring(long start, long end) const {
 
 ByteBuffer& ByteBuffer::operator= (const ByteBuffer& other) {
     if (this != &other) {
-        _buffer.resize(other._buffer.length());
+        if (_buffer.resize(other._buffer.length()))
+            panic("out of memory");
         memcpy(_buffer.raw(), other.raw(), _buffer.length());
     }
     return *this;
@@ -95,7 +101,8 @@ void ByteBuffer::split(const char *split_by, List<ByteBuffer> &out) const {
     const char *split_ptr = split_by;
 
     bool in_match = false;
-    out.resize(1);
+    if (out.resize(1))
+        panic("out of memory");
     ByteBuffer *current = &out.at(0);
 
     for (const char *buf_ptr = raw(); *buf_ptr; buf_ptr += 1) {
@@ -105,7 +112,8 @@ void ByteBuffer::split(const char *split_by, List<ByteBuffer> &out) const {
             if (!*split_ptr) {
                 split_ptr = split_by;
                 in_match = false;
-                out.resize(out.length() + 1);
+                if (out.resize(out.length() + 1))
+                    panic("out of memory");
                 current = &out.at(out.length() - 1);
             }
             continue;
