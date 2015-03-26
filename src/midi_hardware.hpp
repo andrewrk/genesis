@@ -3,12 +3,16 @@
 
 #include "list.hpp"
 #include "threads.hpp"
+#include "genesis.h"
 
 #include <alsa/asoundlib.h>
 #include <atomic>
 using std::atomic_bool;
 
+struct MidiHardware;
+
 struct GenesisMidiDevice {
+    MidiHardware *midi_hardware;
     int client_id;
     int port_id;
     char *client_name;
@@ -21,6 +25,7 @@ struct MidiDevicesInfo {
 };
 
 struct MidiHardware {
+    GenesisContext *context;
     snd_seq_t *seq;
     int client_id;
 
@@ -45,7 +50,8 @@ struct MidiHardware {
     snd_seq_port_info_t *port_info;
 };
 
-int create_midi_hardware(const char *client_name,
+int create_midi_hardware(GenesisContext *context,
+        const char *client_name,
         void (*events_signal)(struct MidiHardware *),
         void (*on_devices_change)(struct MidiHardware *),
         void *userdata,

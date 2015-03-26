@@ -116,6 +116,9 @@ const char *genesis_node_descriptor_description(const struct GenesisNodeDescript
 int genesis_audio_device_create_node_descriptor(
         struct GenesisAudioDevice *audio_device,
         struct GenesisNodeDescriptor **out_node_descriptor);
+int genesis_midi_device_create_node_descriptor(
+        struct GenesisMidiDevice *midi_device,
+        struct GenesisNodeDescriptor **out_node_descriptor);
 
 struct GenesisNodeDescriptor *genesis_create_node_descriptor(
         struct GenesisContext *context, int port_count);

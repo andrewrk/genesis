@@ -92,6 +92,7 @@ static int midi_hardware_refresh(MidiHardware *midi_hardware) {
                 destroy_midi_device(device);
                 return GenesisErrorNoMem;
             }
+            device->midi_hardware = midi_hardware;
             device->client_id = snd_seq_port_info_get_client(midi_hardware->port_info);
             device->port_id = snd_seq_port_info_get_port(midi_hardware->port_info);
             device->client_name = strdup(snd_seq_client_info_get_name(midi_hardware->client_info));
@@ -190,7 +191,8 @@ void midi_hardware_flush_events(MidiHardware *midi_hardware) {
         midi_hardware->on_devices_change(midi_hardware);
 }
 
-int create_midi_hardware(const char *client_name,
+int create_midi_hardware(GenesisContext *context,
+        const char *client_name,
         void (*events_signal)(struct MidiHardware *),
         void (*on_devices_change)(struct MidiHardware *),
         void *userdata,
@@ -203,6 +205,7 @@ int create_midi_hardware(const char *client_name,
         destroy_midi_hardware(midi_hardware);
         return GenesisErrorNoMem;
     }
+    midi_hardware->context = context;
     midi_hardware->on_buffer_overrun = default_on_buffer_overrun;
     midi_hardware->events_signal = events_signal;
     midi_hardware->on_devices_change = on_devices_change;
