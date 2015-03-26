@@ -24,9 +24,7 @@ struct GenesisContext {
 
     List<GenesisNodeDescriptor*> node_descriptors;
 
-    List<GenesisNode *> leaf_nodes;
-
-    List<Thread *> thread_pool;
+    List<Thread> thread_pool;
 
     GenesisContext() : audio_hardware(this) {}
 };

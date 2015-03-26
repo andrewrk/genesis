@@ -106,6 +106,11 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return context->events_cond.error() || context->events_mutex.error();
     }
 
+    if (context->thread_pool.resize(Thread::concurrency())) {
+        genesis_destroy_context(context);
+        return GenesisErrorNoMem;
+    }
+
     int err = create_midi_hardware(context, "genesis", midi_events_signal, on_midi_devices_change,
             context, &context->midi_hardware);
     if (err) {
@@ -826,9 +831,24 @@ void genesis_debug_print_port_config(struct GenesisPort *port) {
     panic("invalid port type");
 }
 
+static void pipeline_thread_run(void *userdata) {
+    //GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
+    fprintf(stderr, "worker thread reporting for duty\n");
+}
+
 int genesis_start_pipeline(struct GenesisContext *context) {
-    int cpu_count = Thread::concurrency();
-    fprintf(stderr, "cpu count: %d\n", cpu_count);
+    for (int i = 0; i < context->thread_pool.length(); i += 1) {
+        Thread *thread = &context->thread_pool.at(i);
+        int err = thread->start(pipeline_thread_run, context);
+        if (err) {
+            genesis_stop_pipeline(context);
+            return err;
+        }
+    }
 
     return 0;
+}
+
+void genesis_stop_pipeline(struct GenesisContext *context) {
+    panic("TODO: stop pipeline");
 }
