@@ -145,10 +145,6 @@ struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
         struct GenesisNodeDescriptor *node_descriptor, int port_index,
         enum GenesisPortType port_type);
 
-void genesis_port_descriptor_set_run_callback(
-        struct GenesisPortDescriptor *port_descriptor,
-        void (*run)(struct GenesisPort *port));
-
 void genesis_debug_print_port_config(struct GenesisPort *port);
 
 int genesis_start_pipeline(struct GenesisContext *context);

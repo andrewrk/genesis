@@ -18,6 +18,7 @@ enum GenesisError {
     GenesisErrorInvalidState,
     GenesisErrorSystemResources,
     GenesisErrorDecodingAudio,
+    GenesisErrorInvalidParam,
 };
 
 const char *genesis_error_string(int error);

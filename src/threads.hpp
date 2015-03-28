@@ -135,7 +135,12 @@ public:
 
     void signal() {
         if (pthread_cond_signal(&_cond))
-            panic("pthread_cond_signal failure\n");
+            panic("pthread_cond_signal failure");
+    }
+
+    void signal_broadcast() {
+        if (pthread_cond_broadcast(&_cond))
+            panic("pthread_cond_broadcast failure");
     }
 
     void timed_wait(Mutex *mutex, double seconds) {

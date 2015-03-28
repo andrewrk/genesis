@@ -2,10 +2,11 @@
 #include "audio_file.hpp"
 #include "threads.hpp"
 
+static atomic_flag init_flag = ATOMIC_FLAG_INIT;
+
 struct GenesisPortDescriptor {
     enum GenesisPortType port_type;
     char *name;
-    void (*run)(struct GenesisPort *port);
 };
 
 struct GenesisNotesPortDescriptor {
@@ -39,6 +40,7 @@ struct GenesisNodeDescriptor {
     char *name;
     char *description;
     List<GenesisPortDescriptor*> port_descriptors;
+    void (*run)(struct GenesisNode *node);
 };
 
 struct GenesisPort {
@@ -66,6 +68,8 @@ struct GenesisNode {
     const struct GenesisNodeDescriptor *descriptor;
     int port_count;
     struct GenesisPort **ports;
+    int set_index; // index into context->nodes
+    atomic_flag being_processed;
 };
 
 static void on_midi_devices_change(MidiHardware *midi_hardware) {
@@ -93,7 +97,10 @@ static void on_audio_hardware_events_signal(AudioHardware *audio_hardware) {
 int genesis_create_context(struct GenesisContext **out_context) {
     *out_context = nullptr;
 
-    audio_file_init();
+    // only call global initialization once
+    if (!init_flag.test_and_set()) {
+        audio_file_init();
+    }
 
     GenesisContext *context = create_zero<GenesisContext>();
     if (!context) {
@@ -104,6 +111,11 @@ int genesis_create_context(struct GenesisContext **out_context) {
     if (context->events_cond.error() || context->events_mutex.error()) {
         genesis_destroy_context(context);
         return context->events_cond.error() || context->events_mutex.error();
+    }
+
+    if (context->task_cond.error() || context->task_mutex.error()) {
+        genesis_destroy_context(context);
+        return context->task_cond.error() || context->task_mutex.error();
     }
 
     if (context->thread_pool.resize(Thread::concurrency())) {
@@ -311,11 +323,20 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
         }
         node->ports[i] = port;
     }
+    node->set_index = context->nodes.length();
+    if (context->nodes.append(node)) {
+        genesis_node_destroy(node);
+        return nullptr;
+    }
     return node;
 }
 
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
+        context->nodes.swap_remove(node->set_index);
+        if (node->set_index < context->nodes.length())
+            context->nodes.at(node->set_index)->set_index = node->set_index;
+
         if (node->ports) {
             for (int i = 0; i < node->port_count; i += 1) {
                 if (node->ports[i]) {
@@ -324,6 +345,7 @@ void genesis_node_destroy(struct GenesisNode *node) {
             }
             destroy(node->ports, 1);
         }
+
         destroy(node, 1);
     }
 }
@@ -686,7 +708,7 @@ int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest) 
         case GenesisPortTypeParamOut:
             if (dest->descriptor->port_type != GenesisPortTypeParamIn)
                 return GenesisErrorIncompatiblePorts;
-            panic("TODO: connect param ports");
+            panic("unimplemented: connect param ports");
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeNotesIn:
         case GenesisPortTypeParamIn:
@@ -784,13 +806,6 @@ struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
     panic("invalid port type");
 }
 
-void genesis_port_descriptor_set_run_callback(
-        struct GenesisPortDescriptor *port_descriptor,
-        void (*run)(struct GenesisPort *port))
-{
-    port_descriptor->run = run;
-}
-
 static void debug_print_audio_port_config(GenesisAudioPort *port) {
     resolve_channel_layout(port);
     resolve_sample_rate(port);
@@ -831,12 +846,111 @@ void genesis_debug_print_port_config(struct GenesisPort *port) {
     panic("invalid port type");
 }
 
+static bool node_all_buffers_full(GenesisNode *node) {
+    // TODO
+}
+
+static GenesisNode *task_queue_get_next_blocking(GenesisContext *context) {
+    // this function must return the next node in the queue without locking.
+    // however, if the queue is empty then the function should block until
+    // it can return a node.
+    // TODO
+}
+
+static void task_queue_add(GenesisContext *context, GenesisNode *node) {
+    // TODO
+}
+
+static void task_queue_wakeup(GenesisContext *context) {
+    // TODO
+}
+
 static void pipeline_thread_run(void *userdata) {
-    //GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
-    fprintf(stderr, "worker thread reporting for duty\n");
+    GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
+    for (;;) {
+        GenesisNode *node = task_queue_get_next_blocking(context);
+        if (context->pipeline_shutdown)
+            break;
+
+        const GenesisNodeDescriptor *node_descriptor = node->descriptor;
+        node_descriptor->run(node);
+        node->being_processed.clear();
+        // we do not acquire the mutex here, so this signal is advisory only.
+        // it might not wake up the manager thread.
+        context->task_cond.signal();
+    }
+}
+
+static void manager_thread_run(void *userdata) {
+    GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
+    while (!context->pipeline_shutdown) {
+        // scan the node list and add tasks for nodes which are not being processed
+        // and whose buffers are not full
+        for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
+            GenesisNode *node = context->nodes.at(node_index);
+            if (!node->being_processed.test_and_set()) {
+                // determine whether we want to process this node
+                if (node_all_buffers_full(node)) {
+                    node->being_processed.clear();
+                    continue;
+                }
+
+                // don't add to queue if children are not done
+                bool all_children_done = true;
+                for (int i = 0; i < node->port_count; i += 1) {
+                    GenesisPort *port = node->ports[i];
+                    GenesisPort *child_port = port->input_from;
+                    if (child_port == port)
+                        continue;
+                    GenesisNode *child_node = child_port->node;
+                    if (child_node->being_processed.test_and_set()) {
+                        // this child is currently being processed
+                        all_children_done = false;
+                        break;
+                    } else {
+                        child_node->being_processed.clear();
+                        if (!node_all_buffers_full(child_node)) {
+                            all_children_done = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (all_children_done) {
+                    task_queue_add(context, node);
+                } else {
+                    node->being_processed.clear();
+                }
+            }
+        }
+
+        context->task_mutex.lock();
+        context->task_cond.wait(&context->task_mutex);
+        context->task_mutex.unlock();
+    }
 }
 
 int genesis_start_pipeline(struct GenesisContext *context) {
+    context->task_queue = create_zero<RingBuffer>(context->nodes.length() * sizeof(GenesisNode *));
+    if (!context->task_queue) {
+        genesis_stop_pipeline(context);
+        return GenesisErrorNoMem;
+    }
+
+    // initialize nodes
+    for (int i = 0; i < context->nodes.length(); i += 1) {
+        GenesisNode *node = context->nodes.at(i);
+        // TODO clear node buffers
+        // TODO set node buffers latency
+        node->being_processed.clear();
+    }
+    context->pipeline_shutdown = false;
+
+    int err = context->manager_thread.start(manager_thread_run, context);
+    if (err) {
+        genesis_stop_pipeline(context);
+        return err;
+    }
     for (int i = 0; i < context->thread_pool.length(); i += 1) {
         Thread *thread = &context->thread_pool.at(i);
         int err = thread->start(pipeline_thread_run, context);
@@ -850,5 +964,19 @@ int genesis_start_pipeline(struct GenesisContext *context) {
 }
 
 void genesis_stop_pipeline(struct GenesisContext *context) {
-    panic("TODO: stop pipeline");
+    context->pipeline_shutdown = true;
+    context->task_mutex.lock();
+    context->task_cond.signal();
+    context->task_mutex.unlock();
+    task_queue_wakeup(context);
+    if (context->manager_thread.running())
+        context->manager_thread.join();
+    for (int i = 0; i < context->thread_pool.length(); i += 1) {
+        Thread *thread = &context->thread_pool.at(i);
+        if (thread->running())
+            thread->join();
+    }
+
+    destroy(context->task_queue, 1);
+    context->task_queue = nullptr;
 }

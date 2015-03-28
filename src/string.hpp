@@ -38,7 +38,8 @@ public:
     void append(uint32_t c) {
         if (c > max_codepoint)
             panic("codepoint out of range");
-        _chars.append(c);
+        if (_chars.append(c))
+            panic("out of memory");
     }
     String substring(long start, long end) const;
     String substring(long start) const;

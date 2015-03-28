@@ -7,6 +7,10 @@
 #include "midi_hardware.hpp"
 #include "threads.hpp"
 
+#include <atomic>
+using std::atomic_bool;
+using std::atomic_flag;
+
 struct GenesisContext {
     AudioHardware audio_hardware;
     void (*devices_change_callback)(void *userdata);
@@ -23,8 +27,14 @@ struct GenesisContext {
     List<GenesisAudioFileFormat*> in_formats;
 
     List<GenesisNodeDescriptor*> node_descriptors;
+    List<GenesisNode*> nodes;
 
     List<Thread> thread_pool;
+    Thread manager_thread;
+    atomic_bool pipeline_shutdown;
+    RingBuffer *task_queue;
+    MutexCond task_cond;
+    Mutex task_mutex;
 
     GenesisContext() : audio_hardware(this) {}
 };

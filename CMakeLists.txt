@@ -72,6 +72,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
+    "${CMAKE_SOURCE_DIR}/src/error.cpp"
     )
 set(TEST_HEADERS ${GENESIS_HEADERS})
 

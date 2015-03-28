@@ -1,6 +1,11 @@
 #include "string.hpp"
 #include "unicode.hpp"
 
+static void assert_no_err(int err) {
+    if (err)
+        panic("%s", genesis_error_string(err));
+}
+
 String::String(const ByteBuffer &bytes) {
     *this = decode(bytes);
 }
@@ -16,7 +21,10 @@ String::String(const String &copy) {
 String::String(const char *str) : String(ByteBuffer(str)) {}
 
 String& String::operator= (const String &other) {
-    _chars = other._chars;
+    assert_no_err(_chars.resize(other.length()));
+    for (int i = 0; i < _chars.length(); i += 1) {
+        _chars.at(i) = other._chars.at(i);
+    }
     return *this;
 }
 
@@ -191,7 +199,7 @@ String String::substring(long start) const {
 
 void String::replace(long start, long end, String s) {
     String second_half = substring(end);
-    _chars.resize(_chars.length() + s.length() - (end - start));
+    assert_no_err(_chars.resize(_chars.length() + s.length() - (end - start)));
     for (long i = 0; i < s.length(); i += 1) {
         _chars.at(start + i) = s.at(i);
     }
@@ -269,13 +277,13 @@ bool String::is_whitespace(uint32_t c) {
 }
 
 void String::split_on_whitespace(List<String> &out) const {
-    out.resize(1);
+    assert_no_err(out.resize(1));
     String *current = &out.at(0);
 
     for (long i = 0; i < _chars.length(); i += 1) {
         uint32_t c = _chars.at(i);
         if (is_whitespace(c)) {
-            out.resize(out.length() + 1);
+            assert_no_err(out.resize(out.length() + 1));
             current = &out.at(out.length() - 1);
             continue;
         }

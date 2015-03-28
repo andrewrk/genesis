@@ -28,7 +28,8 @@ public:
         return _buffer.length() - 1;
     }
     void resize(long new_length) {
-        _buffer.resize(new_length + 1);
+        if (_buffer.resize(new_length + 1))
+            panic("out of memory");
         _buffer.at(length()) = 0;
     }
     void append(const ByteBuffer &other);

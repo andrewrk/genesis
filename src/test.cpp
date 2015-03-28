@@ -5,10 +5,16 @@
 #include "string.hpp"
 #include "color.hpp"
 #include "ring_buffer.hpp"
+#include "error.h"
 
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
+
+static void assert_no_err(int err) {
+    if (err)
+        panic("Error: %s", genesis_error_string(err));
+}
 
 static void debug_print_bb_list(const List<ByteBuffer> &list) {
     fprintf(stderr, "\n");
@@ -48,12 +54,12 @@ static void test_string_make_lower_case(void) {
 
 static void test_list_remove_range(void) {
     List<int> list;
-    list.append(0);
-    list.append(1);
-    list.append(2);
-    list.append(3);
-    list.append(4);
-    list.append(5);
+    assert_no_err(list.append(0));
+    assert_no_err(list.append(1));
+    assert_no_err(list.append(2));
+    assert_no_err(list.append(3));
+    assert_no_err(list.append(4));
+    assert_no_err(list.append(5));
 
     list.remove_range(2, 5);
     assert(list.length() == 3);

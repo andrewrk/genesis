@@ -14,6 +14,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorInvalidState: return "invalid state";
         case GenesisErrorSystemResources: return "system resource not available";
         case GenesisErrorDecodingAudio: return "decoding audio";
+        case GenesisErrorInvalidParam: return "invalid parameter";
     }
     panic("invalid error enum value");
 }
