@@ -54,6 +54,19 @@ make
 ./genesis
 ```
 
+#### Running the Tests
+
+```
+make test
+```
+
+#### Generate Test Coverage Report
+
+```
+make coverage
+# now view `coverage/index.html` in a browser
+```
+
 ## Roadmap
 
  0. example synth program which makes a note sound

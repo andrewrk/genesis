@@ -158,12 +158,14 @@ set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -g -fdiagnostics-color=auto")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -g -fdiagnostics-color=auto")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
+set(TEST_CFLAGS "${LIB_CFLAGS} -fprofile-arcs -ftest-coverage")
+set(TEST_LDFLAGS "-fprofile-arcs -ftest-coverage")
 set(TEST_INCLUDES "${CMAKE_SOURCE_DIR}/test")
 
 configure_file (
     "${CMAKE_SOURCE_DIR}/src/config.h.in"
     ${CONFIGURE_OUT_FILE}
-    )
+)
 
 add_library(libgenesis_shared SHARED ${LIBGENESIS_SOURCES} ${LIBGENESIS_HEADERS})
 set_target_properties(libgenesis_shared PROPERTIES
@@ -172,19 +174,19 @@ set_target_properties(libgenesis_shared PROPERTIES
     VERSION ${LIBGENESIS_VERSION}
     COMPILE_FLAGS ${LIB_CFLAGS}
     LINKER_LANGUAGE C
-    )
+)
 include_directories(
     ${CMAKE_SOURCE_DIR}
     ${PULSEAUDIO_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}
     ${ALSA_INCLUDE_DIRS}
-    )
+)
 target_link_libraries(libgenesis_shared LINK_PRIVATE
     ${LIBAV_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     m
-    )
+)
 target_link_libraries(libgenesis_shared LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT})
 include_directories(${LIBAV_INCLUDE_DIRS})
 install(TARGETS libgenesis_shared DESTINATION lib)
@@ -195,7 +197,7 @@ set_target_properties(libgenesis_static PROPERTIES
     OUTPUT_NAME genesis
     COMPILE_FLAGS ${LIB_CFLAGS}
     LINKER_LANGUAGE C
-    )
+)
 install(TARGETS libgenesis_static DESTINATION lib)
 
 install(FILES
@@ -241,7 +243,8 @@ add_dependencies(synth libgenesis_shared)
 add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})
 set_target_properties(generate_unicode_data PROPERTIES
     LINKER_LANGUAGE C
-    COMPILE_FLAGS ${LIB_CFLAGS})
+    COMPILE_FLAGS ${LIB_CFLAGS}
+)
 
 set(UNICODE_DATA_TXT "/usr/share/unicode/UnicodeData.txt")
 add_custom_command(
@@ -249,7 +252,7 @@ add_custom_command(
     COMMAND generate_unicode_data ARGS ${UNICODE_DATA_TXT} ${UNICODE_HPP}
     DEPENDS ${UNICODE_DATA_TXT}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    )
+)
 
 set(ASSETS_JSON_FILE "${CMAKE_SOURCE_DIR}/assets.json")
 set(RESOURCES_FILE "${CMAKE_BINARY_DIR}/resources.bundle")
@@ -257,43 +260,64 @@ add_custom_target(rucksack_bundle ALL
     ${RUCKSACK_BINARY} bundle ${ASSETS_JSON_FILE} ${RESOURCES_FILE}
     DEPENDS ${ASSETS_JSON_FILE}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    )
+)
 
 add_executable(genesis ${GENESIS_SOURCES} ${GENESIS_HEADERS})
 set_target_properties(genesis PROPERTIES
     LINKER_LANGUAGE CXX
-    COMPILE_FLAGS ${LIB_CFLAGS})
+    COMPILE_FLAGS ${LIB_CFLAGS}
+)
 include_directories(
     ${FREETYPE_INCLUDE_DIR}
     ${PNG_INCLUDE_DIR}
     ${RUCKSACK_INCLUDE_DIR}
     ${GLFW_INCLUDE_DIR}
     ${EPOXY_INCLUDE_DIR}
-    )
+)
 target_link_libraries(genesis libgenesis_shared
     ${FREETYPE_LIBRARY}
     ${PNG_LIBRARY}
     ${RUCKSACK_LIBRARY}
     ${GLFW_LIBRARY}
     ${EPOXY_LIBRARY}
-    )
+)
 add_dependencies(genesis libgenesis_shared ${UNICODE_HPP})
 install(TARGETS genesis DESTINATION bin)
 
 
 enable_testing()
 add_executable(unit_tests ${TEST_SOURCES} ${TEST_HEADERS})
+target_link_libraries(unit_tests LINK_PUBLIC
+    ${CMAKE_THREAD_LIBS_INIT}
+    m
+)
 set_target_properties(unit_tests PROPERTIES
-    LINKER_LANGUAGE CXX
-    COMPILE_FLAGS ${LIB_CFLAGS})
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${TEST_CFLAGS}
+    LINK_FLAGS ${TEST_LDFLAGS}
+)
 include_directories(${TEST_INCLUDES})
 add_test(UnitTests unit_tests)
+
+
+add_custom_target(coverage
+    DEPENDS unit_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMAND lcov --directory . --zerocounters
+    COMMAND ./unit_tests
+    COMMAND lcov --directory . --capture --output-file coverage.info
+    COMMAND lcov --remove coverage.info '/usr/*' --output-file coverage.info.cleaned
+    COMMAND genhtml -o coverage coverage.info.cleaned
+    COMMAND rm coverage.info coverage.info.cleaned
+)
+
+
 
 message("\n"
     "Installation Summary\n"
     "--------------------\n"
     "* Install Directory            : ${CMAKE_INSTALL_PREFIX}\n"
-    )
+)
 
 message(
     "System Dependencies\n"
@@ -309,4 +333,4 @@ message(
     "* GLFW                         : ${STATUS_GLFW}\n"
     "* libepoxy                     : ${STATUS_EPOXY}\n"
     "* ALSA                         : ${STATUS_ALSA}\n"
-    )
+)
