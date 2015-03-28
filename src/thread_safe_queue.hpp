@@ -40,11 +40,11 @@ template<typename T>
 class ThreadSafeQueue {
 public:
     ThreadSafeQueue() {
-        _slots = nullptr;
+        _items = nullptr;
         _size = 0;
     }
     ~ThreadSafeQueue() {
-        destroy(_slots, _size);
+        destroy(_items, _size);
     }
 
     // this method not thread safe
@@ -52,15 +52,16 @@ public:
         if (size < 0)
             return GenesisErrorInvalidParam;
 
-        T *new_items = reallocate_safe(_slots, _size, size);
+        T *new_items = reallocate_safe(_items, _size, size);
         if (!new_items)
             return GenesisErrorNoMem;
 
+        _items = new_items;
         _size = size;
         _queue_count = 0;
         _read_index = 0;
         _write_index = 0;
-        _modulus_flag = ATOMIC_FLAG_INIT;
+        _modulus_flag.clear();
 
         return 0;
     }
@@ -68,8 +69,7 @@ public:
     void enqueue(T item) {
         int my_write_index = _write_index.fetch_add(1);
         int in_bounds_index = my_write_index % _size;
-        Slot *slot = &_slots[in_bounds_index];
-        slot->item = item;
+        _items[in_bounds_index] = item;
         int my_queue_count = _queue_count.fetch_add(1);
         if (my_queue_count >= _size)
             panic("queue is full");
@@ -109,8 +109,7 @@ outer:
             _write_index -= _size;
             _modulus_flag.clear();
         }
-        Slot *slot = _slots[in_bounds_index];
-        return slot->item;
+        return _items[in_bounds_index];
     }
 
     void wakeup_all() {
@@ -118,11 +117,7 @@ outer:
     }
 
 private:
-    struct Slot {
-        T item;
-    };
-
-    Slot *_slots;
+    T *_items;
     int _size;
     atomic_int _queue_count;
     atomic_int _read_index;
