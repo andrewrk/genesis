@@ -18,7 +18,7 @@ static void worker_thread_2(void *userdata) {
     queue->enqueue(17);
 }
 
-static void worker_thread_3(void *userdata) {
+static void dequeue_no_assert(void *userdata) {
     queue->dequeue();
 }
 
@@ -46,7 +46,7 @@ void test_thread_safe_queue(void) {
     assert(queue->dequeue() + queue->dequeue() == 13 + 17);
 
     Thread thread3;
-    assert_no_err(thread3.start(worker_thread_3, nullptr));
+    assert_no_err(thread3.start(dequeue_no_assert, nullptr));
 
     queue->wakeup_all(1);
 
@@ -66,6 +66,14 @@ void test_thread_safe_queue(void) {
     for (int i = 0; i < 5; i += 1) {
         queue->enqueue(i);
     }
+    thread1.join();
+
+    // wakeup_all waking up a blocking reading thread
+    assert_no_err(thread1.start(dequeue_no_assert, nullptr));
+    Mutex mutex;
+    MutexCond cond;
+    cond.timed_wait(&mutex, 0.001);
+    queue->wakeup_all(0);
     thread1.join();
 
 
