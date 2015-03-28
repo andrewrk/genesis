@@ -17,8 +17,7 @@ using std::atomic_flag;
 #error "require atomic int to be lock free"
 #endif
 
-// hopefully if this is true, we can send the address of an atomic int to the futex
-// syscall and have it work correctly
+// if this is true then we can send the address of an atomic int to the futex syscall
 static_assert(sizeof(int) == sizeof(atomic_int), "require atomic_int to be same size as int");
 
 static int futex(int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2, int val3) {
@@ -66,6 +65,8 @@ public:
         return 0;
     }
 
+    // put an item on the queue. panics if you attempt to put an item into a
+    // full queue. thread-safe.
     void enqueue(T item) {
         int my_write_index = _write_index.fetch_add(1);
         int in_bounds_index = my_write_index % _size;
@@ -77,6 +78,9 @@ public:
             futex_wake(reinterpret_cast<int*>(&_queue_count), 1);
     }
 
+    // get an item from the queue. blocks if the queue is empty. thread-safe.
+    // if the queue has 4 items and 8 threads try to dequeue at the same time,
+    // 4 threads will block and 4 threads will return queue items.
     T dequeue() {
 outer:
         int my_queue_count = _queue_count.fetch_sub(1);
@@ -112,8 +116,10 @@ outer:
         return _items[in_bounds_index];
     }
 
+    // wakes up all blocking dequeue() operations. thread-safe.
     // after you call wakeup_all, the queue is in an invalid state and you
-    // must call resize() to fix it.
+    // must call resize() to fix it. consumer_count is the total number of
+    // threads that might call dequeue().
     void wakeup_all(int consumer_count) {
         int my_queue_count = _queue_count.fetch_add(consumer_count);
         int amount_to_wake = -my_queue_count;
