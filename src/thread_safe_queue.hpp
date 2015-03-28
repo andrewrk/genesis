@@ -112,8 +112,13 @@ outer:
         return _items[in_bounds_index];
     }
 
-    void wakeup_all() {
-        futex_wake(reinterpret_cast<int*>(&_queue_count), -_queue_count);
+    // after you call wakeup_all, the queue is in an invalid state and you
+    // must call resize() to fix it.
+    void wakeup_all(int consumer_count) {
+        int my_queue_count = _queue_count.fetch_add(consumer_count);
+        int amount_to_wake = -my_queue_count;
+        if (amount_to_wake > 0)
+            futex_wake(reinterpret_cast<int*>(&_queue_count), amount_to_wake);
     }
 
 private:

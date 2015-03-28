@@ -63,6 +63,7 @@ make test
 #### Generate Test Coverage Report
 
 ```
+sudo apt-get install lcov
 make coverage
 # now view `coverage/index.html` in a browser
 ```
