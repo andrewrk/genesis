@@ -88,7 +88,11 @@ public:
 
     // how much of the buffer is used, ready for reading
     int fill_count() const {
-        return _write_offset - _read_offset;
+        int count = _write_offset - _read_offset;
+        // since we subtract read_offset before write_offset in
+        // advance_read_ptr, it's possible for count to be too big by _capacity
+        return (count > _capacity) ? (count - _capacity) : count;
+
     }
 
     // how much is available, ready for writing
@@ -96,7 +100,6 @@ public:
         return _capacity - fill_count();
     }
  
-    // set all bytes to 0 and reset read and write offset
     void clear() {
         _write_offset = 0;
         _read_offset = 0;
