@@ -6,6 +6,7 @@
 #include "color.hpp"
 #include "ring_buffer.hpp"
 #include "error.h"
+#include "thread_safe_queue_test.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -132,6 +133,7 @@ static struct Test tests[] = {
     {"parse_color", test_parse_color},
     {"RingBuffer", test_ring_buffer},
     {"euclidean_mod", test_euclidean_mod},
+    {"ThreadSafeQueue", test_thread_safe_queue},
     {NULL, NULL},
 };
 

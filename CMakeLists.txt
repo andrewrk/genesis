@@ -68,7 +68,8 @@ set(GENERATE_UNICODE_DATA_SOURCES
     )
 
 set(TEST_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/test.cpp"
+    "${CMAKE_SOURCE_DIR}/test/unit_tests.cpp"
+    "${CMAKE_SOURCE_DIR}/test/thread_safe_queue_test.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
@@ -157,6 +158,7 @@ set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -g -fdiagnostics-color=auto")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -g -fdiagnostics-color=auto")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
+set(TEST_INCLUDES "${CMAKE_SOURCE_DIR}/test")
 
 configure_file (
     "${CMAKE_SOURCE_DIR}/src/config.h.in"
@@ -284,6 +286,7 @@ add_executable(unit_tests ${TEST_SOURCES} ${TEST_HEADERS})
 set_target_properties(unit_tests PROPERTIES
     LINKER_LANGUAGE CXX
     COMPILE_FLAGS ${LIB_CFLAGS})
+include_directories(${TEST_INCLUDES})
 add_test(UnitTests unit_tests)
 
 message("\n"

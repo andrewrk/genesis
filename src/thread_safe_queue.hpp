@@ -2,6 +2,7 @@
 #define THREAD_SAFE_QUEUE
 
 #include "error.h"
+#include "util.hpp"
 
 #include <linux/futex.h>
 #include <sys/time.h>
@@ -43,12 +44,12 @@ public:
         _size = 0;
     }
     ~ThreadSafeQueue() {
-        destroy(_slots, size);
+        destroy(_slots, _size);
     }
 
     // this method not thread safe
     int __attribute__((warn_unused_result)) resize(int size) {
-        if (length < 0)
+        if (size < 0)
             return GenesisErrorInvalidParam;
 
         T *new_items = reallocate_safe(_slots, _size, size);
@@ -73,16 +74,16 @@ public:
         if (my_queue_count >= _size)
             panic("queue is full");
         if (my_queue_count <= 0)
-            futex_wake(&_queue_count, 1);
+            futex_wake(reinterpret_cast<int*>(&_queue_count), 1);
     }
 
     T dequeue() {
 outer:
-        int my_queue_count = _queue_count.fetch_and_sub(1);
+        int my_queue_count = _queue_count.fetch_sub(1);
         if (my_queue_count <= 0) {
             // need to block because there are no items in the queue
             for (;;) {
-                int err = futex_wait(&_queue_count, my_queue_count - 1);
+                int err = futex_wait(reinterpret_cast<int*>(&_queue_count), my_queue_count - 1);
                 if (err == EACCES || err == EINVAL || err == ENOSYS) {
                     panic("futex wait error");
                 } else if (err == EWOULDBLOCK) {
@@ -113,7 +114,7 @@ outer:
     }
 
     void wakeup_all() {
-        futex_wake(&_queue_count, -_queue_count);
+        futex_wake(reinterpret_cast<int*>(&_queue_count), -_queue_count);
     }
 
 private:
