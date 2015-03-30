@@ -5,6 +5,8 @@
  * Not ready for serious users yet.
  * Load and save any format audio file.
  * Multi-threaded audio pipeline working.
+ * MIDI Keyboard support.
+ * Basic synthesizer plugin. [YouTube Demo](https://www.youtube.com/watch?v=K5r_o331Eqo)
 
 ## The Vision
 
