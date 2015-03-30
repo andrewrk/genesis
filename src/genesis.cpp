@@ -86,13 +86,13 @@ static void synth_seek(struct GenesisNode *node) {
 static void synth_run(struct GenesisNode *node) {
     struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
     static const float PI = 3.14159265358979323846;
-    struct GenesisNotesPort *notes_in_port = (struct GenesisNotesPort *) node->ports[0];
-    struct GenesisNotesPort *notes_out_port = (struct GenesisNotesPort *)notes_in_port->port.input_from;
+    struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) node->ports[0];
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) node->ports[1];
 
-    int event_byte_count = notes_out_port->event_buffer->fill_count();
+    int event_byte_count = events_out_port->event_buffer->fill_count();
     int event_count = event_byte_count / sizeof(GenesisMidiEvent);
-    GenesisMidiEvent *event = reinterpret_cast<GenesisMidiEvent *>(notes_out_port->event_buffer->read_ptr());
+    GenesisMidiEvent *event = reinterpret_cast<GenesisMidiEvent *>(events_out_port->event_buffer->read_ptr());
     for (int i = 0; i < event_count; i += 1) {
         switch (event->event_type) {
             case GenesisMidiEventTypeNoteOn:
@@ -108,7 +108,7 @@ static void synth_run(struct GenesisNode *node) {
         }
         event += 1;
     }
-    notes_out_port->event_buffer->advance_read_ptr(event_byte_count);
+    events_out_port->event_buffer->advance_read_ptr(event_byte_count);
 
     int free_byte_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
     int free_frame_count = free_byte_count / audio_out_port->bytes_per_frame;
@@ -216,27 +216,27 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return GenesisErrorNoMem;
     }
 
-    GenesisNotesPortDescriptor *notes_port = create_zero<GenesisNotesPortDescriptor>();
+    GenesisEventsPortDescriptor *events_port = create_zero<GenesisEventsPortDescriptor>();
     GenesisAudioPortDescriptor *audio_port = create_zero<GenesisAudioPortDescriptor>();
 
-    if (!notes_port || !audio_port) {
+    if (!events_port || !audio_port) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
 
-    node_descr->port_descriptors.at(0) = &notes_port->port_descriptor;
+    node_descr->port_descriptors.at(0) = &events_port->port_descriptor;
     node_descr->port_descriptors.at(1) = &audio_port->port_descriptor;
 
-    notes_port->port_descriptor.port_type = GenesisPortTypeNotesIn;
-    notes_port->port_descriptor.name = strdup("notes_in");
-    if (!notes_port->port_descriptor.name) {
+    events_port->port_descriptor.port_type = GenesisPortTypeEventsIn;
+    events_port->port_descriptor.name = strdup("events_in");
+    if (!events_port->port_descriptor.name) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
 
     audio_port->port_descriptor.port_type = GenesisPortTypeAudioOut;
     audio_port->port_descriptor.name = strdup("audio_out");
-    if (!notes_port->port_descriptor.name) {
+    if (!events_port->port_descriptor.name) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
@@ -314,11 +314,11 @@ static GenesisAudioPort *create_audio_port_from_descriptor(GenesisPortDescriptor
     return audio_port;
 }
 
-static GenesisNotesPort *create_notes_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
-    GenesisNotesPort *notes_port = create_zero<GenesisNotesPort>();
-    if (!notes_port)
+static GenesisEventsPort *create_events_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
+    GenesisEventsPort *events_port = create_zero<GenesisEventsPort>();
+    if (!events_port)
         return nullptr;
-    return notes_port;
+    return events_port;
 }
 
 static GenesisPort *create_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
@@ -329,9 +329,9 @@ static GenesisPort *create_port_from_descriptor(GenesisPortDescriptor *port_desc
             port = &create_audio_port_from_descriptor(port_descriptor)->port;
             break;
 
-        case GenesisPortTypeNotesIn:
-        case GenesisPortTypeNotesOut:
-            port = &create_notes_port_from_descriptor(port_descriptor)->port;
+        case GenesisPortTypeEventsIn:
+        case GenesisPortTypeEventsOut:
+            port = &create_events_port_from_descriptor(port_descriptor)->port;
             break;
 
     }
@@ -724,16 +724,16 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
 
 static void midi_node_on_event(struct GenesisMidiDevice *device, const struct GenesisMidiEvent *event) {
     GenesisNode *node = (GenesisNode *)device->userdata;
-    GenesisNotesPort *notes_out_port = (GenesisNotesPort *)node->ports[0];
-    int free_count = notes_out_port->event_buffer->free_count();
+    GenesisEventsPort *events_out_port = (GenesisEventsPort *)node->ports[0];
+    int free_count = events_out_port->event_buffer->free_count();
     int midi_event_size = sizeof(GenesisMidiEvent);
     if (free_count < midi_event_size) {
         fprintf(stderr, "event buffer overflow\n");
         return;
     }
-    char *ptr = notes_out_port->event_buffer->write_ptr();
+    char *ptr = events_out_port->event_buffer->write_ptr();
     memcpy(ptr, event, midi_event_size);
-    notes_out_port->event_buffer->advance_write_ptr(midi_event_size);
+    events_out_port->event_buffer->advance_write_ptr(midi_event_size);
 }
 
 static void midi_node_run(struct GenesisNode *node) {
@@ -795,20 +795,20 @@ int genesis_midi_device_create_node_descriptor(
 
     node_descr->destroy_descriptor = destroy_midi_device_node_descriptor;
 
-    GenesisNotesPortDescriptor *notes_out_port = create_zero<GenesisNotesPortDescriptor>();
-    if (!notes_out_port) {
+    GenesisEventsPortDescriptor *events_out_port = create_zero<GenesisEventsPortDescriptor>();
+    if (!events_out_port) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
-    node_descr->port_descriptors.at(0) = &notes_out_port->port_descriptor;
+    node_descr->port_descriptors.at(0) = &events_out_port->port_descriptor;
 
-    notes_out_port->port_descriptor.name = strdup("notes_out");
-    if (!notes_out_port->port_descriptor.name) {
+    events_out_port->port_descriptor.name = strdup("events_out");
+    if (!events_out_port->port_descriptor.name) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
-    notes_out_port->port_descriptor.port_type = GenesisPortTypeNotesOut;
+    events_out_port->port_descriptor.port_type = GenesisPortTypeEventsOut;
 
     *out = node_descr;
     return 0;
@@ -818,8 +818,8 @@ static void destroy_audio_port_descriptor(GenesisAudioPortDescriptor *audio_port
     destroy(audio_port_descr, 1);
 }
 
-static void destroy_notes_port_descriptor(GenesisNotesPortDescriptor *notes_port_descr) {
-    destroy(notes_port_descr, 1);
+static void destroy_events_port_descriptor(GenesisEventsPortDescriptor *events_port_descr) {
+    destroy(events_port_descr, 1);
 }
 
 void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descriptor) {
@@ -828,9 +828,9 @@ void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descript
     case GenesisPortTypeAudioOut:
         destroy_audio_port_descriptor((GenesisAudioPortDescriptor *)port_descriptor);
         break;
-    case GenesisPortTypeNotesIn:
-    case GenesisPortTypeNotesOut:
-        destroy_notes_port_descriptor((GenesisNotesPortDescriptor *)port_descriptor);
+    case GenesisPortTypeEventsIn:
+    case GenesisPortTypeEventsOut:
+        destroy_events_port_descriptor((GenesisEventsPortDescriptor *)port_descriptor);
         break;
     }
     free(port_descriptor->name);
@@ -932,7 +932,7 @@ static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest)
     return 0;
 }
 
-static int connect_notes_ports(GenesisNotesPort *source, GenesisNotesPort *dest) {
+static int connect_events_ports(GenesisEventsPort *source, GenesisEventsPort *dest) {
     source->port.output_to = &dest->port;
     dest->port.input_from = &source->port;
     return 0;
@@ -946,13 +946,13 @@ int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest) 
                 return GenesisErrorIncompatiblePorts;
 
             return connect_audio_ports((GenesisAudioPort *)source, (GenesisAudioPort *)dest);
-        case GenesisPortTypeNotesOut:
-            if (dest->descriptor->port_type != GenesisPortTypeNotesIn)
+        case GenesisPortTypeEventsOut:
+            if (dest->descriptor->port_type != GenesisPortTypeEventsIn)
                 return GenesisErrorIncompatiblePorts;
 
-            return connect_notes_ports((GenesisNotesPort *)source, (GenesisNotesPort *)dest);
+            return connect_events_ports((GenesisEventsPort *)source, (GenesisEventsPort *)dest);
         case GenesisPortTypeAudioIn:
-        case GenesisPortTypeNotesIn:
+        case GenesisPortTypeEventsIn:
             return GenesisErrorInvalidPortDirection;
     }
     panic("unknown port type");
@@ -1013,15 +1013,15 @@ static GenesisAudioPortDescriptor *create_audio_port(GenesisNodeDescriptor *node
     return audio_port_descr;
 }
 
-static GenesisNotesPortDescriptor *create_notes_port(GenesisNodeDescriptor *node_descr,
+static GenesisEventsPortDescriptor *create_events_port(GenesisNodeDescriptor *node_descr,
         int port_index, GenesisPortType port_type)
 {
-    GenesisNotesPortDescriptor *notes_port_descr = create_zero<GenesisNotesPortDescriptor>();
-    if (!notes_port_descr)
+    GenesisEventsPortDescriptor *events_port_descr = create_zero<GenesisEventsPortDescriptor>();
+    if (!events_port_descr)
         return nullptr;
-    node_descr->port_descriptors.at(port_index) = &notes_port_descr->port_descriptor;
-    notes_port_descr->port_descriptor.port_type = port_type;
-    return notes_port_descr;
+    node_descr->port_descriptors.at(port_index) = &events_port_descr->port_descriptor;
+    events_port_descr->port_descriptor.port_type = port_type;
+    return events_port_descr;
 }
 
 struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
@@ -1034,9 +1034,9 @@ struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeAudioOut:
             return &create_audio_port(node_descr, port_index, port_type)->port_descriptor;
-        case GenesisPortTypeNotesIn:
-        case GenesisPortTypeNotesOut:
-            return &create_notes_port(node_descr, port_index, port_type)->port_descriptor;
+        case GenesisPortTypeEventsIn:
+        case GenesisPortTypeEventsOut:
+            return &create_events_port(node_descr, port_index, port_type)->port_descriptor;
     }
     panic("invalid port type");
 }
@@ -1055,8 +1055,8 @@ static void debug_print_audio_port_config(GenesisAudioPort *port) {
     genesis_debug_print_channel_layout(&port->channel_layout);
 }
 
-static void debug_print_notes_port_config(GenesisNotesPort *port) {
-    fprintf(stderr, "notes port: %s\n", port->port.descriptor->name);
+static void debug_print_events_port_config(GenesisEventsPort *port) {
+    fprintf(stderr, "events port: %s\n", port->port.descriptor->name);
 }
 
 void genesis_debug_print_port_config(struct GenesisPort *port) {
@@ -1065,9 +1065,9 @@ void genesis_debug_print_port_config(struct GenesisPort *port) {
         case GenesisPortTypeAudioOut:
             debug_print_audio_port_config((GenesisAudioPort *)port);
             return;
-        case GenesisPortTypeNotesIn:
-        case GenesisPortTypeNotesOut:
-            debug_print_notes_port_config((GenesisNotesPort *)port);
+        case GenesisPortTypeEventsIn:
+        case GenesisPortTypeEventsOut:
+            debug_print_events_port_config((GenesisEventsPort *)port);
             return;
     }
     panic("invalid port type");
@@ -1123,14 +1123,14 @@ int genesis_start_pipeline(struct GenesisContext *context) {
                     genesis_stop_pipeline(context);
                     return GenesisErrorNoMem;
                 }
-            } else if (port->descriptor->port_type == GenesisPortTypeNotesOut) {
-                GenesisNotesPort *notes_port = reinterpret_cast<GenesisNotesPort*>(port);
+            } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
+                GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
                 int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * context->latency;
 
-                destroy(notes_port->event_buffer, 1);
-                notes_port->event_buffer = create_zero<RingBuffer>(min_event_buffer_size);
+                destroy(events_port->event_buffer, 1);
+                events_port->event_buffer = create_zero<RingBuffer>(min_event_buffer_size);
 
-                if (!notes_port->event_buffer) {
+                if (!events_port->event_buffer) {
                     genesis_stop_pipeline(context);
                     return GenesisErrorNoMem;
                 }

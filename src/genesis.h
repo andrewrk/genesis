@@ -110,8 +110,8 @@ void genesis_set_midi_device_callback(struct GenesisContext *context,
 enum GenesisPortType {
     GenesisPortTypeAudioIn,
     GenesisPortTypeAudioOut,
-    GenesisPortTypeNotesIn,
-    GenesisPortTypeNotesOut,
+    GenesisPortTypeEventsIn,
+    GenesisPortTypeEventsOut,
 };
 
 struct GenesisPortDescriptor;

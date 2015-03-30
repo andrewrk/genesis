@@ -106,31 +106,31 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    int notes_out_port_index = genesis_node_descriptor_find_port_index(midi_node_descr, "notes_out");
-    if (notes_out_port_index < 0) {
-        fprintf(stderr, "unable to find notes_out port\n");
+    int events_out_port_index = genesis_node_descriptor_find_port_index(midi_node_descr, "events_out");
+    if (events_out_port_index < 0) {
+        fprintf(stderr, "unable to find events_out port\n");
         return 1;
     }
 
-    struct GenesisPort *notes_out_port = genesis_node_port(midi_node, notes_out_port_index);
-    if (!notes_out_port) {
-        fprintf(stderr, "expected to find notes_out port\n");
+    struct GenesisPort *events_out_port = genesis_node_port(midi_node, events_out_port_index);
+    if (!events_out_port) {
+        fprintf(stderr, "expected to find events_out port\n");
         return 1;
     }
 
-    int notes_in_port_index = genesis_node_descriptor_find_port_index(synth_descr, "notes_in");
-    if (notes_in_port_index < 0) {
-        fprintf(stderr, "unable to find notes_in port\n");
+    int events_in_port_index = genesis_node_descriptor_find_port_index(synth_descr, "events_in");
+    if (events_in_port_index < 0) {
+        fprintf(stderr, "unable to find events_in port\n");
         return 1;
     }
 
-    struct GenesisPort *notes_in_port = genesis_node_port(synth_node, notes_in_port_index);
-    if (!notes_in_port) {
-        fprintf(stderr, "expected to find notes_in port\n");
+    struct GenesisPort *events_in_port = genesis_node_port(synth_node, events_in_port_index);
+    if (!events_in_port) {
+        fprintf(stderr, "expected to find events_in port\n");
         return 1;
     }
 
-    err = genesis_connect_ports(notes_out_port, notes_in_port);
+    err = genesis_connect_ports(events_out_port, events_in_port);
     if (err) {
         fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
         return 1;
