@@ -36,10 +36,12 @@ class AudioHardware;
 typedef void PaStream;
 class OpenPlaybackDevice {
 public:
-    OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
+    OpenPlaybackDevice(AudioHardware *audio_hardware,
             const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-            int sample_rate, void (*callback)(int byte_count, void *), void *userdata, bool *ok);
+            int sample_rate, void (*callback)(int byte_count, void *), void *userdata);
     ~OpenPlaybackDevice();
+
+    int start(const char *device_name);
 
     int writable_size();
     void begin_write(char **data, int *byte_count);
@@ -53,6 +55,7 @@ private:
     atomic_bool _stream_ready;
     void *_callback_userdata;
     void (*_callback)(int byte_count, void *);
+    pa_buffer_attr _buffer_attr;
 
     void stream_state_callback(pa_stream *stream);
 

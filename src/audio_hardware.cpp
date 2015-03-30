@@ -445,9 +445,9 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
     }
 }
 
-OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
+OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
         const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, void (*callback)(int, void *), void *userdata, bool *ok) :
+        int sample_rate, void (*callback)(int, void *), void *userdata) :
     _audio_hardware(audio_hardware),
     _stream(NULL),
     _stream_ready(false),
@@ -474,24 +474,31 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
     int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
     int buffer_length = latency * bytes_per_second;
 
-    pa_buffer_attr buffer_attr;
-    buffer_attr.maxlength = buffer_length;
-    buffer_attr.tlength = buffer_length;
-    buffer_attr.prebuf = buffer_attr.maxlength;
-    buffer_attr.minreq = UINT32_MAX;
-    buffer_attr.fragsize = UINT32_MAX;
+    _buffer_attr.maxlength = buffer_length;
+    _buffer_attr.tlength = buffer_length;
+    _buffer_attr.prebuf = _buffer_attr.maxlength;
+    _buffer_attr.minreq = UINT32_MAX;
+    _buffer_attr.fragsize = UINT32_MAX;
 
-    int err = pa_stream_connect_playback(_stream, device_name, &buffer_attr, PA_STREAM_ADJUST_LATENCY, NULL, NULL);
-    if (err)
-        panic("unable to connect pulseaudio playback stream");
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+}
 
-    *ok = true;
+int OpenPlaybackDevice::start(const char *device_name) {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
 
-    // block until ready
+    int err = pa_stream_connect_playback(_stream, device_name, &_buffer_attr,
+            PA_STREAM_ADJUST_LATENCY, NULL, NULL);
+    if (err) {
+        return GenesisErrorOpeningAudioHardware;
+        pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    }
+
     while (!_stream_ready)
         pa_threaded_mainloop_wait(_audio_hardware->_main_loop);
 
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+
+    return 0;
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {

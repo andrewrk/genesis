@@ -561,19 +561,21 @@ static int playback_device_create(struct GenesisNode *node) {
 
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
-    bool ok;
     playback_node_context->playback_device = create_zero<OpenPlaybackDevice>(
-            &context->audio_hardware, device->name.raw(), &device->channel_layout,
+            &context->audio_hardware, &device->channel_layout,
             device->default_sample_format, context->latency, device->default_sample_rate,
-            playback_device_callback, node, &ok);
+            playback_device_callback, node);
     if (!playback_node_context->playback_device) {
         playback_device_destroy(node);
         return GenesisErrorNoMem;
     }
-    if (!ok) {
+
+    int err = playback_node_context->playback_device->start(device->name.raw());
+    if (err) {
         playback_device_destroy(node);
-        return GenesisErrorNoMem;
+        return err;
     }
+
     return 0;
 }
 

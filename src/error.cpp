@@ -11,6 +11,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorIncompatibleSampleRates: return "incompatible sample rates";
         case GenesisErrorIncompatibleChannelLayouts: return "incompatible channel layouts";
         case GenesisErrorOpeningMidiHardware: return "opening midi hardware";
+        case GenesisErrorOpeningAudioHardware: return "opening audio hardware";
         case GenesisErrorInvalidState: return "invalid state";
         case GenesisErrorSystemResources: return "system resource not available";
         case GenesisErrorDecodingAudio: return "decoding audio";

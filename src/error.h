@@ -15,6 +15,7 @@ enum GenesisError {
     GenesisErrorIncompatibleSampleRates,
     GenesisErrorIncompatibleChannelLayouts,
     GenesisErrorOpeningMidiHardware,
+    GenesisErrorOpeningAudioHardware,
     GenesisErrorInvalidState,
     GenesisErrorSystemResources,
     GenesisErrorDecodingAudio,
