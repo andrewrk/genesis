@@ -21,6 +21,7 @@ void genesis_destroy_context(struct GenesisContext *context);
 void genesis_flush_events(struct GenesisContext *context);
 
 // flushes events as they occur, blocks until you call genesis_wakeup
+// be ready for spurious wakeups
 void genesis_wait_events(struct GenesisContext *context);
 
 // makes genesis_wait_events stop blocking
@@ -80,7 +81,6 @@ void genesis_set_audio_device_callback(struct GenesisContext *context,
         void *userdata);
 
 ///////////// MIDI Devices
-
 struct GenesisMidiDevice;
 
 void genesis_refresh_midi_devices(struct GenesisContext *context);
@@ -102,6 +102,9 @@ const char *genesis_midi_device_description(const struct GenesisMidiDevice *devi
 void genesis_set_midi_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata),
         void *userdata);
+
+#define GENESIS_NOTES_COUNT 128
+float genesis_midi_note_to_pitch(int note);
 
 
 
@@ -144,6 +147,7 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
 void genesis_node_destroy(struct GenesisNode *node);
 
 struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
+const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node);
 
 int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
 

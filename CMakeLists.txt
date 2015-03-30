@@ -18,6 +18,8 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
+    "${CMAKE_SOURCE_DIR}/src/synth.cpp"
+    "${CMAKE_SOURCE_DIR}/src/delay.cpp"
     )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
@@ -238,6 +240,14 @@ set_target_properties(synth PROPERTIES
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(synth libgenesis_shared)
 add_dependencies(synth libgenesis_shared)
+
+add_executable(delay example/delay.c)
+set_target_properties(delay PROPERTIES
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${EXAMPLE_CFLAGS})
+include_directories(${EXAMPLE_INCLUDES})
+target_link_libraries(delay libgenesis_shared)
+add_dependencies(delay libgenesis_shared)
 
 
 add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})

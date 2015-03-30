@@ -1,26 +1,16 @@
 #include "genesis.hpp"
 #include "audio_file.hpp"
 #include "midi_note_pitch.hpp"
+#include "synth.hpp"
+#include "delay.hpp"
 
 static atomic_flag lib_init_flag = ATOMIC_FLAG_INIT;
 
 static const int BYTES_PER_SAMPLE = 4; // assuming float samples
 static const int EVENTS_PER_SECOND_CAPACITY = 16000;
 static const double whole_notes_per_second = 140.0 / 60.0;
-static const int NOTES_COUNT = 128;
 
-static_assert(NOTES_COUNT == array_length(midi_note_to_pitch), "");
-
-struct SynthNoteState {
-    float velocity;
-    float seconds_offset;
-};
-
-struct SynthContext {
-    float seconds_offset;
-    SynthNoteState notes_on[NOTES_COUNT];
-    float pitch;
-};
+static_assert(GENESIS_NOTES_COUNT == array_length(midi_note_to_pitch), "");
 
 struct PlaybackNodeContext {
     OpenPlaybackDevice *playback_device;
@@ -63,97 +53,6 @@ int genesis_whole_notes_to_frames(GenesisContext *context, double whole_notes, i
 
 double genesis_whole_notes_to_seconds(GenesisContext *context, double whole_notes, int frame_rate) {
     return whole_notes / whole_notes_per_second;
-}
-
-static void synth_destroy(struct GenesisNode *node) {
-    SynthContext *synth_context = (SynthContext*)node->userdata;
-    destroy(synth_context, 1);
-}
-
-static int synth_create(struct GenesisNode *node) {
-    SynthContext *synth_context = create_zero<SynthContext>();
-    node->userdata = synth_context;
-    if (!node->userdata) {
-        synth_destroy(node);
-        return GenesisErrorNoMem;
-    }
-    return 0;
-}
-
-static void synth_seek(struct GenesisNode *node) {
-    // do nothing
-}
-
-static void synth_run(struct GenesisNode *node) {
-    struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
-    static const float PI = 3.14159265358979323846;
-    struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) node->ports[0];
-    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
-    struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) node->ports[1];
-
-    int event_byte_count = events_out_port->event_buffer->fill_count();
-    int event_count = event_byte_count / sizeof(GenesisMidiEvent);
-    GenesisMidiEvent *event = reinterpret_cast<GenesisMidiEvent *>(events_out_port->event_buffer->read_ptr());
-    for (int i = 0; i < event_count; i += 1) {
-        switch (event->event_type) {
-            case GenesisMidiEventTypeNoteOn:
-                {
-                    SynthNoteState *note_state = &synth_context->notes_on[event->data.note_data.note];
-                    note_state->velocity = event->data.note_data.velocity;
-                    note_state->seconds_offset = 0.0f;
-                    break;
-                }
-            case GenesisMidiEventTypeNoteOff:
-                synth_context->notes_on[event->data.note_data.note].velocity = 0.0f;
-                break;
-            case GenesisMidiEventTypePitch:
-                synth_context->pitch = event->data.pitch_data.pitch;
-                break;
-        }
-        event += 1;
-    }
-    events_out_port->event_buffer->advance_read_ptr(event_byte_count);
-
-    int free_byte_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
-    int free_frame_count = free_byte_count / audio_out_port->bytes_per_frame;
-    int out_buf_size = free_frame_count * audio_out_port->bytes_per_frame;
-
-    float seconds_per_frame = 1.0f / (float)audio_out_port->sample_rate;
-
-    float *write_ptr_start = reinterpret_cast<float*>(audio_out_port->sample_buffer->write_ptr());
-    // clear everything to 0
-    memset(write_ptr_start, 0, out_buf_size);
-
-    float divisor = 0.0f;
-    for (int note = 0; note < NOTES_COUNT; note += 1) {
-        if (synth_context->notes_on[note].velocity > 0.0f)
-            divisor += 1.0f;
-    }
-    float one_over_notes_count = 1.0f / divisor;
-    for (int note = 0; note < NOTES_COUNT; note += 1) {
-        SynthNoteState *note_state = &synth_context->notes_on[note];
-        float note_value = note_state->velocity;
-        if (note_value == 0.0f)
-            continue;
-
-        float *ptr = write_ptr_start;
-
-        // 69 is A 440
-        float pitch = (synth_context->pitch != 0.0f) ?
-            (440.0f * powf(2.0f, (note - 69.0f) / 12.0f + synth_context->pitch)) :
-            midi_note_to_pitch[note];
-        float radians_per_second = pitch * 2.0f * PI;
-        for (int frame = 0; frame < free_frame_count; frame += 1) {
-            float sample = sinf((note_state->seconds_offset + frame * seconds_per_frame) * radians_per_second);
-            for (int channel = 0; channel < audio_out_port->channel_layout.channel_count; channel += 1) {
-                *ptr += sample * note_value * one_over_notes_count;
-                ptr += 1;
-            }
-        }
-        note_state->seconds_offset += seconds_per_frame * free_frame_count;
-    }
-
-    audio_out_port->sample_buffer->advance_write_ptr(out_buf_size);
 }
 
 int genesis_create_context(struct GenesisContext **out_context) {
@@ -204,55 +103,17 @@ int genesis_create_context(struct GenesisContext **out_context) {
     context->audio_hardware.set_on_events_signal(on_audio_hardware_events_signal);
     context->audio_hardware._userdata = context;
 
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2);
-    if (!node_descr) {
+    err = create_synth_descriptor(context);
+    if (err) {
         genesis_destroy_context(context);
-        return GenesisErrorNoMem;
+        return err;
     }
 
-    node_descr->run = synth_run;
-    node_descr->create = synth_create;
-    node_descr->destroy = synth_destroy;
-    node_descr->seek = synth_seek;
-
-    node_descr->name = strdup("synth");
-    node_descr->description = strdup("A single oscillator.");
-    if (!node_descr->name || !node_descr->description) {
+    err = create_delay_descriptor(context);
+    if (err) {
         genesis_destroy_context(context);
-        return GenesisErrorNoMem;
+        return err;
     }
-
-    GenesisEventsPortDescriptor *events_port = create_zero<GenesisEventsPortDescriptor>();
-    GenesisAudioPortDescriptor *audio_port = create_zero<GenesisAudioPortDescriptor>();
-
-    if (!events_port || !audio_port) {
-        genesis_destroy_context(context);
-        return GenesisErrorNoMem;
-    }
-
-    node_descr->port_descriptors.at(0) = &events_port->port_descriptor;
-    node_descr->port_descriptors.at(1) = &audio_port->port_descriptor;
-
-    events_port->port_descriptor.port_type = GenesisPortTypeEventsIn;
-    events_port->port_descriptor.name = strdup("events_in");
-    if (!events_port->port_descriptor.name) {
-        genesis_destroy_context(context);
-        return GenesisErrorNoMem;
-    }
-
-    audio_port->port_descriptor.port_type = GenesisPortTypeAudioOut;
-    audio_port->port_descriptor.name = strdup("audio_out");
-    if (!events_port->port_descriptor.name) {
-        genesis_destroy_context(context);
-        return GenesisErrorNoMem;
-    }
-    audio_port->channel_layout =
-        *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
-    audio_port->channel_layout_fixed = false;
-    audio_port->same_channel_layout_index = -1;
-    audio_port->sample_rate = 48000;
-    audio_port->sample_rate_fixed = false;
-    audio_port->same_sample_rate_index = -1;
 
     *out_context = context;
     return 0;
@@ -1179,4 +1040,12 @@ int genesis_set_latency(struct GenesisContext *context, double latency) {
 
     context->latency = latency;
     return 0;
+}
+
+const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node) {
+    return node->descriptor;
+}
+
+float genesis_midi_note_to_pitch(int note) {
+    return midi_note_to_pitch[note];
 }

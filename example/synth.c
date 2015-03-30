@@ -1,6 +1,8 @@
 #include "genesis.h"
 #include <stdio.h>
 
+// hooks default MIDI keyboard up to a simple synth
+
 int main(int argc, char **argv) {
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
@@ -22,7 +24,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // block until we have audio devices list
+    // block until we have devices list
     genesis_refresh_audio_devices(context);
     genesis_refresh_midi_devices(context);
 
