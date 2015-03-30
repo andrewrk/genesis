@@ -19,6 +19,7 @@ struct SynthNoteState {
 struct SynthContext {
     float seconds_offset;
     SynthNoteState notes_on[NOTES_COUNT];
+    float pitch;
 };
 
 struct PlaybackNodeContext {
@@ -105,6 +106,9 @@ static void synth_run(struct GenesisNode *node) {
             case GenesisMidiEventTypeNoteOff:
                 synth_context->notes_on[event->data.note_data.note].velocity = 0.0f;
                 break;
+            case GenesisMidiEventTypePitch:
+                synth_context->pitch = event->data.pitch_data.pitch;
+                break;
         }
         event += 1;
     }
@@ -135,7 +139,9 @@ static void synth_run(struct GenesisNode *node) {
         float *ptr = write_ptr_start;
 
         // 69 is A 440
-        float pitch = midi_note_to_pitch[note];
+        float pitch = (synth_context->pitch != 0.0f) ?
+            (440.0f * powf(2.0f, (note - 69.0f) / 12.0f + synth_context->pitch)) :
+            midi_note_to_pitch[note];
         float radians_per_second = pitch * 2.0f * PI;
         for (int frame = 0; frame < free_frame_count; frame += 1) {
             float sample = sinf((note_state->seconds_offset + frame * seconds_per_frame) * radians_per_second);

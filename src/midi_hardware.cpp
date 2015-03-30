@@ -170,6 +170,10 @@ static void dispatch_event(GenesisMidiDevice *device, snd_seq_event_t *event) {
             midi_event.data.note_data.note = event->data.note.note;
             midi_event.data.note_data.velocity = event->data.note.off_velocity;
             break;
+        case SND_SEQ_EVENT_PITCHBEND:
+            midi_event.event_type = GenesisMidiEventTypePitch;
+            midi_event.data.pitch_data.pitch = event->data.control.value / 8192.0f;
+            break;
         default:
             return;
     }
