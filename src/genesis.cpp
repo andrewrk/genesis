@@ -1,5 +1,6 @@
 #include "genesis.hpp"
 #include "audio_file.hpp"
+#include "midi_note_pitch.hpp"
 
 static atomic_flag lib_init_flag = ATOMIC_FLAG_INIT;
 
@@ -8,9 +9,16 @@ static const int EVENTS_PER_SECOND_CAPACITY = 16000;
 static const double whole_notes_per_second = 140.0 / 60.0;
 static const int NOTES_COUNT = 128;
 
+static_assert(NOTES_COUNT == array_length(midi_note_to_pitch), "");
+
+struct SynthNoteState {
+    float velocity;
+    float seconds_offset;
+};
+
 struct SynthContext {
     float seconds_offset;
-    float notes_on[NOTES_COUNT];
+    SynthNoteState notes_on[NOTES_COUNT];
 };
 
 struct PlaybackNodeContext {
@@ -72,11 +80,7 @@ static int synth_create(struct GenesisNode *node) {
 }
 
 static void synth_seek(struct GenesisNode *node) {
-    struct GenesisContext *context = node->descriptor->context;
-    struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *)node->ports[1];
-    int sample_rate = audio_out_port->sample_rate;
-    struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
-    synth_context->seconds_offset = genesis_whole_notes_to_seconds(context, node->timestamp, sample_rate);
+    // do nothing
 }
 
 static void synth_run(struct GenesisNode *node) {
@@ -92,10 +96,14 @@ static void synth_run(struct GenesisNode *node) {
     for (int i = 0; i < event_count; i += 1) {
         switch (event->event_type) {
             case GenesisMidiEventTypeNoteOn:
-                synth_context->notes_on[event->data.note_data.note] = event->data.note_data.velocity;
-                break;
+                {
+                    SynthNoteState *note_state = &synth_context->notes_on[event->data.note_data.note];
+                    note_state->velocity = event->data.note_data.velocity;
+                    note_state->seconds_offset = 0.0f;
+                    break;
+                }
             case GenesisMidiEventTypeNoteOff:
-                synth_context->notes_on[event->data.note_data.note] = 0.0f;
+                synth_context->notes_on[event->data.note_data.note].velocity = 0.0f;
                 break;
         }
         event += 1;
@@ -114,30 +122,31 @@ static void synth_run(struct GenesisNode *node) {
 
     float divisor = 0.0f;
     for (int note = 0; note < NOTES_COUNT; note += 1) {
-        if (synth_context->notes_on[note] > 0.0f)
+        if (synth_context->notes_on[note].velocity > 0.0f)
             divisor += 1.0f;
     }
     float one_over_notes_count = 1.0f / divisor;
     for (int note = 0; note < NOTES_COUNT; note += 1) {
-        float note_value = synth_context->notes_on[note];
+        SynthNoteState *note_state = &synth_context->notes_on[note];
+        float note_value = note_state->velocity;
         if (note_value == 0.0f)
             continue;
 
         float *ptr = write_ptr_start;
 
         // 69 is A 440
-        float pitch = 440.0f * powf(2.0f, (note - 69.0f) / 12.0f);
+        float pitch = midi_note_to_pitch[note];
         float radians_per_second = pitch * 2.0f * PI;
         for (int frame = 0; frame < free_frame_count; frame += 1) {
-            float sample = sinf((synth_context->seconds_offset + frame * seconds_per_frame) * radians_per_second);
+            float sample = sinf((note_state->seconds_offset + frame * seconds_per_frame) * radians_per_second);
             for (int channel = 0; channel < audio_out_port->channel_layout.channel_count; channel += 1) {
                 *ptr += sample * note_value * one_over_notes_count;
                 ptr += 1;
             }
         }
+        note_state->seconds_offset += seconds_per_frame * free_frame_count;
     }
 
-    synth_context->seconds_offset += seconds_per_frame * free_frame_count;
     audio_out_port->sample_buffer->advance_write_ptr(out_buf_size);
 }
 
