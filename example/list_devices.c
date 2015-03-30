@@ -45,7 +45,7 @@ static int list_devices(struct GenesisContext *context) {
         struct GenesisMidiDevice *device = genesis_get_midi_device(context, i);
         const char *default_str = (i == default_midi) ? " (default)" : "";
         const char *description = genesis_midi_device_description(device);
-        fprintf(stderr, "MIDI-in device: %s%s\n", description, default_str);
+        fprintf(stderr, "controller device: %s%s\n", description, default_str);
     }
     fprintf(stderr, "%d devices found\n", audio_count + midi_count);
     return 0;

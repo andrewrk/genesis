@@ -118,6 +118,7 @@ struct GenesisNode {
     atomic_bool data_ready;
     double timestamp; // in whole notes
     void *userdata;
+    bool constructed;
 };
 
 #endif

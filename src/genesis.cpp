@@ -140,25 +140,19 @@ int genesis_create_context(struct GenesisContext **out_context) {
     context->audio_hardware.set_on_events_signal(on_audio_hardware_events_signal);
     context->audio_hardware._userdata = context;
 
-    GenesisNodeDescriptor *node_descr = create_zero<GenesisNodeDescriptor>();
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2);
     if (!node_descr) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
 
-    err = context->node_descriptors.append(node_descr);
-    if (err) {
-        genesis_destroy_context(context);
-        return err;
-    }
-
-    node_descr->name = strdup("synth");
-    node_descr->description = strdup("A single oscillator.");
     node_descr->run = synth_run;
     node_descr->create = synth_create;
     node_descr->destroy = synth_destroy;
     node_descr->seek = synth_seek;
 
+    node_descr->name = strdup("synth");
+    node_descr->description = strdup("A single oscillator.");
     if (!node_descr->name || !node_descr->description) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
@@ -172,17 +166,8 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return GenesisErrorNoMem;
     }
 
-    err = node_descr->port_descriptors.append(&notes_port->port_descriptor);
-    if (err) {
-        genesis_destroy_context(context);
-        return err;
-    }
-
-    err = node_descr->port_descriptors.append(&audio_port->port_descriptor);
-    if (err) {
-        genesis_destroy_context(context);
-        return err;
-    }
+    node_descr->port_descriptors.at(0) = &notes_port->port_descriptor;
+    node_descr->port_descriptors.at(1) = &audio_port->port_descriptor;
 
     notes_port->port_descriptor.port_type = GenesisPortTypeNotesIn;
     notes_port->port_descriptor.name = strdup("notes_in");
@@ -327,7 +312,11 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
         }
         node->ports[i] = port;
     }
-    node_descriptor->create(node);
+    if (node_descriptor->create(node)) {
+        genesis_node_destroy(node);
+        return nullptr;
+    }
+    node->constructed = true;
 
     int set_index = node_descriptor->context->nodes.length();
     if (node_descriptor->context->nodes.append(node)) {
@@ -341,7 +330,8 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
 
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
-        node->descriptor->destroy(node);
+        if (node->constructed)
+            node->descriptor->destroy(node);
 
         GenesisContext *context = node->descriptor->context;
         if (node->set_index >= 0) {
@@ -567,6 +557,7 @@ static int playback_device_create(struct GenesisNode *node) {
         playback_device_destroy(node);
         return GenesisErrorNoMem;
     }
+    node->userdata = playback_node_context;
 
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
@@ -663,23 +654,23 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
 }
 
 static void midi_device_run(struct GenesisNode *node) {
-    panic("TODO");
+    // TODO
 }
 
 static int midi_device_create(struct GenesisNode *node) {
-    panic("TODO");
+    //GenesisContext *context = node->descriptor->context;
+    // TODO
 
     return 0;
 }
 
 static void midi_device_destroy(struct GenesisNode *node) {
-    panic("TODO");
+    // TODO
 
 }
 
 static void midi_device_seek(struct GenesisNode *node) {
-    panic("TODO");
-
+    // do nothing
 }
 
 static void destroy_midi_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
@@ -952,6 +943,8 @@ struct GenesisNodeDescriptor *genesis_create_node_descriptor(
         return nullptr;
     }
 
+    node_descr->context = context;
+
     return node_descr;
 }
 
@@ -1078,7 +1071,7 @@ int genesis_start_pipeline(struct GenesisContext *context) {
         GenesisNode *node = context->nodes.at(node_index);
         node->being_processed = false;
         node->data_ready = false;
-        for (int port_i; port_i < node->port_count; port_i += 1) {
+        for (int port_i = 0; port_i < node->port_count; port_i += 1) {
             GenesisPort *port = node->ports[port_i];
             if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
                 GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
