@@ -34,6 +34,13 @@ static void connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *
     int err = genesis_connect_ports(audio_out_port, audio_in_port);
     if (err) {
         fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
+        fprintf(stderr, "%s -> %s\n",
+                genesis_node_descriptor_name(genesis_node_descriptor(source)),
+                genesis_node_descriptor_name(genesis_node_descriptor(dest)));
+        fprintf(stderr, "\n");
+        genesis_debug_print_port_config(audio_out_port);
+        fprintf(stderr, "\n");
+        genesis_debug_print_port_config(audio_in_port);
         exit(1);
     }
 }
@@ -77,7 +84,7 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisNodeDescriptor *recording_node_descr;
-    err = genesis_audio_device_create_node_descriptor(out_device, &recording_node_descr);
+    err = genesis_audio_device_create_node_descriptor(in_device, &recording_node_descr);
     if (err) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
         return 1;

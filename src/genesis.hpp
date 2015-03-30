@@ -76,6 +76,7 @@ struct GenesisNodeDescriptor {
     void (*destroy)(struct GenesisNode *node);
     void (*run)(struct GenesisNode *node);
     void (*seek)(struct GenesisNode *node);
+    int set_index;
 
     void *userdata;
     void (*destroy_descriptor)(struct GenesisNodeDescriptor *);

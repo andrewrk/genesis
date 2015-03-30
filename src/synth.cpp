@@ -105,7 +105,7 @@ static void synth_run(struct GenesisNode *node) {
 int create_synth_descriptor(GenesisContext *context) {
     GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2);
     if (!node_descr) {
-        genesis_destroy_context(context);
+        genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
@@ -117,32 +117,32 @@ int create_synth_descriptor(GenesisContext *context) {
     node_descr->name = strdup("synth");
     node_descr->description = strdup("A single oscillator.");
     if (!node_descr->name || !node_descr->description) {
-        genesis_destroy_context(context);
+        genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
     GenesisEventsPortDescriptor *events_port = create_zero<GenesisEventsPortDescriptor>();
     GenesisAudioPortDescriptor *audio_port = create_zero<GenesisAudioPortDescriptor>();
 
-    if (!events_port || !audio_port) {
-        genesis_destroy_context(context);
-        return GenesisErrorNoMem;
-    }
-
     node_descr->port_descriptors.at(0) = &events_port->port_descriptor;
     node_descr->port_descriptors.at(1) = &audio_port->port_descriptor;
+
+    if (!events_port || !audio_port) {
+        genesis_node_descriptor_destroy(node_descr);
+        return GenesisErrorNoMem;
+    }
 
     events_port->port_descriptor.port_type = GenesisPortTypeEventsIn;
     events_port->port_descriptor.name = strdup("events_in");
     if (!events_port->port_descriptor.name) {
-        genesis_destroy_context(context);
+        genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
     audio_port->port_descriptor.port_type = GenesisPortTypeAudioOut;
     audio_port->port_descriptor.name = strdup("audio_out");
     if (!events_port->port_descriptor.name) {
-        genesis_destroy_context(context);
+        genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
     audio_port->channel_layout =

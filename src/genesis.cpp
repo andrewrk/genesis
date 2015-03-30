@@ -525,16 +525,29 @@ static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *n
     destroy_audio_device(audio_device);
 }
 
+static void recording_device_run(struct GenesisNode *node) {
+    // TODO
+}
+
+static void recording_device_seek(struct GenesisNode *node) {
+    // TODO
+}
+
+static int recording_device_create(struct GenesisNode *node) {
+    // TODO
+    return 0;
+}
+
+static void recording_device_destroy(struct GenesisNode *node) {
+    // TODO
+}
+
 int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio_device,
         struct GenesisNodeDescriptor **out)
 {
     GenesisContext *context = audio_device->context;
 
     *out = nullptr;
-
-    if (audio_device->purpose != GenesisAudioDevicePurposePlayback) {
-        return GenesisErrorInvalidState;
-    }
 
     GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1);
 
@@ -543,18 +556,29 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         return GenesisErrorNoMem;
     }
 
-    node_descr->name = create_formatted_str("playback-device-%s", audio_device->name.raw());
-    node_descr->description = create_formatted_str("Playback Device: %s", audio_device->description.raw());
+    const char *name_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+        "playback-device-%s" : "recording-device-%s";
+    const char *description_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+        "Playback Device: %s" : "Recording Device: %s";
+    node_descr->name = create_formatted_str(name_fmt_str, audio_device->name.raw());
+    node_descr->description = create_formatted_str(description_fmt_str, audio_device->description.raw());
 
     if (!node_descr->name || !node_descr->description) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
-    node_descr->run = playback_device_run;
-    node_descr->create = playback_device_create;
-    node_descr->destroy = playback_device_destroy;
-    node_descr->seek = playback_device_seek;
+    if (audio_device->purpose == GenesisAudioDevicePurposePlayback) {
+        node_descr->run = playback_device_run;
+        node_descr->create = playback_device_create;
+        node_descr->destroy = playback_device_destroy;
+        node_descr->seek = playback_device_seek;
+    } else {
+        node_descr->run = recording_device_run;
+        node_descr->create = recording_device_create;
+        node_descr->destroy = recording_device_destroy;
+        node_descr->seek = recording_device_seek;
+    }
 
     node_descr->userdata = duplicate_audio_device(audio_device);
     if (!node_descr->userdata) {
@@ -563,27 +587,31 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
     }
     node_descr->destroy_descriptor = destroy_audio_device_node_descriptor;
 
-    GenesisAudioPortDescriptor *audio_in_port = create_zero<GenesisAudioPortDescriptor>();
-    if (!audio_in_port) {
+    GenesisAudioPortDescriptor *audio_port = create_zero<GenesisAudioPortDescriptor>();
+    if (!audio_port) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
-    node_descr->port_descriptors.at(0) = &audio_in_port->port_descriptor;
+    node_descr->port_descriptors.at(0) = &audio_port->port_descriptor;
 
-    audio_in_port->port_descriptor.name = strdup("audio_in");
-    if (!audio_in_port->port_descriptor.name) {
+    const char *port_name = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+        "audio_in" : "audio_out";
+
+    audio_port->port_descriptor.name = strdup(port_name);
+    if (!audio_port->port_descriptor.name) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
-    audio_in_port->port_descriptor.port_type = GenesisPortTypeAudioIn;
-    audio_in_port->channel_layout = audio_device->channel_layout;
-    audio_in_port->channel_layout_fixed = true;
-    audio_in_port->same_channel_layout_index = -1;
-    audio_in_port->sample_rate = audio_device->default_sample_rate;
-    audio_in_port->sample_rate_fixed = true;
-    audio_in_port->same_sample_rate_index = -1;
+    audio_port->port_descriptor.port_type = (audio_device->purpose == GenesisAudioDevicePurposePlayback)
+        ? GenesisPortTypeAudioIn : GenesisPortTypeAudioOut;
+    audio_port->channel_layout = audio_device->channel_layout;
+    audio_port->channel_layout_fixed = true;
+    audio_port->same_channel_layout_index = -1;
+    audio_port->sample_rate = audio_device->default_sample_rate;
+    audio_port->sample_rate_fixed = true;
+    audio_port->same_sample_rate_index = -1;
 
     *out = node_descr;
     return 0;
@@ -705,8 +733,17 @@ void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descript
 
 void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor) {
     if (node_descriptor) {
+        GenesisContext *context = node_descriptor->context;
+        if (node_descriptor->set_index >= 0) {
+            context->node_descriptors.swap_remove(node_descriptor->set_index);
+            if (node_descriptor->set_index < context->node_descriptors.length())
+                context->node_descriptors.at(node_descriptor->set_index)->set_index = node_descriptor->set_index;
+            node_descriptor->set_index = -1;
+        }
+
         if (node_descriptor->destroy_descriptor)
             node_descriptor->destroy_descriptor(node_descriptor);
+
         for (int i = 0; i < node_descriptor->port_descriptors.length(); i += 1) {
             GenesisPortDescriptor *port_descriptor = node_descriptor->port_descriptors.at(i);
             genesis_port_descriptor_destroy(port_descriptor);
@@ -724,7 +761,7 @@ static void resolve_channel_layout(GenesisAudioPort *audio_port) {
     if (port_descr->channel_layout_fixed) {
         if (port_descr->same_channel_layout_index >= 0) {
             GenesisAudioPort *other_port = (GenesisAudioPort *)
-                &audio_port->port.node->ports[port_descr->same_channel_layout_index];
+                audio_port->port.node->ports[port_descr->same_channel_layout_index];
             audio_port->channel_layout = other_port->channel_layout;
         } else {
             audio_port->channel_layout = port_descr->channel_layout;
@@ -737,7 +774,7 @@ static void resolve_sample_rate(GenesisAudioPort *audio_port) {
     if (port_descr->sample_rate_fixed) {
         if (port_descr->same_sample_rate_index >= 0) {
             GenesisAudioPort *other_port = (GenesisAudioPort *)
-                &audio_port->port.node->ports[port_descr->same_sample_rate_index];
+                audio_port->port.node->ports[port_descr->same_sample_rate_index];
             audio_port->sample_rate = other_port->sample_rate;
         } else {
             audio_port->sample_rate = port_descr->sample_rate;
@@ -755,9 +792,7 @@ static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest)
         dest_audio_descr->channel_layout_fixed)
     {
         // both fixed. they better match up
-        if (!genesis_channel_layout_equal(&source_audio_descr->channel_layout,
-                    &dest_audio_descr->channel_layout))
-        {
+        if (!genesis_channel_layout_equal(&source->channel_layout, &dest->channel_layout)) {
             return GenesisErrorIncompatibleChannelLayouts;
         }
     } else if (!source_audio_descr->channel_layout_fixed &&
@@ -778,7 +813,7 @@ static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest)
     resolve_sample_rate(dest);
     if (source_audio_descr->sample_rate_fixed && dest_audio_descr->sample_rate_fixed) {
         // both fixed. they better match up
-        if (source_audio_descr->sample_rate != dest_audio_descr->sample_rate)
+        if (source->sample_rate != dest->sample_rate)
             return GenesisErrorIncompatibleSampleRates;
     } else if (!source_audio_descr->sample_rate_fixed &&
                !dest_audio_descr->sample_rate_fixed)
@@ -853,18 +888,20 @@ struct GenesisNodeDescriptor *genesis_create_node_descriptor(
     GenesisNodeDescriptor *node_descr = create_zero<GenesisNodeDescriptor>();
     if (!node_descr)
         return nullptr;
+    node_descr->set_index = -1;
+    node_descr->context = context;
 
     if (node_descr->port_descriptors.resize(port_count)) {
         genesis_node_descriptor_destroy(node_descr);
         return nullptr;
     }
 
+    int set_index = context->node_descriptors.length();
     if (context->node_descriptors.append(node_descr)) {
         genesis_node_descriptor_destroy(node_descr);
         return nullptr;
     }
-
-    node_descr->context = context;
+    node_descr->set_index = set_index;
 
     return node_descr;
 }
