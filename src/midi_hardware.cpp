@@ -7,7 +7,7 @@ static void default_on_buffer_overrun(struct MidiHardware *midi_hardware) {
     fprintf(stderr, "MIDI buffer overrun\n");
 }
 
-static void destroy_midi_device(struct GenesisMidiDevice *device) {
+void destroy_midi_device(struct GenesisMidiDevice *device) {
     if (device) {
         free(device->client_name);
         free(device->port_name);
@@ -312,4 +312,21 @@ void genesis_set_midi_device_callback(struct GenesisContext *context,
 {
     context->midi_change_callback_userdata = userdata;
     context->midi_change_callback = callback;
+}
+
+struct GenesisMidiDevice *duplicate_midi_device(struct GenesisMidiDevice *midi_device) {
+    GenesisMidiDevice *new_device = create_zero<GenesisMidiDevice>();
+    if (!new_device)
+        return nullptr;
+
+    new_device->midi_hardware = midi_device->midi_hardware;
+    new_device->client_id = midi_device->client_id;
+    new_device->port_id = midi_device->port_id;
+    new_device->client_name = strdup(midi_device->client_name);
+    new_device->port_name = strdup(midi_device->port_name);
+    if (!new_device->client_name || !new_device->port_name) {
+        destroy(new_device, 1);
+        return nullptr;
+    }
+    return new_device;
 }

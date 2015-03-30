@@ -1,75 +1,17 @@
 #include "genesis.hpp"
 #include "audio_file.hpp"
-#include "threads.hpp"
 
-static atomic_flag init_flag = ATOMIC_FLAG_INIT;
+static atomic_flag lib_init_flag = ATOMIC_FLAG_INIT;
 
-struct GenesisPortDescriptor {
-    enum GenesisPortType port_type;
-    char *name;
+static const int BYTES_PER_SAMPLE = 4; // assuming float samples
+static const double whole_notes_per_second = 140.0 / 60.0;
+
+struct SynthContext {
+    float seconds_offset;
 };
 
-struct GenesisNotesPortDescriptor {
-    struct GenesisPortDescriptor port_descriptor;
-};
-
-struct GenesisParamPortDescriptor {
-    struct GenesisPortDescriptor port_descriptor;
-};
-
-struct GenesisAudioPortDescriptor {
-    struct GenesisPortDescriptor port_descriptor;
-
-    bool channel_layout_fixed;
-    // if channel_layout_fixed is true then this is the index
-    // of the other port that it is the same as, or -1 if it is fixed
-    // to the value of channel_layout
-    int same_channel_layout_index;
-    struct GenesisChannelLayout channel_layout;
-
-    bool sample_rate_fixed;
-    // if sample_rate_fixed is true then this is the index
-    // of the other port that it is the same as, or -1 if it is fixed
-    // to the value of sample_rate
-    int same_sample_rate_index;
-    int sample_rate;
-};
-
-struct GenesisNodeDescriptor {
-    struct GenesisContext *context;
-    char *name;
-    char *description;
-    List<GenesisPortDescriptor*> port_descriptors;
-    void (*run)(struct GenesisNode *node);
-};
-
-struct GenesisPort {
-    struct GenesisPortDescriptor *descriptor;
-    struct GenesisNode *node;
-    struct GenesisPort *input_from;
-    struct GenesisPort *output_to;
-};
-
-struct GenesisAudioPort {
-    struct GenesisPort port;
-    struct GenesisChannelLayout channel_layout;
-    int sample_rate;
-};
-
-struct GenesisParamPort {
-    struct GenesisPort port;
-};
-
-struct GenesisNotesPort {
-    struct GenesisPort port;
-};
-
-struct GenesisNode {
-    const struct GenesisNodeDescriptor *descriptor;
-    int port_count;
-    struct GenesisPort **ports;
-    int set_index; // index into context->nodes
-    atomic_flag being_processed;
+struct PlaybackNodeContext {
+    OpenPlaybackDevice *playback_device;
 };
 
 static void on_midi_devices_change(MidiHardware *midi_hardware) {
@@ -94,11 +36,67 @@ static void on_audio_hardware_events_signal(AudioHardware *audio_hardware) {
     genesis_wakeup(context);
 }
 
+double genesis_frames_to_whole_notes(GenesisContext *context, int frames, int frame_rate) {
+    double seconds = frames / (double)frame_rate;
+    return whole_notes_per_second * seconds;
+}
+
+int genesis_whole_notes_to_frames(GenesisContext *context, double whole_notes, int frame_rate) {
+    return frame_rate * genesis_whole_notes_to_seconds(context, whole_notes, frame_rate);
+}
+
+double genesis_whole_notes_to_seconds(GenesisContext *context, double whole_notes, int frame_rate) {
+    return whole_notes / whole_notes_per_second;
+}
+
+static void synth_destroy(struct GenesisNode *node) {
+    SynthContext *synth_context = (SynthContext*)node->userdata;
+    destroy(synth_context, 1);
+}
+
+static int synth_create(struct GenesisNode *node) {
+    SynthContext *synth_context = create_zero<SynthContext>();
+    node->userdata = synth_context;
+    if (!node->userdata) {
+        synth_destroy(node);
+        return GenesisErrorNoMem;
+    }
+    return 0;
+}
+
+static void synth_seek(struct GenesisNode *node) {
+    struct GenesisContext *context = node->descriptor->context;
+    struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *)node->ports[1];
+    int sample_rate = audio_out_port->sample_rate;
+    struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
+    synth_context->seconds_offset = genesis_whole_notes_to_seconds(context, node->timestamp, sample_rate);
+}
+
+static void synth_run(struct GenesisNode *node) {
+    struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
+    static const float PI = 3.14159265358979323846;
+    //struct GenesisNotesPort *notes_in_port = (struct GenesisNotesPort *) node->ports[0];
+    struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) node->ports[1];
+
+    int free_byte_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
+    int free_frame_count = free_byte_count / audio_out_port->bytes_per_frame;
+
+    float seconds_per_frame = 1.0f / (float)audio_out_port->sample_rate;
+
+    float *ptr = reinterpret_cast<float*>(audio_out_port->sample_buffer->write_ptr());
+    float pitch = 440.0f;
+    for (int frame = 0; frame < free_frame_count; frame += 1) {
+        *ptr = sinf(2.0f * PI * pitch + synth_context->seconds_offset);
+        synth_context->seconds_offset += seconds_per_frame;
+    }
+    audio_out_port->sample_buffer->advance_write_ptr(free_frame_count * audio_out_port->bytes_per_frame);
+}
+
 int genesis_create_context(struct GenesisContext **out_context) {
     *out_context = nullptr;
 
     // only call global initialization once
-    if (!init_flag.test_and_set()) {
+    if (!lib_init_flag.test_and_set()) {
         audio_file_init();
     }
 
@@ -107,15 +105,11 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
+    context->latency = 0.005; // 5ms
 
     if (context->events_cond.error() || context->events_mutex.error()) {
         genesis_destroy_context(context);
         return context->events_cond.error() || context->events_mutex.error();
-    }
-
-    if (context->task_cond.error() || context->task_mutex.error()) {
-        genesis_destroy_context(context);
-        return context->task_cond.error() || context->task_mutex.error();
     }
 
     if (context->thread_pool.resize(Thread::concurrency())) {
@@ -160,14 +154,23 @@ int genesis_create_context(struct GenesisContext **out_context) {
 
     node_descr->name = strdup("synth");
     node_descr->description = strdup("A single oscillator.");
+    node_descr->run = synth_run;
+    node_descr->create = synth_create;
+    node_descr->destroy = synth_destroy;
+    node_descr->seek = synth_seek;
 
     if (!node_descr->name || !node_descr->description) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
 
-    GenesisNotesPortDescriptor *notes_port = create<GenesisNotesPortDescriptor>();
-    GenesisAudioPortDescriptor *audio_port = create<GenesisAudioPortDescriptor>();
+    GenesisNotesPortDescriptor *notes_port = create_zero<GenesisNotesPortDescriptor>();
+    GenesisAudioPortDescriptor *audio_port = create_zero<GenesisAudioPortDescriptor>();
+
+    if (!notes_port || !audio_port) {
+        genesis_destroy_context(context);
+        return GenesisErrorNoMem;
+    }
 
     err = node_descr->port_descriptors.append(&notes_port->port_descriptor);
     if (err) {
@@ -308,6 +311,7 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
         genesis_node_destroy(node);
         return nullptr;
     }
+    node->set_index = -1;
     node->descriptor = node_descriptor;
     node->port_count = node_descriptor->port_descriptors.length();
     node->ports = allocate_zero<GenesisPort*>(node->port_count);
@@ -323,19 +327,28 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
         }
         node->ports[i] = port;
     }
-    node->set_index = context->nodes.length();
-    if (context->nodes.append(node)) {
+    node_descriptor->create(node);
+
+    int set_index = node_descriptor->context->nodes.length();
+    if (node_descriptor->context->nodes.append(node)) {
         genesis_node_destroy(node);
         return nullptr;
     }
+    node->set_index = set_index;
+
     return node;
 }
 
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
-        context->nodes.swap_remove(node->set_index);
-        if (node->set_index < context->nodes.length())
-            context->nodes.at(node->set_index)->set_index = node->set_index;
+        node->descriptor->destroy(node);
+
+        GenesisContext *context = node->descriptor->context;
+        if (node->set_index >= 0) {
+            context->nodes.swap_remove(node->set_index);
+            if (node->set_index < context->nodes.length())
+                context->nodes.at(node->set_index)->set_index = node->set_index;
+        }
 
         if (node->ports) {
             for (int i = 0; i < node->port_count; i += 1) {
@@ -453,6 +466,138 @@ int genesis_audio_file_codec_sample_rate_index(
     return codec->prioritized_sample_rates.at(index);
 }
 
+static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool recursive) {
+    if (node->being_processed) {
+        // this node is already being processed; no point in
+        // queueing it again
+        return;
+    }
+    // make sure all the children of this node are ready
+    for (int i = 0; i < node->port_count; i += 1) {
+        GenesisPort *port = node->ports[i];
+        GenesisPort *child_port = port->input_from;
+        if (!child_port || child_port == port)
+            continue;
+        GenesisNode *child_node = child_port->node;
+        if (child_node->being_processed)
+            return;
+
+        if (!child_node->data_ready) {
+            if (recursive)
+                queue_node_if_ready(context, child_node, true);
+            return;
+        }
+    }
+
+    // we know that we want it enqueued. now make sure it only happens once.
+    if (!node->being_processed.exchange(true))
+        context->task_queue.enqueue(node);
+}
+
+static void playback_device_run(struct GenesisNode *node) {
+    // TODO we should probably fill the playback buffer here
+}
+
+static void playback_device_destroy(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    destroy(playback_node_context, 1);
+}
+
+static void playback_device_callback(int requested_byte_count, void *userdata) {
+    GenesisNode *node = (GenesisNode *)userdata;
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
+    GenesisContext *context = node->descriptor->context;
+
+    char *buffer;
+    if (!context->pipeline_running) {
+        for (;;) {
+            int byte_count = requested_byte_count;
+
+            playback_device->begin_write(&buffer, &byte_count);
+            memset(buffer, 0, byte_count);
+            playback_device->write(buffer, byte_count);
+
+            requested_byte_count -= byte_count;
+            if (requested_byte_count <= 0)
+                break;
+        }
+        return;
+    }
+
+
+    GenesisAudioPort *audio_in_port = (GenesisAudioPort *)node->ports[0];
+    GenesisAudioPort *audio_out_port = (GenesisAudioPort *)audio_in_port->port.input_from;
+
+    int fill_count = audio_out_port->sample_buffer->fill_count();
+    bool need_more_data = false;
+
+    for (;;) {
+        int byte_count = requested_byte_count;
+
+        if (byte_count > fill_count) {
+            byte_count = fill_count;
+            requested_byte_count = byte_count;
+            need_more_data = true;
+        }
+
+        playback_device->begin_write(&buffer, &byte_count);
+        memcpy(buffer, audio_out_port->sample_buffer->read_ptr(), byte_count);
+        playback_device->write(buffer, byte_count);
+        audio_out_port->sample_buffer->advance_read_ptr(byte_count);
+
+        requested_byte_count -= byte_count;
+        fill_count -= byte_count;
+        if (requested_byte_count <= 0)
+            break;
+    }
+
+    if (need_more_data) {
+        GenesisNode *child_node = audio_out_port->port.node;
+        child_node->data_ready = false;
+        queue_node_if_ready(context, child_node, true);
+    }
+}
+
+static int playback_device_create(struct GenesisNode *node) {
+    GenesisContext *context = node->descriptor->context;
+
+    PlaybackNodeContext *playback_node_context = create_zero<PlaybackNodeContext>();
+    if (!playback_node_context) {
+        playback_device_destroy(node);
+        return GenesisErrorNoMem;
+    }
+
+    GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
+
+    bool ok;
+    playback_node_context->playback_device = create_zero<OpenPlaybackDevice>(
+            &context->audio_hardware, device->name.raw(), &device->channel_layout,
+            device->default_sample_format, context->latency, device->default_sample_rate,
+            &ok);
+    if (!playback_node_context->playback_device) {
+        playback_device_destroy(node);
+        return GenesisErrorNoMem;
+    }
+    if (!ok) {
+        playback_device_destroy(node);
+        return GenesisErrorNoMem;
+    }
+    playback_node_context->playback_device->set_callback(playback_device_callback, node);
+
+    return 0;
+}
+
+static void playback_device_seek(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    playback_node_context->playback_device->clear_buffer();
+}
+
+static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
+    GenesisAudioDevice *audio_device = (GenesisAudioDevice*)node_descriptor->userdata;
+    destroy_audio_device(audio_device);
+}
+
 int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio_device,
         struct GenesisNodeDescriptor **out)
 {
@@ -478,6 +623,18 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
+
+    node_descr->run = playback_device_run;
+    node_descr->create = playback_device_create;
+    node_descr->destroy = playback_device_destroy;
+    node_descr->seek = playback_device_seek;
+
+    node_descr->userdata = duplicate_audio_device(audio_device);
+    if (!node_descr->userdata) {
+        genesis_node_descriptor_destroy(node_descr);
+        return GenesisErrorNoMem;
+    }
+    node_descr->destroy_descriptor = destroy_audio_device_node_descriptor;
 
     GenesisAudioPortDescriptor *audio_in_port = create_zero<GenesisAudioPortDescriptor>();
     if (!audio_in_port) {
@@ -505,6 +662,31 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
     return 0;
 }
 
+static void midi_device_run(struct GenesisNode *node) {
+    panic("TODO");
+}
+
+static int midi_device_create(struct GenesisNode *node) {
+    panic("TODO");
+
+    return 0;
+}
+
+static void midi_device_destroy(struct GenesisNode *node) {
+    panic("TODO");
+
+}
+
+static void midi_device_seek(struct GenesisNode *node) {
+    panic("TODO");
+
+}
+
+static void destroy_midi_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
+    GenesisMidiDevice *midi_device = (GenesisMidiDevice*)node_descriptor->userdata;
+    destroy_midi_device(midi_device);
+}
+
 int genesis_midi_device_create_node_descriptor(
         struct GenesisMidiDevice *midi_device,
         struct GenesisNodeDescriptor **out)
@@ -526,6 +708,18 @@ int genesis_midi_device_create_node_descriptor(
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
+
+    node_descr->run = midi_device_run;
+    node_descr->create = midi_device_create;
+    node_descr->destroy = midi_device_destroy;
+    node_descr->seek = midi_device_seek;
+
+    node_descr->userdata = duplicate_midi_device(midi_device);
+    if (!node_descr->userdata) {
+        genesis_node_descriptor_destroy(node_descr);
+        return GenesisErrorNoMem;
+    }
+    node_descr->destroy_descriptor = destroy_midi_device_node_descriptor;
 
     GenesisNotesPortDescriptor *notes_out_port = create_zero<GenesisNotesPortDescriptor>();
     if (!notes_out_port) {
@@ -594,6 +788,8 @@ void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descript
 
 void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor) {
     if (node_descriptor) {
+        if (node_descriptor->destroy_descriptor)
+            node_descriptor->destroy_descriptor(node_descriptor);
         for (int i = 0; i < node_descriptor->port_descriptors.length(); i += 1) {
             GenesisPortDescriptor *port_descriptor = node_descriptor->port_descriptors.at(i);
             genesis_port_descriptor_destroy(port_descriptor);
@@ -846,111 +1042,63 @@ void genesis_debug_print_port_config(struct GenesisPort *port) {
     panic("invalid port type");
 }
 
-static bool node_all_buffers_full(GenesisNode *node) {
-    // TODO
-}
-
-static GenesisNode *task_queue_get_next_blocking(GenesisContext *context) {
-    // this function must return the next node in the queue without locking.
-    // however, if the queue is empty then the function should block until
-    // it can return a node.
-    // TODO
-}
-
-static void task_queue_add(GenesisContext *context, GenesisNode *node) {
-    // TODO
-}
-
-static void task_queue_wakeup(GenesisContext *context) {
-    // TODO
-}
-
 static void pipeline_thread_run(void *userdata) {
     GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
     for (;;) {
-        GenesisNode *node = task_queue_get_next_blocking(context);
-        if (context->pipeline_shutdown)
+        GenesisNode *node = context->task_queue.dequeue();
+        if (!context->pipeline_running)
             break;
 
         const GenesisNodeDescriptor *node_descriptor = node->descriptor;
         node_descriptor->run(node);
-        node->being_processed.clear();
-        // we do not acquire the mutex here, so this signal is advisory only.
-        // it might not wake up the manager thread.
-        context->task_cond.signal();
-    }
-}
+        node->data_ready = true;
+        node->being_processed = false;
 
-static void manager_thread_run(void *userdata) {
-    GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
-    while (!context->pipeline_shutdown) {
-        // scan the node list and add tasks for nodes which are not being processed
-        // and whose buffers are not full
-        for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
-            GenesisNode *node = context->nodes.at(node_index);
-            if (!node->being_processed.test_and_set()) {
-                // determine whether we want to process this node
-                if (node_all_buffers_full(node)) {
-                    node->being_processed.clear();
-                    continue;
-                }
-
-                // don't add to queue if children are not done
-                bool all_children_done = true;
-                for (int i = 0; i < node->port_count; i += 1) {
-                    GenesisPort *port = node->ports[i];
-                    GenesisPort *child_port = port->input_from;
-                    if (child_port == port)
-                        continue;
-                    GenesisNode *child_node = child_port->node;
-                    if (child_node->being_processed.test_and_set()) {
-                        // this child is currently being processed
-                        all_children_done = false;
-                        break;
-                    } else {
-                        child_node->being_processed.clear();
-                        if (!node_all_buffers_full(child_node)) {
-                            all_children_done = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (all_children_done) {
-                    task_queue_add(context, node);
-                } else {
-                    node->being_processed.clear();
-                }
-            }
+        // check each node that depended on this one to see if we can now
+        // process that one.
+        for (int i = 0; i < node->port_count; i += 1) {
+            GenesisPort *port = node->ports[i];
+            GenesisPort *parent_port = port->output_to;
+            if (!parent_port || parent_port == port)
+                continue;
+            queue_node_if_ready(context, parent_port->node, false);
         }
-
-        context->task_mutex.lock();
-        context->task_cond.wait(&context->task_mutex);
-        context->task_mutex.unlock();
     }
 }
 
 int genesis_start_pipeline(struct GenesisContext *context) {
-    context->task_queue = create_zero<RingBuffer>(context->nodes.length() * sizeof(GenesisNode *));
-    if (!context->task_queue) {
-        genesis_stop_pipeline(context);
-        return GenesisErrorNoMem;
-    }
-
-    // initialize nodes
-    for (int i = 0; i < context->nodes.length(); i += 1) {
-        GenesisNode *node = context->nodes.at(i);
-        // TODO clear node buffers
-        // TODO set node buffers latency
-        node->being_processed.clear();
-    }
-    context->pipeline_shutdown = false;
-
-    int err = context->manager_thread.start(manager_thread_run, context);
+    int err = context->task_queue.resize(context->nodes.length() + context->thread_pool.length());
     if (err) {
         genesis_stop_pipeline(context);
         return err;
     }
+
+    // initialize nodes
+    for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
+        GenesisNode *node = context->nodes.at(node_index);
+        node->being_processed = false;
+        node->data_ready = false;
+        for (int port_i; port_i < node->port_count; port_i += 1) {
+            GenesisPort *port = node->ports[port_i];
+            if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
+                GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
+                int sample_buffer_frame_count = ceil(context->latency * audio_port->sample_rate);
+                audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
+                audio_port->sample_buffer_size = sample_buffer_frame_count * audio_port->bytes_per_frame;
+
+                destroy(audio_port->sample_buffer, 1);
+                audio_port->sample_buffer = create_zero<RingBuffer>(audio_port->sample_buffer_size);
+                if (!audio_port->sample_buffer) {
+                    genesis_stop_pipeline(context);
+                    return GenesisErrorNoMem;
+                }
+            }
+        }
+        node->timestamp = 0.0;
+        node->descriptor->seek(node);
+    }
+    context->pipeline_running = true;
+
     for (int i = 0; i < context->thread_pool.length(); i += 1) {
         Thread *thread = &context->thread_pool.at(i);
         int err = thread->start(pipeline_thread_run, context);
@@ -964,19 +1112,23 @@ int genesis_start_pipeline(struct GenesisContext *context) {
 }
 
 void genesis_stop_pipeline(struct GenesisContext *context) {
-    context->pipeline_shutdown = true;
-    context->task_mutex.lock();
-    context->task_cond.signal();
-    context->task_mutex.unlock();
-    task_queue_wakeup(context);
-    if (context->manager_thread.running())
-        context->manager_thread.join();
+    context->pipeline_running = false;
+    context->task_queue.wakeup_all(context->thread_pool.length());
     for (int i = 0; i < context->thread_pool.length(); i += 1) {
         Thread *thread = &context->thread_pool.at(i);
         if (thread->running())
             thread->join();
     }
+}
 
-    destroy(context->task_queue, 1);
-    context->task_queue = nullptr;
+int genesis_set_latency(struct GenesisContext *context, double latency) {
+    if (latency <= 0.0)
+        return GenesisErrorInvalidParam;
+    if (latency > 60.0)
+        return GenesisErrorInvalidParam;
+    if (context->pipeline_running)
+        return GenesisErrorInvalidState;
+
+    context->latency = latency;
+    return 0;
 }

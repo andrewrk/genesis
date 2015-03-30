@@ -22,6 +22,9 @@ struct GenesisAudioDevice {
     GenesisAudioDevicePurpose purpose;
 };
 
+GenesisAudioDevice *duplicate_audio_device(GenesisAudioDevice *device);
+void destroy_audio_device(GenesisAudioDevice *device);
+
 struct AudioDevicesInfo {
     List<GenesisAudioDevice> devices;
     // can be -1 when default device is unknown
@@ -43,15 +46,31 @@ public:
     void write(char *data, int byte_count);
     void clear_buffer();
 
+    void set_callback(void (*fn)(int byte_count, void *), void *userdata) {
+        _callback = fn;
+        _callback_userdata = userdata;
+    }
+
     AudioHardware *_audio_hardware;
     pa_stream *_stream;
 
 private:
+    void *_callback_userdata;
+    void (*_callback)(int byte_count, void *);
 
     void stream_state_callback(pa_stream *stream);
 
     static void stream_state_callback(pa_stream *stream, void *userdata) {
         return static_cast<OpenPlaybackDevice*>(userdata)->stream_state_callback(stream);
+    }
+
+    static void stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
+        OpenPlaybackDevice *device = static_cast<OpenPlaybackDevice*>(userdata);
+        device->_callback((int)nbytes, device->_callback_userdata);
+    }
+
+    static void default_callback(int byte_count, void *userdata) {
+        // do nothing
     }
 
     OpenPlaybackDevice(const OpenPlaybackDevice &copy) = delete;

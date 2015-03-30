@@ -35,6 +35,7 @@ static int futex_wake(int *address, int count) {
 // many writer, many reader, fixed size, thread-safe, first-in-first-out queue
 // lock-free except when a reader calls dequeue() and queue is empty, then it blocks
 // must call resize before you can start using it
+// size must be at least equal to the combined number of producers and consumers
 template<typename T>
 class ThreadSafeQueue {
 public:
@@ -51,12 +52,15 @@ public:
         if (size < 0)
             return GenesisErrorInvalidParam;
 
-        T *new_items = reallocate_safe(_items, _size, size);
-        if (!new_items)
-            return GenesisErrorNoMem;
+        if (size != _size) {
+            T *new_items = reallocate_safe(_items, _size, size);
+            if (!new_items)
+                return GenesisErrorNoMem;
 
-        _items = new_items;
-        _size = size;
+            _items = new_items;
+            _size = size;
+        }
+
         _queue_count = 0;
         _read_index = 0;
         _write_index = 0;

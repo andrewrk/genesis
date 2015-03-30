@@ -446,7 +446,9 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
         const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
         int sample_rate, bool *ok) :
     _audio_hardware(audio_hardware),
-    _stream(NULL)
+    _stream(NULL),
+    _callback_userdata(nullptr),
+    _callback(default_callback)
 {
     if (!_audio_hardware->_ready_flag)
         panic("audio hardware not ready");
@@ -463,6 +465,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
         panic("unable to create pulseaudio stream");
 
     pa_stream_set_state_callback(_stream, stream_state_callback, this);
+    pa_stream_set_write_callback(_stream, stream_write_callback, this);
 
     int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
     int buffer_length = latency * bytes_per_second;
@@ -499,18 +502,14 @@ int OpenPlaybackDevice::writable_size() {
 
 void OpenPlaybackDevice::begin_write(char **data, int *byte_count) {
     size_t size_t_byte_count = *byte_count;
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     if (pa_stream_begin_write(_stream, (void**)data, &size_t_byte_count))
         panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
     *byte_count = size_t_byte_count;
 }
 
 void OpenPlaybackDevice::write(char *data, int byte_count) {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     if (pa_stream_write(_stream, data, byte_count, NULL, 0, PA_SEEK_RELATIVE))
         panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 void OpenPlaybackDevice::clear_buffer() {
@@ -609,4 +608,18 @@ void OpenRecordingDevice::drop() {
     if (pa_stream_drop(_stream))
         panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+}
+
+GenesisAudioDevice *duplicate_audio_device(GenesisAudioDevice *device) {
+    GenesisAudioDevice *new_device = create_zero<GenesisAudioDevice>();
+    if (!new_device)
+        return nullptr;
+
+    *new_device = *device;
+
+    return new_device;
+}
+
+void destroy_audio_device(GenesisAudioDevice *device) {
+    destroy(device, 1);
 }

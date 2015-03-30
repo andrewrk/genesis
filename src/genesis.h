@@ -27,6 +27,11 @@ void genesis_wait_events(struct GenesisContext *context);
 void genesis_wakeup(struct GenesisContext *context);
 
 
+double genesis_frames_to_whole_notes(struct GenesisContext *context, int frames, int frame_rate);
+int genesis_whole_notes_to_frames(struct GenesisContext *context, double whole_notes, int frame_rate);
+double genesis_whole_notes_to_seconds(struct GenesisContext *context, double whole_notes, int frame_rate);
+
+
 ///////////////// Audio Devices
 
 struct GenesisAudioDevice;
@@ -43,6 +48,8 @@ void genesis_refresh_audio_devices(struct GenesisContext *context);
 int genesis_get_audio_device_count(struct GenesisContext *context);
 
 // returns NULL on error
+// the returned pointer becomes invalid when you call genesis_flush_events,
+// genesis_wait_events, or genesis_refresh_audio_devices
 struct GenesisAudioDevice *genesis_get_audio_device(struct GenesisContext *context, int index);
 
 // returns the index of the default playback device
@@ -80,6 +87,9 @@ void genesis_refresh_midi_devices(struct GenesisContext *context);
 
 int genesis_get_midi_device_count(struct GenesisContext *context);
 
+// returns NULL on error.
+// the returned pointer becomes invalid when you call genesis_flush_events,
+// genesis_wait_events, or genesis_refresh_midi_devices
 struct GenesisMidiDevice *genesis_get_midi_device(struct GenesisContext *context, int index);
 
 int genesis_get_default_midi_device_index(struct GenesisContext *context);
@@ -149,6 +159,11 @@ void genesis_debug_print_port_config(struct GenesisPort *port);
 
 int genesis_start_pipeline(struct GenesisContext *context);
 void genesis_stop_pipeline(struct GenesisContext *context);
+
+// can only set this when the pipeline is stopped.
+// also if you change this, you must destroy and re-create nodes and node
+// descriptors based on audio devices
+int genesis_set_latency(struct GenesisContext *context, double latency);
 
 
 

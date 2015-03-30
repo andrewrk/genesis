@@ -61,4 +61,7 @@ void destroy_midi_hardware(struct MidiHardware *midi_hardware);
 
 void midi_hardware_flush_events(MidiHardware *midi_hardware);
 
+struct GenesisMidiDevice *duplicate_midi_device(struct GenesisMidiDevice *midi_device);
+void destroy_midi_device(struct GenesisMidiDevice *device);
+
 #endif

@@ -96,8 +96,8 @@ static inline void destroy(T * ptr, size_t count) {
     if (ptr) {
         for (size_t i = 0; i < count; i++)
             ptr[i].~T();
-        free(ptr);
     }
+    free(ptr);
 }
 
 template <typename T, long n>

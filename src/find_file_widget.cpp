@@ -197,7 +197,6 @@ void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     destroy_all_dir_entries();
     int err = path_readdir(_current_path.raw(), _entries);
     if (err) {
-        // TODO display error in UI
         char *err_str = strerror(err);
         fprintf(stderr, "Unable to read directory: %s\n", err_str);
     } else {
