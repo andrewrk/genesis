@@ -81,12 +81,16 @@ static void synth_run(struct GenesisNode *node) {
     int free_byte_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
     int free_frame_count = free_byte_count / audio_out_port->bytes_per_frame;
 
+    float pitch = 440.0f;
     float seconds_per_frame = 1.0f / (float)audio_out_port->sample_rate;
+    float radians_per_second = pitch * 2.0f * PI;
 
     float *ptr = reinterpret_cast<float*>(audio_out_port->sample_buffer->write_ptr());
-    float pitch = 440.0f;
     for (int frame = 0; frame < free_frame_count; frame += 1) {
-        *ptr = sinf(2.0f * PI * pitch + synth_context->seconds_offset);
+        for (int channel = 0; channel < audio_out_port->channel_layout.channel_count; channel += 1) {
+            *ptr = sinf(synth_context->seconds_offset * radians_per_second);
+            ptr += 1;
+        }
         synth_context->seconds_offset += seconds_per_frame;
     }
     audio_out_port->sample_buffer->advance_write_ptr(free_frame_count * audio_out_port->bytes_per_frame);
@@ -105,7 +109,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
-    context->latency = 0.005; // 5ms
+    context->latency = 0.010; // 10ms
 
     if (context->events_cond.error() || context->events_mutex.error()) {
         genesis_destroy_context(context);
@@ -490,7 +494,6 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
 static bool fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playback_node_context,
         OpenPlaybackDevice *playback_device, int requested_byte_count)
 {
-    // TODO we should probably fill the playback buffer here
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)node->ports[0];
     GenesisAudioPort *audio_out_port = (GenesisAudioPort *)audio_in_port->port.input_from;
 
@@ -583,7 +586,7 @@ static int playback_device_create(struct GenesisNode *node) {
 
     playback_node_context->playback_device = create_zero<OpenPlaybackDevice>(
             &context->audio_hardware, &device->channel_layout,
-            device->default_sample_format, context->latency, device->default_sample_rate,
+            GenesisSampleFormatFloat, context->latency, device->default_sample_rate,
             playback_device_callback, node);
     if (!playback_node_context->playback_device) {
         playback_device_destroy(node);
