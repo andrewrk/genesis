@@ -529,6 +529,8 @@ static void playback_device_callback(int requested_byte_count, void *userdata) {
             byte_count = fill_count;
             requested_byte_count = byte_count;
             need_more_data = true;
+            if (byte_count <= 0)
+                break;
         }
 
         playback_device->begin_write(&buffer, &byte_count);
