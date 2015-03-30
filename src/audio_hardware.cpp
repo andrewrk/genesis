@@ -433,8 +433,11 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
     switch (pa_stream_get_state(stream)) {
         case PA_STREAM_UNCONNECTED:
         case PA_STREAM_CREATING:
-        case PA_STREAM_READY:
         case PA_STREAM_TERMINATED:
+            break;
+        case PA_STREAM_READY:
+            _stream_ready = true;
+            pa_threaded_mainloop_signal(_audio_hardware->_main_loop, 0);
             break;
         case PA_STREAM_FAILED:
             panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
@@ -444,11 +447,12 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
 
 OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
         const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, bool *ok) :
+        int sample_rate, void (*callback)(int, void *), void *userdata, bool *ok) :
     _audio_hardware(audio_hardware),
     _stream(NULL),
-    _callback_userdata(nullptr),
-    _callback(default_callback)
+    _stream_ready(false),
+    _callback_userdata(userdata),
+    _callback(callback)
 {
     if (!_audio_hardware->_ready_flag)
         panic("audio hardware not ready");
@@ -483,12 +487,17 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware, const char
 
     *ok = true;
 
+    // block until ready
+    while (!_stream_ready)
+        pa_threaded_mainloop_wait(_audio_hardware->_main_loop);
+
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {
     pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
 
+    pa_stream_set_write_callback(_stream, NULL, this);
     pa_stream_set_state_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);

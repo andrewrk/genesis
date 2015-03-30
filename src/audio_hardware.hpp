@@ -38,7 +38,7 @@ class OpenPlaybackDevice {
 public:
     OpenPlaybackDevice(AudioHardware *audio_hardware, const char *device_name,
             const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-            int sample_rate, bool *ok);
+            int sample_rate, void (*callback)(int byte_count, void *), void *userdata, bool *ok);
     ~OpenPlaybackDevice();
 
     int writable_size();
@@ -46,15 +46,11 @@ public:
     void write(char *data, int byte_count);
     void clear_buffer();
 
-    void set_callback(void (*fn)(int byte_count, void *), void *userdata) {
-        _callback = fn;
-        _callback_userdata = userdata;
-    }
-
     AudioHardware *_audio_hardware;
     pa_stream *_stream;
 
 private:
+    atomic_bool _stream_ready;
     void *_callback_userdata;
     void (*_callback)(int byte_count, void *);
 
@@ -67,10 +63,6 @@ private:
     static void stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
         OpenPlaybackDevice *device = static_cast<OpenPlaybackDevice*>(userdata);
         device->_callback((int)nbytes, device->_callback_userdata);
-    }
-
-    static void default_callback(int byte_count, void *userdata) {
-        // do nothing
     }
 
     OpenPlaybackDevice(const OpenPlaybackDevice &copy) = delete;

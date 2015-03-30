@@ -565,7 +565,7 @@ static int playback_device_create(struct GenesisNode *node) {
     playback_node_context->playback_device = create_zero<OpenPlaybackDevice>(
             &context->audio_hardware, device->name.raw(), &device->channel_layout,
             device->default_sample_format, context->latency, device->default_sample_rate,
-            &ok);
+            playback_device_callback, node, &ok);
     if (!playback_node_context->playback_device) {
         playback_device_destroy(node);
         return GenesisErrorNoMem;
@@ -574,8 +574,6 @@ static int playback_device_create(struct GenesisNode *node) {
         playback_device_destroy(node);
         return GenesisErrorNoMem;
     }
-    playback_node_context->playback_device->set_callback(playback_device_callback, node);
-
     return 0;
 }
 
