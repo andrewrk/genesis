@@ -7,18 +7,29 @@ static void default_on_buffer_overrun(struct MidiHardware *midi_hardware) {
     fprintf(stderr, "MIDI buffer overrun\n");
 }
 
-void destroy_midi_device(struct GenesisMidiDevice *device) {
+void midi_device_unref(struct GenesisMidiDevice *device) {
     if (device) {
-        free(device->client_name);
-        free(device->port_name);
-        destroy(device, 1);
+        device->ref_count -= 1;
+        if (device->ref_count < 0)
+            panic("negative ref count");
+
+        if (device->ref_count == 0) {
+            close_midi_device(device);
+            free(device->client_name);
+            free(device->port_name);
+            destroy(device, 1);
+        }
     }
+}
+
+void midi_device_ref(struct GenesisMidiDevice *device) {
+    device->ref_count += 1;
 }
 
 static void destroy_devices_info(MidiDevicesInfo *devices_info) {
     if (devices_info) {
         for (int i = 0; i < devices_info->devices.length(); i += 1)
-            destroy_midi_device(devices_info->devices.at(i));
+            midi_device_unref(devices_info->devices.at(i));
     }
 }
 
@@ -45,8 +56,8 @@ void destroy_midi_hardware(struct MidiHardware *midi_hardware) {
 
         destroy_devices_info(midi_hardware->current_devices_info);
         destroy_devices_info(midi_hardware->ready_devices_info);
-        destroy_midi_device(midi_hardware->system_announce_device);
-        destroy_midi_device(midi_hardware->system_timer_device);
+        midi_device_unref(midi_hardware->system_announce_device);
+        midi_device_unref(midi_hardware->system_timer_device);
 
         if (midi_hardware->seq) {
             if (midi_hardware->client_info)
@@ -61,7 +72,7 @@ void destroy_midi_hardware(struct MidiHardware *midi_hardware) {
 }
 
 static int midi_hardware_refresh(MidiHardware *midi_hardware) {
-    MidiDevicesInfo *info = allocate_zero<MidiDevicesInfo>(1);
+    MidiDevicesInfo *info = create_zero<MidiDevicesInfo>();
     if (!info) {
         destroy_devices_info(info);
         return GenesisErrorNoMem;
@@ -87,29 +98,31 @@ static int midi_hardware_refresh(MidiHardware *midi_hardware) {
                 continue;
             }
 
-            GenesisMidiDevice *device = allocate_zero<GenesisMidiDevice>(1);
+            GenesisMidiDevice *device = create_zero<GenesisMidiDevice>();
             if (!device) {
-                destroy_midi_device(device);
+                midi_device_unref(device);
                 return GenesisErrorNoMem;
             }
             device->midi_hardware = midi_hardware;
+            device->ref_count = 1;
+            device->set_index = -1;
             device->client_id = snd_seq_port_info_get_client(midi_hardware->port_info);
             device->port_id = snd_seq_port_info_get_port(midi_hardware->port_info);
             device->client_name = strdup(snd_seq_client_info_get_name(midi_hardware->client_info));
             device->port_name = strdup(snd_seq_port_info_get_name(midi_hardware->port_info));
             if (!device->client_name || !device->port_name) {
-                destroy_midi_device(device);
+                midi_device_unref(device);
                 return GenesisErrorNoMem;
             }
             if (strcmp(device->client_name, "System") == 0 &&
                 strcmp(device->port_name, "Timer") == 0)
             {
-                destroy_midi_device(midi_hardware->system_timer_device);
+                midi_device_unref(midi_hardware->system_timer_device);
                 midi_hardware->system_timer_device = device;
             } else if (strcmp(device->client_name, "System") == 0 &&
                        strcmp(device->port_name, "Announce") == 0)
             {
-                destroy_midi_device(midi_hardware->system_announce_device);
+                midi_device_unref(midi_hardware->system_announce_device);
                 midi_hardware->system_announce_device = device;
             } else {
                 if (info->default_device_index == -1 || default_is_midi_through) {
@@ -118,7 +131,7 @@ static int midi_hardware_refresh(MidiHardware *midi_hardware) {
                 }
                 int err = info->devices.append(device);
                 if (err) {
-                    destroy_midi_device(device);
+                    midi_device_unref(device);
                     return GenesisErrorNoMem;
                 }
             }
@@ -139,11 +152,37 @@ static int midi_hardware_refresh(MidiHardware *midi_hardware) {
     return 0;
 }
 
+static void dispatch_event(GenesisMidiDevice *device, snd_seq_event_t *event) {
+    GenesisMidiEvent midi_event;
+    switch (event->type) {
+        case SND_SEQ_EVENT_NOTEON:
+            midi_event.data.note_data.note = event->data.note.note;
+            if (event->data.note.velocity == 0) {
+                midi_event.event_type = GenesisMidiEventTypeNoteOff;
+                midi_event.data.note_data.velocity = 0.0f;
+            } else {
+                midi_event.event_type = GenesisMidiEventTypeNoteOn;
+                midi_event.data.note_data.velocity = event->data.note.velocity / (float)CHAR_MAX;
+            }
+            break;
+        case SND_SEQ_EVENT_NOTEOFF:
+            midi_event.event_type = GenesisMidiEventTypeNoteOff;
+            midi_event.data.note_data.note = event->data.note.note;
+            midi_event.data.note_data.velocity = event->data.note.off_velocity;
+            break;
+        default:
+            return;
+    }
+    device->on_event(device, &midi_event);
+}
+
 static void midi_thread(void *userdata) {
     MidiHardware *midi_hardware = reinterpret_cast<MidiHardware*>(userdata);
     for (;;) {
         snd_seq_event_t *event;
         int err = snd_seq_event_input(midi_hardware->seq, &event);
+        if (midi_hardware->quit_flag)
+            return;
         if (err < 0) {
             if (err == ENOSPC) {
                 midi_hardware->on_buffer_overrun(midi_hardware);
@@ -154,8 +193,6 @@ static void midi_thread(void *userdata) {
             }
             continue;
         }
-        if (midi_hardware->quit_flag)
-            return;
         if (event->source.client == midi_hardware->system_announce_device->client_id &&
             event->source.port == midi_hardware->system_announce_device->port_id)
         {
@@ -165,7 +202,15 @@ static void midi_thread(void *userdata) {
                 midi_hardware_refresh(midi_hardware);
             }
         } else {
-            fprintf(stderr, "TODO handle midi event\n");
+            for (int i = 0; i < midi_hardware->open_devices.length(); i += 1) {
+                GenesisMidiDevice *device = midi_hardware->open_devices.at(i);
+                if (device->client_id == event->source.client &&
+                    device->port_id == event->source.port)
+                {
+                    dispatch_event(device, event);
+                    break;
+                }
+            }
         }
     }
 }
@@ -200,7 +245,7 @@ int create_midi_hardware(GenesisContext *context,
 {
     *out_midi_hardware = nullptr;
 
-    struct MidiHardware *midi_hardware = allocate_zero<MidiHardware>(1);
+    struct MidiHardware *midi_hardware = create_zero<MidiHardware>();
     if (!midi_hardware) {
         destroy_midi_hardware(midi_hardware);
         return GenesisErrorNoMem;
@@ -314,19 +359,37 @@ void genesis_set_midi_device_callback(struct GenesisContext *context,
     context->midi_change_callback = callback;
 }
 
-struct GenesisMidiDevice *duplicate_midi_device(struct GenesisMidiDevice *midi_device) {
-    GenesisMidiDevice *new_device = create_zero<GenesisMidiDevice>();
-    if (!new_device)
-        return nullptr;
+int open_midi_device(struct GenesisMidiDevice *device) {
+    if (device->open)
+        return GenesisErrorInvalidState;
 
-    new_device->midi_hardware = midi_device->midi_hardware;
-    new_device->client_id = midi_device->client_id;
-    new_device->port_id = midi_device->port_id;
-    new_device->client_name = strdup(midi_device->client_name);
-    new_device->port_name = strdup(midi_device->port_name);
-    if (!new_device->client_name || !new_device->port_name) {
-        destroy(new_device, 1);
-        return nullptr;
+    if (snd_seq_connect_from(device->midi_hardware->seq, 0, device->client_id, device->port_id) < 0)
+        return GenesisErrorOpeningMidiHardware;
+    device->open = true;
+
+    int set_index = device->midi_hardware->open_devices.length();
+    if (device->midi_hardware->open_devices.append(device)) {
+        close_midi_device(device);
+        return GenesisErrorNoMem;
     }
-    return new_device;
+    midi_device_ref(device);
+    device->set_index = set_index;
+
+    return 0;
+}
+
+int close_midi_device(struct GenesisMidiDevice *device) {
+    if (device->open) {
+        if (snd_seq_disconnect_from(device->midi_hardware->seq, 0, device->client_id, device->port_id) < 0)
+            return GenesisErrorOpeningMidiHardware;
+        device->open = false;
+    }
+    if (device->set_index >= 0) {
+        device->midi_hardware->open_devices.swap_remove(device->set_index);
+        if (device->set_index < device->midi_hardware->open_devices.length())
+            device->midi_hardware->open_devices.at(device->set_index)->set_index = device->set_index;
+        device->set_index = -1;
+        midi_device_unref(device);
+    }
+    return 0;
 }

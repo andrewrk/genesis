@@ -107,6 +107,7 @@ struct GenesisParamPort {
 
 struct GenesisNotesPort {
     struct GenesisPort port;
+    RingBuffer *event_buffer;
 };
 
 struct GenesisNode {

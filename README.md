@@ -3,12 +3,8 @@
 ## Status
 
  * Not ready for serious users yet.
- * You can open any format audio file and zoom and scroll around.
- * You can play a selection (supported audio backends: pulseaudio).
- * You can delete sections of audio.
- * You can save as any format audio file.
-
-![](https://s3.amazonaws.com/superjoe/temp/genesis-deb4513.png)
+ * Load and save any format audio file.
+ * Multi-threaded audio pipeline working.
 
 ## The Vision
 
@@ -31,12 +27,13 @@
 
 ## Contributing
 
-genesis is programmed in a tiny subset of C++:
+libgenesis is programmed in a tiny subset of C++:
 
  * No STL.
  * No `new` or `delete`.
  * No exceptions or run-time type information.
  * Pass pointers instead of references.
+ * No linking against libstdc++.
 
 ### Building and Running
 
@@ -65,28 +62,15 @@ make test
 ```
 sudo apt-get install lcov
 make coverage
-# now view `coverage/index.html` in a browser
+# view `coverage/index.html` in a browser
 ```
 
 ## Roadmap
 
- 0. example synth program which makes a note sound
-    0. builtin simple sine wave input device
-    0. builtin playback output device
-    0. building a pipeline
+ 0. hook up midi keyboard to synth example
+ 0. example program which puts a live echo on a recording device
 
 ## Grand Plans
-
-### Nodes
-
-A node is the basic component in the audio pipeline. At the end of the audio
-graph is likely a playback node - one that sends its audio to a playback
-device. A node can have any number of ports. A port is time-synchronized and
-is one of these types:
-
- * Audio in/out
- * Note data in/out
- * Parameter in/out
 
 ### Coordinates
 
@@ -149,19 +133,6 @@ samples. A third user might use 2-3 of these drum loops, edit them to modify
 the tempo, and produce a song with them and publish the song. Yet another user
 might edit the song, produce a remix, and then publish the remix.
 
-### Panicking
-
-While Genesis is in heavy development and things are changing quickly, the
-`panic` function will be used nearly everywhere instead of error checking. Once
-Genesis's user interface, backend, and API begin to stabilize, there will be
-a global code audit where `panic` usage is replaced with robust error checking
-and handling.
-
-For example, memory allocation functions currently call `panic` for out of
-memory conditions. Once the codebase begins to stabilize, this will be removed
-and everywhere that allocates memory must check for a null pointer and report
-the appropriate error.
-
 ## License
 
 Genesis is licensed with the Lesser General Public License. A full copy of the
@@ -171,6 +142,6 @@ summary:
 As a user you have access to the source code, and if you are willing to compile
 from source yourself, you can get the software for free.
 
-As a company, this means you may freely use the source code in your software,
-the only restriction being that if you modify Genesis source code, you must
-contribute those modifications back to the Genesis project.
+As a company you may freely use the source code in your software; the only
+restriction is that if you modify Genesis source code, you must contribute those
+modifications back to the Genesis project.
