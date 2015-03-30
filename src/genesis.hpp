@@ -49,10 +49,6 @@ struct GenesisNotesPortDescriptor {
     struct GenesisPortDescriptor port_descriptor;
 };
 
-struct GenesisParamPortDescriptor {
-    struct GenesisPortDescriptor port_descriptor;
-};
-
 struct GenesisAudioPortDescriptor {
     struct GenesisPortDescriptor port_descriptor;
 
@@ -99,10 +95,6 @@ struct GenesisAudioPort {
     RingBuffer *sample_buffer;
     int sample_buffer_size; // in bytes
     int bytes_per_frame;
-};
-
-struct GenesisParamPort {
-    struct GenesisPort port;
 };
 
 struct GenesisNotesPort {

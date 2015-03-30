@@ -112,8 +112,6 @@ enum GenesisPortType {
     GenesisPortTypeAudioOut,
     GenesisPortTypeNotesIn,
     GenesisPortTypeNotesOut,
-    GenesisPortTypeParamIn,
-    GenesisPortTypeParamOut,
 };
 
 struct GenesisPortDescriptor;

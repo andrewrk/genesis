@@ -67,7 +67,6 @@ make coverage
 
 ## Roadmap
 
- 0. hook up midi keyboard to synth example
  0. example program which puts a live echo on a recording device
 
 ## Grand Plans
