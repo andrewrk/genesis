@@ -293,7 +293,7 @@ static GenesisPort *create_port_from_descriptor(GenesisPortDescriptor *port_desc
 }
 
 struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescriptor *node_descriptor) {
-    GenesisNode *node = allocate_zero<GenesisNode>(1);
+    GenesisNode *node = create_zero<GenesisNode>();
     if (!node) {
         genesis_node_destroy(node);
         return nullptr;
@@ -487,44 +487,17 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
         context->task_queue.enqueue(node);
 }
 
-static void playback_device_run(struct GenesisNode *node) {
+static bool fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playback_node_context,
+        OpenPlaybackDevice *playback_device, int requested_byte_count)
+{
     // TODO we should probably fill the playback buffer here
-}
-
-static void playback_device_destroy(struct GenesisNode *node) {
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    destroy(playback_node_context, 1);
-}
-
-static void playback_device_callback(int requested_byte_count, void *userdata) {
-    GenesisNode *node = (GenesisNode *)userdata;
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
-    GenesisContext *context = node->descriptor->context;
-
-    char *buffer;
-    if (!context->pipeline_running) {
-        for (;;) {
-            int byte_count = requested_byte_count;
-
-            playback_device->begin_write(&buffer, &byte_count);
-            memset(buffer, 0, byte_count);
-            playback_device->write(buffer, byte_count);
-
-            requested_byte_count -= byte_count;
-            if (requested_byte_count <= 0)
-                break;
-        }
-        return;
-    }
-
-
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)node->ports[0];
     GenesisAudioPort *audio_out_port = (GenesisAudioPort *)audio_in_port->port.input_from;
 
     int fill_count = audio_out_port->sample_buffer->fill_count();
     bool need_more_data = false;
 
+    char *buffer;
     for (;;) {
         int byte_count = requested_byte_count;
 
@@ -546,8 +519,50 @@ static void playback_device_callback(int requested_byte_count, void *userdata) {
         if (requested_byte_count <= 0)
             break;
     }
+    return need_more_data;
+}
+
+static void playback_device_run(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
+    int writable_size = playback_device->writable_size();
+    playback_device->lock();
+    fill_playback_buffer(node, playback_node_context, playback_device, writable_size);
+    playback_device->unlock();
+}
+
+static void playback_device_destroy(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    destroy(playback_node_context, 1);
+}
+
+static void playback_device_callback(int requested_byte_count, void *userdata) {
+    GenesisNode *node = (GenesisNode *)userdata;
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
+    GenesisContext *context = node->descriptor->context;
+
+    if (!context->pipeline_running) {
+        char *buffer;
+        for (;;) {
+            int byte_count = requested_byte_count;
+
+            playback_device->begin_write(&buffer, &byte_count);
+            memset(buffer, 0, byte_count);
+            playback_device->write(buffer, byte_count);
+
+            requested_byte_count -= byte_count;
+            if (requested_byte_count <= 0)
+                break;
+        }
+        return;
+    }
+
+    bool need_more_data = fill_playback_buffer(node, playback_node_context, playback_device, requested_byte_count);
 
     if (need_more_data) {
+        GenesisAudioPort *audio_in_port = (GenesisAudioPort *)node->ports[0];
+        GenesisAudioPort *audio_out_port = (GenesisAudioPort *)audio_in_port->port.input_from;
         GenesisNode *child_node = audio_out_port->port.node;
         child_node->data_ready = false;
         queue_node_if_ready(context, child_node, true);
