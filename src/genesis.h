@@ -67,6 +67,9 @@ const char *genesis_audio_device_name(const struct GenesisAudioDevice *device);
 // UTF-8 encoded
 const char *genesis_audio_device_description(const struct GenesisAudioDevice *device);
 
+const struct GenesisChannelLayout *genesis_audio_device_channel_layout(const struct GenesisAudioDevice *device);
+int genesis_audio_device_sample_rate(const struct GenesisAudioDevice *device);
+
 enum GenesisAudioDevicePurpose {
     GenesisAudioDevicePurposePlayback,
     GenesisAudioDevicePurposeRecording,
@@ -197,6 +200,7 @@ void genesis_debug_print_port_config(struct GenesisPort *port);
 
 int genesis_start_pipeline(struct GenesisContext *context);
 void genesis_stop_pipeline(struct GenesisContext *context);
+int genesis_resume_pipeline(struct GenesisContext *context);
 
 // can only set this when the pipeline is stopped.
 // also if you change this, you must destroy and re-create nodes and node
@@ -289,7 +293,7 @@ int genesis_audio_file_load(struct GenesisContext *context,
 struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *context);
 void genesis_audio_file_set_sample_rate(struct GenesisAudioFile *audio_file,
         int sample_rate);
-void genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
+int genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
         const struct GenesisChannelLayout *channel_layout);
 
 void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file);

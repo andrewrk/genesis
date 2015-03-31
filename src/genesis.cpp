@@ -323,6 +323,16 @@ enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct Genesis
     return audio_device->purpose;
 }
 
+const struct GenesisChannelLayout *genesis_audio_device_channel_layout(
+        const struct GenesisAudioDevice *audio_device)
+{
+    return &audio_device->channel_layout;
+}
+
+int genesis_audio_device_sample_rate(const struct GenesisAudioDevice *audio_device) {
+    return audio_device->default_sample_rate;
+}
+
 void genesis_set_audio_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata),
         void *userdata)
@@ -1114,47 +1124,86 @@ static void pipeline_thread_run(void *userdata) {
 }
 
 int genesis_start_pipeline(struct GenesisContext *context) {
+    // initialize nodes
+    for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
+        GenesisNode *node = context->nodes.at(node_index);
+        for (int port_i = 0; port_i < node->port_count; port_i += 1) {
+            GenesisPort *port = node->ports[port_i];
+            if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
+                GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
+                if (audio_port->sample_buffer)
+                    audio_port->sample_buffer->clear();
+            } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
+                GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
+                if (events_port->event_buffer)
+                    events_port->event_buffer->clear();
+            }
+        }
+        node->timestamp = 0.0;
+        node->descriptor->seek(node);
+    }
+
+    return genesis_resume_pipeline(context);
+}
+
+void genesis_stop_pipeline(struct GenesisContext *context) {
+    context->pipeline_running = false;
+    context->task_queue.wakeup_all(context->thread_pool.length());
+    for (int i = 0; i < context->thread_pool.length(); i += 1) {
+        Thread *thread = &context->thread_pool.at(i);
+        if (thread->running())
+            thread->join();
+    }
+}
+
+int genesis_resume_pipeline(struct GenesisContext *context) {
     int err = context->task_queue.resize(context->nodes.length() + context->thread_pool.length());
     if (err) {
         genesis_stop_pipeline(context);
         return err;
     }
 
-    // initialize nodes
     for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
         GenesisNode *node = context->nodes.at(node_index);
         node->being_processed = false;
-        node->data_ready = false;
         for (int port_i = 0; port_i < node->port_count; port_i += 1) {
             GenesisPort *port = node->ports[port_i];
             if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
                 GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
                 int sample_buffer_frame_count = ceil(context->latency * audio_port->sample_rate);
                 audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
-                audio_port->sample_buffer_size = sample_buffer_frame_count * audio_port->bytes_per_frame;
+                int new_sample_buffer_size = sample_buffer_frame_count * audio_port->bytes_per_frame;
+                bool different = new_sample_buffer_size != audio_port->sample_buffer_size;
+                audio_port->sample_buffer_size = new_sample_buffer_size;
 
-                destroy(audio_port->sample_buffer, 1);
-                audio_port->sample_buffer = create_zero<RingBuffer>(audio_port->sample_buffer_size);
-                if (!audio_port->sample_buffer) {
-                    genesis_stop_pipeline(context);
-                    return GenesisErrorNoMem;
+                if (!audio_port->sample_buffer || different) {
+                    node->data_ready = false;
+
+                    destroy(audio_port->sample_buffer, 1);
+                    audio_port->sample_buffer = create_zero<RingBuffer>(audio_port->sample_buffer_size);
+                    if (!audio_port->sample_buffer) {
+                        genesis_stop_pipeline(context);
+                        return GenesisErrorNoMem;
+                    }
                 }
             } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
                 GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
                 int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * context->latency;
+                if (!events_port->event_buffer || events_port->event_buffer->capacity() != min_event_buffer_size) {
+                    node->data_ready = false;
 
-                destroy(events_port->event_buffer, 1);
-                events_port->event_buffer = create_zero<RingBuffer>(min_event_buffer_size);
+                    destroy(events_port->event_buffer, 1);
+                    events_port->event_buffer = create_zero<RingBuffer>(min_event_buffer_size);
 
-                if (!events_port->event_buffer) {
-                    genesis_stop_pipeline(context);
-                    return GenesisErrorNoMem;
+                    if (!events_port->event_buffer) {
+                        genesis_stop_pipeline(context);
+                        return GenesisErrorNoMem;
+                    }
                 }
             }
         }
-        node->timestamp = 0.0;
-        node->descriptor->seek(node);
     }
+
     context->pipeline_running = true;
 
     for (int i = 0; i < context->thread_pool.length(); i += 1) {
@@ -1167,16 +1216,6 @@ int genesis_start_pipeline(struct GenesisContext *context) {
     }
 
     return 0;
-}
-
-void genesis_stop_pipeline(struct GenesisContext *context) {
-    context->pipeline_running = false;
-    context->task_queue.wakeup_all(context->thread_pool.length());
-    for (int i = 0; i < context->thread_pool.length(); i += 1) {
-        Thread *thread = &context->thread_pool.at(i);
-        if (thread->running())
-            thread->join();
-    }
 }
 
 int genesis_set_latency(struct GenesisContext *context, double latency) {

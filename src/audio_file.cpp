@@ -1254,8 +1254,13 @@ void genesis_audio_file_set_sample_rate(struct GenesisAudioFile *audio_file,
     audio_file->sample_rate = sample_rate;
 }
 
-void genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
+int genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
         const GenesisChannelLayout *channel_layout)
 {
+    int err = audio_file->channels.resize(audio_file->channel_layout.channel_count);
+    if (err)
+        return err;
     audio_file->channel_layout = *channel_layout;
+
+    return 0;
 }

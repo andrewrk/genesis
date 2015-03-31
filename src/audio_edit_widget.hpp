@@ -105,23 +105,20 @@ public:
     bool _select_down;
     bool _playback_select_down;
 
+    bool _playback_active;
+    long _playback_cursor_frame;
+
     GenesisNodeDescriptor *_audio_file_node_descr;
     GenesisNodeDescriptor *_playback_node_descr;
+    GenesisNodeDescriptor *_recording_node_descr;
+    GenesisPortDescriptor *_audio_in_port_descr;
     GenesisPortDescriptor *_audio_out_port_descr;
-    GenesisNode *_audio_out_node;
+    GenesisNode *_audio_file_node;
     GenesisNode *_playback_node;
+    GenesisNode *_recording_node;
 
     SelectWidget *_select_playback_device;
     SelectWidget *_select_recording_device;
-
-    OpenRecordingDevice *_recording_device;
-    Thread _recording_thread;
-    bool _recording_thread_created;
-    Mutex _recording_mutex;
-    MutexCond _recording_cond;
-    atomic_bool _recording_thread_join_flag;
-    double _recording_thread_wakeup_timeout;
-    ByteBuffer _record_part_frame_bytes;
 
     bool _initialized_default_device_indexes;
 
