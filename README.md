@@ -51,6 +51,7 @@ libgenesis is programmed in a tiny subset of C++:
  * No exceptions or run-time type information.
  * Pass pointers instead of references.
  * No linking against libstdc++.
+ * All fields and methods in structs and classes are `public`.
 
 ### Building and Running
 

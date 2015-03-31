@@ -5,18 +5,19 @@
 #include <stdint.h>
 #include <errno.h>
 
-static AudioFile *create_empty_audio_file() {
-    AudioFile *audio_file = create<AudioFile>();
-    audio_file->channels.resize(2);
-    audio_file->channel_layout = *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdStereo);
-    audio_file->sample_rate = 48000;
-    audio_file->export_sample_format = {SampleFormatInt32, false};
-    audio_file->export_bit_rate = 320 * 1000;
-    return audio_file;
+static void noop(void *arg) {}
+
+static void audio_file_node_seek(struct GenesisNode *node) {
+    // TODO
 }
 
-AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware *audio_hardware) :
+static void audio_file_node_run(struct GenesisNode *node) {
+    // TODO
+}
+
+AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext *genesis_context) :
     Widget(),
+    _genesis_context(genesis_context),
     _gui_window(gui_window),
     _gui(gui),
     _left(0),
@@ -39,14 +40,11 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     _timeline_sel_bg_color(parse_color("#4D505C")),
     _timeline_sel_fg_color(0.851f, 0.867f, 0.914f, 1.0f),
     _playback_cursor_color(0.0f, 0.0f, 0.0f, 1.0f),
-    _audio_file(create_empty_audio_file()),
     _scroll_x(0),
     _frames_per_pixel(1.0f),
     _select_down(false),
     _playback_select_down(false),
-    _audio_hardware(audio_hardware),
     _playback_device(NULL),
-    _playback_thread_join_flag(false),
     _playback_write_head(0),
     _playback_active(false),
     _playback_cursor_frame(0),
@@ -55,6 +53,8 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     _initialized_default_device_indexes(false),
     _want_update_model(false)
 {
+    _audio_file = create_empty_audio_file();
+
     init_selection(_selection);
     init_selection(_playback_selection);
 
@@ -65,13 +65,24 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware 
     _select_recording_device = create<SelectWidget>(gui_window, gui);
     _select_recording_device->_userdata = this;
 
-    _audio_hardware->_userdata = this;
-    _audio_hardware->set_on_devices_change(static_on_devices_change);
-    on_devices_change();
+    genesis_set_audio_device_callback(_genesis_context, static_on_devices_change, this);
+
+    _audio_file_node_descr = genesis_create_node_descriptor(_genesis_context, 1,
+            "audio_file", "Listen to the audio file you are editing.");
+    if (!_audio_file_node_descr)
+        panic("out of memory");
+    genesis_node_descriptor_set_userdata(_audio_file_node_descr, this);
+    genesis_node_descriptor_set_run_callback(_audio_file_node_descr, audio_file_node_run);
+    genesis_node_descriptor_set_seek_callback(_audio_file_node_descr, audio_file_node_seek);
+
+    _audio_out_port_descr = genesis_node_descriptor_create_port(
+            _audio_file_node_descr, 0, GenesisPortTypeAudioOut, "audio_out");
+    if (!audio_out_descr)
+        panic("out of memory");
 }
 
 AudioEditWidget::~AudioEditWidget() {
-    _audio_hardware->clear_on_devices_change();
+    genesis_set_audio_device_callback(_genesis_context, noop, nullptr);
 
     close_recording_device();
     close_playback_device();
@@ -80,6 +91,13 @@ AudioEditWidget::~AudioEditWidget() {
 
     _gui_window->destroy_widget(_select_recording_device);
     _gui_window->destroy_widget(_select_playback_device);
+}
+
+GenesisAudioFile *create_empty_audio_file() {
+    GenesisAudioFile *audio_file = genesis_audio_file_create(_genesis_context);
+    if (!audio_file)
+        panic("out of memory");
+    return audio_file;
 }
 
 void AudioEditWidget::destroy_audio_file() {
@@ -94,36 +112,25 @@ void AudioEditWidget::on_devices_change() {
 
     _select_playback_device->clear();
     _select_recording_device->clear();
-    _playback_device_list.clear();
-    _recording_device_list.clear();
 
-    int default_playback_index = 0;
-    int default_recording_index = 0;
+    int audio_count = genesis_get_audio_device_count(context);
+    if (audio_count < 0)
+        panic("no audio devices found");
+
+    int default_playback_index = genesis_get_default_playback_device_index(context);
+    int default_recording_index = genesis_get_default_recording_device_index(context);
 
     if (!info) {
         schedule_update_model();
         return;
     }
 
-    for (int i = 0; i < info->devices.length(); i += 1) {
-        const AudioDevice *audio_device = &info->devices.at(i);
-
-        if (audio_device->purpose == GenesisAudioDevicePurposePlayback) {
-            int this_index = _playback_device_list.length();
-
-            _select_playback_device->append_choice(audio_device->description);
-            _playback_device_list.append(audio_device);
-
-            if (info->default_output_index == i)
-                default_playback_index = this_index;
+    for (int i = 0; i < audio_count; i += 1) {
+        struct GenesisAudioDevice *device = genesis_get_audio_device(context, i);
+        if (genesis_audio_device_purpose(device) == GenesisAudioDevicePurposePlayback) {
+            _select_playback_device->append_choice(genesis_audio_device_description(device));
         } else {
-            int this_index = _recording_device_list.length();
-
-            _select_recording_device->append_choice(audio_device->description);
-            _recording_device_list.append(audio_device);
-
-            if (info->default_input_index == i)
-                default_recording_index = this_index;
+            _select_recording_device->append_choice(genesis_audio_device_description(device));
         }
     }
     if (!_initialized_default_device_indexes) {
@@ -337,26 +344,35 @@ void AudioEditWidget::recording_thread() {
 }
 
 void AudioEditWidget::open_playback_device() {
-    if (_playback_device || _playback_device_list.length() == 0)
+    if (_playback_node)
         return;
 
-    _playback_device_latency = 0.008;
-    _playback_device_sample_rate = _audio_file->sample_rate;
+    GenesisAudioDevice *selected_playback_device = genesis_get_audio_device(
+            _genesis_context, _select_playback_device->selected_index());
+    if (!selected_playback_device)
+        panic("unable to get playback device %d", _select_playback_device->selected_index());
 
-    const AudioDevice *selected_playback_device = _playback_device_list.at(_select_playback_device->selected_index());
+    int err = genesis_audio_device_create_node_descriptor(out_device, &_playback_node_descr);
+    if (err)
+        panic("error instantiating playback device: %s", genesis_error_string(err));
 
-    bool ok;
-    _playback_device = create<OpenPlaybackDevice>(_audio_hardware,
-            selected_playback_device->name.raw(),
-            &_audio_file->channel_layout, SampleFormatFloat, _playback_device_latency,
-            _audio_file->sample_rate, &ok);
+    genesis_port_descriptor_set_channel_layout(_audio_out_port_descr,
+            genesis_audio_file_channel_layout(_audio_file), true, -1);
 
-    if (!ok)
-        panic("could not open playback device");
+    genesis_port_descriptor_set_sample_rate(_audio_out_port_descr,
+            genesis_audio_file_sample_rate(_audio_file), true, -1);
 
-    _playback_thread_join_flag = false;
-    _playback_thread_wakeup_timeout = _playback_device_latency / 10.0;
-    _playback_thread.start(static_playback_thread, this);
+    _audio_out_node = genesis_node_descriptor_create_node(_audio_file_node_descr);
+    if (!_audio_out_node)
+        panic("error creating audio file node");
+
+    _playback_node = genesis_node_descriptor_create_node(_playback_node_descr);
+    if (!playback_node)
+        panic("error creating playback node");
+
+    err = genesis_connect_audio_nodes(_audio_out_node, _playback_node);
+    if (err)
+        panic("unable to connect audio ports: %s\n", genesis_error_string(err));
 }
 
 long AudioEditWidget::calc_display_frame_count() const {

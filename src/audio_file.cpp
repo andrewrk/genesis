@@ -1152,8 +1152,8 @@ const char *genesis_audio_file_codec_description(const struct GenesisAudioFileCo
     return audio_file_codec->codec->long_name;
 }
 
-struct GenesisChannelLayout genesis_audio_file_channel_layout(const struct GenesisAudioFile *audio_file) {
-    return audio_file->channel_layout;
+const struct GenesisChannelLayout *genesis_audio_file_channel_layout(const struct GenesisAudioFile *audio_file) {
+    return &audio_file->channel_layout;
 }
 
 long genesis_audio_file_frame_count(const struct GenesisAudioFile *audio_file) {

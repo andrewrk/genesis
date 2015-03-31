@@ -20,6 +20,8 @@ enum GenesisError {
     GenesisErrorSystemResources,
     GenesisErrorDecodingAudio,
     GenesisErrorInvalidParam,
+    GenesisErrorInvalidPortType,
+    GenesisErrorPortNotFound,
 };
 
 const char *genesis_error_string(int error);

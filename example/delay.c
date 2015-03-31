@@ -6,41 +6,12 @@
 // default playback device
 
 static void connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest) {
-    int audio_out_port_index = genesis_node_descriptor_find_port_index(
-            genesis_node_descriptor(source), "audio_out");
-    if (audio_out_port_index < 0) {
-        fprintf(stderr, "unable to find audio_out port\n");
-        exit(1);
-    }
-    struct GenesisPort *audio_out_port = genesis_node_port(source, audio_out_port_index);
-    if (!audio_out_port) {
-        fprintf(stderr, "expected to find audio_out port\n");
-        exit(1);
-    }
-
-    int audio_in_port_index = genesis_node_descriptor_find_port_index(
-            genesis_node_descriptor(dest), "audio_in");
-    if (audio_in_port_index < 0) {
-        fprintf(stderr, "unable to find audio_in port\n");
-        exit(1);
-    }
-
-    struct GenesisPort *audio_in_port = genesis_node_port(dest, audio_in_port_index);
-    if (!audio_in_port) {
-        fprintf(stderr, "expected to find audio_in port\n");
-        exit(1);
-    }
-
-    int err = genesis_connect_ports(audio_out_port, audio_in_port);
+    int err = genesis_connect_audio_nodes(source, dest);
     if (err) {
         fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
         fprintf(stderr, "%s -> %s\n",
                 genesis_node_descriptor_name(genesis_node_descriptor(source)),
                 genesis_node_descriptor_name(genesis_node_descriptor(dest)));
-        fprintf(stderr, "\n");
-        genesis_debug_print_port_config(audio_out_port);
-        fprintf(stderr, "\n");
-        genesis_debug_print_port_config(audio_in_port);
         exit(1);
     }
 }

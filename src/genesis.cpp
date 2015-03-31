@@ -626,24 +626,28 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
 
     *out = nullptr;
 
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1);
+    const char *name_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+        "playback-device-%s" : "recording-device-%s";
+    const char *description_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+        "Playback Device: %s" : "Recording Device: %s";
+    char *name = create_formatted_str(name_fmt_str, audio_device->name.raw());
+    char *description = create_formatted_str(description_fmt_str, audio_device->description.raw());
+    if (!name || !description) {
+        free(name);
+        free(description);
+        return GenesisErrorNoMem;
+    }
+
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1, name, description);
 
     if (!node_descr) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
-
-    const char *name_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
-        "playback-device-%s" : "recording-device-%s";
-    const char *description_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
-        "Playback Device: %s" : "Recording Device: %s";
-    node_descr->name = create_formatted_str(name_fmt_str, audio_device->name.raw());
-    node_descr->description = create_formatted_str(description_fmt_str, audio_device->description.raw());
-
-    if (!node_descr->name || !node_descr->description) {
-        genesis_node_descriptor_destroy(node_descr);
-        return GenesisErrorNoMem;
-    }
+    free(name);
+    free(description);
+    name = nullptr;
+    description = nullptr;
 
     if (audio_device->purpose == GenesisAudioDevicePurposePlayback) {
         node_descr->run = playback_node_run;
@@ -742,20 +746,26 @@ int genesis_midi_device_create_node_descriptor(
     GenesisContext *context = midi_device->midi_hardware->context;
     *out = nullptr;
 
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1);
+    char *name = create_formatted_str("midi-device-%s", genesis_midi_device_name(midi_device));
+    char *description = create_formatted_str("Midi Device: %s", genesis_midi_device_description(midi_device));
+
+    if (!name || !description) {
+        free(name);
+        free(description);
+        return GenesisErrorNoMem;
+    }
+
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1, name, description);
 
     if (!node_descr) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
 
-    node_descr->name = create_formatted_str("midi-device-%s", genesis_midi_device_name(midi_device));
-    node_descr->description = create_formatted_str("Midi Device: %s", genesis_midi_device_description(midi_device));
-
-    if (!node_descr->name || !node_descr->description) {
-        genesis_node_descriptor_destroy(node_descr);
-        return GenesisErrorNoMem;
-    }
+    free(name);
+    free(description);
+    name = nullptr;
+    description = nullptr;
 
     node_descr->run = midi_node_run;
     node_descr->create = midi_node_create;
@@ -914,27 +924,24 @@ static int connect_events_ports(GenesisEventsPort *source, GenesisEventsPort *de
 }
 
 int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest) {
-    int err;
+    int err = GenesisErrorInvalidPortType;
     switch (source->descriptor->port_type) {
         case GenesisPortTypeAudioOut:
             if (dest->descriptor->port_type != GenesisPortTypeAudioIn)
                 return GenesisErrorInvalidPortDirection;
 
             err = connect_audio_ports((GenesisAudioPort *)source, (GenesisAudioPort *)dest);
-            goto ok_port_type;
+            break;
         case GenesisPortTypeEventsOut:
             if (dest->descriptor->port_type != GenesisPortTypeEventsIn)
                 return GenesisErrorInvalidPortDirection;
 
             err = connect_events_ports((GenesisEventsPort *)source, (GenesisEventsPort *)dest);
-            goto ok_port_type;
+            break;
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeEventsIn:
             return GenesisErrorInvalidPortDirection;
     }
-    panic("invalid port type");
-
-ok_port_type:
     if (err)
         return err;
 
@@ -985,13 +992,21 @@ struct GenesisNode *genesis_port_node(struct GenesisPort *port) {
 }
 
 struct GenesisNodeDescriptor *genesis_create_node_descriptor(
-        struct GenesisContext *context, int port_count)
+        struct GenesisContext *context, int port_count,
+        const char *name, const char *description)
 {
     GenesisNodeDescriptor *node_descr = create_zero<GenesisNodeDescriptor>();
     if (!node_descr)
         return nullptr;
     node_descr->set_index = -1;
     node_descr->context = context;
+
+    node_descr->name = strdup(name);
+    node_descr->description = strdup(description);
+    if (!node_descr->name || !node_descr->description) {
+        genesis_node_descriptor_destroy(node_descr);
+        return nullptr;
+    }
 
     if (node_descr->port_descriptors.resize(port_count)) {
         genesis_node_descriptor_destroy(node_descr);
@@ -1008,43 +1023,38 @@ struct GenesisNodeDescriptor *genesis_create_node_descriptor(
     return node_descr;
 }
 
-static GenesisAudioPortDescriptor *create_audio_port(GenesisNodeDescriptor *node_descr,
-        int port_index, GenesisPortType port_type)
-{
-    GenesisAudioPortDescriptor *audio_port_descr = create_zero<GenesisAudioPortDescriptor>();
-    if (!audio_port_descr)
-        return nullptr;
-    node_descr->port_descriptors.at(port_index) = &audio_port_descr->port_descriptor;
-    audio_port_descr->port_descriptor.port_type = port_type;
-    return audio_port_descr;
-}
-
-static GenesisEventsPortDescriptor *create_events_port(GenesisNodeDescriptor *node_descr,
-        int port_index, GenesisPortType port_type)
-{
-    GenesisEventsPortDescriptor *events_port_descr = create_zero<GenesisEventsPortDescriptor>();
-    if (!events_port_descr)
-        return nullptr;
-    node_descr->port_descriptors.at(port_index) = &events_port_descr->port_descriptor;
-    events_port_descr->port_descriptor.port_type = port_type;
-    return events_port_descr;
-}
-
 struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
         struct GenesisNodeDescriptor *node_descr, int port_index,
-        enum GenesisPortType port_type)
+        enum GenesisPortType port_type, const char *name)
 {
     if (port_index < 0 || port_index >= node_descr->port_descriptors.length())
         return nullptr;
+
+    GenesisPortDescriptor *port_descr = nullptr;
     switch (port_type) {
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeAudioOut:
-            return &create_audio_port(node_descr, port_index, port_type)->port_descriptor;
+            port_descr = (GenesisPortDescriptor*)create_zero<GenesisAudioPortDescriptor>();
+            break;
         case GenesisPortTypeEventsIn:
         case GenesisPortTypeEventsOut:
-            return &create_events_port(node_descr, port_index, port_type)->port_descriptor;
+            port_descr = (GenesisPortDescriptor*)create_zero<GenesisEventsPortDescriptor>();
+            break;
     }
-    panic("invalid port type");
+    if (!port_descr)
+        return nullptr;
+
+    port_descr->port_type = port_type;
+
+    port_descr->name = strdup(name);
+    if (!port_descr->name) {
+        genesis_port_descriptor_destroy(port_descr);
+        return nullptr;
+    }
+
+    node_descr->port_descriptors.at(port_index) = port_descr;
+
+    return port_descr;
 }
 
 static void debug_print_audio_port_config(GenesisAudioPort *port) {
@@ -1241,4 +1251,91 @@ int genesis_audio_port_sample_rate(struct GenesisPort *port) {
 const GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort *port) {
     struct GenesisAudioPort *audio_port = (struct GenesisAudioPort *)port;
     return &audio_port->channel_layout;
+}
+
+void genesis_node_descriptor_set_run_callback(struct GenesisNodeDescriptor *node_descriptor,
+        void (*run)(struct GenesisNode *node))
+{
+    node_descriptor->run = run;
+}
+
+void genesis_node_descriptor_set_seek_callback(struct GenesisNodeDescriptor *node_descriptor,
+        void (*seek)(struct GenesisNode *node))
+{
+    node_descriptor->seek = seek;
+}
+
+void genesis_node_descriptor_set_create_callback(struct GenesisNodeDescriptor *node_descriptor,
+        int (*create)(struct GenesisNode *node))
+{
+    node_descriptor->create = create;
+}
+
+void genesis_node_descriptor_set_destroy_callback(struct GenesisNodeDescriptor *node_descriptor,
+        void (*destroy)(struct GenesisNode *node))
+{
+    node_descriptor->destroy = destroy;
+}
+
+void genesis_node_descriptor_set_port_connect_callback(struct GenesisNodeDescriptor *node_descriptor,
+        int (*port_connect)(struct GenesisPort *port))
+{
+    node_descriptor->port_connect = port_connect;
+}
+
+void genesis_node_descriptor_set_userdata(struct GenesisNodeDescriptor *node_descriptor, void *userdata) {
+    node_descriptor->userdata = userdata;
+}
+
+int genesis_audio_port_descriptor_set_channel_layout(
+        struct GenesisPortDescriptor *port_descr,
+        const GenesisChannelLayout *channel_layout, bool fixed, int other_port_index)
+{
+    if (port_descr->port_type != GenesisPortTypeAudioIn &&
+        port_descr->port_type != GenesisPortTypeAudioOut)
+    {
+        return GenesisErrorInvalidPortType;
+    }
+
+    GenesisAudioPortDescriptor *audio_port_descr = (GenesisAudioPortDescriptor *)port_descr;
+
+    audio_port_descr->channel_layout = *channel_layout;
+    audio_port_descr->channel_layout_fixed = fixed;
+    audio_port_descr->same_channel_layout_index = other_port_index;
+
+    return 0;
+}
+
+int genesis_audio_port_descriptor_set_sample_rate(
+        struct GenesisPortDescriptor *port_descr,
+        int sample_rate, bool fixed, int other_port_index)
+{
+    if (port_descr->port_type != GenesisPortTypeAudioIn &&
+        port_descr->port_type != GenesisPortTypeAudioOut)
+    {
+        return GenesisErrorInvalidPortType;
+    }
+
+    GenesisAudioPortDescriptor *audio_port_descr = (GenesisAudioPortDescriptor *)port_descr;
+
+    audio_port_descr->sample_rate = sample_rate;
+    audio_port_descr->sample_rate_fixed = fixed;
+    audio_port_descr->same_sample_rate_index = other_port_index;
+
+    return 0;
+}
+
+int genesis_connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest) {
+    int audio_out_port_index = genesis_node_descriptor_find_port_index(source->descriptor, "audio_out");
+    if (audio_out_port_index < 0)
+        return GenesisErrorPortNotFound;
+
+    int audio_in_port_index = genesis_node_descriptor_find_port_index(dest->descriptor, "audio_in");
+    if (audio_in_port_index < 0)
+        return GenesisErrorPortNotFound;
+
+    struct GenesisPort *audio_out_port = genesis_node_port(source, audio_out_port_index);
+    struct GenesisPort *audio_in_port = genesis_node_port(dest, audio_in_port_index);
+
+    return genesis_connect_ports(audio_out_port, audio_in_port);
 }

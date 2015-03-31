@@ -119,6 +119,9 @@ enum GenesisPortType {
 
 struct GenesisPortDescriptor;
 struct GenesisNodeDescriptor;
+struct GenesisPort;
+struct GenesisNode;
+
 struct GenesisNodeDescriptor *genesis_node_descriptor_find(
         struct GenesisContext *context, const char *name);
 const char *genesis_node_descriptor_name(const struct GenesisNodeDescriptor *node_descriptor);
@@ -131,18 +134,31 @@ int genesis_midi_device_create_node_descriptor(
         struct GenesisMidiDevice *midi_device,
         struct GenesisNodeDescriptor **out_node_descriptor);
 
+// name and description are copied internally
 struct GenesisNodeDescriptor *genesis_create_node_descriptor(
-        struct GenesisContext *context, int port_count);
+        struct GenesisContext *context, int port_count, const char *name,
+        const char *description);
 
 void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor);
+
+void genesis_node_descriptor_set_userdata(struct GenesisNodeDescriptor *node_descriptor,
+        void *userdata);
+void genesis_node_descriptor_set_run_callback(struct GenesisNodeDescriptor *node_descriptor,
+        void (*run)(struct GenesisNode *node));
+void genesis_node_descriptor_set_seek_callback(struct GenesisNodeDescriptor *node_descriptor,
+        void (*seek)(struct GenesisNode *node));
+void genesis_node_descriptor_set_create_callback(struct GenesisNodeDescriptor *node_descriptor,
+        int (*create)(struct GenesisNode *node));
+void genesis_node_descriptor_set_destroy_callback(struct GenesisNodeDescriptor *node_descriptor,
+        void (*destroy)(struct GenesisNode *node));
+void genesis_node_descriptor_set_port_connect_callback(struct GenesisNodeDescriptor *node_descriptor,
+        int (*port_connect)(struct GenesisPort *port));
 
 // returns -1 if not found
 int genesis_node_descriptor_find_port_index(
         const struct GenesisNodeDescriptor *node_descriptor, const char *name);
 
 
-struct GenesisPort;
-struct GenesisNode;
 struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescriptor *node_descriptor);
 void genesis_node_destroy(struct GenesisNode *node);
 
@@ -150,12 +166,32 @@ struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
 const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node);
 
 int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
+// shortcut for connecting audio nodes. calls genesis_connect_ports internally
+int genesis_connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest);
+
 
 struct GenesisNode *genesis_port_node(struct GenesisPort *port);
 
+// name is duplicated internally
 struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
         struct GenesisNodeDescriptor *node_descriptor, int port_index,
-        enum GenesisPortType port_type);
+        enum GenesisPortType port_type, const char *name);
+
+// if fixed is true then other_port_index is the index
+// of the other port that it is the same as, or -1 if it is fixed
+// to the value of channel_layout
+int genesis_audio_port_descriptor_set_channel_layout(
+        struct GenesisPortDescriptor *audio_port_descr,
+        const struct GenesisChannelLayout *channel_layout, bool fixed, int other_port_index);
+
+// if fixed is true then other_port_index is the index
+// of the other port that it is the same as, or -1 if it is fixed
+// to the value of sample_rate
+int genesis_audio_port_descriptor_set_sample_rate(
+        struct GenesisPortDescriptor *audio_port_descr,
+        int sample_rate, bool fixed, int other_port_index);
+
+void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descriptor);
 
 void genesis_debug_print_port_config(struct GenesisPort *port);
 
@@ -261,7 +297,7 @@ void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file);
 int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         const char *output_filename, struct GenesisExportFormat *export_format);
 
-struct GenesisChannelLayout genesis_audio_file_channel_layout(
+const struct GenesisChannelLayout *genesis_audio_file_channel_layout(
         const struct GenesisAudioFile *audio_file);
 long genesis_audio_file_frame_count(const struct GenesisAudioFile *audio_file);
 int genesis_audio_file_sample_rate(const struct GenesisAudioFile *audio_file);

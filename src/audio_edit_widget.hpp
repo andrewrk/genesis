@@ -43,7 +43,8 @@ public:
 
     void save_as(const ByteBuffer &file_path, GenesisExportFormat *export_sample_format);
 
-private:
+// private
+    GenesisContext *_genesis_context;
     GuiWindow *_gui_window;
     Gui *_gui;
 
@@ -104,18 +105,11 @@ private:
     bool _select_down;
     bool _playback_select_down;
 
-    GenesisContext *_genesis_context;
-    OpenPlaybackDevice *_playback_device;
-    Thread _playback_thread;
-    Mutex _playback_mutex;
-    MutexCond _playback_cond;
-    atomic_bool _playback_thread_join_flag;
-    long _playback_write_head; // protected by mutex
-    bool _playback_active; // protected by mutex
-    double _playback_thread_wakeup_timeout;
-    atomic_long _playback_cursor_frame;
-    double _playback_device_latency;
-    int _playback_device_sample_rate;
+    GenesisNodeDescriptor *_audio_file_node_descr;
+    GenesisNodeDescriptor *_playback_node_descr;
+    GenesisPortDescriptor *_audio_out_port_descr;
+    GenesisNode *_audio_out_node;
+    GenesisNode *_playback_node;
 
     SelectWidget *_select_playback_device;
     SelectWidget *_select_recording_device;
@@ -173,7 +167,6 @@ private:
     void close_playback_device();
     void open_playback_device();
 
-    void playback_thread();
     void recording_thread();
 
     void clamp_playback_write_head(long start, long end);
@@ -192,9 +185,7 @@ private:
 
     void on_playback_index_changed();
 
-    static void static_playback_thread(void *arg) {
-        return reinterpret_cast<AudioEditWidget*>(arg)->playback_thread();
-    }
+    GenesisAudioFile *create_empty_audio_file();
 
     static void static_recording_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->recording_thread();
@@ -202,6 +193,10 @@ private:
 
     static void static_on_playback_index_changed(SelectWidget *select_widget) {
         return static_cast<AudioEditWidget*>(select_widget->_userdata)->on_playback_index_changed();
+    }
+
+    static void static_on_devices_change(void *arg) {
+        return reinterpret_cast<AudioEditWidget*>(arg)->on_devices_change();
     }
 
     AudioEditWidget(const AudioEditWidget &copy) = delete;
