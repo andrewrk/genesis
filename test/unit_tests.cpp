@@ -99,12 +99,11 @@ static void test_ring_buffer(void) {
     assert(rb.free_count() == rb.capacity());
 
     rb.advance_write_ptr(4094);
+    rb.advance_read_ptr(4094);
     amt = sprintf(rb.write_ptr(), "writing past the end") + 1;
     rb.advance_write_ptr(amt);
 
-    assert(rb.fill_count() == 4094 + amt);
-
-    rb.advance_read_ptr(4094);
+    assert(rb.fill_count() == amt);
 
     assert(strcmp(rb.read_ptr(), "writing past the end") == 0);
 
