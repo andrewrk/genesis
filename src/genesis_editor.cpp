@@ -5,7 +5,7 @@
 #include "genesis.h"
 
 GenesisEditor::GenesisEditor() :
-    _resource_bundle("build/resources.bundle"),
+    _resource_bundle("resources.bundle"),
     _find_file_widget(NULL),
     _audio_edit_widget(NULL)
 {

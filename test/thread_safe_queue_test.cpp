@@ -1,9 +1,13 @@
 #include "thread_safe_queue_test.hpp"
 #include "thread_safe_queue.hpp"
 #include "threads.hpp"
-#include <assert.h>
 
 ThreadSafeQueue<int> *queue = nullptr;
+
+static void test_assert(bool expr, const char *explain) {
+    if (!expr)
+        panic("assertion failure: %s", explain);
+}
 
 static void assert_no_err(int err) {
     if (err)
@@ -24,7 +28,7 @@ static void dequeue_no_assert(void *userdata) {
 
 static void dequeue_one_through_five(void *userdata) {
     for (int i = 0; i < 5; i += 1) {
-        assert(queue->dequeue() == i);
+        test_assert(queue->dequeue() == i, "dequeue one wrong value");
     }
 }
 
@@ -34,7 +38,7 @@ void test_thread_safe_queue(void) {
 
     // basic test
     queue->enqueue(25);
-    assert(queue->dequeue() == 25);
+    test_assert(queue->dequeue() == 25, "wrong dequeue value");
 
     // let's get some threads going test
     Thread thread1;
@@ -43,7 +47,7 @@ void test_thread_safe_queue(void) {
     Thread thread2;
     assert_no_err(thread2.start(worker_thread_2, nullptr));
 
-    assert(queue->dequeue() + queue->dequeue() == 13 + 17);
+    test_assert(queue->dequeue() + queue->dequeue() == 13 + 17, "wrong dequeue value 2");
 
     Thread thread3;
     assert_no_err(thread3.start(dequeue_no_assert, nullptr));

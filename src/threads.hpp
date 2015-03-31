@@ -69,6 +69,7 @@ public:
             return;
         }
         _mutex_initialized = true;
+        _initialization_error = 0;
     }
     ~Mutex() {
         if (_mutex_initialized)

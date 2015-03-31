@@ -186,18 +186,6 @@ public:
 
     GenesisAudioFile *create_empty_audio_file();
 
-    static void static_recording_thread(void *arg) {
-        return reinterpret_cast<AudioEditWidget*>(arg)->recording_thread();
-    }
-
-    static void static_on_playback_index_changed(SelectWidget *select_widget) {
-        return static_cast<AudioEditWidget*>(select_widget->_userdata)->on_playback_index_changed();
-    }
-
-    static void static_on_devices_change(void *arg) {
-        return reinterpret_cast<AudioEditWidget*>(arg)->on_devices_change();
-    }
-
     AudioEditWidget(const AudioEditWidget &copy) = delete;
     AudioEditWidget &operator=(const AudioEditWidget &copy) = delete;
 };

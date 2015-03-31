@@ -178,34 +178,22 @@ const char *genesis_node_descriptor_description(const struct GenesisNodeDescript
     return node_descriptor->description;
 }
 
-static GenesisAudioPort *create_audio_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
-    GenesisAudioPort *audio_port = create_zero<GenesisAudioPort>();
-    if (!audio_port)
-        return nullptr;
-    return audio_port;
-}
-
-static GenesisEventsPort *create_events_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
-    GenesisEventsPort *events_port = create_zero<GenesisEventsPort>();
-    if (!events_port)
-        return nullptr;
-    return events_port;
-}
-
 static GenesisPort *create_port_from_descriptor(GenesisPortDescriptor *port_descriptor) {
-    GenesisPort *port;
+    GenesisPort *port = nullptr;
     switch (port_descriptor->port_type) {
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeAudioOut:
-            port = &create_audio_port_from_descriptor(port_descriptor)->port;
+            port = (GenesisPort*)create_zero<GenesisAudioPort>();
             break;
 
         case GenesisPortTypeEventsIn:
         case GenesisPortTypeEventsOut:
-            port = &create_events_port_from_descriptor(port_descriptor)->port;
+            port = (GenesisPort*)create_zero<GenesisEventsPort>();
             break;
 
     }
+    if (!port)
+        return nullptr;
     port->descriptor = port_descriptor;
     return port;
 }

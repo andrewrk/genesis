@@ -122,6 +122,14 @@ void AudioEditWidget::recording_thread() {
 
 }
 
+static void static_on_devices_change(void *arg) {
+    return reinterpret_cast<AudioEditWidget*>(arg)->on_devices_change();
+}
+
+static void static_on_playback_index_changed(SelectWidget *select_widget) {
+    return static_cast<AudioEditWidget*>(select_widget->_userdata)->on_playback_index_changed();
+}
+
 AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext *genesis_context) :
     Widget(),
     _genesis_context(genesis_context),
@@ -154,6 +162,14 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext
     _playback_write_head(0),
     _playback_active(false),
     _playback_cursor_frame(0),
+    _audio_file_node_descr(nullptr),
+    _playback_node_descr(nullptr),
+    _recording_node_descr(nullptr),
+    _audio_in_port_descr(nullptr),
+    _audio_out_port_descr(nullptr),
+    _audio_file_node(nullptr),
+    _playback_node(nullptr),
+    _recording_node(nullptr),
     _initialized_default_device_indexes(false),
     _want_update_model(false)
 {

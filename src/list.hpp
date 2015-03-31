@@ -3,6 +3,7 @@
 
 #include "util.hpp"
 #include "genesis.h"
+#include "assert.h"
 
 template<typename T>
 class List {
@@ -42,27 +43,25 @@ public:
     // remember that the pointer to this item is invalid after you
     // modify the length of the list
     const T & at(int index) const {
-        if (index < 0 || index >= _length)
-            panic("list: const at index out of bounds");
+        assert(index >= 0);
+        assert(index < _length);
         return _items[index];
     }
     T & at(int index) {
-        if (index < 0 || index >= _length)
-            panic("list: at index out of bounds");
+        assert(index >= 0);
+        assert(index < _length);
         return _items[index];
     }
     int length() const {
         return _length;
     }
     T pop() {
-        if (_length == 0)
-            panic("pop empty list");
+        assert(_length >= 1);
         return unchecked_pop();
     }
 
     int __attribute__((warn_unused_result)) resize(int length) {
-        if (length < 0)
-            panic("list: resize negative length");
+        assert(length >= 0);
         int err = ensure_capacity(length);
         if (err)
             return err;
@@ -75,14 +74,15 @@ public:
     }
 
     T swap_remove(int index) {
-        if (index < 0 || index >= _length)
-            panic("list: swap_remove index out of bounds");
+        assert(index >= 0);
+        assert(index < _length);
         return unchecked_swap_remove(index);
     }
 
     void remove_range(int start, int end) {
-        if (!(0 <= start && start <= end && end <= _length))
-            panic("bounds check");
+        assert(0 <= start);
+        assert(start <= end);
+        assert(end <= _length);
         int del_count = end - start;
         int move_count = min(del_count, _length - end);
         for (int i = start; i < start + move_count; i += 1) {

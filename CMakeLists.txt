@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
+      "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+endif()
+
 project(genesis C CXX)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
@@ -157,8 +163,8 @@ endif()
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
-set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -g -fdiagnostics-color=auto")
-set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -g -fdiagnostics-color=auto")
+set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -fdiagnostics-color=auto")
+set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -fdiagnostics-color=auto")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
 set(TEST_CFLAGS "${LIB_CFLAGS} -fprofile-arcs -ftest-coverage")
 set(TEST_LDFLAGS "-fprofile-arcs -ftest-coverage")

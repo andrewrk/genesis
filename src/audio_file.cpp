@@ -875,7 +875,7 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         panic("error setting up audio frame: %s", buf);
     }
 
-    void (*write_frames)(const GenesisAudioFile *, long, long, uint8_t *, AVFrame *);
+    void (*write_frames)(const GenesisAudioFile *, long, long, uint8_t *, AVFrame *) = nullptr;
 
     if (is_planar) {
         switch (export_format->sample_format) {
@@ -924,6 +924,8 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
                 panic("invalid sample format");
         }
     }
+    if (!write_frames)
+        panic("invalid sample format");
 
     long source_frame_count = audio_file->channels.at(0).samples.length();
 
