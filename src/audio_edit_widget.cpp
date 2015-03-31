@@ -273,6 +273,8 @@ void AudioEditWidget::close_playback_device() {
         genesis_stop_pipeline(_genesis_context);
         genesis_node_destroy(_playback_node);
         _playback_node = nullptr;
+        genesis_node_descriptor_destroy(_playback_node_descr);
+        _playback_node_descr = nullptr;
     }
 }
 
@@ -292,7 +294,8 @@ void AudioEditWidget::edit_audio_file(GenesisAudioFile *audio_file) {
     destroy_all_ui();
     for (int i = 0; i < _audio_file->channels.length(); i += 1) {
         PerChannelData *per_channel_data = create_per_channel_data(i);
-        _channel_list.append(per_channel_data);
+        if (_channel_list.append(per_channel_data))
+            panic("out of memory");
     }
     init_selection(_selection);
     init_selection(_playback_selection);
@@ -389,7 +392,8 @@ void AudioEditWidget::zoom_100() {
 void AudioEditWidget::init_selection(Selection &selection) {
     selection.start = 0;
     selection.end = 0;
-    selection.channels.resize(_audio_file->channels.length());
+    if (selection.channels.resize(_audio_file->channels.length()))
+        panic("out of memory");
     for (int i = 0; i < selection.channels.length(); i += 1) {
         selection.channels.at(i) = true;
     }
@@ -769,18 +773,8 @@ void AudioEditWidget::close_recording_device() {
         genesis_stop_pipeline(_genesis_context);
         genesis_node_destroy(_recording_node);
         _recording_node = nullptr;
-    }
-    if (_recording_thread.running()) {
-        _recording_thread_join_flag = true;
-        _recording_mutex.lock();
-        _recording_cond.signal();
-        _recording_mutex.unlock();
-        _recording_thread.join();
-    }
-
-    if (_recording_device) {
-        destroy(_recording_device, 1);
-        _recording_device = nullptr;
+        genesis_node_descriptor_destroy(_recording_node_descr);
+        _recording_node_descr = nullptr;
     }
 }
 
@@ -791,12 +785,11 @@ void AudioEditWidget::scroll_by(int x) {
 }
 
 void AudioEditWidget::clear_playback_buffer() {
-    _playback_device->clear_buffer();
-    _playback_cond.signal();
+    panic("TODO: clear_playback_buffer");
 }
 
 void AudioEditWidget::toggle_play() {
-    if (!_playback_device)
+    if (!_playback_node)
         return;
 
     _playback_mutex.lock();
@@ -808,7 +801,7 @@ void AudioEditWidget::toggle_play() {
 }
 
 void AudioEditWidget::restart_play() {
-    if (!_playback_device)
+    if (!_playback_node)
         return;
 
     _playback_mutex.lock();
@@ -908,7 +901,7 @@ void AudioEditWidget::update_model() {
             long start_frame = (x + _scroll_x) * _frames_per_pixel;
             if (start_frame < samples->length()) {
                 long end_frame = min(
-                        (long)((x + _scroll_x + 1) * _frames_per_pixel),
+                        (x + _scroll_x + 1) * _frames_per_pixel,
                         samples->length());
                 float min_sample =  1.0f;
                 float max_sample = -1.0f;
@@ -964,18 +957,15 @@ void AudioEditWidget::clamp_selection() {
     _selection.end = min(_selection.end, _display_frame_count);
 }
 
-void AudioEditWidget::save_as(const ByteBuffer &file_path, GenesisExportFormat *export_sample_format) {
+void AudioEditWidget::save_as(const ByteBuffer &file_path, GenesisExportFormat *export_format) {
     int sample_rate = genesis_audio_file_sample_rate(_audio_file);
-    if (!genesis_audio_file_codec_supports_sample_rate(export_format.codec, sample_rate))
+    if (!genesis_audio_file_codec_supports_sample_rate(export_format->codec, sample_rate))
         panic("unsupported sample rate");
     export_format->sample_rate = sample_rate;
 
     _audio_file_mutex.lock();
 
-    _audio_file->export_sample_format = export_sample_format;
-    audio_file_save(file_path, NULL, NULL, _audio_file);
-
-    err = genesis_audio_file_export(audio_file, output_filename, &export_format);
+    int err = genesis_audio_file_export(_audio_file, file_path.raw(), export_format);
     if (err != GenesisErrorNone)
         panic("error saving file: %s", genesis_error_string(err));
 

@@ -10,7 +10,8 @@ VertexArray::VertexArray(Gui *gui, void (*init_cb)(void *), void *userdata) :
 {
     GuiWindow *prev_window = _gui->get_bound_window();
 
-    _vertex_array_objects.resize(_gui->_window_list.length());
+    if (_vertex_array_objects.resize(_gui->_window_list.length()))
+        panic("out of memory");
     for (int i = 0; i < _vertex_array_objects.length(); i += 1) {
         GuiWindow *gui_window = _gui->_window_list.at(i);
         gui_window->bind();
@@ -22,7 +23,8 @@ VertexArray::VertexArray(Gui *gui, void (*init_cb)(void *), void *userdata) :
     }
 
     _gui_index = _gui->_vertex_array_list.length();
-    _gui->_vertex_array_list.append(this);
+    if (_gui->_vertex_array_list.append(this))
+        panic("out of memory");
 
     prev_window->bind();
 }
@@ -55,7 +57,8 @@ void VertexArray::remove_index(int index) {
 void VertexArray::append_context() {
     GLuint id;
     glGenVertexArrays(1, &id);
-    _vertex_array_objects.append(id);
+    if (_vertex_array_objects.append(id))
+        panic("out of memory");
     glBindVertexArray(id);
     _init_cb(_userdata);
     assert_no_gl_error();

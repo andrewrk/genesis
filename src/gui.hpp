@@ -76,7 +76,6 @@ public:
     const SpritesheetImage *_img_entry_file;
     const SpritesheetImage *_img_null;
 
-private:
     VertexArray _primitive_vertex_array;
     GenesisContext *_genesis_context;
 

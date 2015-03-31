@@ -67,11 +67,11 @@ int main(int argc, char **argv) {
     if (err != GenesisErrorNone)
         return report_error(err);
 
-    struct GenesisChannelLayout channel_layout = genesis_audio_file_channel_layout(audio_file);
-    if (channel_layout.name)
-        fprintf(stderr, "Channels: %d (%s)\n", channel_layout.channel_count, channel_layout.name);
+    const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
+    if (channel_layout->name)
+        fprintf(stderr, "Channels: %d (%s)\n", channel_layout->channel_count, channel_layout->name);
     else
-        fprintf(stderr, "Channels: %d\n", channel_layout.channel_count);
+        fprintf(stderr, "Channels: %d\n", channel_layout->channel_count);
     long frame_count = genesis_audio_file_frame_count(audio_file);
     int sample_rate = genesis_audio_file_sample_rate(audio_file);
     double seconds = frame_count / (double)sample_rate;
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
 
     // calculate the maximum sample value
     float abs_max = 0.0f;
-    for (int ch = 0; ch < channel_layout.channel_count; ch += 1) {
+    for (int ch = 0; ch < channel_layout->channel_count; ch += 1) {
         struct GenesisAudioFileIterator it = genesis_audio_file_iterator(audio_file, ch, 0);
         while (it.start < frame_count) {
             for (long frame = it.start, offset = 0; frame < it.end; frame += 1, offset += 1) {
@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
     } else if (abs_max < 1.0f) {
         float multiplier = 1.0f / abs_max;
         fprintf(stderr, "Amplification factor: %.3f\n", multiplier);
-        for (int ch = 0; ch < channel_layout.channel_count; ch += 1) {
+        for (int ch = 0; ch < channel_layout->channel_count; ch += 1) {
             struct GenesisAudioFileIterator it = genesis_audio_file_iterator(audio_file, ch, 0);
             while (it.start < frame_count) {
                 for (long frame = it.start, offset = 0; frame < it.end; frame += 1, offset += 1) {

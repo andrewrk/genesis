@@ -69,7 +69,8 @@ void SelectWidget::append_choice(String choice) {
     Label *label = create<Label>(_gui);
     label->set_text(choice);
     label->update();
-    _label_list.append(label);
+    if (_label_list.append(label))
+        panic("out of memory");
     update_model();
 }
 

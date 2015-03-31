@@ -313,7 +313,8 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
 void GuiWindow::init_widget(Widget *widget) {
     widget->_is_visible = true;
     widget->_gui_index = _widget_list.length();
-    _widget_list.append(widget);
+    if (_widget_list.append(widget))
+        panic("out of memory");
 }
 
 SelectWidget * GuiWindow::create_select_widget() {
@@ -335,7 +336,7 @@ FindFileWidget * GuiWindow::create_find_file_widget() {
 }
 
 AudioEditWidget * GuiWindow::create_audio_edit_widget() {
-    AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this, _gui, &_gui->_audio_hardware);
+    AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this, _gui, _gui->_genesis_context);
     init_widget(audio_edit_widget);
     return audio_edit_widget;
 }
