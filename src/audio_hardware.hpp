@@ -61,14 +61,9 @@ private:
     pa_buffer_attr _buffer_attr;
 
     void stream_state_callback(pa_stream *stream);
-    void stream_underflow_callback(pa_stream *stream);
 
     static void stream_state_callback(pa_stream *stream, void *userdata) {
         return static_cast<OpenPlaybackDevice*>(userdata)->stream_state_callback(stream);
-    }
-
-    static void stream_underflow_callback(pa_stream *stream, void *userdata) {
-        return static_cast<OpenPlaybackDevice*>(userdata)->stream_underflow_callback(stream);
     }
 
     static void stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
