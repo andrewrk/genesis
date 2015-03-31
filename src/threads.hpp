@@ -3,7 +3,6 @@
 
 #include <unistd.h>
 #include <pthread.h>
-#include <thread>
 
 class Thread {
 public:

@@ -54,7 +54,8 @@ public:
     }
     void append_uint8(uint8_t value) {
         _buffer.at(length()) = value;
-        _buffer.append(0);
+        if (_buffer.append(0))
+            panic("out of memory");
     }
     uint32_t read_uint32le(long index) const {
         if (index < 0 || index + 4 > length())

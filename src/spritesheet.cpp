@@ -44,7 +44,8 @@ Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
 
     // read the images metadata
     List<RuckSackImage*> images;
-    images.resize(rucksack_texture_image_count(texture));
+    if (images.resize(rucksack_texture_image_count(texture)))
+        panic("out of memory");
     rucksack_texture_get_images(texture, images.raw());
     float full_width = tex_image._width; 
     float full_height = tex_image._height;

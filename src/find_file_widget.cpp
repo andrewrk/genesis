@@ -236,10 +236,12 @@ void FindFileWidget::update_entries_display() {
                 text_widget->set_icon(_gui->_img_null);
             }
 
-            _displayed_entries.append({
+            int err = _displayed_entries.append({
                     entry,
                     text_widget,
             });
+            if (err)
+                panic("out of memory");
         }
     }
     _displayed_entries.sort<compare_display_name>();

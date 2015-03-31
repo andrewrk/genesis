@@ -1,6 +1,5 @@
 #include "gui.hpp"
 #include "debug.hpp"
-#include "audio_hardware.hpp"
 #include "vertex_array.hpp"
 
 uint32_t hash_int(const int &x) {
@@ -42,7 +41,7 @@ void Gui::init_primitive_vertex_array() {
     glVertexAttribPointer(_shader_program_manager._primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 
-Gui::Gui(ResourceBundle *resource_bundle) :
+Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _running(true),
     _focus_window(nullptr),
     _utility_window(create_window(false)),
@@ -51,7 +50,8 @@ Gui::Gui(ResourceBundle *resource_bundle) :
     _img_entry_dir(_spritesheet.get_image_info("img/entry-dir.png")),
     _img_entry_file(_spritesheet.get_image_info("img/entry-file.png")),
     _img_null(_spritesheet.get_image_info("img/null.png")),
-    _primitive_vertex_array(this, init_primitive_vertex_array, this)
+    _primitive_vertex_array(this, init_primitive_vertex_array, this),
+    _genesis_context(context)
 {
 
     ft_ok(FT_Init_FreeType(&_ft_library));
@@ -83,7 +83,7 @@ Gui::~Gui() {
 void Gui::exec() {
     while (_running) {
         glfwPollEvents();
-        _audio_hardware.flush_events();
+        genesis_flush_events(_genesis_context);
         for (long i = 0; i < _window_list.length(); i += 1) {
             _window_list.at(i)->flush_events();
         }
@@ -128,7 +128,8 @@ void Gui::draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::
 GuiWindow *Gui::create_window(bool with_borders) {
     GuiWindow *window = create<GuiWindow>(this, with_borders);
     window->_gui_index = _window_list.length();
-    _window_list.append(window);
+    if (_window_list.append(window))
+        panic("out of memory");
     for (int i = 0; i < _vertex_array_list.length(); i += 1) {
         VertexArray *vertex_array = _vertex_array_list.at(i);
         // the context is bound because it happens in create<GuiWindow>()

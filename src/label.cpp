@@ -141,7 +141,7 @@ void Label::update() {
             prev_letter->full_width = halfway_left - prev_letter->left;
         }
 
-        _letters.append(Letter {
+        int err = _letters.append(Letter {
             ch,
 
             halfway_left,
@@ -153,6 +153,8 @@ void Label::update() {
             entry.below_size,
             entry.bitmap_glyph->top,
         });
+        if (err)
+            panic("out of memory");
 
         previous_glyph_index = entry.glyph_index;
         prev_right = right;

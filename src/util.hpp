@@ -118,24 +118,6 @@ static inline T abs(T x) {
     return (x < 0) ? -x : x;
 }
 
-template<typename T>
-static inline T clamp(T min_value, T value, T max_value) {
-    return max(min(value, max_value), min_value);
-}
-
-static inline float abs_diff(float a, float b) {
-    return fdimf(a, b);
-}
-
-static inline double abs_diff(double a, double b) {
-    return fdim(a, b);
-}
-
-template<typename T>
-static inline T abs_diff(T a, T b) {
-    return abs(a - b);
-}
-
 static inline float min(float a, float b) {
     return fminf(a, b);
 }
@@ -160,6 +142,24 @@ static inline double max(double a, double b) {
 template <typename T>
 static inline T max(T a, T b) {
     return (a >= b) ? a : b;
+}
+
+template<typename T>
+static inline T clamp(T min_value, T value, T max_value) {
+    return max(min(value, max_value), min_value);
+}
+
+static inline float abs_diff(float a, float b) {
+    return fdimf(a, b);
+}
+
+static inline double abs_diff(double a, double b) {
+    return fdim(a, b);
+}
+
+template<typename T>
+static inline T abs_diff(T a, T b) {
+    return abs(a - b);
 }
 
 template <typename T>

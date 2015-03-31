@@ -9,7 +9,6 @@
 #include "font_size.hpp"
 #include "resource_bundle.hpp"
 #include "spritesheet.hpp"
-#include "audio_hardware.hpp"
 #include "gui_window.hpp"
 #include "static_geometry.hpp"
 #include "vertex_array.hpp"
@@ -29,7 +28,7 @@ private:
 class AudioHardware;
 class Gui {
 public:
-    Gui(ResourceBundle *resource_bundle);
+    Gui(GenesisContext *context, ResourceBundle *resource_bundle);
     ~Gui();
 
     void exec();
@@ -58,8 +57,6 @@ public:
     ShaderProgramManager _shader_program_manager;
     StaticGeometry _static_geometry;
 
-    AudioHardware _audio_hardware;
-
     GLFWcursor* _cursor_ibeam;
     GLFWcursor* _cursor_default;
 
@@ -81,6 +78,7 @@ public:
 
 private:
     VertexArray _primitive_vertex_array;
+    GenesisContext *_genesis_context;
 
     void init_primitive_vertex_array();
 

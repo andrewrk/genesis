@@ -6,13 +6,14 @@
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("build/resources.bundle"),
-    _gui(&_resource_bundle),
     _find_file_widget(NULL),
     _audio_edit_widget(NULL)
 {
     _genesis_context = genesis_create_context();
     if (!_genesis_context)
         panic("unable to create genesis context");
+
+    _gui = create<Gui>(_genesis_context, &_resource_bundle);
 
     _gui_window = _gui.create_window(true);
     _gui_window->_userdata = this;
