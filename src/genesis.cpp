@@ -3,12 +3,19 @@
 #include "midi_note_pitch.hpp"
 #include "synth.hpp"
 #include "delay.hpp"
+#include "resample.hpp"
 
 static atomic_flag lib_init_flag = ATOMIC_FLAG_INIT;
 
 static const int BYTES_PER_SAMPLE = 4; // assuming float samples
 static const int EVENTS_PER_SECOND_CAPACITY = 16000;
 static const double whole_notes_per_second = 140.0 / 60.0;
+
+static int (*plugin_create_list[])(GenesisContext *context) = {
+    create_synth_descriptor,
+    create_delay_descriptor,
+    create_resample_descriptor,
+};
 
 static_assert(GENESIS_NOTES_COUNT == array_length(midi_note_to_pitch), "");
 
@@ -107,16 +114,13 @@ int genesis_create_context(struct GenesisContext **out_context) {
     context->audio_hardware.set_on_events_signal(on_audio_hardware_events_signal);
     context->audio_hardware._userdata = context;
 
-    err = create_synth_descriptor(context);
-    if (err) {
-        genesis_destroy_context(context);
-        return err;
-    }
-
-    err = create_delay_descriptor(context);
-    if (err) {
-        genesis_destroy_context(context);
-        return err;
+    for (int i = 0; i < array_length(plugin_create_list); i += 1) {
+        int (*create_fn)(GenesisContext *) = plugin_create_list[i];
+        int err = create_fn(context);
+        if (err) {
+            genesis_destroy_context(context);
+            return err;
+        }
     }
 
     *out_context = context;

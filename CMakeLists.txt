@@ -26,6 +26,7 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
+    "${CMAKE_SOURCE_DIR}/src/resample.cpp"
     )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
