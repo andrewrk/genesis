@@ -85,7 +85,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
 }
 
 GuiWindow::~GuiWindow() {
-    for (long i = 0; i < _widget_list.length(); i += 1) {
+    for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         destroy_widget(widget);
     }
@@ -102,7 +102,7 @@ void GuiWindow::bind() {
 }
 
 void GuiWindow::flush_events() {
-    for (long i = 0; i < _widget_list.length(); i += 1) {
+    for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         widget->flush_events();
     }
@@ -118,7 +118,7 @@ void GuiWindow::draw() {
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
-    for (long i = 0; i < _widget_list.length(); i += 1) {
+    for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         if (widget->_is_visible)
             widget->draw(this, _projection);
@@ -303,7 +303,7 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
     if (_mouse_over_widget != NULL)
         panic("expected _mouse_over_widget NULL");
 
-    for (long i = 0; i < _widget_list.length(); i += 1) {
+    for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
         if (try_mouse_move_event_on_widget(widget, event))
             return;

@@ -19,8 +19,8 @@ static void assert_no_err(int err) {
 
 static void debug_print_bb_list(const List<ByteBuffer> &list) {
     fprintf(stderr, "\n");
-    for (long i = 0; i < list.length(); i += 1) {
-        fprintf(stderr, "%zu: %s\n", i, list.at(i).raw());
+    for (int i = 0; i < list.length(); i += 1) {
+        fprintf(stderr, "%d: %s\n", i, list.at(i).raw());
     }
 }
 

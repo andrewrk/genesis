@@ -1,11 +1,11 @@
 #include "debug.hpp"
 
 void dump_rgba_img(const ByteBuffer &img, int w, int h, const char *filename) {
-    const long header1_size = 14;
-    const long header2_size = 40;
+    const int header1_size = 14;
+    const int header2_size = 40;
     const int channels = 4;
     const int bmp_size = channels * w * h;
-    const long expected_size = header1_size + header2_size + bmp_size;
+    const int expected_size = header1_size + header2_size + bmp_size;
 
     ByteBuffer out_img;
 
@@ -33,7 +33,7 @@ void dump_rgba_img(const ByteBuffer &img, int w, int h, const char *filename) {
     out_img.append_uint32le(0); // important colors
 
     if (out_img.length() != header1_size + header2_size)
-        panic("header 2 expected size: %zu  actual size: %zu", header2_size, out_img.length());
+        panic("header 2 expected size: %d  actual size: %d", header2_size, out_img.length());
 
     // bmp files are stored upside down
     for (int y = h - 1; y >= 0; y -= 1) {
@@ -51,7 +51,7 @@ void dump_rgba_img(const ByteBuffer &img, int w, int h, const char *filename) {
     }
 
     if (out_img.length() != expected_size)
-        panic("expected size: %zu  actual size: %zu", expected_size, out_img.length());
+        panic("expected size: %d  actual size: %d", expected_size, out_img.length());
 
     FILE *f = fopen(filename, "w");
     fwrite(out_img.raw(), 1, out_img.length(), f);

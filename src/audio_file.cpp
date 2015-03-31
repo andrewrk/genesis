@@ -40,7 +40,7 @@ static int import_frame_uint8(const AVFrame *avframe, GenesisAudioFile *audio_fi
     double half_range = max / 2.0 - min / 2.0;
     int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 1) {
             uint8_t sample = *ptr;
             double dbl_sample = (((double)sample) - min) / half_range - 1.0;
             err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -56,7 +56,7 @@ static int import_frame_int16(const AVFrame *avframe, GenesisAudioFile *audio_fi
     double half_range = max / 2.0 - min / 2.0;
     int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 2) {
             int16_t *sample = reinterpret_cast<int16_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -72,7 +72,7 @@ static int import_frame_int32(const AVFrame *avframe, GenesisAudioFile *audio_fi
     double half_range = max / 2.0 - min / 2.0;
     int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             int32_t *sample = reinterpret_cast<int32_t*>(ptr);
             double dbl_sample = (((double)*sample) - min) / half_range - 1.0;
             err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -85,7 +85,7 @@ static int import_frame_float(const AVFrame *avframe, GenesisAudioFile *audio_fi
     uint8_t *ptr = avframe->extended_data[0];
     int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 4) {
             float *sample = reinterpret_cast<float*>(ptr);
             double dbl_sample = *sample;
             err = err || audio_file->channels.at(ch).samples.append(dbl_sample);
@@ -98,7 +98,7 @@ static int import_frame_double(const AVFrame *avframe, GenesisAudioFile *audio_f
     uint8_t *ptr = avframe->extended_data[0];
     int err = 0;
     for (int frame = 0; frame < avframe->nb_samples; frame += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1, ptr += 8) {
             double *sample = reinterpret_cast<double*>(ptr);
             err = err || audio_file->channels.at(ch).samples.append(*sample);
         }
@@ -111,7 +111,7 @@ static int import_frame_uint8_planar(const AVFrame *avframe, GenesisAudioFile *a
     double max = (double)UINT8_MAX;
     double half_range = max / 2.0 - min / 2.0;
     int err = 0;
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 1) {
@@ -128,7 +128,7 @@ static int import_frame_int16_planar(const AVFrame *avframe, GenesisAudioFile *a
     double max = (double)INT16_MAX;
     double half_range = max / 2.0 - min / 2.0;
     int err = 0;
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 2) {
@@ -145,7 +145,7 @@ static int import_frame_int32_planar(const AVFrame *avframe, GenesisAudioFile *a
     double max = (double)INT32_MAX;
     double half_range = max / 2.0 - min / 2.0;
     int err = 0;
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
@@ -159,7 +159,7 @@ static int import_frame_int32_planar(const AVFrame *avframe, GenesisAudioFile *a
 
 static int import_frame_float_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     int err = 0;
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 4) {
@@ -173,7 +173,7 @@ static int import_frame_float_planar(const AVFrame *avframe, GenesisAudioFile *a
 
 static int import_frame_double_planar(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     int err = 0;
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ptr = avframe->extended_data[ch];
         Channel *channel = &audio_file->channels.at(ch);
         for (int frame = 0; frame < avframe->nb_samples; frame += 1, ptr += 8) {
@@ -399,7 +399,7 @@ int genesis_audio_file_load(struct GenesisContext *context,
         genesis_audio_file_destroy(audio_file);
         return err;
     }
-    for (long i = 0; i < audio_file->channels.length(); i += 1) {
+    for (int i = 0; i < audio_file->channels.length(); i += 1) {
         audio_file->channels.at(i).samples.clear();
     }
 
@@ -573,7 +573,7 @@ static void set_codec_ctx_format(AVCodecContext *codec_ctx, GenesisExportFormat 
 static void write_frames_uint8_planar(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         uint8_t *ch_buf = frame->extended_data[ch];
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
@@ -586,7 +586,7 @@ static void write_frames_uint8_planar(const GenesisAudioFile *audio_file,
 static void write_frames_int16_planar(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
@@ -599,7 +599,7 @@ static void write_frames_int16_planar(const GenesisAudioFile *audio_file,
 static void write_frames_int32_planar(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
@@ -612,7 +612,7 @@ static void write_frames_int32_planar(const GenesisAudioFile *audio_file,
 static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
@@ -626,7 +626,7 @@ static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
 static void write_frames_float_planar(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
@@ -639,7 +639,7 @@ static void write_frames_float_planar(const GenesisAudioFile *audio_file,
 static void write_frames_double_planar(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
         double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
@@ -653,7 +653,7 @@ static void write_frames_uint8(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
 
             *buffer = (uint8_t)((sample * 127.5) + 127.5);
@@ -667,7 +667,7 @@ static void write_frames_int16(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
 
             int16_t *int_ptr = reinterpret_cast<int16_t*>(buffer);
@@ -682,7 +682,7 @@ static void write_frames_int32(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
@@ -697,7 +697,7 @@ static void write_frames_int24(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
@@ -713,7 +713,7 @@ static void write_frames_float(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
 
             float *float_ptr = reinterpret_cast<float*>(buffer);
@@ -728,7 +728,7 @@ static void write_frames_double(const GenesisAudioFile *audio_file,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (long ch = 0; ch < audio_file->channels.length(); ch += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
             double *double_ptr = reinterpret_cast<double*>(buffer);
             *double_ptr = sample;

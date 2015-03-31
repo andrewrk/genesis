@@ -115,7 +115,7 @@ void Label::update() {
     int previous_glyph_index = 0;
     float bounding_width = 0.0f;
     float prev_right = 0.0f;
-    for (long i = 0; i < _text.length(); i += 1) {
+    for (int i = 0; i < _text.length(); i += 1) {
         uint32_t ch = _text.at(i);
         FontCacheValue entry = _font_size->font_cache_entry(ch);
         if (_letters.length() > 0) {
@@ -174,12 +174,12 @@ void Label::update() {
     };
     glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * 4 * sizeof(GLfloat), vertexes);
 
-    long img_buf_size =  _width * _height;
+    int img_buf_size =  _width * _height;
     _img_buffer.resize(img_buf_size);
     _img_buffer.fill(0);
 
     // second pass to render bitmap
-    for (long i = 0; i < _letters.length(); i += 1) {
+    for (int i = 0; i < _letters.length(); i += 1) {
         Letter *letter = &_letters.at(i);
         FontCacheValue entry = _font_size->font_cache_entry(letter->codepoint);
         FT_Bitmap bitmap = entry.bitmap_glyph->bitmap;
@@ -200,7 +200,7 @@ void Label::update() {
 int Label::cursor_at_pos(int x, int y) const {
     if (x < 0)
         return 0;
-    for (long i = 0; i < _letters.length(); i += 1) {
+    for (int i = 0; i < _letters.length(); i += 1) {
         const Letter *letter = &_letters.at(i);
 
         if (x < letter->left + letter->full_width / 2)

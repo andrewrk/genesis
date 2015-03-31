@@ -84,14 +84,14 @@ void Gui::exec() {
     while (_running) {
         glfwPollEvents();
         genesis_flush_events(_genesis_context);
-        for (long i = 0; i < _window_list.length(); i += 1) {
+        for (int i = 0; i < _window_list.length(); i += 1) {
             _window_list.at(i)->flush_events();
         }
 
         // draw the utility window first because it's the one with vsync on
         _utility_window->bind();
         _utility_window->draw();
-        for (long i = 1; i < _window_list.length(); i += 1) {
+        for (int i = 1; i < _window_list.length(); i += 1) {
             GuiWindow *_gui_window = _window_list.at(i);
             _gui_window->bind();
             _gui_window->draw();

@@ -35,7 +35,7 @@ void AlphaTexture::send_pixels(const ByteBuffer &pixels, int width, int height) 
     _height = height;
 
     if (pixels.length() != width * height)
-        panic("expected pixel length: %d received pixel length: %zu", width * height, pixels.length());
+        panic("expected pixel length: %d received pixel length: %d", width * height, pixels.length());
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);

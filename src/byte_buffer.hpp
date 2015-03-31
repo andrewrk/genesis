@@ -11,30 +11,30 @@ public:
     ByteBuffer();
     ByteBuffer(const ByteBuffer & copy);
     ByteBuffer(const char * str);
-    ByteBuffer(const char * str, long length);
+    ByteBuffer(const char * str, int length);
     ~ByteBuffer() {}
     ByteBuffer& operator= (const ByteBuffer& other);
 
-    const char & at(long index) const {
+    const char & at(int index) const {
         return _buffer.at(index);
     }
-    char & at(long index) {
+    char & at(int index) {
         return _buffer.at(index);
     }
 
     static ByteBuffer format(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
-    long length() const {
+    int length() const {
         return _buffer.length() - 1;
     }
-    void resize(long new_length) {
+    void resize(int new_length) {
         if (_buffer.resize(new_length + 1))
             panic("out of memory");
         _buffer.at(length()) = 0;
     }
     void append(const ByteBuffer &other);
     void append(const char *str);
-    void append(const char *str, long length);
+    void append(const char *str, int length);
 
     void append_uint32le(uint32_t value) {
         // 00000000 00000000 00000000 xxxxxxxx
@@ -57,7 +57,7 @@ public:
         if (_buffer.append(0))
             panic("out of memory");
     }
-    uint32_t read_uint32le(long index) const {
+    uint32_t read_uint32le(int index) const {
         if (index < 0 || index + 4 > length())
             panic("bounds check");
         char *buf = _buffer.raw() + index;
@@ -66,25 +66,25 @@ public:
                (((uint32_t)buf[2]) << 16) |
                (((uint32_t)buf[3]) << 24) ;
     }
-    uint8_t read_uint8(long index) const {
+    uint8_t read_uint8(int index) const {
         if (index < 0 || index >= length())
             panic("bounds check");
         char *buf = _buffer.raw() + index;
         return (uint8_t)*buf;
     }
-    void append_fill(long count, char value) {
+    void append_fill(int count, char value) {
         if (count < 0)
             panic("bounds check");
-        long index = length();
+        int index = length();
         resize(index + count);
         char *buf = _buffer.raw() + index;
         memset(buf, value, count);
     }
 
-    long index_of_rev(char c) const;
-    long index_of_rev(char c, long start) const;
+    int index_of_rev(char c) const;
+    int index_of_rev(char c, int start) const;
 
-    ByteBuffer substring(long start, long end) const;
+    ByteBuffer substring(int start, int end) const;
 
     char *raw() {
         return _buffer.raw();
@@ -103,7 +103,7 @@ public:
     uint32_t hash() const {
         // FNV 32-bit hash
         uint32_t h = 2166136261;
-        for (long i = 0; i < _buffer.length(); i += 1) {
+        for (int i = 0; i < _buffer.length(); i += 1) {
             h = h ^ ((uint8_t)_buffer.at(i));
             h = h * 16777619;
         }

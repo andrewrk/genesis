@@ -21,7 +21,7 @@ ByteBuffer::ByteBuffer(const ByteBuffer & copy) {
         panic("out of memory");
     append(copy);
 }
-ByteBuffer::ByteBuffer(const char * str, long length) {
+ByteBuffer::ByteBuffer(const char * str, int length) {
     if (_buffer.append(0))
         panic("out of memory");
     append(str, length);
@@ -35,9 +35,9 @@ void ByteBuffer::append(const char *str) {
     append(str, strlen(str));
 }
 
-void ByteBuffer::append(const char *str, long length) {
-    long prev_length_plus_null = _buffer.length();
-    long new_length_plus_null = prev_length_plus_null + length;
+void ByteBuffer::append(const char *str, int length) {
+    int prev_length_plus_null = _buffer.length();
+    int new_length_plus_null = prev_length_plus_null + length;
     if (_buffer.resize(new_length_plus_null))
         panic("out of memory");
     memcpy(_buffer.raw() + prev_length_plus_null - 1, str, length);
@@ -68,11 +68,11 @@ ByteBuffer ByteBuffer::format(const char *format, ...) {
     return result;
 }
 
-long ByteBuffer::index_of_rev(char c) const {
+int ByteBuffer::index_of_rev(char c) const {
     return index_of_rev(c, length() - 1);
 }
 
-long ByteBuffer::index_of_rev(char c, long start) const {
+int ByteBuffer::index_of_rev(char c, int start) const {
     for (off_t i = start; i >= 0; i -= 1) {
         if (_buffer.at(i) == c)
             return i;
@@ -80,7 +80,7 @@ long ByteBuffer::index_of_rev(char c, long start) const {
     return -1;
 }
 
-ByteBuffer ByteBuffer::substring(long start, long end) const {
+ByteBuffer ByteBuffer::substring(int start, int end) const {
     if (start < 0 || start >= length())
         panic("substring start out of bounds");
     if (end < 0 || end > length())

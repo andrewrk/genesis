@@ -47,14 +47,14 @@ FindFileWidget::~FindFileWidget() {
 }
 
 void FindFileWidget::destroy_all_dir_entries() {
-    for (long i = 0; i < _entries.length(); i += 1) {
+    for (int i = 0; i < _entries.length(); i += 1) {
         destroy(_entries.at(i), 1);
     }
     _entries.clear();
 }
 
 void FindFileWidget::destroy_all_displayed_entries() {
-    for (long i = 0; i < _displayed_entries.length(); i += 1) {
+    for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry display_entry = _displayed_entries.at(i);
         destroy((TextWidgetUserData *)display_entry.widget->_userdata, 1);
         _gui_window->destroy_widget(display_entry.widget);
@@ -73,7 +73,7 @@ void FindFileWidget::update_model() {
     _filter_widget->set_width(_current_path_widget->width());
 
     int y = _filter_widget->top() + _filter_widget->height() + _margin;
-    for (long i = 0; i < _displayed_entries.length(); i += 1) {
+    for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
         text_widget->set_pos(
@@ -107,7 +107,7 @@ void FindFileWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     glStencilMask(0x00);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-    for (long i = 0; i < _displayed_entries.length(); i += 1) {
+    for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
         if (text_widget->_is_visible)
@@ -134,7 +134,7 @@ void FindFileWidget::on_mouse_move(const MouseEvent *event) {
     if (_gui_window->try_mouse_move_event_on_widget(_filter_widget, &mouse_event))
         return;
 
-    for (long i = 0; i < _displayed_entries.length(); i += 1) {
+    for (int i = 0; i < _displayed_entries.length(); i += 1) {
         DisplayEntry *display_entry = &_displayed_entries.at(i);
         TextWidget *text_widget = display_entry->widget;
         if (_gui_window->try_mouse_move_event_on_widget(text_widget, &mouse_event))
@@ -211,7 +211,7 @@ void FindFileWidget::update_entries_display() {
     _filter_widget->text().split_on_whitespace(search_words);
 
     bool ok;
-    for (long i = 0; i < _entries.length(); i += 1) {
+    for (int i = 0; i < _entries.length(); i += 1) {
         DirEntry *entry = _entries.at(i);
         String text(entry->name, &ok);
         if (should_show_entry(entry, text, search_words)) {
@@ -258,7 +258,7 @@ bool FindFileWidget::should_show_entry(DirEntry *dir_entry, const String &text,
     if (!_show_hidden_files && dir_entry->is_hidden)
         return false;
 
-    for (long i = 0; i < search_words.length(); i += 1) {
+    for (int i = 0; i < search_words.length(); i += 1) {
         if (text.index_of_insensitive(search_words.at(i)) == -1)
             return false;
     }

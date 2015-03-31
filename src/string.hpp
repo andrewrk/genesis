@@ -21,13 +21,13 @@ public:
     static String decode(const ByteBuffer &bytes);
     ByteBuffer encode() const;
 
-    long length() const {
+    int length() const {
         return _chars.length();
     }
-    const uint32_t & at(long index) const {
+    const uint32_t & at(int index) const {
         return _chars.at(index);
     }
-    uint32_t & at(long index) {
+    uint32_t & at(int index) {
         return _chars.at(index);
     }
 
@@ -41,10 +41,10 @@ public:
         if (_chars.append(c))
             panic("out of memory");
     }
-    String substring(long start, long end) const;
-    String substring(long start) const;
+    String substring(int start, int end) const;
+    String substring(int start) const;
 
-    void replace(long start, long end, String s);
+    void replace(int start, int end, String s);
 
     void split_on_whitespace(List<String> &out) const;
 
