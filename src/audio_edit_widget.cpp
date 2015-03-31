@@ -1,7 +1,6 @@
 #include "audio_edit_widget.hpp"
 #include "byte_buffer.hpp"
 #include "color.hpp"
-#include "audio_hardware.hpp"
 
 #include <stdint.h>
 #include <errno.h>
@@ -717,7 +716,7 @@ void AudioEditWidget::open_recording_device() {
 
     const AudioDevice *selected_recording_device = _recording_device_list.at(_select_recording_device->selected_index());
 
-    AudioFile *audio_file = create<AudioFile>();
+    GenesisAudioFile *audio_file = genesis_audio_file_create(_genesis_context);
     audio_file->channels.resize(selected_recording_device->channel_layout.channel_count);
     audio_file->channel_layout = selected_recording_device->channel_layout;
     audio_file->sample_rate = selected_recording_device->default_sample_rate;
@@ -939,13 +938,20 @@ void AudioEditWidget::clamp_selection() {
     _selection.end = min(_selection.end, _display_frame_count);
 }
 
-void AudioEditWidget::save_as(const ByteBuffer &file_path,
-        ExportSampleFormat export_sample_format)
-{
+void AudioEditWidget::save_as(const ByteBuffer &file_path, GenesisExportFormat *export_sample_format) {
+    int sample_rate = genesis_audio_file_sample_rate(_audio_file);
+    if (!genesis_audio_file_codec_supports_sample_rate(export_format.codec, sample_rate))
+        panic("unsupported sample rate");
+    export_format->sample_rate = sample_rate;
+
     _audio_file_mutex.lock();
 
     _audio_file->export_sample_format = export_sample_format;
     audio_file_save(file_path, NULL, NULL, _audio_file);
+
+    err = genesis_audio_file_export(audio_file, output_filename, &export_format);
+    if (err != GenesisErrorNone)
+        panic("error saving file: %s", genesis_error_string(err));
 
     _audio_file_mutex.unlock();
 }

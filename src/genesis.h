@@ -250,6 +250,12 @@ struct GenesisAudioFileIterator {
 int genesis_audio_file_load(struct GenesisContext *context,
         const char *input_filename, struct GenesisAudioFile **audio_file);
 
+struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *context);
+void genesis_audio_file_set_sample_rate(struct GenesisAudioFile *audio_file,
+        int sample_rate);
+void genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
+        const struct GenesisChannelLayout *channel_layout);
+
 void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file);
 
 int genesis_audio_file_export(struct GenesisAudioFile *audio_file,

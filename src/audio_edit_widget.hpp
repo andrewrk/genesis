@@ -15,13 +15,12 @@ using std::atomic_bool;
 using std::atomic_long;
 
 class Gui;
-class AudioHardware;
 class OpenPlaybackDevice;
 class OpenRecordingDevice;
 
 class AudioEditWidget : public Widget {
 public:
-    AudioEditWidget(GuiWindow *gui_window, Gui *gui, AudioHardware *audio_hardware);
+    AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext *genesis_context);
     ~AudioEditWidget() override;
 
     void draw(GuiWindow *window, const glm::mat4 &projection) override;
@@ -38,11 +37,11 @@ public:
 
 
     void load_file(const ByteBuffer &file_path);
-    void edit_audio_file(AudioFile *audio_file);
+    void edit_audio_file(GenesisAudioFile *audio_file);
     void set_pos(int left, int top);
     void set_size(int width, int height);
 
-    void save_as(const ByteBuffer &file_path, ExportSampleFormat export_sample_format);
+    void save_as(const ByteBuffer &file_path, GenesisExportFormat *export_sample_format);
 
 private:
     GuiWindow *_gui_window;
@@ -72,7 +71,7 @@ private:
     glm::vec4 _timeline_sel_fg_color;
     glm::vec4 _playback_cursor_color;
 
-    AudioFile *_audio_file; // protected by mutex
+    GenesisAudioFile *_audio_file; // protected by mutex
     Mutex _audio_file_mutex;
 
     struct PerChannelData {
@@ -105,7 +104,7 @@ private:
     bool _select_down;
     bool _playback_select_down;
 
-    AudioHardware *_audio_hardware;
+    GenesisContext *_genesis_context;
     OpenPlaybackDevice *_playback_device;
     Thread _playback_thread;
     Mutex _playback_mutex;
@@ -129,11 +128,6 @@ private:
     atomic_bool _recording_thread_join_flag;
     double _recording_thread_wakeup_timeout;
     ByteBuffer _record_part_frame_bytes;
-
-    // kept in sync with _select_playback_device options
-    List<const AudioDevice*> _playback_device_list;
-    // kept in sync with _select_recording_device options
-    List<const AudioDevice*> _recording_device_list;
 
     bool _initialized_default_device_indexes;
 
@@ -204,10 +198,6 @@ private:
 
     static void static_recording_thread(void *arg) {
         return reinterpret_cast<AudioEditWidget*>(arg)->recording_thread();
-    }
-
-    static void static_on_devices_change(AudioHardware *audio_hardware) {
-        return static_cast<AudioEditWidget*>(audio_hardware->_userdata)->on_devices_change();
     }
 
     static void static_on_playback_index_changed(SelectWidget *select_widget) {

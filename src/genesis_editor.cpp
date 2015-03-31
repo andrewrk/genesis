@@ -9,13 +9,13 @@ GenesisEditor::GenesisEditor() :
     _find_file_widget(NULL),
     _audio_edit_widget(NULL)
 {
-    _genesis_context = genesis_create_context();
-    if (!_genesis_context)
-        panic("unable to create genesis context");
+    int err = genesis_create_context(&_genesis_context);
+    if (err)
+        panic("unable to create genesis context: %s", genesis_error_string(err));
 
     _gui = create<Gui>(_genesis_context, &_resource_bundle);
 
-    _gui_window = _gui.create_window(true);
+    _gui_window = _gui->create_window(true);
     _gui_window->_userdata = this;
     _gui_window->set_on_key_event(static_on_key_event);
     _gui_window->set_on_text_event(static_on_text_event);
@@ -25,13 +25,13 @@ GenesisEditor::GenesisEditor() :
 GenesisEditor::~GenesisEditor() {}
 
 void GenesisEditor::on_close_event(GuiWindow *window) {
-    _gui.destroy_window(_gui_window);
+    _gui->destroy_window(_gui_window);
 
     genesis_destroy_context(_genesis_context);
 }
 
 void GenesisEditor::exec() {
-    _gui.exec();
+    _gui->exec();
 }
 
 void GenesisEditor::destroy_find_file_widget() {
@@ -113,13 +113,17 @@ void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
 void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
     destroy_find_file_widget();
 
-    List<ExportSampleFormat> sample_formats;
-    audio_file_get_supported_sample_formats(NULL, NULL, file_path.raw(), sample_formats);
-
-    if (sample_formats.length() == 0)
+    struct GenesisExportFormat export_format;
+    export_format.bit_rate = 320 * 1000;
+    export_format.codec = genesis_guess_audio_file_codec(_genesis_context, file_path.raw(), nullptr, nullptr);
+    if (!export_format.codec)
         panic("can't find suitable format to save");
+    int sample_format_count = genesis_audio_file_codec_sample_format_count(export_format.codec);
+    if (sample_format_count <= 0)
+        panic("unsupported sample format");
+    export_format.sample_format = genesis_audio_file_codec_sample_format_index(export_format.codec, 0);
 
-    _audio_edit_widget->save_as(file_path, sample_formats.at(0));
+    _audio_edit_widget->save_as(file_path, &export_format);
 
 }
 

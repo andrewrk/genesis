@@ -1230,3 +1230,32 @@ bool genesis_audio_file_codec_supports_sample_rate(
 
     return false;
 }
+
+struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *context) {
+    GenesisAudioFile *audio_file = create_zero<GenesisAudioFile>();
+    if (!audio_file) {
+        genesis_audio_file_destroy(audio_file);
+        return nullptr;
+    }
+
+    audio_file->sample_rate = 48000;
+    audio_file->channel_layout = *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
+    if (audio_file->channels.resize(1)) {
+        genesis_audio_file_destroy(audio_file);
+        return nullptr;
+    }
+
+    return audio_file;
+}
+
+void genesis_audio_file_set_sample_rate(struct GenesisAudioFile *audio_file,
+        int sample_rate)
+{
+    audio_file->sample_rate = sample_rate;
+}
+
+void genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
+        const GenesisChannelLayout *channel_layout)
+{
+    audio_file->channel_layout = *channel_layout;
+}
