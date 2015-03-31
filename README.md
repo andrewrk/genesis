@@ -6,12 +6,25 @@
  * Load and save any format audio file.
  * Multi-threaded audio pipeline working.
  * MIDI Keyboard support.
+ * Recording and playback audio devices. PulseAudio only so far.
  * Basic synthesizer plugin. [YouTube Demo](https://www.youtube.com/watch?v=K5r_o331Eqo)
+ * Basic delay plugin.
+
+### Examples
+
+ * `delay.c` - default recording device connected to a delay effect connected
+   to default playback device.
+ * `synth.c` - default midi keyboard connected to a synth connected to default
+   playback device.
+ * `list_devices.c` - list available audio and midi devices and watch for when
+   devices are added or removed.
+ * `list_supported_formats.c` - list available audio import and export formats.
+ * `normalize_audio.c` - open an audio file, normalize it, and export it as a
+   new file.
 
 ## The Vision
 
  * Safe plugins. Plugins crashing must not crash the studio.
- * Cross-platform.
  * Projects must work on every computer. It's not possible to have a plugin
    that works on one person's computer and not another.
  * Tight integration with an online sample/project sharing service. Make it
@@ -26,6 +39,8 @@
    - Undo/redo
    - Ability to edit multiple projects at once.
    - Support for N audio channels instead of hardcoded stereo
+ * Cross-platform. I will charge money for nonfree operating systems such as
+   OS X and Windows.
 
 ## Contributing
 
