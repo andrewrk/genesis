@@ -221,9 +221,11 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
         port->node = node;
         node->ports[i] = port;
     }
-    if (node_descriptor->create(node)) {
-        genesis_node_destroy(node);
-        return nullptr;
+    if (node_descriptor->create) {
+        if (node_descriptor->create(node)) {
+            genesis_node_destroy(node);
+            return nullptr;
+        }
     }
     node->constructed = true;
 
@@ -253,7 +255,7 @@ void genesis_node_destroy(struct GenesisNode *node) {
         }
 
         // call destructor on node
-        if (node->constructed)
+        if (node->constructed && node->descriptor->destroy)
             node->descriptor->destroy(node);
 
         GenesisContext *context = node->descriptor->context;
