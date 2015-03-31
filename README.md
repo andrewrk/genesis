@@ -83,9 +83,29 @@ make coverage
 # view `coverage/index.html` in a browser
 ```
 
+#### Enable Optimizations
+
+When you build, you have 2 choices:
+
+ * `Debug`: slower, but contains useful information for reporting and fixing
+   bugs. This is the default configuration.
+ * `Release`: generates optimized code, but if the software crashes or
+   misbehaves, it's really hard to figure out why.
+
+To build in `Release` mode:
+
+```
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make
+./genesis
+```
+
 ## Roadmap
 
- 0. music UI
+ 0. modify ui code to use libgenesis
+ 0. user interface for making music
 
 ## Grand Plans
 
