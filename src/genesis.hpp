@@ -76,6 +76,7 @@ struct GenesisNodeDescriptor {
     void (*destroy)(struct GenesisNode *node);
     void (*run)(struct GenesisNode *node);
     void (*seek)(struct GenesisNode *node);
+    int (*port_connect)(struct GenesisPort *port);
     int set_index;
 
     void *userdata;

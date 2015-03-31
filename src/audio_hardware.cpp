@@ -481,7 +481,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
 
     _buffer_attr.maxlength = buffer_length;
     _buffer_attr.tlength = buffer_length;
-    _buffer_attr.prebuf = _buffer_attr.maxlength;
+    _buffer_attr.prebuf = UINT32_MAX;
     _buffer_attr.minreq = UINT32_MAX;
     _buffer_attr.fragsize = UINT32_MAX;
 
@@ -550,11 +550,13 @@ void OpenPlaybackDevice::clear_buffer() {
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 
-OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
+OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
         const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, bool *ok) :
+        int sample_rate, void (*callback)(void *), void *userdata) :
     _audio_hardware(audio_hardware),
-    _stream_ready(false)
+    _stream_ready(false),
+    _callback_userdata(userdata),
+    _callback(callback)
 {
     if (!_audio_hardware->_ready_flag)
         panic("audio hardware not ready");
@@ -573,34 +575,41 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware, const ch
         panic("unable to create pulseaudio stream");
 
     pa_stream_set_state_callback(_stream, static_stream_state_callback, this);
+    pa_stream_set_read_callback(_stream, stream_read_callback, this);
 
     int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
     int buffer_length = latency * bytes_per_second;
 
-    pa_buffer_attr buffer_attr;
-    buffer_attr.maxlength = UINT32_MAX;
-    buffer_attr.tlength = UINT32_MAX;
-    buffer_attr.prebuf = UINT32_MAX;
-    buffer_attr.minreq = UINT32_MAX;
-    buffer_attr.fragsize = buffer_length;
-
-    int err = pa_stream_connect_record(_stream, device_name, &buffer_attr, PA_STREAM_ADJUST_LATENCY);
-    if (err)
-        panic("unable to connect pulseaudio record stream");
-
-    *ok = true;
+    _buffer_attr.maxlength = UINT32_MAX;
+    _buffer_attr.tlength = UINT32_MAX;
+    _buffer_attr.prebuf = UINT32_MAX;
+    _buffer_attr.minreq = UINT32_MAX;
+    _buffer_attr.fragsize = buffer_length;
 
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+
 }
 
 OpenRecordingDevice::~OpenRecordingDevice() {
     pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
 
     pa_stream_set_state_callback(_stream, NULL, this);
+    pa_stream_set_read_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
 
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+}
+
+int OpenRecordingDevice::start(const char *device_name) {
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+
+    int err = pa_stream_connect_record(_stream, device_name, &_buffer_attr, PA_STREAM_ADJUST_LATENCY);
+    if (err)
+        panic("unable to connect pulseaudio record stream");
+
+    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    return 0;
 }
 
 void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
@@ -620,11 +629,9 @@ void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
 
 void OpenRecordingDevice::peek(const char **data, int *byte_count) {
     if (_stream_ready) {
-        pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
         size_t nbytes;
         if (pa_stream_peek(_stream, (const void **)data, &nbytes))
             panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
-        pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
         *byte_count = nbytes;
     } else {
         *data = nullptr;
@@ -633,9 +640,29 @@ void OpenRecordingDevice::peek(const char **data, int *byte_count) {
 }
 
 void OpenRecordingDevice::drop() {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
     if (pa_stream_drop(_stream))
         panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+}
+
+void OpenRecordingDevice::clear_buffer() {
+    if (!_stream_ready)
+        return;
+
+    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+
+    for (;;) {
+        const char *data;
+        size_t nbytes;
+        if (pa_stream_peek(_stream, (const void **)&data, &nbytes))
+            panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+
+        if (nbytes == 0)
+            break;
+
+        if (pa_stream_drop(_stream))
+            panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+    }
+
     pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
 }
 

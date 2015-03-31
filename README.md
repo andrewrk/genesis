@@ -69,7 +69,6 @@ make coverage
 
 ## Roadmap
 
- 0. example program which puts a live echo on a recording device
  0. music UI
 
 ## Grand Plans

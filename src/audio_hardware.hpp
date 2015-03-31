@@ -82,23 +82,34 @@ private:
 
 class OpenRecordingDevice {
 public:
-    OpenRecordingDevice(AudioHardware *audio_hardware, const char *device_name,
+    OpenRecordingDevice(AudioHardware *audio_hardware,
         const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, bool *ok);
+        int sample_rate, void (*callback)(void *), void *userdata);
     ~OpenRecordingDevice();
+
+    int start(const char *device_name);
 
     void peek(const char **data, int *byte_count);
     void drop();
+    void clear_buffer();
 
 private:
     AudioHardware *_audio_hardware;
     pa_stream *_stream;
     atomic_bool _stream_ready;
+    void *_callback_userdata;
+    void (*_callback)(void *);
+    pa_buffer_attr _buffer_attr;
 
     void stream_state_callback(pa_stream *stream);
 
     static void static_stream_state_callback(pa_stream *stream, void *userdata) {
         return static_cast<OpenRecordingDevice*>(userdata)->stream_state_callback(stream);
+    }
+
+    static void stream_read_callback(pa_stream *stream, size_t nbytes, void *userdata) {
+        OpenRecordingDevice *device = static_cast<OpenRecordingDevice*>(userdata);
+        device->_callback(device->_callback_userdata);
     }
 
     OpenRecordingDevice(const OpenRecordingDevice &copy) = delete;

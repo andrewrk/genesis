@@ -35,7 +35,7 @@ static void synth_run(struct GenesisNode *node) {
     static const float PI = 3.14159265358979323846;
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) node->ports[0];
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
-    struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) node->ports[1];
+    struct GenesisPort *audio_out_port = node->ports[1];
 
     int event_byte_count = events_out_port->event_buffer->fill_count();
     int event_count = event_byte_count / sizeof(GenesisMidiEvent);
@@ -60,13 +60,15 @@ static void synth_run(struct GenesisNode *node) {
     }
     events_out_port->event_buffer->advance_read_ptr(event_byte_count);
 
-    int free_byte_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
-    int free_frame_count = free_byte_count / audio_out_port->bytes_per_frame;
-    int out_buf_size = free_frame_count * audio_out_port->bytes_per_frame;
+    int free_byte_count = genesis_audio_out_port_free_count(audio_out_port);
+    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
+    int free_frame_count = free_byte_count / bytes_per_frame;
+    int out_buf_size = free_frame_count * bytes_per_frame;
 
-    float seconds_per_frame = 1.0f / (float)audio_out_port->sample_rate;
+    float float_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
+    float seconds_per_frame = 1.0f / float_sample_rate;
 
-    float *write_ptr_start = reinterpret_cast<float*>(audio_out_port->sample_buffer->write_ptr());
+    float *write_ptr_start = reinterpret_cast<float*>(genesis_audio_out_port_write_ptr(audio_out_port));
     // clear everything to 0
     memset(write_ptr_start, 0, out_buf_size);
 
@@ -76,6 +78,7 @@ static void synth_run(struct GenesisNode *node) {
             divisor += 1.0f;
     }
     float one_over_notes_count = 1.0f / divisor;
+    const GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     for (int note = 0; note < GENESIS_NOTES_COUNT; note += 1) {
         SynthNoteState *note_state = &synth_context->notes_on[note];
         float note_value = note_state->velocity;
@@ -91,7 +94,7 @@ static void synth_run(struct GenesisNode *node) {
         float radians_per_second = pitch * 2.0f * PI;
         for (int frame = 0; frame < free_frame_count; frame += 1) {
             float sample = sinf((note_state->seconds_offset + frame * seconds_per_frame) * radians_per_second);
-            for (int channel = 0; channel < audio_out_port->channel_layout.channel_count; channel += 1) {
+            for (int channel = 0; channel < channel_layout->channel_count; channel += 1) {
                 *ptr += sample * note_value * one_over_notes_count;
                 ptr += 1;
             }
@@ -99,7 +102,7 @@ static void synth_run(struct GenesisNode *node) {
         note_state->seconds_offset += seconds_per_frame * free_frame_count;
     }
 
-    audio_out_port->sample_buffer->advance_write_ptr(out_buf_size);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, out_buf_size);
 }
 
 int create_synth_descriptor(GenesisContext *context) {
