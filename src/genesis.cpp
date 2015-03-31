@@ -251,6 +251,20 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
 
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
+        // first all disconnect methods on all ports
+        if (node->ports) {
+            for (int i = 0; i < node->port_count; i += 1) {
+                if (node->ports[i]) {
+                    GenesisPort *port = node->ports[i];
+                    if (port->output_to)
+                        genesis_disconnect_ports(port, port->output_to);
+                    if (port->input_from)
+                        genesis_disconnect_ports(port, port->input_from);
+                }
+            }
+        }
+
+        // call destructor on node
         if (node->constructed)
             node->descriptor->destroy(node);
 
@@ -265,7 +279,8 @@ void genesis_node_destroy(struct GenesisNode *node) {
         if (node->ports) {
             for (int i = 0; i < node->port_count; i += 1) {
                 if (node->ports[i]) {
-                    destroy(node->ports[i], 1);
+                    GenesisPort *port = node->ports[i];
+                    destroy(port, 1);
                 }
             }
             destroy(node->ports, 1);
@@ -933,6 +948,15 @@ static int connect_events_ports(GenesisEventsPort *source, GenesisEventsPort *de
     return 0;
 }
 
+void genesis_disconnect_ports(struct GenesisPort *source, struct GenesisPort *dest) {
+    source->output_to = nullptr;
+    dest->input_from = nullptr;
+    if (source->descriptor->disconnect)
+        source->descriptor->disconnect(source, dest);
+    if (dest->descriptor->disconnect)
+        dest->descriptor->disconnect(dest, source);
+}
+
 int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest) {
     int err = GenesisErrorInvalidPortType;
     switch (source->descriptor->port_type) {
@@ -958,18 +982,19 @@ int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest) 
     source->output_to = dest;
     dest->input_from = source;
 
-    if (source->node->descriptor->port_connect) {
-        err = source->node->descriptor->port_connect(source);
+    if (source->descriptor->connect) {
+        err = source->descriptor->connect(source, dest);
         if (err) {
             source->output_to = nullptr;
             dest->input_from = nullptr;
             return err;
         }
     }
-
-    if (dest->node->descriptor->port_connect) {
-        err = dest->node->descriptor->port_connect(dest);
+    if (dest->descriptor->connect) {
+        err = dest->descriptor->connect(dest, source);
         if (err) {
+            if (source->descriptor->disconnect)
+                source->descriptor->disconnect(source, dest);
             source->output_to = nullptr;
             dest->input_from = nullptr;
             return err;
@@ -1316,12 +1341,6 @@ void genesis_node_descriptor_set_destroy_callback(struct GenesisNodeDescriptor *
     node_descriptor->destroy = destroy;
 }
 
-void genesis_node_descriptor_set_port_connect_callback(struct GenesisNodeDescriptor *node_descriptor,
-        int (*port_connect)(struct GenesisPort *port))
-{
-    node_descriptor->port_connect = port_connect;
-}
-
 void genesis_node_descriptor_set_userdata(struct GenesisNodeDescriptor *node_descriptor, void *userdata) {
     node_descriptor->userdata = userdata;
 }
@@ -1377,4 +1396,18 @@ int genesis_connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *
     struct GenesisPort *audio_in_port = genesis_node_port(dest, audio_in_port_index);
 
     return genesis_connect_ports(audio_out_port, audio_in_port);
+}
+
+void genesis_port_descriptor_set_connect_callback(
+        struct GenesisPortDescriptor *port_descr,
+        int (*connect)(struct GenesisPort *port, struct GenesisPort *other_port))
+{
+    port_descr->connect = connect;
+}
+
+void genesis_port_descriptor_set_disconnect_callback(
+        struct GenesisPortDescriptor *port_descr,
+        void (*disconnect)(struct GenesisPort *port, struct GenesisPort *other_port))
+{
+    port_descr->disconnect = disconnect;
 }

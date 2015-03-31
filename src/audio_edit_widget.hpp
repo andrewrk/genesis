@@ -105,6 +105,7 @@ public:
     bool _select_down;
     bool _playback_select_down;
 
+    long _playback_write_head;
     bool _playback_active;
     long _playback_cursor_frame;
 
@@ -116,6 +117,7 @@ public:
     GenesisNode *_audio_file_node;
     GenesisNode *_playback_node;
     GenesisNode *_recording_node;
+    Mutex _playback_mutex;
 
     SelectWidget *_select_playback_device;
     SelectWidget *_select_recording_device;

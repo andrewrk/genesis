@@ -13,6 +13,113 @@ static void audio_file_node_seek(struct GenesisNode *node) {
 
 static void audio_file_node_run(struct GenesisNode *node) {
     // TODO
+    /*
+void AudioEditWidget::playback_thread() {
+    while (!_playback_thread_join_flag) {
+        _playback_mutex.lock();
+
+        _audio_file_mutex.lock();
+
+        int free_byte_count = _playback_device->writable_size();
+        int bytes_per_frame = get_bytes_per_frame(SampleFormatInt32, _audio_file->channels.length());
+        int free_frame_count = free_byte_count / bytes_per_frame;
+        if (_playback_active) {
+            long playback_range_start, playback_range_end;
+            calculate_playback_range(&playback_range_start, &playback_range_end);
+
+            while (free_frame_count > 0) {
+                char *buffer_ptr;
+                int buffer_size = free_frame_count * bytes_per_frame;
+                _playback_device->begin_write(&buffer_ptr, &buffer_size);
+                float *samples = reinterpret_cast<float*>(buffer_ptr);
+                int this_buffer_frame_count = buffer_size / bytes_per_frame;
+                free_frame_count -= this_buffer_frame_count;
+
+                clamp_playback_write_head(playback_range_start, playback_range_end);
+                int channel_count = _audio_file->channels.length();
+                for (int i = 0; i < this_buffer_frame_count; i += 1) {
+                    for (int ch = 0; ch < channel_count; ch += 1) {
+                        float sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
+                        samples[i * channel_count + ch] = sample;
+                    }
+                    _playback_write_head += 1;
+                    clamp_playback_write_head(playback_range_start, playback_range_end);
+                }
+                _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
+            }
+
+            _audio_file_mutex.unlock();
+
+            _playback_cursor_frame = _playback_write_head -
+                (_playback_device_latency * _playback_device_sample_rate);
+        } else {
+            _audio_file_mutex.unlock();
+
+            // write zeroes
+            while (free_frame_count > 0) {
+                char *buffer_ptr;
+                int buffer_size = free_frame_count * bytes_per_frame;
+                _playback_device->begin_write(&buffer_ptr, &buffer_size);
+                int this_buffer_frame_count = buffer_size / bytes_per_frame;
+                free_frame_count -= this_buffer_frame_count;
+                memset(buffer_ptr, 0, this_buffer_frame_count * bytes_per_frame);
+                _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
+            }
+        }
+        _playback_cond.timed_wait(&_playback_mutex, _playback_thread_wakeup_timeout);
+        _playback_mutex.unlock();
+    }
+}
+void AudioEditWidget::recording_thread() {
+    while (!_recording_thread_join_flag) {
+        _recording_mutex.lock();
+
+        _audio_file_mutex.lock();
+        for (;;) {
+            const char *data;
+            int byte_count;
+            _recording_device->peek(&data, &byte_count);
+
+            if (byte_count > 0) {
+                int bytes_per_frame = get_bytes_per_frame(SampleFormatFloat, _audio_file->channels.length());
+                int frame_count = byte_count / bytes_per_frame;
+                if (frame_count * bytes_per_frame != byte_count)
+                    panic("partial frame");
+                int channel_count = _audio_file->channels.length();
+                if (data) {
+                    fprintf(stderr, "got %d frames\n", frame_count);
+                    const float *sample_ptr = reinterpret_cast<const float*>(data);
+                    for (int i = 0; i < frame_count; i += 1) {
+                        for (int ch = 0; ch < channel_count; ch += 1) {
+                            float sample = *sample_ptr;
+                            _audio_file->channels.at(ch).samples.append(sample);
+                            sample_ptr += 1;
+                        }
+                    }
+                } else {
+                    // there's a hole. fill with silence
+                    fprintf(stderr, "recording: dropped %d frames\n", frame_count);
+                    for (int i = 0; i < frame_count; i += 1) {
+                        for (int ch = 0; ch < channel_count; ch += 1) {
+                            _audio_file->channels.at(ch).samples.append(0.0f);
+                        }
+                    }
+                }
+                _recording_device->drop();
+                schedule_update_model();
+            } else {
+                break;
+            }
+        }
+        _audio_file_mutex.unlock();
+
+        _recording_cond.timed_wait(&_recording_mutex, _recording_thread_wakeup_timeout);
+        _recording_mutex.unlock();
+    }
+}
+
+*/
+
 }
 
 AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext *genesis_context) :
@@ -44,11 +151,15 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext
     _frames_per_pixel(1.0f),
     _select_down(false),
     _playback_select_down(false),
+    _playback_write_head(0),
     _playback_active(false),
     _playback_cursor_frame(0),
     _initialized_default_device_indexes(false),
     _want_update_model(false)
 {
+    if (_playback_mutex.error())
+        panic("mutex init error");
+
     _audio_file = create_empty_audio_file();
 
     init_selection(_selection);
@@ -136,7 +247,7 @@ void AudioEditWidget::on_devices_change() {
 }
 
 void AudioEditWidget::destroy_all_ui() {
-    for (long i = 0; i < _channel_list.length(); i += 1) {
+    for (int i = 0; i < _channel_list.length(); i += 1) {
         destroy_per_channel_data(_channel_list.at(i));
     }
     _channel_list.clear();
@@ -179,7 +290,7 @@ void AudioEditWidget::edit_audio_file(GenesisAudioFile *audio_file) {
     _audio_file = audio_file;
 
     destroy_all_ui();
-    for (long i = 0; i < _audio_file->channels.length(); i += 1) {
+    for (int i = 0; i < _audio_file->channels.length(); i += 1) {
         PerChannelData *per_channel_data = create_per_channel_data(i);
         _channel_list.append(per_channel_data);
     }
@@ -214,63 +325,6 @@ void AudioEditWidget::clamp_playback_write_head(long start, long end) {
     _playback_write_head = start + euclidean_mod((_playback_write_head - start), end - start);
 }
 
-void AudioEditWidget::playback_thread() {
-    while (!_playback_thread_join_flag) {
-        _playback_mutex.lock();
-
-        _audio_file_mutex.lock();
-
-        int free_byte_count = _playback_device->writable_size();
-        int bytes_per_frame = get_bytes_per_frame(SampleFormatInt32, _audio_file->channels.length());
-        int free_frame_count = free_byte_count / bytes_per_frame;
-        if (_playback_active) {
-            long playback_range_start, playback_range_end;
-            calculate_playback_range(&playback_range_start, &playback_range_end);
-
-            while (free_frame_count > 0) {
-                char *buffer_ptr;
-                int buffer_size = free_frame_count * bytes_per_frame;
-                _playback_device->begin_write(&buffer_ptr, &buffer_size);
-                float *samples = reinterpret_cast<float*>(buffer_ptr);
-                int this_buffer_frame_count = buffer_size / bytes_per_frame;
-                free_frame_count -= this_buffer_frame_count;
-
-                clamp_playback_write_head(playback_range_start, playback_range_end);
-                int channel_count = _audio_file->channels.length();
-                for (int i = 0; i < this_buffer_frame_count; i += 1) {
-                    for (int ch = 0; ch < channel_count; ch += 1) {
-                        float sample = _audio_file->channels.at(ch).samples.at(_playback_write_head);
-                        samples[i * channel_count + ch] = sample;
-                    }
-                    _playback_write_head += 1;
-                    clamp_playback_write_head(playback_range_start, playback_range_end);
-                }
-                _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
-            }
-
-            _audio_file_mutex.unlock();
-
-            _playback_cursor_frame = _playback_write_head -
-                (_playback_device_latency * _playback_device_sample_rate);
-        } else {
-            _audio_file_mutex.unlock();
-
-            // write zeroes
-            while (free_frame_count > 0) {
-                char *buffer_ptr;
-                int buffer_size = free_frame_count * bytes_per_frame;
-                _playback_device->begin_write(&buffer_ptr, &buffer_size);
-                int this_buffer_frame_count = buffer_size / bytes_per_frame;
-                free_frame_count -= this_buffer_frame_count;
-                memset(buffer_ptr, 0, this_buffer_frame_count * bytes_per_frame);
-                _playback_device->write(buffer_ptr, this_buffer_frame_count * bytes_per_frame);
-            }
-        }
-        _playback_cond.timed_wait(&_playback_mutex, _playback_thread_wakeup_timeout);
-        _playback_mutex.unlock();
-    }
-}
-
 void AudioEditWidget::flush_events() {
     if (_want_update_model) {
         _want_update_model = false;
@@ -280,54 +334,6 @@ void AudioEditWidget::flush_events() {
 
 void AudioEditWidget::schedule_update_model() {
     _want_update_model = true;
-}
-
-void AudioEditWidget::recording_thread() {
-    while (!_recording_thread_join_flag) {
-        _recording_mutex.lock();
-
-        _audio_file_mutex.lock();
-        for (;;) {
-            const char *data;
-            int byte_count;
-            _recording_device->peek(&data, &byte_count);
-
-            if (byte_count > 0) {
-                int bytes_per_frame = get_bytes_per_frame(SampleFormatFloat, _audio_file->channels.length());
-                int frame_count = byte_count / bytes_per_frame;
-                if (frame_count * bytes_per_frame != byte_count)
-                    panic("partial frame");
-                int channel_count = _audio_file->channels.length();
-                if (data) {
-                    fprintf(stderr, "got %d frames\n", frame_count);
-                    const float *sample_ptr = reinterpret_cast<const float*>(data);
-                    for (int i = 0; i < frame_count; i += 1) {
-                        for (int ch = 0; ch < channel_count; ch += 1) {
-                            float sample = *sample_ptr;
-                            _audio_file->channels.at(ch).samples.append(sample);
-                            sample_ptr += 1;
-                        }
-                    }
-                } else {
-                    // there's a hole. fill with silence
-                    fprintf(stderr, "recording: dropped %d frames\n", frame_count);
-                    for (int i = 0; i < frame_count; i += 1) {
-                        for (int ch = 0; ch < channel_count; ch += 1) {
-                            _audio_file->channels.at(ch).samples.append(0.0f);
-                        }
-                    }
-                }
-                _recording_device->drop();
-                schedule_update_model();
-            } else {
-                break;
-            }
-        }
-        _audio_file_mutex.unlock();
-
-        _recording_cond.timed_wait(&_recording_mutex, _recording_thread_wakeup_timeout);
-        _recording_mutex.unlock();
-    }
 }
 
 void AudioEditWidget::open_playback_device() {
@@ -340,14 +346,14 @@ void AudioEditWidget::open_playback_device() {
     if (!selected_playback_device)
         panic("unable to get playback device %d", _select_playback_device->selected_index());
 
-    int err = genesis_audio_device_create_node_descriptor(out_device, &_playback_node_descr);
+    int err = genesis_audio_device_create_node_descriptor(selected_playback_device, &_playback_node_descr);
     if (err)
         panic("error instantiating playback device: %s", genesis_error_string(err));
 
     genesis_audio_port_descriptor_set_channel_layout(_audio_out_port_descr,
             genesis_audio_file_channel_layout(_audio_file), true, -1);
 
-    genesis_port_descriptor_set_sample_rate(_audio_out_port_descr,
+    genesis_audio_port_descriptor_set_sample_rate(_audio_out_port_descr,
             genesis_audio_file_sample_rate(_audio_file), true, -1);
 
     _audio_file_node = genesis_node_descriptor_create_node(_audio_file_node_descr);
@@ -355,7 +361,7 @@ void AudioEditWidget::open_playback_device() {
         panic("error creating audio file node");
 
     _playback_node = genesis_node_descriptor_create_node(_playback_node_descr);
-    if (!playback_node)
+    if (!_playback_node)
         panic("error creating playback node");
 
     err = genesis_connect_audio_nodes(_audio_file_node, _playback_node);
@@ -368,8 +374,8 @@ long AudioEditWidget::calc_display_frame_count() const {
         return 0;
     if (_audio_file->channels.length() == 0)
         return 0;
-    long largest = 0;
-    for (long i = 0; i < _audio_file->channels.length(); i += 1) {
+    int largest = 0;
+    for (int i = 0; i < _audio_file->channels.length(); i += 1) {
         largest = max(largest, _audio_file->channels.at(i).samples.length());
     }
     return largest;
@@ -384,7 +390,7 @@ void AudioEditWidget::init_selection(Selection &selection) {
     selection.start = 0;
     selection.end = 0;
     selection.channels.resize(_audio_file->channels.length());
-    for (long i = 0; i < selection.channels.length(); i += 1) {
+    for (int i = 0; i < selection.channels.length(); i += 1) {
         selection.channels.at(i) = true;
     }
 }
@@ -416,7 +422,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     window->fill_rect(_timeline_bg_color, _left + timeline_left(), _top + timeline_top(),
             timeline_width(), _timeline_height);
 
-    for (long i = 0; i < _channel_list.length(); i += 1) {
+    for (int i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         glm::mat4 mvp = projection * per_channel_data->waveform_model;
@@ -443,7 +449,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
 
     int sel_start_x = clamp_in_wave_x(pos_at_frame(start));
     int sel_end_x = clamp_in_wave_x(pos_at_frame(end));
-    for (long i = 0; i < _channel_list.length(); i += 1) {
+    for (int i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         if (!_selection.channels.at(i))
@@ -469,7 +475,7 @@ void AudioEditWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilMask(0x00);
 
-    for (long i = 0; i < _channel_list.length(); i += 1) {
+    for (int i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
 
         if (!_selection.channels.at(i))
@@ -515,7 +521,7 @@ int AudioEditWidget::timeline_pos_at_frame(long frame) {
 }
 
 bool AudioEditWidget::get_frame_and_channel(int x, int y, CursorPosition *out) {
-    for (long channel = 0; channel < _channel_list.length(); channel += 1) {
+    for (int channel = 0; channel < _channel_list.length(); channel += 1) {
         PerChannelData *per_channel_data = _channel_list.at(channel);
         if (x >= per_channel_data->left &&
             x < per_channel_data->left + per_channel_data->width &&
@@ -704,7 +710,7 @@ void AudioEditWidget::on_key_event(const KeyEvent *event) {
             break;
         case VirtKeyR:
             if (key_mod_only_ctrl(event->modifiers)) {
-                if (_recording_device) {
+                if (_recording_node) {
                     close_recording_device();
                 } else {
                     open_recording_device();
@@ -749,8 +755,8 @@ void AudioEditWidget::open_recording_device() {
     if (err)
         panic("error creating recording node descriptor: %s", genesis_error_string(err));
 
-    _recording_node = genesis_node_descriptor_create(_recording_node_descr);
-    if (!recording_node)
+    _recording_node = genesis_node_descriptor_create_node(_recording_node_descr);
+    if (!_recording_node)
         panic("unable to create recording node");
 
     err = genesis_connect_audio_nodes(_recording_node, _audio_file_node);
@@ -759,6 +765,11 @@ void AudioEditWidget::open_recording_device() {
 }
 
 void AudioEditWidget::close_recording_device() {
+    if (_recording_node) {
+        genesis_stop_pipeline(_genesis_context);
+        genesis_node_destroy(_recording_node);
+        _recording_node = nullptr;
+    }
     if (_recording_thread.running()) {
         _recording_thread_join_flag = true;
         _recording_mutex.lock();
@@ -826,7 +837,7 @@ void AudioEditWidget::delete_selection() {
     get_order_correct_selection(&_selection, &start, &end);
 
     _audio_file_mutex.lock();
-    for (long i = 0; i < _audio_file->channels.length(); i += 1) {
+    for (int i = 0; i < _audio_file->channels.length(); i += 1) {
         if (start >= _audio_file->channels.at(i).samples.length())
             continue;
         _audio_file->channels.at(i).samples.remove_range(start, end);
@@ -877,7 +888,7 @@ void AudioEditWidget::update_model() {
     _audio_file_mutex.lock();
     _display_frame_count = calc_display_frame_count();
 
-    for (long i = 0; i < _channel_list.length(); i += 1) {
+    for (int i = 0; i < _channel_list.length(); i += 1) {
         PerChannelData *per_channel_data = _channel_list.at(i);
         per_channel_data->left = wave_start_left();
         per_channel_data->top = top;

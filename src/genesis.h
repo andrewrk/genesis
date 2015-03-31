@@ -154,8 +154,6 @@ void genesis_node_descriptor_set_create_callback(struct GenesisNodeDescriptor *n
         int (*create)(struct GenesisNode *node));
 void genesis_node_descriptor_set_destroy_callback(struct GenesisNodeDescriptor *node_descriptor,
         void (*destroy)(struct GenesisNode *node));
-void genesis_node_descriptor_set_port_connect_callback(struct GenesisNodeDescriptor *node_descriptor,
-        int (*port_connect)(struct GenesisPort *port));
 
 // returns -1 if not found
 int genesis_node_descriptor_find_port_index(
@@ -169,6 +167,7 @@ struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
 const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node);
 
 int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
+void genesis_disconnect_ports(struct GenesisPort *source, struct GenesisPort *dest);
 // shortcut for connecting audio nodes. calls genesis_connect_ports internally
 int genesis_connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest);
 
@@ -179,6 +178,15 @@ struct GenesisNode *genesis_port_node(struct GenesisPort *port);
 struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
         struct GenesisNodeDescriptor *node_descriptor, int port_index,
         enum GenesisPortType port_type, const char *name);
+
+void genesis_port_descriptor_set_connect_callback(
+        struct GenesisPortDescriptor *port_descr,
+        int (*connect)(struct GenesisPort *port, struct GenesisPort *other_port));
+
+void genesis_port_descriptor_set_disconnect_callback(
+        struct GenesisPortDescriptor *port_descr,
+        void (*disconnect)(struct GenesisPort *port, struct GenesisPort *other_port));
+
 
 // if fixed is true then other_port_index is the index
 // of the other port that it is the same as, or -1 if it is fixed

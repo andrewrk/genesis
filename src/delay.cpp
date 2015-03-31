@@ -30,11 +30,8 @@ static int delay_create(struct GenesisNode *node) {
     return 0;
 }
 
-static int delay_port_connect(struct GenesisPort *port) {
-    struct GenesisNode *node = port->node;
-    struct GenesisPort *audio_in_port = node->ports[0];
-    if (port != audio_in_port)
-        return 0;
+static int delay_port_connect(struct GenesisPort *audio_in_port, struct GenesisPort *other_port) {
+    struct GenesisNode *node = audio_in_port->node;
     struct DelayContext *delay_context = (struct DelayContext *)node->userdata;
     struct GenesisContext *context = node->descriptor->context;
 
@@ -105,7 +102,6 @@ int create_delay_descriptor(GenesisContext *context) {
     genesis_node_descriptor_set_create_callback(node_descr, delay_create);
     genesis_node_descriptor_set_destroy_callback(node_descr, delay_destroy);
     genesis_node_descriptor_set_seek_callback(node_descr, delay_seek);
-    genesis_node_descriptor_set_port_connect_callback(node_descr, delay_port_connect);
 
     struct GenesisPortDescriptor *audio_in_port = genesis_node_descriptor_create_port(
             node_descr, 0, GenesisPortTypeAudioIn, "audio_in");
@@ -116,6 +112,8 @@ int create_delay_descriptor(GenesisContext *context) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
+
+    genesis_port_descriptor_set_connect_callback(audio_in_port, delay_port_connect);
 
     genesis_audio_port_descriptor_set_channel_layout(audio_in_port,
         genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), false, -1);

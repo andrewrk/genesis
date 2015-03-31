@@ -43,6 +43,9 @@ struct GenesisContext {
 struct GenesisPortDescriptor {
     enum GenesisPortType port_type;
     char *name;
+
+    int (*connect)(struct GenesisPort *port, struct GenesisPort *other_port);
+    void (*disconnect)(struct GenesisPort *port, struct GenesisPort *other_port);
 };
 
 struct GenesisEventsPortDescriptor {
@@ -76,7 +79,6 @@ struct GenesisNodeDescriptor {
     void (*destroy)(struct GenesisNode *node);
     void (*run)(struct GenesisNode *node);
     void (*seek)(struct GenesisNode *node);
-    int (*port_connect)(struct GenesisPort *port);
     int set_index;
 
     void *userdata;
