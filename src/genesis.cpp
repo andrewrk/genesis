@@ -136,6 +136,10 @@ void genesis_destroy_context(struct GenesisContext *context) {
         if (context->midi_hardware)
             destroy_midi_hardware(context->midi_hardware);
 
+        while (context->nodes.length()) {
+            genesis_node_destroy(context->nodes.at(context->nodes.length() - 1));
+        }
+
         while (context->node_descriptors.length()) {
             int last_index = context->node_descriptors.length() - 1;
             genesis_node_descriptor_destroy(context->node_descriptors.at(last_index));
@@ -248,6 +252,30 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
     return node;
 }
 
+static void destroy_audio_port(GenesisAudioPort *audio_port) {
+    destroy(audio_port->sample_buffer, 1);
+    destroy(audio_port, 1);
+}
+
+static void destroy_events_port(GenesisEventsPort *events_port) {
+    destroy(events_port->event_buffer, 1);
+    destroy(events_port, 1);
+}
+
+static void destroy_port(struct GenesisPort *port) {
+    switch (port->descriptor->port_type) {
+        case GenesisPortTypeAudioIn:
+        case GenesisPortTypeAudioOut:
+            destroy_audio_port((GenesisAudioPort *)port);
+            return;
+        case GenesisPortTypeEventsIn:
+        case GenesisPortTypeEventsOut:
+            destroy_events_port((GenesisEventsPort *)port);
+            return;
+    }
+    panic("invalid port type");
+}
+
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
         // first all disconnect methods on all ports
@@ -279,10 +307,10 @@ void genesis_node_destroy(struct GenesisNode *node) {
             for (int i = 0; i < node->port_count; i += 1) {
                 if (node->ports[i]) {
                     GenesisPort *port = node->ports[i];
-                    destroy(port, 1);
+                    destroy_port(port);
                 }
             }
-            destroy(node->ports, 1);
+            destroy(node->ports, node->port_count);
         }
 
         destroy(node, 1);
