@@ -18,6 +18,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorInvalidParam: return "invalid parameter";
         case GenesisErrorInvalidPortType: return "invalid port type";
         case GenesisErrorPortNotFound: return "port not found";
+        case GenesisErrorNoAudioFound: return "no audio found";
     }
     panic("invalid error enum value");
 }

@@ -337,8 +337,10 @@ int genesis_audio_file_load(struct GenesisContext *context,
 
     if (!codec_ctx->channel_layout)
         codec_ctx->channel_layout = av_get_default_channel_layout(codec_ctx->channels);
-    if (!codec_ctx->channel_layout)
-        panic("unable to guess channel layout");
+    if (!codec_ctx->channel_layout) {
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorNoAudioFound;
+    }
 
     // copy the audio stream metadata to the context metadata
     av_dict_copy(&ic->metadata, audio_st->metadata, 0);
