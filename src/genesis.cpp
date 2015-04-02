@@ -21,6 +21,7 @@ static_assert(GENESIS_NOTES_COUNT == array_length(midi_note_to_pitch), "");
 
 struct PlaybackNodeContext {
     OpenPlaybackDevice *playback_device;
+    GenesisContext *context;
 };
 
 struct ControllerNodeContext {
@@ -132,9 +133,9 @@ void genesis_destroy_context(struct GenesisContext *context) {
         if (context->pipeline_running)
             genesis_stop_pipeline(context);
 
-        if (context->midi_hardware) {
+        if (context->midi_hardware)
             destroy_midi_hardware(context->midi_hardware);
-        }
+
         while (context->node_descriptors.length()) {
             int last_index = context->node_descriptors.length() - 1;
             genesis_node_descriptor_destroy(context->node_descriptors.at(last_index));
@@ -481,7 +482,7 @@ static void playback_node_callback(int requested_byte_count, void *userdata) {
     GenesisNode *node = (GenesisNode *)userdata;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
-    GenesisContext *context = node->descriptor->context;
+    GenesisContext *context = playback_node_context->context;
 
     if (!context->pipeline_running) {
         char *buffer;
@@ -517,6 +518,7 @@ static int playback_node_create(struct GenesisNode *node) {
         return GenesisErrorNoMem;
     }
     node->userdata = playback_node_context;
+    playback_node_context->context = context;
 
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
