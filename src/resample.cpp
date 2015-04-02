@@ -3,8 +3,6 @@
 #include "audio_file.hpp"
 #include <assert.h>
 
-static const int BYTES_PER_SAMPLE = 4; // float samples
-
 struct ResampleContext {
     AVAudioResampleContext *avr;
     bool in_connected;
@@ -85,18 +83,31 @@ static void resample_run(struct GenesisNode *node) {
     int output_byte_count = genesis_audio_out_port_free_count(audio_out_port);
     int input_byte_count = genesis_audio_in_port_fill_count(audio_in_port);
 
-    int output_samples_count = output_byte_count / BYTES_PER_SAMPLE;
-    int input_samples_count = input_byte_count / BYTES_PER_SAMPLE;
+    int output_bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
+    int input_bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
+
+    int output_frame_count = output_byte_count / output_bytes_per_frame;
+    int input_frame_count = input_byte_count / input_bytes_per_frame;
+
+    int out_channel_count = genesis_audio_port_channel_layout(audio_out_port)->channel_count;
+    int in_channel_count = genesis_audio_port_channel_layout(audio_in_port)->channel_count;
+
+    int out_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
+    int in_sample_rate = genesis_audio_port_sample_rate(audio_in_port);
+
+    int calculated_in_frame_count = output_frame_count * out_sample_rate / in_sample_rate;
+    int actual_in_frame_count = (calculated_in_frame_count < input_frame_count)
+        ? calculated_in_frame_count : input_frame_count;
 
     uint8_t *out_buf = (uint8_t *)genesis_audio_out_port_write_ptr(audio_out_port);
     uint8_t *in_buf = (uint8_t *)genesis_audio_in_port_read_ptr(audio_in_port);
 
     int samples_written = avresample_convert(resample_context->avr,
-            &out_buf, output_byte_count, output_samples_count,
-            &in_buf, input_byte_count, input_samples_count);
+            &out_buf, 0, output_frame_count * out_channel_count,
+            &in_buf, 0, actual_in_frame_count * in_channel_count);
 
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, input_samples_count * BYTES_PER_SAMPLE);
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, samples_written * BYTES_PER_SAMPLE);
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, actual_in_frame_count * input_bytes_per_frame);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, samples_written * sizeof(float));
 }
 
 static int in_connect(struct GenesisPort *port, struct GenesisPort *other_port) {

@@ -1226,7 +1226,10 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
         node->being_processed = false;
         for (int port_i = 0; port_i < node->port_count; port_i += 1) {
             GenesisPort *port = node->ports[port_i];
-            if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
+            if (port->descriptor->port_type == GenesisPortTypeAudioIn) {
+                GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
+                audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
+            } else if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
                 GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
                 int sample_buffer_frame_count = ceil(context->latency * audio_port->sample_rate);
                 audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
