@@ -57,14 +57,12 @@ int main(int argc, char **argv) {
 
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
-    if (err) {
-        fprintf(stderr, "unable to create genesis context: %s\n", genesis_error_string(err));
-        return 1;
-    }
+    if (err)
+        return report_error(err);
 
     struct GenesisAudioFile *audio_file;
     err = genesis_audio_file_load(context, input_filename, &audio_file);
-    if (err != GenesisErrorNone)
+    if (err)
         return report_error(err);
 
     const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
@@ -134,7 +132,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "out sample rate: %d\n", sample_rate);
 
     err = genesis_audio_file_export(audio_file, output_filename, &export_format);
-    if (err != GenesisErrorNone)
+    if (err)
         return report_error(err);
 
     genesis_audio_file_destroy(audio_file);

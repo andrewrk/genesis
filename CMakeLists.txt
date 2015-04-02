@@ -261,6 +261,14 @@ include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(delay libgenesis_shared)
 add_dependencies(delay libgenesis_shared)
 
+add_executable(play example/play.c)
+set_target_properties(play PROPERTIES
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${EXAMPLE_CFLAGS})
+include_directories(${EXAMPLE_INCLUDES})
+target_link_libraries(play libgenesis_shared)
+add_dependencies(play libgenesis_shared)
+
 
 add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})
 set_target_properties(generate_unicode_data PROPERTIES
