@@ -200,6 +200,15 @@ static void set_from_pulseaudio_channel_map(pa_channel_map channel_map, GenesisC
     for (int i = 0; i < channel_map.channels; i += 1) {
         channel_layout->channels[i] = from_pulseaudio_channel_pos(channel_map.map[i]);
     }
+    channel_layout->name = nullptr;
+    int builtin_layout_count = genesis_channel_layout_builtin_count();
+    for (int i = 0; i < builtin_layout_count; i += 1) {
+        const GenesisChannelLayout *builtin_layout = genesis_channel_layout_get_builtin(i);
+        if (genesis_channel_layout_equal(builtin_layout, channel_layout)) {
+            channel_layout->name = builtin_layout->name;
+            break;
+        }
+    }
 }
 
 void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *info, int eol) {

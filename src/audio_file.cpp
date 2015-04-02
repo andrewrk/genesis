@@ -270,12 +270,12 @@ static int channel_layout_init_from_libav(uint64_t libav_channel_layout,
         const GenesisChannelLayout *builtin_layout = genesis_channel_layout_get_builtin(i);
         if (genesis_channel_layout_equal(builtin_layout, layout)) {
             layout->name = builtin_layout->name;
-            return GenesisErrorNone;
+            return 0;
         }
     }
 
     layout->name = nullptr;
-    return GenesisErrorNone;
+    return 0;
 }
 
 int genesis_audio_file_load(struct GenesisContext *context,
@@ -442,7 +442,7 @@ int genesis_audio_file_load(struct GenesisContext *context,
     avformat_close_input(&ic);
 
     *out_audio_file = audio_file;
-    return GenesisErrorNone;
+    return 0;
 }
 
 GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
@@ -997,7 +997,7 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     avcodec_close(codec_ctx);
     avformat_free_context(fmt_ctx);
 
-    return GenesisErrorNone;
+    return 0;
 }
 
 void audio_file_init(void) {
