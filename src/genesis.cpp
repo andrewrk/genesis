@@ -129,11 +129,15 @@ int genesis_create_context(struct GenesisContext **out_context) {
 
 void genesis_destroy_context(struct GenesisContext *context) {
     if (context) {
+        if (context->pipeline_running)
+            genesis_stop_pipeline(context);
+
         if (context->midi_hardware) {
             destroy_midi_hardware(context->midi_hardware);
         }
-        for (int i = 0; i < context->node_descriptors.length(); i += 1) {
-            destroy(context->node_descriptors.at(i), 1);
+        while (context->node_descriptors.length()) {
+            int last_index = context->node_descriptors.length() - 1;
+            genesis_node_descriptor_destroy(context->node_descriptors.at(last_index));
         }
         for (int i = 0; i < context->out_formats.length(); i += 1) {
             destroy(context->out_formats.at(i), 1);
@@ -824,6 +828,7 @@ static void destroy_events_port_descriptor(GenesisEventsPortDescriptor *events_p
 }
 
 void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descriptor) {
+    free(port_descriptor->name);
     switch (port_descriptor->port_type) {
     case GenesisPortTypeAudioIn:
     case GenesisPortTypeAudioOut:
@@ -834,7 +839,6 @@ void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descript
         destroy_events_port_descriptor((GenesisEventsPortDescriptor *)port_descriptor);
         break;
     }
-    free(port_descriptor->name);
 }
 
 void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor) {

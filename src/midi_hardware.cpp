@@ -30,6 +30,7 @@ static void destroy_devices_info(MidiDevicesInfo *devices_info) {
     if (devices_info) {
         for (int i = 0; i < devices_info->devices.length(); i += 1)
             midi_device_unref(devices_info->devices.at(i));
+        destroy(devices_info, 1);
     }
 }
 
