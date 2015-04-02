@@ -57,6 +57,7 @@ AudioHardware::~AudioHardware() {
 
     destroy_current_audio_devices_info();
     destroy_ready_audio_devices_info();
+    destroy(_safe_devices_info, 1);
 
     pa_context_disconnect(_context);
     pa_context_unref(_context);
