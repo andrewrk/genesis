@@ -26,6 +26,11 @@ static int resample_create(struct GenesisNode *node) {
         resample_destroy(node);
         return GenesisErrorNoMem;
     }
+    resample_context->avr = avresample_alloc_context();
+    if (!resample_context->avr) {
+        resample_destroy(node);
+        return GenesisErrorNoMem;
+    }
     return 0;
 }
 
@@ -33,9 +38,6 @@ static int port_connected(struct GenesisNode *node) {
     struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
     if (!resample_context->in_connected || !resample_context->out_connected)
         return 0;
-    resample_context->avr = avresample_alloc_context();
-    if (!resample_context->avr)
-        return GenesisErrorNoMem;
 
     struct GenesisPort *audio_in_port = node->ports[0];
     struct GenesisPort *audio_out_port = node->ports[1];
@@ -43,8 +45,8 @@ static int port_connected(struct GenesisNode *node) {
     uint64_t in_channel_layout = channel_layout_to_libav(genesis_audio_port_channel_layout(audio_in_port));
     uint64_t out_channel_layout = channel_layout_to_libav(genesis_audio_port_channel_layout(audio_out_port));
 
-    uint64_t in_sample_rate = genesis_audio_port_sample_rate(audio_in_port);
-    uint64_t out_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
+    int in_sample_rate = genesis_audio_port_sample_rate(audio_in_port);
+    int out_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
 
     int err = 0;
     err = err || av_opt_set_int(resample_context->avr, "in_channel_layout",  in_channel_layout,  0);
@@ -93,8 +95,8 @@ static void resample_run(struct GenesisNode *node) {
             &out_buf, output_byte_count, output_samples_count,
             &in_buf, input_byte_count, input_samples_count);
 
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, input_samples_count * BYTES_PER_SAMPLE);
     genesis_audio_out_port_advance_write_ptr(audio_out_port, samples_written * BYTES_PER_SAMPLE);
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, input_byte_count);
 }
 
 static int in_connect(struct GenesisPort *port, struct GenesisPort *other_port) {

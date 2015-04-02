@@ -87,8 +87,8 @@ static void delay_run(struct GenesisNode *node) {
         delay_context->frame_offset = (delay_context->frame_offset + 1) % delay_context->delay_length_frames;
     }
 
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, write_size);
     genesis_audio_in_port_advance_read_ptr(audio_in_port, write_size);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, write_size);
 }
 
 int create_delay_descriptor(GenesisContext *context) {
