@@ -503,7 +503,12 @@ static void playback_node_run(struct GenesisNode *node) {
 
 static void playback_node_destroy(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    destroy(playback_node_context, 1);
+    if (playback_node_context) {
+        if (playback_node_context->playback_device) {
+            destroy(playback_node_context->playback_device, 1);
+        }
+        destroy(playback_node_context, 1);
+    }
 }
 
 static void playback_node_callback(int requested_byte_count, void *userdata) {
