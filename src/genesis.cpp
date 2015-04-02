@@ -286,7 +286,7 @@ void genesis_node_destroy(struct GenesisNode *node) {
                     if (port->output_to)
                         genesis_disconnect_ports(port, port->output_to);
                     if (port->input_from)
-                        genesis_disconnect_ports(port, port->input_from);
+                        genesis_disconnect_ports(port->input_from, port);
                 }
             }
         }
