@@ -1210,8 +1210,7 @@ void genesis_stop_pipeline(struct GenesisContext *context) {
     context->task_queue.wakeup_all(context->thread_pool.length());
     for (int i = 0; i < context->thread_pool.length(); i += 1) {
         Thread *thread = &context->thread_pool.at(i);
-        if (thread->running())
-            thread->join();
+        thread->join();
     }
 }
 

@@ -52,7 +52,6 @@ private:
     static void *static_start(void *userdata) {
         Thread *thread = static_cast<Thread *>(userdata);
         thread->_run(thread->_userdata);
-        thread->_run = nullptr;
         return nullptr;
     }
 
