@@ -52,7 +52,6 @@ private:
     Gui *_gui;
     int _left;
     int _top;
-    bool _autosize;
     int _padding_left;
     int _padding_top;
     int _padding_right;

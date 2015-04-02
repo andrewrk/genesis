@@ -11,7 +11,6 @@ SelectWidget::SelectWidget(GuiWindow *gui_window, Gui *gui) :
     _gui(gui),
     _left(0),
     _top(0),
-    _autosize(true),
     _padding_left(4),
     _padding_top(4),
     _padding_right(4),

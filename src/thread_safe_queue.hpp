@@ -20,15 +20,15 @@ using std::atomic_flag;
 // if this is true then we can send the address of an atomic int to the futex syscall
 static_assert(sizeof(int) == sizeof(atomic_int), "require atomic_int to be same size as int");
 
-static int futex(int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2, int val3) {
+static inline int futex(int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2, int val3) {
     return syscall(SYS_futex, uaddr, op, val, timeout, uaddr2, val3);
 }
 
-static int futex_wait(int *address, int val) {
+static inline int futex_wait(int *address, int val) {
     return futex(address, FUTEX_WAIT, val, nullptr, nullptr, 0) ? errno : 0;
 }
 
-static int futex_wake(int *address, int count) {
+static inline int futex_wake(int *address, int count) {
     return futex(address, FUTEX_WAKE, count, nullptr, nullptr, 0) ? errno : 0;
 }
 
