@@ -39,7 +39,8 @@ static int list_devices(struct GenesisContext *context) {
             default_str = (i == default_recording) ? " (default)" : "";
         }
         const char *description = genesis_audio_device_description(device);
-        fprintf(stderr, "%s device: %s%s\n", purpose_str, description, default_str);
+        int sample_rate = genesis_audio_device_sample_rate(device);
+        fprintf(stderr, "%s device: %d Hz %s%s\n", purpose_str, sample_rate, description, default_str);
     }
     for (int i = 0; i < midi_count; i += 1) {
         struct GenesisMidiDevice *device = genesis_get_midi_device(context, i);

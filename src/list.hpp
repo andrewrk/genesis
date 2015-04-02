@@ -3,7 +3,8 @@
 
 #include "util.hpp"
 #include "genesis.h"
-#include "assert.h"
+
+#include <assert.h>
 
 template<typename T>
 class List {

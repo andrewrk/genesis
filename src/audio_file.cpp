@@ -763,7 +763,7 @@ static uint64_t to_libav_channel_id(enum GenesisChannelId channel_id) {
 }
 
 
-static uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layout) {
+uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layout) {
     uint64_t result = 0;
     for (int i = 0; i < channel_layout->channel_count; i += 1) {
         GenesisChannelId channel_id = channel_layout->channels[i];

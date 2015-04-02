@@ -27,7 +27,7 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
     "${CMAKE_SOURCE_DIR}/src/resample.cpp"
-    )
+)
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
     "${CMAKE_SOURCE_DIR}/src/genesis.h"
@@ -35,7 +35,7 @@ set(LIBGENESIS_HEADERS
     "${CMAKE_SOURCE_DIR}/src/sample_format.h"
     "${CMAKE_SOURCE_DIR}/src/error.h"
     ${CONFIGURE_OUT_FILE}
-    )
+)
 
 set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/main.cpp"
@@ -63,18 +63,18 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/vertex_array.cpp"
     "${CMAKE_SOURCE_DIR}/src/gui_window.cpp"
     "${CMAKE_SOURCE_DIR}/src/select_widget.cpp"
-    )
+)
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
 set(GENESIS_HEADERS
     ${UNICODE_HPP}
-    )
+)
 
 set(GENERATE_UNICODE_DATA_SOURCES
     "${CMAKE_SOURCE_DIR}/src/generate_unicode_data.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
-    )
+)
 
 set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/test/unit_tests.cpp"
@@ -83,7 +83,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
-    )
+)
 set(TEST_HEADERS ${GENESIS_HEADERS})
 
 find_package(Threads)
@@ -99,6 +99,11 @@ if(AVCODEC_FOUND)
     set(STATUS_LIBAVCODEC "OK")
 else()
     set(STATUS_LIBAVCODEC "not found")
+endif()
+if(AVRESAMPLE_FOUND)
+    set(STATUS_LIBAVRESAMPLE "OK")
+else()
+    set(STATUS_LIBAVRESAMPLE "not found")
 endif()
 if(AVFORMAT_FOUND)
     set(STATUS_LIBAVFORMAT "OK")
@@ -342,6 +347,7 @@ message(
     "* threads                      : ${STATUS_THREADS}\n"
     "* libavformat                  : ${STATUS_LIBAVFORMAT}\n"
     "* libavcodec                   : ${STATUS_LIBAVCODEC}\n"
+    "* libavresample                : ${STATUS_LIBAVRESAMPLE}\n"
     "* libavutil                    : ${STATUS_LIBAVUTIL}\n"
     "* freetype                     : ${STATUS_FREETYPE}\n"
     "* libpng                       : ${STATUS_PNG}\n"

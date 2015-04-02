@@ -38,4 +38,6 @@ GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
         List<GenesisAudioFileFormat*> &out_formats, const char *filename_hint,
         const char *format_name, const char *codec_name);
 
+uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layout);
+
 #endif
