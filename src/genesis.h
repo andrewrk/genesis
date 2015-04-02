@@ -154,6 +154,7 @@ void genesis_node_descriptor_set_create_callback(struct GenesisNodeDescriptor *n
         int (*create)(struct GenesisNode *node));
 void genesis_node_descriptor_set_destroy_callback(struct GenesisNodeDescriptor *node_descriptor,
         void (*destroy)(struct GenesisNode *node));
+void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_descriptor);
 
 // returns -1 if not found
 int genesis_node_descriptor_find_port_index(
@@ -215,12 +216,10 @@ int genesis_resume_pipeline(struct GenesisContext *context);
 // descriptors based on audio devices
 int genesis_set_latency(struct GenesisContext *context, double latency);
 
-// TODO change this to be frames instead of samples
 int genesis_audio_in_port_fill_count(struct GenesisPort *port);
 char *genesis_audio_in_port_read_ptr(struct GenesisPort *port);
 void genesis_audio_in_port_advance_read_ptr(struct GenesisPort *port, int byte_count);
 
-// TODO change this to be frames instead of samples
 int genesis_audio_out_port_free_count(struct GenesisPort *port);
 char *genesis_audio_out_port_write_ptr(struct GenesisPort *port);
 void genesis_audio_out_port_advance_write_ptr(struct GenesisPort *port, int byte_count);
@@ -293,8 +292,8 @@ struct GenesisAudioFile;
 
 struct GenesisAudioFileIterator {
     struct GenesisAudioFile *audio_file;
-    long start;
-    long end;
+    long start; // absolute frame index
+    long end; // absolute frame index
     float *ptr;
 };
 int genesis_audio_file_load(struct GenesisContext *context,

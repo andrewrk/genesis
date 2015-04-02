@@ -1163,7 +1163,8 @@ int genesis_start_pipeline(struct GenesisContext *context) {
             }
         }
         node->timestamp = 0.0;
-        node->descriptor->seek(node);
+        if (node->descriptor->seek)
+            node->descriptor->seek(node);
     }
 
     return genesis_resume_pipeline(context);
@@ -1408,4 +1409,8 @@ void genesis_port_descriptor_set_disconnect_callback(
         void (*disconnect)(struct GenesisPort *port, struct GenesisPort *other_port))
 {
     port_descr->disconnect = disconnect;
+}
+
+void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_descriptor) {
+    return node_descriptor->userdata;
 }

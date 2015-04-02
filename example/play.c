@@ -1,21 +1,74 @@
 #include "genesis.h"
 #include <stdio.h>
 
-static int usage(char *exe) {
-    fprintf(stderr, "Usage: %s inputfile\n", exe);
-    return 1;
+// play the input file over the default playback device
+
+struct PlayChannelContext {
+    struct GenesisAudioFileIterator iter;
+    long offset;
+};
+
+struct PlayContext {
+    volatile bool running;
+    struct PlayChannelContext channel_context[GENESIS_MAX_CHANNELS];
+    long frame_index;
+    long frame_count;
+    struct GenesisContext *context;
+};
+
+static void audio_file_node_run(struct GenesisNode *node) {
+    const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
+    struct PlayContext *play_context = (struct PlayContext *)genesis_node_descriptor_userdata(node_descriptor);
+    struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
+    int output_byte_count = genesis_audio_out_port_free_count(audio_out_port);
+    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
+    int output_frame_count = output_byte_count / bytes_per_frame;
+    const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    int channel_count = channel_layout->channel_count;
+    float *out_samples = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
+
+    int frame_index_end = play_context->frame_index + output_frame_count;
+    int audio_file_frames_left = play_context->frame_count - frame_index_end;
+    bool end_detected = audio_file_frames_left <= 0;
+    int output_end = (output_frame_count < audio_file_frames_left) ?
+        output_frame_count : audio_file_frames_left;
+
+    for (int ch = 0; ch < channel_count; ch += 1) {
+        struct PlayChannelContext *channel_context = &play_context->channel_context[ch];
+        for (int frame_offset = 0; frame_offset < output_end; frame_offset += 1) {
+            if (channel_context->offset >= channel_context->iter.end) {
+                genesis_audio_file_iterator_next(&channel_context->iter);
+                channel_context->offset = 0;
+            }
+
+            out_samples[channel_count * frame_offset + ch] =
+                channel_context->iter.ptr[channel_context->offset];
+
+            channel_context->offset += 1;
+        }
+    }
+
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_end * bytes_per_frame);
+
+    play_context->frame_index += output_end;
+    if (end_detected) {
+        play_context->running = false;
+        genesis_wakeup(play_context->context);
+    }
 }
 
-static int report_error(enum GenesisError err) {
-    fprintf(stderr, "Error: %s\n", genesis_error_string(err));
+static int usage(char *exe) {
+    fprintf(stderr, "Usage: %s audio_file\n", exe);
     return 1;
 }
 
 int main(int argc, char **argv) {
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
-    if (err)
-        return report_error(err);
+    if (err) {
+        fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
+        return 1;
+    }
 
     const char *input_filename = NULL;
     for (int i = 1; i < argc; i += 1) {
@@ -34,8 +87,10 @@ int main(int argc, char **argv) {
 
     struct GenesisAudioFile *audio_file;
     err = genesis_audio_file_load(context, input_filename, &audio_file);
-    if (err)
-        return report_error(err);
+    if (err) {
+        fprintf(stderr, "unable to load audio file: %s", genesis_error_string(err));
+        return 1;
+    }
 
     const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
     if (channel_layout->name)
@@ -45,6 +100,120 @@ int main(int argc, char **argv) {
 
     int sample_rate = genesis_audio_file_sample_rate(audio_file);
     fprintf(stderr, "Sample Rate: %d Hz\n", sample_rate);
+
+    // block until we have audio devices list
+    genesis_refresh_audio_devices(context);
+
+    int playback_device_index = genesis_get_default_playback_device_index(context);
+    if (playback_device_index < 0) {
+        fprintf(stderr, "error getting audio device list\n");
+        return 1;
+    }
+
+    struct GenesisAudioDevice *audio_device = genesis_get_audio_device(context, playback_device_index);
+    if (!audio_device) {
+        fprintf(stderr, "error getting playback device\n");
+        return 1;
+    }
+
+    struct GenesisNodeDescriptor *playback_node_descr;
+    err = genesis_audio_device_create_node_descriptor(audio_device, &playback_node_descr);
+    if (err) {
+        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
+        return 1;
+    }
+
+    struct GenesisNode *playback_node = genesis_node_descriptor_create_node(playback_node_descr);
+    if (!playback_node) {
+        fprintf(stderr, "unable to create out node\n");
+        return 1;
+    }
+
+    // create audio file player node
+    struct GenesisNodeDescriptor *audio_file_node_descr = genesis_create_node_descriptor(
+            context, 1, "audio_file", "Audio file playback.");
+    if (!audio_file_node_descr) {
+        fprintf(stderr, "unable to create node descriptor\n");
+        return 1;
+    }
+
+    struct PlayContext play_context;
+    play_context.context = context;
+    play_context.running = true;
+    play_context.frame_count = genesis_audio_file_frame_count(audio_file);
+    play_context.frame_index = 0;
+    for (int ch = 0; ch < channel_layout->channel_count; ch += 1) {
+        struct PlayChannelContext *channel_context = &play_context.channel_context[ch];
+        channel_context->offset = 0;
+        channel_context->iter = genesis_audio_file_iterator(audio_file, ch, 0);
+    }
+
+    genesis_node_descriptor_set_userdata(audio_file_node_descr, &play_context);
+    genesis_node_descriptor_set_run_callback(audio_file_node_descr, audio_file_node_run);
+
+    struct GenesisPortDescriptor *audio_out_port_descr = genesis_node_descriptor_create_port(
+            audio_file_node_descr, 0, GenesisPortTypeAudioOut, "audio_out");
+
+    if (!audio_out_port_descr) {
+        fprintf(stderr, "unable to create audio out port descriptor\n");
+        return 1;
+    }
+
+    genesis_audio_port_descriptor_set_channel_layout(audio_out_port_descr,
+        genesis_audio_file_channel_layout(audio_file), true, -1);
+
+    genesis_audio_port_descriptor_set_sample_rate(audio_out_port_descr,
+        genesis_audio_file_sample_rate(audio_file), true, -1);
+
+    struct GenesisNode *audio_file_node = genesis_node_descriptor_create_node(audio_file_node_descr);
+    if (!audio_file_node) {
+        fprintf(stderr, "unable to create audio file node\n");
+        return 1;
+    }
+
+    struct GenesisNode *target_node;
+    if (sample_rate == genesis_audio_device_sample_rate(audio_device)) {
+        target_node = playback_node;
+        fprintf(stderr, "%s -> %s\n", input_filename, genesis_audio_device_description(audio_device));
+    } else {
+        // create resampling node
+        struct GenesisNodeDescriptor *resample_descr = genesis_node_descriptor_find(context, "resample");
+        if (!resample_descr) {
+            fprintf(stderr, "unable to find resampler\n");
+            return 1;
+        }
+        struct GenesisNode *resample_node = genesis_node_descriptor_create_node(resample_descr);
+        if (!resample_node) {
+            fprintf(stderr, "error creating resample node\n");
+            return 1;
+        }
+
+        int err = genesis_connect_audio_nodes(resample_node, playback_node);
+        if (err) {
+            fprintf(stderr, "error connecting resampler to playback device: %s\n", genesis_error_string(err));
+            return 1;
+        }
+
+        target_node = resample_node;
+        fprintf(stderr, "%s -> %s -> %s\n", input_filename,
+                genesis_node_descriptor_name(resample_descr),
+                genesis_audio_device_description(audio_device));
+    }
+
+    err = genesis_connect_audio_nodes(audio_file_node, target_node);
+    if (err) {
+        fprintf(stderr, "unable to connect audio nodes: %s\n", genesis_error_string(err));
+        return 1;
+    }
+
+    err = genesis_start_pipeline(context);
+    if (err) {
+        fprintf(stderr, "unable to start pipeline: %s\n", genesis_error_string(err));
+        return 1;
+    }
+
+    while (play_context.running)
+        genesis_wait_events(context);
 
     genesis_audio_file_destroy(audio_file);
     genesis_destroy_context(context);
