@@ -100,11 +100,6 @@ if(AVCODEC_FOUND)
 else()
     set(STATUS_LIBAVCODEC "not found")
 endif()
-if(AVRESAMPLE_FOUND)
-    set(STATUS_LIBAVRESAMPLE "OK")
-else()
-    set(STATUS_LIBAVRESAMPLE "not found")
-endif()
 if(AVFORMAT_FOUND)
     set(STATUS_LIBAVFORMAT "OK")
 else()
@@ -355,7 +350,6 @@ message(
     "* threads                      : ${STATUS_THREADS}\n"
     "* libavformat                  : ${STATUS_LIBAVFORMAT}\n"
     "* libavcodec                   : ${STATUS_LIBAVCODEC}\n"
-    "* libavresample                : ${STATUS_LIBAVRESAMPLE}\n"
     "* libavutil                    : ${STATUS_LIBAVUTIL}\n"
     "* freetype                     : ${STATUS_FREETYPE}\n"
     "* libpng                       : ${STATUS_PNG}\n"

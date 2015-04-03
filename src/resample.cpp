@@ -1,18 +1,19 @@
 #include "resample.hpp"
-#include "libav.hpp"
 #include "audio_file.hpp"
 #include <assert.h>
 
+// currently a zero-order-hold resampler
+
 struct ResampleContext {
-    AVAudioResampleContext *avr;
     bool in_connected;
     bool out_connected;
+    int in_offset;
+    int out_offset;
 };
 
 static void resample_destroy(struct GenesisNode *node) {
     struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
     if (resample_context) {
-        avresample_free(&resample_context->avr);
         destroy(resample_context, 1);
     }
 }
@@ -24,59 +25,11 @@ static int resample_create(struct GenesisNode *node) {
         resample_destroy(node);
         return GenesisErrorNoMem;
     }
-    resample_context->avr = avresample_alloc_context();
-    if (!resample_context->avr) {
-        resample_destroy(node);
-        return GenesisErrorNoMem;
-    }
     return 0;
-}
-
-static int port_connected(struct GenesisNode *node) {
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    if (!resample_context->in_connected || !resample_context->out_connected)
-        return 0;
-
-    struct GenesisPort *audio_in_port = node->ports[0];
-    struct GenesisPort *audio_out_port = node->ports[1];
-
-    uint64_t in_channel_layout = channel_layout_to_libav(genesis_audio_port_channel_layout(audio_in_port));
-    uint64_t out_channel_layout = channel_layout_to_libav(genesis_audio_port_channel_layout(audio_out_port));
-
-    int in_sample_rate = genesis_audio_port_sample_rate(audio_in_port);
-    int out_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
-
-    int err = 0;
-    err = err || av_opt_set_int(resample_context->avr, "in_channel_layout",  in_channel_layout,  0);
-    err = err || av_opt_set_int(resample_context->avr, "out_channel_layout", out_channel_layout, 0);
-    err = err || av_opt_set_int(resample_context->avr, "in_sample_rate",     in_sample_rate,     0);
-    err = err || av_opt_set_int(resample_context->avr, "out_sample_rate",    out_sample_rate,    0);
-    err = err || av_opt_set_int(resample_context->avr, "in_sample_fmt",      AV_SAMPLE_FMT_FLT,  0);
-    err = err || av_opt_set_int(resample_context->avr, "out_sample_fmt",     AV_SAMPLE_FMT_FLT,  0);
-    if (err)
-        return GenesisErrorInvalidState;
-
-    err = avresample_open(resample_context->avr);
-    if (err)
-        return GenesisErrorInvalidState;
-
-    return 0;
-}
-
-static void port_disconnected(struct GenesisNode *node) {
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    avresample_close(resample_context->avr);
-}
-
-static void resample_seek(struct GenesisNode *node) {
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    avresample_close(resample_context->avr);
-    int err = avresample_open(resample_context->avr);
-    assert(!err);
 }
 
 static void resample_run(struct GenesisNode *node) {
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
+    //struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
     struct GenesisPort *audio_in_port = node->ports[0];
     struct GenesisPort *audio_out_port = node->ports[1];
 
@@ -89,53 +42,30 @@ static void resample_run(struct GenesisNode *node) {
     int output_frame_count = output_byte_count / output_bytes_per_frame;
     int input_frame_count = input_byte_count / input_bytes_per_frame;
 
-    int out_channel_count = genesis_audio_port_channel_layout(audio_out_port)->channel_count;
-    int in_channel_count = genesis_audio_port_channel_layout(audio_in_port)->channel_count;
+    const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
 
     int out_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
     int in_sample_rate = genesis_audio_port_sample_rate(audio_in_port);
 
-    int calculated_in_frame_count = output_frame_count * out_sample_rate / in_sample_rate;
-    int actual_in_frame_count = (calculated_in_frame_count < input_frame_count)
-        ? calculated_in_frame_count : input_frame_count;
+    float *out_buf = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
+    float *in_buf = (float *)genesis_audio_in_port_read_ptr(audio_in_port);
 
-    uint8_t *out_buf = (uint8_t *)genesis_audio_out_port_write_ptr(audio_out_port);
-    uint8_t *in_buf = (uint8_t *)genesis_audio_in_port_read_ptr(audio_in_port);
+    if (!genesis_channel_layout_equal(out_channel_layout, in_channel_layout))
+        panic("TODO channel layout remapping not implemented");
 
-    int samples_written = avresample_convert(resample_context->avr,
-            &out_buf, 0, output_frame_count * out_channel_count,
-            &in_buf, 0, actual_in_frame_count * in_channel_count);
+    int max_in_frame_count = output_frame_count * out_sample_rate / in_sample_rate;
+    int frame_count = min(max_in_frame_count, input_frame_count);
 
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, actual_in_frame_count * input_bytes_per_frame);
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, samples_written * sizeof(float));
-}
+    for (int out_frame = 0; out_frame < frame_count; out_frame += 1) {
+        int in_frame = out_frame * out_sample_rate / in_sample_rate;
+        for (int ch = 0; ch < out_channel_layout->channel_count; ch += 1) {
+            out_buf[out_frame] = in_buf[in_frame];
+        }
+    }
 
-static int in_connect(struct GenesisPort *port, struct GenesisPort *other_port) {
-    struct GenesisNode *node = genesis_port_node(port);
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    resample_context->in_connected = true;
-    return port_connected(node);
-}
-
-static int out_connect(struct GenesisPort *port, struct GenesisPort *other_port) {
-    struct GenesisNode *node = genesis_port_node(port);
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    resample_context->out_connected = true;
-    return port_connected(node);
-}
-
-static void in_disconnect(struct GenesisPort *port, struct GenesisPort *other_port) {
-    struct GenesisNode *node = genesis_port_node(port);
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    resample_context->in_connected = false;
-    port_disconnected(node);
-}
-
-static void out_disconnect(struct GenesisPort *port, struct GenesisPort *other_port) {
-    struct GenesisNode *node = genesis_port_node(port);
-    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    resample_context->out_connected = false;
-    port_disconnected(node);
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count * input_bytes_per_frame);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count * output_bytes_per_frame);
 }
 
 int create_resample_descriptor(GenesisContext *context) {
@@ -149,7 +79,6 @@ int create_resample_descriptor(GenesisContext *context) {
     genesis_node_descriptor_set_run_callback(node_descr, resample_run);
     genesis_node_descriptor_set_create_callback(node_descr, resample_create);
     genesis_node_descriptor_set_destroy_callback(node_descr, resample_destroy);
-    genesis_node_descriptor_set_seek_callback(node_descr, resample_seek);
 
     struct GenesisPortDescriptor *audio_in_port = genesis_node_descriptor_create_port(
             node_descr, 0, GenesisPortTypeAudioIn, "audio_in");
@@ -160,11 +89,6 @@ int create_resample_descriptor(GenesisContext *context) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
     }
-
-    genesis_port_descriptor_set_connect_callback(audio_in_port, in_connect);
-    genesis_port_descriptor_set_connect_callback(audio_out_port, out_connect);
-    genesis_port_descriptor_set_disconnect_callback(audio_in_port, in_disconnect);
-    genesis_port_descriptor_set_disconnect_callback(audio_out_port, out_disconnect);
 
     const struct GenesisChannelLayout *mono_layout =
         genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
