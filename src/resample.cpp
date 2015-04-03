@@ -2,13 +2,9 @@
 #include "audio_file.hpp"
 #include <assert.h>
 
-// currently a zero-order-hold resampler
-
 struct ResampleContext {
-    bool in_connected;
-    bool out_connected;
-    int in_offset;
-    int out_offset;
+    long in_offset;
+    long out_offset;
 };
 
 static void resample_destroy(struct GenesisNode *node) {
@@ -28,8 +24,14 @@ static int resample_create(struct GenesisNode *node) {
     return 0;
 }
 
+static void resample_seek(struct GenesisNode *node) {
+    ResampleContext *resample_context = create_zero<ResampleContext>();
+    resample_context->in_offset = 0;
+    resample_context->out_offset = 0;
+}
+
 static void resample_run(struct GenesisNode *node) {
-    //struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
+    struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
     struct GenesisPort *audio_in_port = node->ports[0];
     struct GenesisPort *audio_out_port = node->ports[1];
 
@@ -54,23 +56,42 @@ static void resample_run(struct GenesisNode *node) {
     if (!genesis_channel_layout_equal(out_channel_layout, in_channel_layout))
         panic("TODO channel layout remapping not implemented");
 
-    int max_in_frame_count = output_frame_count * out_sample_rate / in_sample_rate;
-    int frame_count = min(max_in_frame_count, input_frame_count);
-
-    for (int out_frame = 0; out_frame < frame_count; out_frame += 1) {
-        int in_frame = out_frame * out_sample_rate / in_sample_rate;
+    int in_frame = 0;
+    for (long out_frame = 0; out_frame < output_frame_count; out_frame += 1) {
+        long out_by_in_rate = (resample_context->out_offset + out_frame) * in_sample_rate;
+        long total_in_frame = out_by_in_rate / out_sample_rate;
+        long remainder = out_by_in_rate % out_sample_rate;
+        float interp = remainder / (float)out_sample_rate;
+        in_frame = total_in_frame - resample_context->in_offset;
+        if (in_frame + 1 >= input_frame_count) {
+            output_frame_count = out_frame;
+            break;
+        }
         for (int ch = 0; ch < out_channel_layout->channel_count; ch += 1) {
-            out_buf[out_frame] = in_buf[in_frame];
+            long in_sample_index = in_frame * in_channel_layout->channel_count + ch;
+            float sample = in_buf[in_sample_index] * (1.0f - interp) + in_buf[in_sample_index + 1] * interp;
+            long out_sample_index = out_frame * out_channel_layout->channel_count + ch;
+            out_buf[out_sample_index] = sample;
         }
     }
+    resample_context->out_offset += output_frame_count;
+    resample_context->in_offset += in_frame;
 
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count * input_bytes_per_frame);
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count * output_bytes_per_frame);
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, in_frame * input_bytes_per_frame);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count * output_bytes_per_frame);
+
+    if (resample_context->in_offset > in_sample_rate * out_sample_rate &&
+        resample_context->out_offset > in_sample_rate * out_sample_rate)
+    {
+        resample_context->in_offset = resample_context->in_offset % (in_sample_rate * out_sample_rate);
+        resample_context->out_offset = resample_context->out_offset % (in_sample_rate * out_sample_rate);
+    }
 }
 
 int create_resample_descriptor(GenesisContext *context) {
     GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2,
             "resample", "Resample audio and remap channel layouts.");
+
     if (!node_descr) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
@@ -79,6 +100,7 @@ int create_resample_descriptor(GenesisContext *context) {
     genesis_node_descriptor_set_run_callback(node_descr, resample_run);
     genesis_node_descriptor_set_create_callback(node_descr, resample_create);
     genesis_node_descriptor_set_destroy_callback(node_descr, resample_destroy);
+    genesis_node_descriptor_set_seek_callback(node_descr, resample_seek);
 
     struct GenesisPortDescriptor *audio_in_port = genesis_node_descriptor_create_port(
             node_descr, 0, GenesisPortTypeAudioIn, "audio_in");
