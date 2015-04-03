@@ -120,6 +120,13 @@ static void test_euclidean_mod(void) {
     assert(euclidean_mod(-6, 5) == 4);
 }
 
+static void test_gcd(void) {
+    assert(greatest_common_denominator(42, 56) == 14);
+    assert(greatest_common_denominator(54, 24) == 6);
+    assert(greatest_common_denominator(48000, 44100) == 300);
+    assert(greatest_common_denominator(44100, 96000) == 300);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -133,6 +140,7 @@ static struct Test tests[] = {
     {"RingBuffer", test_ring_buffer},
     {"euclidean_mod", test_euclidean_mod},
     {"ThreadSafeQueue", test_thread_safe_queue},
+    {"greatest_common_denominator", test_gcd},
     {NULL, NULL},
 };
 

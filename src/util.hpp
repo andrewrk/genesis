@@ -193,4 +193,6 @@ void insertion_sort(T * in_place_list, int size) {
 
 char * create_formatted_str(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
+unsigned int greatest_common_denominator(unsigned int u, unsigned int v);
+
 #endif

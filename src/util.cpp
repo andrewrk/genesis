@@ -38,3 +38,36 @@ char * create_formatted_str(const char *format, ...) {
 
     return result;
 }
+
+unsigned int greatest_common_denominator(unsigned int u, unsigned int v) {
+    // The binary GCD algorithm.
+
+    if (u == 0)
+        return v;
+
+    if (v == 0)
+        return u;
+
+    int shift;
+    for (shift = 0; ((u | v) & 1) == 0; ++shift) {
+        u >>= 1;
+        v >>= 1;
+    }
+
+    while ((u & 1) == 0)
+        u >>= 1;
+
+    do {
+        while ((v & 1) == 0)
+            v >>= 1;
+
+        if (u > v) {
+            unsigned int tmp = v;
+            v = u;
+            u = tmp;
+        }
+        v -= u;
+    } while (v != 0);
+
+    return u << shift;
+}
