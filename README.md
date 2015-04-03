@@ -110,6 +110,19 @@ make
 
 ## Grand Plans
 
+### Compatibility
+
+libgenesis follows [semver](http://semver.org/). Major version is bumped when
+API or ABI compatibility is broken. Minor version is bumped when new features
+are added. Patch version is bumped only for bug fixes. Until 1.0.0 is released
+no effort is made toward backward compatibility whatsoever.
+
+Genesis Audio Studio has an independent version from libgenesis. Major version
+is bumped when a project file will no longer generate the same output audio as
+the previous version. Minor version is bumped when new features are added.
+Patch version is bumped only for bug fixes. Until 1.0.0 is released no effort
+is made toward project files being backward compatible to previous versions.
+
 ### Coordinates
 
 Positions in the audio project are in *floating point whole notes*. This is to
