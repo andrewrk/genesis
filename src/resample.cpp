@@ -95,7 +95,6 @@ static void resample_run(struct GenesisNode *node) {
     long over_output_start = resample_context->out_offset * resample_context->downsample_factor;
     long over_output_end = over_output_start + output_frame_count * resample_context->downsample_factor;
 
-    // compute actual output start and end in oversample coordinates
     if (over_input_end - half_window_size < over_output_start)
         return;
 

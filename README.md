@@ -104,8 +104,8 @@ make
 
 ## Roadmap
 
+ 0. update resampler plugin to remap channel layouts
  0. modify ui code to use libgenesis
-    - resample/map channel layout plugin
  0. user interface for making music
 
 ## Grand Plans

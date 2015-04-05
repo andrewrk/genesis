@@ -456,13 +456,12 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
         context->task_queue.enqueue(node);
 }
 
-static bool fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playback_node_context,
+static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playback_node_context,
         OpenPlaybackDevice *playback_device, int requested_byte_count)
 {
-    GenesisAudioPort *audio_in_port = (GenesisAudioPort *)node->ports[0];
-    GenesisAudioPort *audio_out_port = (GenesisAudioPort *)audio_in_port->port.input_from;
+    GenesisPort *audio_in_port = genesis_node_port(node, 0);
 
-    int fill_count = audio_out_port->sample_buffer->fill_count();
+    int fill_count = genesis_audio_in_port_fill_count(audio_in_port);
     bool need_more_data = false;
 
     char *buffer;
@@ -478,16 +477,17 @@ static bool fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playbac
         }
 
         playback_device->begin_write(&buffer, &byte_count);
-        memcpy(buffer, audio_out_port->sample_buffer->read_ptr(), byte_count);
+        memcpy(buffer, genesis_audio_in_port_read_ptr(audio_in_port), byte_count);
         playback_device->write(buffer, byte_count);
-        audio_out_port->sample_buffer->advance_read_ptr(byte_count);
+        genesis_audio_in_port_advance_read_ptr(audio_in_port, byte_count);
 
         requested_byte_count -= byte_count;
         fill_count -= byte_count;
         if (requested_byte_count <= 0)
             break;
     }
-    return need_more_data;
+    if (need_more_data)
+        genesis_audio_in_port_advance_read_ptr(audio_in_port, 0);
 }
 
 static void playback_node_run(struct GenesisNode *node) {
@@ -534,12 +534,6 @@ static void playback_node_callback(int requested_byte_count, void *userdata) {
     }
 
     fill_playback_buffer(node, playback_node_context, playback_device, requested_byte_count);
-
-    GenesisAudioPort *audio_in_port = (GenesisAudioPort *)node->ports[0];
-    GenesisAudioPort *audio_out_port = (GenesisAudioPort *)audio_in_port->port.input_from;
-    GenesisNode *child_node = audio_out_port->port.node;
-    child_node->data_ready = false;
-    queue_node_if_ready(context, child_node, true);
 }
 
 static int playback_node_create(struct GenesisNode *node) {
@@ -1168,16 +1162,6 @@ static void pipeline_thread_run(void *userdata) {
         node_descriptor->run(node);
         node->data_ready = true;
         node->being_processed = false;
-
-        // check each node that depended on this one to see if we can now
-        // process that one.
-        for (int i = 0; i < node->port_count; i += 1) {
-            GenesisPort *port = node->ports[i];
-            GenesisPort *parent_port = port->output_to;
-            if (!parent_port || parent_port == port)
-                continue;
-            queue_node_if_ready(context, parent_port->node, false);
-        }
     }
 }
 
@@ -1315,7 +1299,9 @@ void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int byte_count) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
     audio_out_port->sample_buffer->advance_read_ptr(byte_count);
-    audio_out_port->port.node->data_ready = false;
+    struct GenesisNode *child_node = audio_out_port->port.node;
+    child_node->data_ready = false;
+    queue_node_if_ready(child_node->descriptor->context, child_node, true);
 }
 
 int genesis_audio_out_port_free_count(GenesisPort *port) {
