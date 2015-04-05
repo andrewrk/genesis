@@ -462,7 +462,7 @@ static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playbac
     GenesisPort *audio_in_port = genesis_node_port(node, 0);
 
     int fill_count = genesis_audio_in_port_fill_count(audio_in_port);
-    bool need_more_data = false;
+    bool need_more_data = true;
 
     char *buffer;
     for (;;) {
@@ -471,11 +471,11 @@ static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playbac
         if (byte_count > fill_count) {
             byte_count = fill_count;
             requested_byte_count = byte_count;
-            need_more_data = true;
             if (byte_count <= 0)
                 break;
         }
 
+        need_more_data = false;
         playback_device->begin_write(&buffer, &byte_count);
         memcpy(buffer, genesis_audio_in_port_read_ptr(audio_in_port), byte_count);
         playback_device->write(buffer, byte_count);
