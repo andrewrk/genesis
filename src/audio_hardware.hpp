@@ -54,7 +54,12 @@ public:
     AudioHardware *_audio_hardware;
     pa_stream *_stream;
 
-private:
+    void (*_underrun_callback)(void *);
+    void set_underrun_callback(void (*fn)(void *)) {
+        _underrun_callback = fn;
+    }
+
+
     atomic_bool _stream_ready;
     void *_callback_userdata;
     void (*_callback)(int byte_count, void *);

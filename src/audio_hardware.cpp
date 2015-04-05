@@ -455,6 +455,11 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
     }
 }
 
+static void playback_stream_underflow_callback(pa_stream *stream, void *userdata) {
+    OpenPlaybackDevice *device = (OpenPlaybackDevice*)userdata;
+    device->_underrun_callback(device->_callback_userdata);
+}
+
 OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
         const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
         int sample_rate, void (*callback)(int, void *), void *userdata) :
@@ -480,6 +485,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
 
     pa_stream_set_state_callback(_stream, stream_state_callback, this);
     pa_stream_set_write_callback(_stream, stream_write_callback, this);
+    pa_stream_set_underflow_callback(_stream, playback_stream_underflow_callback, this);
 
     int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
     int buffer_length = latency * bytes_per_second;
@@ -516,6 +522,7 @@ OpenPlaybackDevice::~OpenPlaybackDevice() {
 
     pa_stream_set_write_callback(_stream, NULL, this);
     pa_stream_set_state_callback(_stream, NULL, this);
+    pa_stream_set_underflow_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
 

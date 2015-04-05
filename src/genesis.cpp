@@ -513,6 +513,20 @@ static void playback_node_destroy(struct GenesisNode *node) {
     }
 }
 
+static void fill_playback_device_with_silence(OpenPlaybackDevice *playback_device) {
+    int requested_byte_count = playback_device->writable_size();
+    while (requested_byte_count > 0) {
+        int byte_count = requested_byte_count;
+
+        char *buffer;
+        playback_device->begin_write(&buffer, &byte_count);
+        memset(buffer, 0, byte_count);
+        playback_device->write(buffer, byte_count);
+
+        requested_byte_count -= byte_count;
+    }
+}
+
 static void playback_node_callback(int requested_byte_count, void *userdata) {
     GenesisNode *node = (GenesisNode *)userdata;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
@@ -520,22 +534,19 @@ static void playback_node_callback(int requested_byte_count, void *userdata) {
     GenesisContext *context = playback_node_context->context;
 
     if (!context->pipeline_running) {
-        char *buffer;
-        for (;;) {
-            int byte_count = requested_byte_count;
-
-            playback_device->begin_write(&buffer, &byte_count);
-            memset(buffer, 0, byte_count);
-            playback_device->write(buffer, byte_count);
-
-            requested_byte_count -= byte_count;
-            if (requested_byte_count <= 0)
-                break;
-        }
+        fill_playback_device_with_silence(playback_device);
         return;
     }
 
     fill_playback_buffer(node, playback_node_context, playback_device, requested_byte_count);
+}
+
+static void playback_node_underrun_callback(void *userdata) {
+    GenesisNode *node = (GenesisNode *)userdata;
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
+
+    fill_playback_device_with_silence(playback_device);
 }
 
 static int playback_node_create(struct GenesisNode *node) {
@@ -559,6 +570,8 @@ static int playback_node_create(struct GenesisNode *node) {
         playback_node_destroy(node);
         return GenesisErrorNoMem;
     }
+
+    playback_node_context->playback_device->set_underrun_callback(playback_node_underrun_callback);
 
     int err = playback_node_context->playback_device->start(device->name.raw());
     if (err) {
