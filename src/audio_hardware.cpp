@@ -486,7 +486,7 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
 
     _buffer_attr.maxlength = buffer_length;
     _buffer_attr.tlength = buffer_length;
-    _buffer_attr.prebuf = UINT32_MAX;
+    _buffer_attr.prebuf = 0;
     _buffer_attr.minreq = UINT32_MAX;
     _buffer_attr.fragsize = UINT32_MAX;
 
@@ -587,7 +587,7 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
 
     _buffer_attr.maxlength = UINT32_MAX;
     _buffer_attr.tlength = UINT32_MAX;
-    _buffer_attr.prebuf = UINT32_MAX;
+    _buffer_attr.prebuf = 0;
     _buffer_attr.minreq = UINT32_MAX;
     _buffer_attr.fragsize = buffer_length;
 
