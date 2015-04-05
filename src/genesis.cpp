@@ -461,7 +461,9 @@ static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playbac
 {
     GenesisPort *audio_in_port = genesis_node_port(node, 0);
 
-    int fill_count = genesis_audio_in_port_fill_count(audio_in_port);
+    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
+    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+    int fill_count = bytes_per_frame * input_frame_count;
     bool need_more_data = true;
 
     char *buffer;
@@ -479,7 +481,7 @@ static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playbac
         playback_device->begin_write(&buffer, &byte_count);
         memcpy(buffer, genesis_audio_in_port_read_ptr(audio_in_port), byte_count);
         playback_device->write(buffer, byte_count);
-        genesis_audio_in_port_advance_read_ptr(audio_in_port, byte_count);
+        genesis_audio_in_port_advance_read_ptr(audio_in_port, byte_count / bytes_per_frame);
 
         requested_byte_count -= byte_count;
         fill_count -= byte_count;
@@ -600,6 +602,7 @@ static void recording_node_callback(void *userdata) {
     }
 
     GenesisPort *audio_out_port = node->ports[0];
+    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
 
     for (;;) {
         const char *in_buf;
@@ -610,10 +613,10 @@ static void recording_node_callback(void *userdata) {
         if (byte_count <= 0)
             break;
 
-        int free_count = genesis_audio_out_port_free_count(audio_out_port);
+        int free_count = bytes_per_frame * genesis_audio_out_port_free_count(audio_out_port);
         int write_count = min(byte_count, free_count);
         if (write_count > 0) {
-            char *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
+            float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
             if (in_buf) {
                 memcpy(out_buf, in_buf, write_count);
             } else {
@@ -621,7 +624,7 @@ static void recording_node_callback(void *userdata) {
                 memset(out_buf, 0, write_count);
             }
 
-            genesis_audio_out_port_advance_write_ptr(audio_out_port, write_count);
+            genesis_audio_out_port_advance_write_ptr(audio_out_port, write_count / bytes_per_frame);
         }
 
         device->drop();
@@ -1286,19 +1289,19 @@ float genesis_midi_note_to_pitch(int note) {
 int genesis_audio_in_port_fill_count(GenesisPort *port) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
-    return audio_out_port->sample_buffer->fill_count();
+    return audio_out_port->sample_buffer->fill_count() / audio_out_port->bytes_per_frame;
 }
 
-char *genesis_audio_in_port_read_ptr(GenesisPort *port) {
+float *genesis_audio_in_port_read_ptr(GenesisPort *port) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
-    return audio_out_port->sample_buffer->read_ptr();
+    return (float*)audio_out_port->sample_buffer->read_ptr();
 }
 
-void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int byte_count) {
+void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int frame_count) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
-    audio_out_port->sample_buffer->advance_read_ptr(byte_count);
+    audio_out_port->sample_buffer->advance_read_ptr(frame_count * audio_out_port->bytes_per_frame);
     struct GenesisNode *child_node = audio_out_port->port.node;
     child_node->data_ready = false;
     queue_node_if_ready(child_node->descriptor->context, child_node, true);
@@ -1306,17 +1309,18 @@ void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int byte_count) {
 
 int genesis_audio_out_port_free_count(GenesisPort *port) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    return audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
+    int bytes_free_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
+    return bytes_free_count / audio_out_port->bytes_per_frame;
 }
 
-char *genesis_audio_out_port_write_ptr(GenesisPort *port) {
+float *genesis_audio_out_port_write_ptr(GenesisPort *port) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    return audio_out_port->sample_buffer->write_ptr();
+    return (float*)audio_out_port->sample_buffer->write_ptr();
 }
 
-void genesis_audio_out_port_advance_write_ptr(GenesisPort *port, int byte_count) {
+void genesis_audio_out_port_advance_write_ptr(GenesisPort *port, int frame_count) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    audio_out_port->sample_buffer->advance_write_ptr(byte_count);
+    audio_out_port->sample_buffer->advance_write_ptr(frame_count * audio_out_port->bytes_per_frame);
     port->node->data_ready = true;
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)audio_out_port->port.output_to;
     GenesisNode *other_node = audio_in_port->port.node;

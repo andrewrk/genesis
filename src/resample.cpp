@@ -60,14 +60,8 @@ static void resample_run(struct GenesisNode *node) {
     struct GenesisPort *audio_in_port = node->ports[0];
     struct GenesisPort *audio_out_port = node->ports[1];
 
-    int input_byte_count = genesis_audio_in_port_fill_count(audio_in_port);
-    int output_byte_count = genesis_audio_out_port_free_count(audio_out_port);
-
-    int input_bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
-    int output_bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
-
-    int input_frame_count = input_byte_count / input_bytes_per_frame;
-    int output_frame_count = output_byte_count / output_bytes_per_frame;
+    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+    int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
 
     const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
     const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
@@ -78,8 +72,8 @@ static void resample_run(struct GenesisNode *node) {
     int in_channel_count = in_channel_layout->channel_count;
     int out_channel_count = out_channel_layout->channel_count;
 
-    float *in_buf = (float *)genesis_audio_in_port_read_ptr(audio_in_port);
-    float *out_buf = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
+    float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
+    float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
 
     // pretend that we have upsampled the input to the oversample rate by adding zeroes
     // now low-pass filter using our impulse response window
@@ -136,8 +130,8 @@ static void resample_run(struct GenesisNode *node) {
         }
     }
 
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, in_frame_count * input_bytes_per_frame);
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, out_frame_count * output_bytes_per_frame);
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, in_frame_count);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, out_frame_count);
 
     resample_context->in_offset += in_frame_count;
     resample_context->out_offset += out_frame_count;

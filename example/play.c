@@ -20,9 +20,8 @@ static void audio_file_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
     struct PlayContext *play_context = (struct PlayContext *)genesis_node_descriptor_userdata(node_descriptor);
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
-    int output_byte_count = genesis_audio_out_port_free_count(audio_out_port);
-    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
-    int output_frame_count = output_byte_count / bytes_per_frame;
+
+    int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
     const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int channel_count = channel_layout->channel_count;
     float *out_samples = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
@@ -48,7 +47,7 @@ static void audio_file_node_run(struct GenesisNode *node) {
         }
     }
 
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_end * bytes_per_frame);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_end);
 
     play_context->frame_index += output_end;
     if (end_detected) {

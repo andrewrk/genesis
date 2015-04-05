@@ -61,20 +61,16 @@ static void delay_seek(struct GenesisNode *node) {
 
 static void delay_run(struct GenesisNode *node) {
     struct DelayContext *delay_context = (struct DelayContext *)node->userdata;
-    struct GenesisPort *audio_in_port = node->ports[0];
-    struct GenesisPort *audio_out_port = node->ports[1];
+    struct GenesisPort *audio_in_port = genesis_node_port(node, 0);
+    struct GenesisPort *audio_out_port = genesis_node_port(node, 1);
 
-    int free_byte_count = genesis_audio_out_port_free_count(audio_out_port);
-    int available_byte_count = genesis_audio_in_port_fill_count(audio_in_port);
+    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+    int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
+    int frame_count = min(input_frame_count, output_frame_count);
 
-    int target_write_bytes = min(free_byte_count, available_byte_count);
-    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
-    int free_frame_count = target_write_bytes / bytes_per_frame;
-    int write_size = free_frame_count * bytes_per_frame;
-
-    float *in_buf = (float*)genesis_audio_in_port_read_ptr(audio_in_port);
-    float *out_buf = (float*)genesis_audio_out_port_write_ptr(audio_out_port);
-    for (int frame = 0; frame < free_frame_count; frame += 1) {
+    float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
+    float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
+    for (int frame = 0; frame < frame_count; frame += 1) {
         for (int channel = 0; channel < delay_context->channel_count; channel += 1) {
             int sample_index = frame * delay_context->channel_count + channel;
             float in_sample = in_buf[sample_index];
@@ -87,8 +83,8 @@ static void delay_run(struct GenesisNode *node) {
         delay_context->frame_offset = (delay_context->frame_offset + 1) % delay_context->delay_length_frames;
     }
 
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, write_size);
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, write_size);
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count);
 }
 
 int create_delay_descriptor(GenesisContext *context) {
