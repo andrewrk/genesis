@@ -6,6 +6,7 @@ static const double PI = 3.14159265358979323846;
 static const double transition_band_hz = 800.0;
 
 static const double lfe_mix_level = 1.0;
+static const double surround_mix_level = 1.0;
 
 struct ResampleContext {
     bool in_connected;
@@ -247,6 +248,44 @@ static int port_connected(struct GenesisNode *node) {
             resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdFrontCenter]] += M_SQRT1_2;
             resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdFrontCenter]] += M_SQRT1_2;
             unaccounted[GenesisChannelIdFrontCenter] = false;
+        }
+    }
+
+    // mix back left/right to back center, side or front
+    if (unaccounted[GenesisChannelIdBackLeft] >= 0 &&
+        unaccounted[GenesisChannelIdBackRight] >= 0)
+    {
+        if (out_contains[GenesisChannelIdBackCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdBackCenter]][in_contains[GenesisChannelIdBackLeft]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdBackCenter]][in_contains[GenesisChannelIdBackRight]] += M_SQRT1_2;
+            unaccounted[GenesisChannelIdBackLeft] = false;
+            unaccounted[GenesisChannelIdBackRight] = false;
+        } else if (out_contains[GenesisChannelIdSideLeft] >= 0 &&
+                   out_contains[GenesisChannelIdSideRight] >= 0)
+        {
+            if (in_contains[GenesisChannelIdSideLeft] >= 0 &&
+                in_contains[GenesisChannelIdSideRight] >= 0)
+            {
+                resample_context->channel_matrix[out_contains[GenesisChannelIdSideLeft]][in_contains[GenesisChannelIdBackLeft]] += M_SQRT1_2;
+                resample_context->channel_matrix[out_contains[GenesisChannelIdSideRight]][in_contains[GenesisChannelIdBackRight]] += M_SQRT1_2;
+            } else {
+                resample_context->channel_matrix[out_contains[GenesisChannelIdSideLeft]][in_contains[GenesisChannelIdBackLeft]] += 1.0;
+                resample_context->channel_matrix[out_contains[GenesisChannelIdSideRight]][in_contains[GenesisChannelIdBackRight]] += 1.0;
+            }
+            unaccounted[GenesisChannelIdBackLeft] = false;
+            unaccounted[GenesisChannelIdBackRight] = false;
+        } else if (out_contains[GenesisChannelIdFrontLeft] >= 0 &&
+                   out_contains[GenesisChannelIdFrontRight] >= 0)
+        {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdBackLeft]] += surround_mix_level * M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdBackRight]] += surround_mix_level * M_SQRT1_2;
+            unaccounted[GenesisChannelIdBackLeft] = false;
+            unaccounted[GenesisChannelIdBackRight] = false;
+        } else if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdBackLeft]] += surround_mix_level * M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdBackRight]] += surround_mix_level * M_SQRT1_2;
+            unaccounted[GenesisChannelIdBackLeft] = false;
+            unaccounted[GenesisChannelIdBackRight] = false;
         }
     }
 
