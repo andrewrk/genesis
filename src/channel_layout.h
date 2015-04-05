@@ -10,7 +10,6 @@ extern "C"
 {
 #endif
 
-// must correlate to channel_names
 enum GenesisChannelId {
     GenesisChannelIdInvalid,
     GenesisChannelIdFrontLeft,
@@ -31,6 +30,8 @@ enum GenesisChannelId {
     GenesisChannelIdTopBackLeft,
     GenesisChannelIdTopBackCenter,
     GenesisChannelIdTopBackRight,
+
+    GenesisChannelIdCount,
 };
 
 #define GENESIS_MAX_CHANNELS 32
@@ -78,6 +79,9 @@ int genesis_channel_layout_builtin_count(void);
 const struct GenesisChannelLayout *genesis_channel_layout_get_builtin(int index);
 
 void genesis_debug_print_channel_layout(const struct GenesisChannelLayout *layout);
+
+int genesis_channel_layout_find_channel(
+        const struct GenesisChannelLayout *layout, enum GenesisChannelId channel);
 
 #ifdef __cplusplus
 }

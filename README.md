@@ -104,7 +104,6 @@ make
 
 ## Roadmap
 
- 0. update resampler plugin to remap channel layouts
  0. modify ui code to use libgenesis
  0. user interface for making music
 

@@ -742,6 +742,7 @@ static void write_frames_double(const GenesisAudioFile *audio_file,
 static uint64_t to_libav_channel_id(enum GenesisChannelId channel_id) {
     switch (channel_id) {
     case GenesisChannelIdInvalid: panic("invalid channel id");
+    case GenesisChannelIdCount: panic("invalid channel id");
     case GenesisChannelIdFrontLeft: return AV_CH_FRONT_LEFT;
     case GenesisChannelIdFrontRight: return AV_CH_FRONT_RIGHT;
     case GenesisChannelIdFrontCenter: return AV_CH_FRONT_CENTER;

@@ -1,5 +1,6 @@
 #include "genesis.h"
 #include <stdio.h>
+#include <string.h>
 
 // play the input file over the default playback device
 
@@ -57,7 +58,7 @@ static void audio_file_node_run(struct GenesisNode *node) {
 }
 
 static int usage(char *exe) {
-    fprintf(stderr, "Usage: %s audio_file\n", exe);
+    fprintf(stderr, "Usage: %s [--force-resample] audio_file\n", exe);
     return 1;
 }
 
@@ -77,10 +78,16 @@ int main(int argc, char **argv) {
     }
 
     const char *input_filename = NULL;
+    bool force_resample = false;
     for (int i = 1; i < argc; i += 1) {
         char *arg = argv[i];
         if (arg[0] == '-' && arg[1] == '-') {
-            return usage(argv[0]);
+            arg += 2;
+            if (strcmp(arg, "force-resample") == 0) {
+                force_resample = true;
+            } else {
+                return usage(argv[0]);
+            }
         } else if (!input_filename) {
             input_filename = arg;
         } else {
@@ -171,7 +178,7 @@ int main(int argc, char **argv) {
     const struct GenesisChannelLayout *device_layout = genesis_audio_device_channel_layout(audio_device);
 
     struct GenesisNode *target_node;
-    if (sample_rate == device_rate && genesis_channel_layout_equal(channel_layout, device_layout)) {
+    if (!force_resample && (sample_rate == device_rate && genesis_channel_layout_equal(channel_layout, device_layout))) {
         target_node = playback_node;
         fprintf(stderr, "%s ", input_filename);
         print_channel_and_rate(channel_layout, sample_rate);

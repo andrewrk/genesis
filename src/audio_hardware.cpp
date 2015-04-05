@@ -385,6 +385,7 @@ static pa_sample_format_t to_pulseaudio_sample_format(GenesisSampleFormat sample
 static pa_channel_position_t to_pulseaudio_channel_pos(GenesisChannelId channel_id) {
     switch (channel_id) {
     case GenesisChannelIdInvalid:
+    case GenesisChannelIdCount:
         panic("invalid channel id");
     case GenesisChannelIdFrontLeft:
         return PA_CHANNEL_POSITION_FRONT_LEFT;

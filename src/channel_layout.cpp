@@ -315,6 +315,8 @@ bool genesis_channel_layout_equal(const GenesisChannelLayout *a, const GenesisCh
 const char *genesis_get_channel_name(enum GenesisChannelId id) {
     switch (id) {
     case GenesisChannelIdInvalid: return "(Invalid Channel)";
+    case GenesisChannelIdCount: return "(Invalid Channel)";
+
     case GenesisChannelIdFrontLeft: return "Front Left";
     case GenesisChannelIdFrontRight: return "Front Right";
     case GenesisChannelIdFrontCenter: return "Front Center";
@@ -334,7 +336,7 @@ const char *genesis_get_channel_name(enum GenesisChannelId id) {
     case GenesisChannelIdTopBackCenter: return "Top Back Center";
     case GenesisChannelIdTopBackRight: return "Top Back Right";
     }
-    panic("invalid channel id");
+    return "(Invalid Channel)";
 }
 
 int genesis_channel_layout_builtin_count(void) {
@@ -357,4 +359,14 @@ void genesis_debug_print_channel_layout(const struct GenesisChannelLayout *layou
         }
         fprintf(stderr, "\n");
     }
+}
+
+int genesis_channel_layout_find_channel(
+        const struct GenesisChannelLayout *layout, enum GenesisChannelId channel)
+{
+    for (int i = 0; i < layout->channel_count; i += 1) {
+        if (layout->channels[i] == channel)
+            return i;
+    }
+    return -1;
 }

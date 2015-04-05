@@ -5,6 +5,8 @@
 static const double PI = 3.14159265358979323846;
 static const double transition_band_hz = 800.0;
 
+static const double lfe_mix_level = 1.0;
+
 struct ResampleContext {
     bool in_connected;
     bool out_connected;
@@ -19,6 +21,8 @@ struct ResampleContext {
     int impulse_response_size;
 
     long oversampled_rate;
+
+    float channel_matrix[GenesisChannelIdCount][GenesisChannelIdCount];
 };
 
 static double sinc(double x) {
@@ -55,6 +59,19 @@ static void resample_seek(struct GenesisNode *node) {
     resample_context->out_offset = 0;
 }
 
+static inline float get_channel_value(float *samples, ResampleContext *resample_context,
+        const struct GenesisChannelLayout *in_layout,
+        const struct GenesisChannelLayout *out_layout,
+        int in_frame_index, int out_channel_index)
+{
+    float sum = 0.0f;
+    for (int in_ch = 0; in_ch < in_layout->channel_count; in_ch += 1) {
+        float in_sample = samples[in_frame_index * in_layout->channel_count + in_ch];
+        sum += resample_context->channel_matrix[out_channel_index][in_ch] * in_sample;
+    }
+    return sum;
+}
+
 static void resample_run(struct GenesisNode *node) {
     struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
     struct GenesisPort *audio_in_port = node->ports[0];
@@ -66,14 +83,23 @@ static void resample_run(struct GenesisNode *node) {
     const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
     const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
 
-    if (!genesis_channel_layout_equal(in_channel_layout, out_channel_layout))
-        panic("TODO channel layout remapping not implemented");
-
-    int in_channel_count = in_channel_layout->channel_count;
     int out_channel_count = out_channel_layout->channel_count;
 
     float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
     float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
+
+    if (!resample_context->impulse_response) {
+        int frame_count = min(input_frame_count, output_frame_count);
+        for (int frame = 0; frame < frame_count; frame += 1) {
+            for (int ch = 0; ch < out_channel_count; ch += 1) {
+                out_buf[frame * out_channel_count + ch] = get_channel_value(in_buf,
+                        resample_context, in_channel_layout, out_channel_layout, frame, ch);
+            }
+        }
+        genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count);
+        genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count);
+        return;
+    }
 
     // pretend that we have upsampled the input to the oversample rate by adding zeroes
     // now low-pass filter using our impulse response window
@@ -120,7 +146,8 @@ static void resample_run(struct GenesisNode *node) {
             if (in_index < 0)
                 continue;
             for (int ch = 0; ch < out_channel_count; ch += 1) {
-                float over_value = in_buf[in_index * in_channel_count + ch];
+                float over_value = get_channel_value(in_buf, resample_context,
+                        in_channel_layout, out_channel_layout, in_index, ch);
                 total[ch] += resample_context->impulse_response[window_size - impulse_i - 1] * over_value;
             }
         }
@@ -152,9 +179,6 @@ static int port_connected(struct GenesisNode *node) {
     struct GenesisPort *audio_in_port = node->ports[0];
     struct GenesisPort *audio_out_port = node->ports[1];
 
-    //const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
-    //const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
-
     int in_sample_rate = genesis_audio_port_sample_rate(audio_in_port);
     int out_sample_rate = genesis_audio_port_sample_rate(audio_out_port);
 
@@ -164,29 +188,101 @@ static int port_connected(struct GenesisNode *node) {
 
     resample_context->oversampled_rate = in_sample_rate * resample_context->upsample_factor;
 
-    double cutoff_freq_hz = min(in_sample_rate, out_sample_rate) / 2.0;
-    double cutoff_freq_float = cutoff_freq_hz / (double)resample_context->oversampled_rate;
+    if (in_sample_rate == out_sample_rate) {
+        destroy(resample_context->impulse_response, resample_context->impulse_response_size);
+        resample_context->impulse_response = nullptr;
+    } else {
+        double cutoff_freq_hz = min(in_sample_rate, out_sample_rate) / 2.0;
+        double cutoff_freq_float = cutoff_freq_hz / (double)resample_context->oversampled_rate;
 
-    double transition_band = transition_band_hz / resample_context->oversampled_rate;
-    int window_size = ceil(4.0 / transition_band);
-    window_size += !(window_size % 2);
+        double transition_band = transition_band_hz / resample_context->oversampled_rate;
+        int window_size = ceil(4.0 / transition_band);
+        window_size += !(window_size % 2);
 
-    float *new_impulse_response = reallocate_safe(resample_context->impulse_response,
-            resample_context->impulse_response_size, window_size);
+        float *new_impulse_response = reallocate_safe(resample_context->impulse_response,
+                resample_context->impulse_response_size, window_size);
 
-    if (!new_impulse_response)
-        return GenesisErrorNoMem;
+        if (!new_impulse_response)
+            return GenesisErrorNoMem;
 
-    resample_context->impulse_response = new_impulse_response;
-    resample_context->impulse_response_size = window_size;
+        resample_context->impulse_response = new_impulse_response;
+        resample_context->impulse_response_size = window_size;
 
-    // create impulse response by sampling the sinc function and then
-    // multiplying by the blackman window
-    for (int i = 0; i < window_size; i += 1) {
-        // sample the sinc function
-        double sinc_sample = sinc(2.0 * cutoff_freq_float * (i - (window_size - 1) / 2.0));
-        double sample = sinc_sample * blackman_window(i, window_size);
-        resample_context->impulse_response[i] = sample;
+        // create impulse response by sampling the sinc function and then
+        // multiplying by the blackman window
+        for (int i = 0; i < window_size; i += 1) {
+            // sample the sinc function
+            double sinc_sample = sinc(2.0 * cutoff_freq_float * (i - (window_size - 1) / 2.0));
+            double sample = sinc_sample * blackman_window(i, window_size);
+            resample_context->impulse_response[i] = sample;
+        }
+    }
+
+    // set up channel matrix
+    const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
+    const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    memset(resample_context->channel_matrix, 0, sizeof(resample_context->channel_matrix));
+
+    int in_contains[GenesisChannelIdCount];
+    int out_contains[GenesisChannelIdCount];
+    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+        in_contains[id] = genesis_channel_layout_find_channel(in_channel_layout, (GenesisChannelId)id);
+        out_contains[id] = genesis_channel_layout_find_channel(out_channel_layout, (GenesisChannelId)id);
+    }
+
+    bool unaccounted[GenesisChannelIdCount];
+    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+        unaccounted[id] = in_contains[id] >= 0 && out_contains[id] == -1;
+    }
+
+    // route matching channel ids
+    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+        if (in_contains[id] >= 0 && out_contains[id] >= 0)
+            resample_context->channel_matrix[out_contains[id]][in_contains[id]] = 1.0;
+    }
+
+    // mix front center to left/right
+    if (unaccounted[GenesisChannelIdFrontCenter]) {
+        if (out_contains[GenesisChannelIdFrontLeft] >= 0 && out_contains[GenesisChannelIdFrontRight] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdFrontCenter]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdFrontCenter]] += M_SQRT1_2;
+            unaccounted[GenesisChannelIdFrontCenter] = false;
+        }
+    }
+
+    // mix LFE into front left/right or center
+    if (unaccounted[GenesisChannelIdLowFrequency]) {
+        if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdLowFrequency]] += lfe_mix_level;
+            unaccounted[GenesisChannelIdLowFrequency] = false;
+        } else if (out_contains[GenesisChannelIdFrontLeft] >= 0 &&
+                out_contains[GenesisChannelIdFrontRight] >= 0)
+        {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdLowFrequency]] += lfe_mix_level * M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdLowFrequency]] += lfe_mix_level * M_SQRT1_2;
+            unaccounted[GenesisChannelIdLowFrequency] = false;
+        }
+    }
+
+    // make sure all input channels are accounted for
+    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+        if (unaccounted[id]) {
+            fprintf(stderr, "unaccounted: %s\n", genesis_get_channel_name((GenesisChannelId)id));
+            return GenesisErrorUnimplemented;
+        }
+    }
+
+    // normalize per channel
+    for (int out_ch = 0; out_ch < out_channel_layout->channel_count; out_ch += 1) {
+        double sum = 0.0;
+        for (int in_ch = 0; in_ch < in_channel_layout->channel_count; in_ch += 1) {
+            sum += resample_context->channel_matrix[out_ch][in_ch];
+        }
+        if (sum > 0.0) {
+            for (int in_ch = 0; in_ch < in_channel_layout->channel_count; in_ch += 1) {
+                resample_context->channel_matrix[out_ch][in_ch] *= 1.0 / sum;
+            }
+        }
     }
 
     return 0;
