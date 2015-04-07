@@ -61,6 +61,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    genesis_audio_device_unref(in_device);
+    genesis_audio_device_unref(out_device);
+
     struct GenesisNode *recording_node = genesis_node_descriptor_create_node(recording_node_descr);
     if (!recording_node) {
         fprintf(stderr, "unable to create out node\n");

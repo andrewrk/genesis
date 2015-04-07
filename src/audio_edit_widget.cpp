@@ -204,6 +204,13 @@ AudioEditWidget::AudioEditWidget(GuiWindow *gui_window, Gui *gui, GenesisContext
             _audio_file_node_descr, 1, GenesisPortTypeAudioOut, "audio_in");
     if (!_audio_out_port_descr || !_audio_in_port_descr)
         panic("out of memory");
+
+    GenesisNodeDescriptor *resample_descriptor = genesis_node_descriptor_find(_genesis_context, "resample");
+    if (!resample_descriptor)
+        panic("unable to find resample descriptor");
+    _resample_node = genesis_node_descriptor_create_node(resample_descriptor);
+    if (!_resample_node)
+        panic("unable to create resample node");
 }
 
 AudioEditWidget::~AudioEditWidget() {
@@ -369,11 +376,11 @@ void AudioEditWidget::open_playback_device() {
     if (err)
         panic("error instantiating playback device: %s", genesis_error_string(err));
 
-    genesis_audio_port_descriptor_set_channel_layout(_audio_out_port_descr,
-            genesis_audio_file_channel_layout(_audio_file), true, -1);
+    const GenesisChannelLayout *audio_file_layout = genesis_audio_file_channel_layout(_audio_file);
+    genesis_audio_port_descriptor_set_channel_layout(_audio_out_port_descr, audio_file_layout, true, -1);
 
-    genesis_audio_port_descriptor_set_sample_rate(_audio_out_port_descr,
-            genesis_audio_file_sample_rate(_audio_file), true, -1);
+    int audio_file_sample_rate = genesis_audio_file_sample_rate(_audio_file);
+    genesis_audio_port_descriptor_set_sample_rate(_audio_out_port_descr, audio_file_sample_rate, true, -1);
 
     _audio_file_node = genesis_node_descriptor_create_node(_audio_file_node_descr);
     if (!_audio_file_node)
@@ -383,9 +390,23 @@ void AudioEditWidget::open_playback_device() {
     if (!_playback_node)
         panic("error creating playback node");
 
-    err = genesis_connect_audio_nodes(_audio_file_node, _playback_node);
-    if (err)
-        panic("unable to connect audio ports: %s\n", genesis_error_string(err));
+    const GenesisChannelLayout *device_layout = genesis_audio_device_channel_layout(selected_playback_device);
+    int device_sample_rate = genesis_audio_device_sample_rate(selected_playback_device);
+
+    if (genesis_channel_layout_equal(audio_file_layout, device_layout) &&
+        audio_file_sample_rate == device_sample_rate)
+    {
+        err = genesis_connect_audio_nodes(_audio_file_node, _playback_node);
+        if (err)
+            panic("unable to connect audio ports: %s\n", genesis_error_string(err));
+    } else {
+        err = genesis_connect_audio_nodes(_audio_file_node, _resample_node);
+        if (err)
+            panic("unable to connect audio ports: %s\n", genesis_error_string(err));
+        err = genesis_connect_audio_nodes(_resample_node, _playback_node);
+        if (err)
+            panic("unable to connect audio ports: %s\n", genesis_error_string(err));
+    }
 }
 
 long AudioEditWidget::calc_display_frame_count() const {

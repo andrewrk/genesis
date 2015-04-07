@@ -43,7 +43,6 @@ public:
 
     void save_as(const ByteBuffer &file_path, GenesisExportFormat *export_sample_format);
 
-// private
     GenesisContext *_genesis_context;
     GuiWindow *_gui_window;
     Gui *_gui;
@@ -117,6 +116,7 @@ public:
     GenesisNode *_audio_file_node;
     GenesisNode *_playback_node;
     GenesisNode *_recording_node;
+    GenesisNode *_resample_node;
     Mutex _playback_mutex;
 
     SelectWidget *_select_playback_device;
@@ -127,6 +127,7 @@ public:
     atomic_bool _want_update_model;
 
     long _display_frame_count;
+
 
     void schedule_update_model();
     void update_model();

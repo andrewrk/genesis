@@ -36,9 +36,6 @@ double genesis_whole_notes_to_seconds(struct GenesisContext *context, double who
 ///////////////// Audio Devices
 
 struct GenesisAudioDevice;
-// when you call this, the information you got previously from these
-// functions becomes invalid. This applies to the count of devices and the
-// pointers to each GenesisAudioDevice.
 // note you can also call genesis_wait_events or genesis_flush_events combined
 // with genesis_set_audio_device_callback. the reason to use
 // genesis_refresh_audio_devices is that it blocks until a device list is
@@ -49,8 +46,7 @@ void genesis_refresh_audio_devices(struct GenesisContext *context);
 int genesis_get_audio_device_count(struct GenesisContext *context);
 
 // returns NULL on error
-// the returned pointer becomes invalid when you call genesis_flush_events,
-// genesis_wait_events, or genesis_refresh_audio_devices
+// call genesis_audio_device_unref when you no longer have a reference to the pointer.
 struct GenesisAudioDevice *genesis_get_audio_device(struct GenesisContext *context, int index);
 
 // returns the index of the default playback device
@@ -60,6 +56,9 @@ int genesis_get_default_playback_device_index(struct GenesisContext *context);
 // returns the index of the default recording device
 // returns -1 on error
 int genesis_get_default_recording_device_index(struct GenesisContext *context);
+
+void genesis_audio_device_ref(struct GenesisAudioDevice *device);
+void genesis_audio_device_unref(struct GenesisAudioDevice *device);
 
 // the name is the identifier for the device. UTF-8 encoded
 const char *genesis_audio_device_name(const struct GenesisAudioDevice *device);
@@ -91,12 +90,13 @@ void genesis_refresh_midi_devices(struct GenesisContext *context);
 int genesis_get_midi_device_count(struct GenesisContext *context);
 
 // returns NULL on error.
-// the returned pointer becomes invalid when you call genesis_flush_events,
-// genesis_wait_events, or genesis_refresh_midi_devices
+// you must call genesis_midi_device_unref when done with the device pointer.
 struct GenesisMidiDevice *genesis_get_midi_device(struct GenesisContext *context, int index);
 
 int genesis_get_default_midi_device_index(struct GenesisContext *context);
 
+void genesis_midi_device_ref(struct GenesisMidiDevice *device);
+void genesis_midi_device_unref(struct GenesisMidiDevice *device);
 const char *genesis_midi_device_name(const struct GenesisMidiDevice *device);
 const char *genesis_midi_device_description(const struct GenesisMidiDevice *device);
 

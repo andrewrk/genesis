@@ -4,7 +4,6 @@
 #include "list.hpp"
 #include "sample_format.h"
 #include "channel_layout.h"
-#include "byte_buffer.hpp"
 #include "genesis.h"
 
 #include <pulse/pulseaudio.h>
@@ -13,20 +12,21 @@ using std::atomic_bool;
 
 struct GenesisAudioDevice {
     GenesisContext *context;
-    ByteBuffer name;
-    ByteBuffer description;
+    char *name;
+    char *description;
     GenesisChannelLayout channel_layout;
     GenesisSampleFormat default_sample_format;
     double default_latency;
     int default_sample_rate;
     GenesisAudioDevicePurpose purpose;
+    int ref_count;
 };
 
-GenesisAudioDevice *duplicate_audio_device(GenesisAudioDevice *device);
-void destroy_audio_device(GenesisAudioDevice *device);
+void audio_device_unref(struct GenesisAudioDevice *device);
+void audio_device_ref(struct GenesisAudioDevice *device);
 
 struct AudioDevicesInfo {
-    List<GenesisAudioDevice> devices;
+    List<GenesisAudioDevice *> devices;
     // can be -1 when default device is unknown
     int default_output_index;
     int default_input_index;
@@ -155,8 +155,8 @@ private:
 
     // the one that we're working on building
     AudioDevicesInfo *_current_audio_devices_info;
-    ByteBuffer _default_sink_name;
-    ByteBuffer _default_source_name;
+    char * _default_sink_name;
+    char * _default_source_name;
 
     // this one is ready to be read with flush_events. protected by mutex
     AudioDevicesInfo *_ready_audio_devices_info;

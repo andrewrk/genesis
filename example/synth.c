@@ -46,6 +46,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
         return 1;
     }
+    genesis_audio_device_unref(out_device);
 
     struct GenesisNode *playback_node = genesis_node_descriptor_create_node(playback_node_descr);
     if (!playback_node) {
@@ -101,6 +102,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unable to create input node descriptor: %s\n", genesis_error_string(err));
         return 1;
     }
+    genesis_midi_device_unref(midi_device);
 
     struct GenesisNode *midi_node = genesis_node_descriptor_create_node(midi_node_descr);
     if (!playback_node) {

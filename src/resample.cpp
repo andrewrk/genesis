@@ -90,6 +90,7 @@ static void resample_run(struct GenesisNode *node) {
     float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
 
     if (!resample_context->impulse_response) {
+        // no resampling; only channel remapping
         int frame_count = min(input_frame_count, output_frame_count);
         for (int frame = 0; frame < frame_count; frame += 1) {
             for (int ch = 0; ch < out_channel_count; ch += 1) {

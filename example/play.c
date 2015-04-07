@@ -214,6 +214,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "\n");
     }
 
+    genesis_audio_device_unref(audio_device);
+
     err = genesis_connect_audio_nodes(audio_file_node, target_node);
     if (err) {
         fprintf(stderr, "unable to connect audio nodes: %s\n", genesis_error_string(err));

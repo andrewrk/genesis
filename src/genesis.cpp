@@ -130,8 +130,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
 
 void genesis_destroy_context(struct GenesisContext *context) {
     if (context) {
-        if (context->pipeline_running)
-            genesis_stop_pipeline(context);
+        genesis_stop_pipeline(context);
 
         if (context->midi_hardware)
             destroy_midi_hardware(context->midi_hardware);
@@ -315,72 +314,6 @@ void genesis_node_destroy(struct GenesisNode *node) {
 
         destroy(node, 1);
     }
-}
-
-void genesis_refresh_audio_devices(struct GenesisContext *context) {
-    context->audio_hardware.block_until_ready();
-    context->audio_hardware.flush_events();
-    context->audio_hardware.block_until_have_devices();
-}
-
-int genesis_get_audio_device_count(struct GenesisContext *context) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
-    if (!audio_device_info)
-        return -1;
-    return audio_device_info->devices.length();
-}
-
-struct GenesisAudioDevice *genesis_get_audio_device(struct GenesisContext *context, int index) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
-    if (!audio_device_info)
-        return nullptr;
-    if (index < 0 || index >= audio_device_info->devices.length())
-        return nullptr;
-    return (GenesisAudioDevice *) &audio_device_info->devices.at(index);
-}
-
-int genesis_get_default_playback_device_index(struct GenesisContext *context) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
-    if (!audio_device_info)
-        return -1;
-    return audio_device_info->default_output_index;
-}
-
-int genesis_get_default_recording_device_index(struct GenesisContext *context) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
-    if (!audio_device_info)
-        return -1;
-    return audio_device_info->default_input_index;
-}
-
-const char *genesis_audio_device_name(const struct GenesisAudioDevice *audio_device) {
-    return audio_device->name.raw();
-}
-
-const char *genesis_audio_device_description(const struct GenesisAudioDevice *audio_device) {
-    return audio_device->description.raw();
-}
-
-enum GenesisAudioDevicePurpose genesis_audio_device_purpose(const struct GenesisAudioDevice *audio_device) {
-    return audio_device->purpose;
-}
-
-const struct GenesisChannelLayout *genesis_audio_device_channel_layout(
-        const struct GenesisAudioDevice *audio_device)
-{
-    return &audio_device->channel_layout;
-}
-
-int genesis_audio_device_sample_rate(const struct GenesisAudioDevice *audio_device) {
-    return audio_device->default_sample_rate;
-}
-
-void genesis_set_audio_device_callback(struct GenesisContext *context,
-        void (*callback)(void *userdata),
-        void *userdata)
-{
-    context->devices_change_callback_userdata = userdata;
-    context->devices_change_callback = callback;
 }
 
 int genesis_in_format_count(struct GenesisContext *context) {
@@ -573,7 +506,7 @@ static int playback_node_create(struct GenesisNode *node) {
 
     playback_node_context->playback_device->set_underrun_callback(playback_node_underrun_callback);
 
-    int err = playback_node_context->playback_device->start(device->name.raw());
+    int err = playback_node_context->playback_device->start(device->name);
     if (err) {
         playback_node_destroy(node);
         return err;
@@ -589,7 +522,7 @@ static void playback_node_seek(struct GenesisNode *node) {
 
 static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
     GenesisAudioDevice *audio_device = (GenesisAudioDevice*)node_descriptor->userdata;
-    destroy_audio_device(audio_device);
+    genesis_audio_device_unref(audio_device);
 }
 
 static void recording_node_callback(void *userdata) {
@@ -678,7 +611,7 @@ static int recording_node_create(struct GenesisNode *node) {
         return GenesisErrorNoMem;
     }
 
-    int err = recording_node_context->recording_device->start(device->name.raw());
+    int err = recording_node_context->recording_device->start(device->name);
     if (err) {
         recording_node_destroy(node);
         return err;
@@ -698,8 +631,8 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         "playback-device-%s" : "recording-device-%s";
     const char *description_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
         "Playback Device: %s" : "Recording Device: %s";
-    char *name = create_formatted_str(name_fmt_str, audio_device->name.raw());
-    char *description = create_formatted_str(description_fmt_str, audio_device->description.raw());
+    char *name = create_formatted_str(name_fmt_str, audio_device->name);
+    char *description = create_formatted_str(description_fmt_str, audio_device->description);
     if (!name || !description) {
         free(name);
         free(description);
@@ -729,11 +662,8 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         node_descr->seek = recording_node_seek;
     }
 
-    node_descr->userdata = duplicate_audio_device(audio_device);
-    if (!node_descr->userdata) {
-        genesis_node_descriptor_destroy(node_descr);
-        return GenesisErrorNoMem;
-    }
+    genesis_audio_device_ref(audio_device);
+    node_descr->userdata = audio_device;
     node_descr->destroy_descriptor = destroy_audio_device_node_descriptor;
 
     GenesisAudioPortDescriptor *audio_port = create_zero<GenesisAudioPortDescriptor>();
@@ -804,7 +734,7 @@ static void midi_node_seek(struct GenesisNode *node) {
 
 static void destroy_midi_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
     GenesisMidiDevice *midi_device = (GenesisMidiDevice*)node_descriptor->userdata;
-    midi_device_unref(midi_device);
+    genesis_midi_device_unref(midi_device);
 }
 
 int genesis_midi_device_create_node_descriptor(
@@ -841,8 +771,7 @@ int genesis_midi_device_create_node_descriptor(
     node_descr->seek = midi_node_seek;
 
     node_descr->userdata = midi_device;
-    midi_device_ref(midi_device);
-
+    genesis_midi_device_ref(midi_device);
     node_descr->destroy_descriptor = destroy_midi_device_node_descriptor;
 
     GenesisEventsPortDescriptor *events_out_port = create_zero<GenesisEventsPortDescriptor>();

@@ -41,12 +41,14 @@ static int list_devices(struct GenesisContext *context) {
         const char *description = genesis_audio_device_description(device);
         int sample_rate = genesis_audio_device_sample_rate(device);
         fprintf(stderr, "%s device: %d Hz %s%s\n", purpose_str, sample_rate, description, default_str);
+        genesis_audio_device_unref(device);
     }
     for (int i = 0; i < midi_count; i += 1) {
         struct GenesisMidiDevice *device = genesis_get_midi_device(context, i);
         const char *default_str = (i == default_midi) ? " (default)" : "";
         const char *description = genesis_midi_device_description(device);
         fprintf(stderr, "controller device: %s%s\n", description, default_str);
+        genesis_midi_device_unref(device);
     }
     fprintf(stderr, "%d devices found\n", audio_count + midi_count);
     return 0;
