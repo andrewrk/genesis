@@ -122,6 +122,9 @@ public:
     SelectWidget *_select_playback_device;
     SelectWidget *_select_recording_device;
 
+    List<GenesisAudioDevice *> _playback_devices;
+    List<GenesisAudioDevice *> _recording_devices;
+
     bool _initialized_default_device_indexes;
 
     atomic_bool _want_update_model;
@@ -184,6 +187,7 @@ public:
     void close_recording_device();
 
     void on_playback_index_changed();
+    void clear_devices_lists();
 
     GenesisAudioFile *create_empty_audio_file();
 

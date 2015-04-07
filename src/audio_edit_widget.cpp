@@ -221,6 +221,8 @@ AudioEditWidget::~AudioEditWidget() {
     destroy_audio_file();
     destroy_all_ui();
 
+    clear_devices_lists();
+
     _gui_window->destroy_widget(_select_recording_device);
     _gui_window->destroy_widget(_select_playback_device);
 }
@@ -239,9 +241,23 @@ void AudioEditWidget::destroy_audio_file() {
     }
 }
 
+void AudioEditWidget::clear_devices_lists() {
+    for (int i = 0; i < _playback_devices.length(); i += 1) {
+        genesis_audio_device_unref(_playback_devices.at(i));
+    }
+    _playback_devices.clear();
+
+    for (int i = 0; i < _recording_devices.length(); i += 1) {
+        genesis_audio_device_unref(_recording_devices.at(i));
+    }
+    _recording_devices.clear();
+}
+
 void AudioEditWidget::on_devices_change() {
     _select_playback_device->clear();
     _select_recording_device->clear();
+
+    clear_devices_lists();
 
     int audio_count = genesis_get_audio_device_count(_genesis_context);
     if (audio_count < 0)
@@ -254,8 +270,12 @@ void AudioEditWidget::on_devices_change() {
         struct GenesisAudioDevice *device = genesis_get_audio_device(_genesis_context, i);
         if (genesis_audio_device_purpose(device) == GenesisAudioDevicePurposePlayback) {
             _select_playback_device->append_choice(genesis_audio_device_description(device));
+            if (_playback_devices.append(device))
+                panic("out of memory");
         } else {
             _select_recording_device->append_choice(genesis_audio_device_description(device));
+            if (_recording_devices.append(device))
+                panic("out of memory");
         }
     }
     if (!_initialized_default_device_indexes) {
@@ -366,11 +386,9 @@ void AudioEditWidget::open_playback_device() {
     if (_playback_node)
         return;
 
-    // TODO: this selected index is off because the select boxes are split
-    GenesisAudioDevice *selected_playback_device = genesis_get_audio_device(
-            _genesis_context, _select_playback_device->selected_index());
-    if (!selected_playback_device)
-        panic("unable to get playback device %d", _select_playback_device->selected_index());
+    genesis_refresh_audio_devices(_genesis_context);
+
+    GenesisAudioDevice *selected_playback_device = _playback_devices.at(_select_playback_device->selected_index());
 
     int err = genesis_audio_device_create_node_descriptor(selected_playback_device, &_playback_node_descr);
     if (err)
@@ -765,12 +783,8 @@ void AudioEditWidget::open_recording_device() {
     if (_recording_node)
         return;
 
-    // TODO: this selected index is off because the select boxes are split
-    GenesisAudioDevice *selected_recording_device = genesis_get_audio_device(
-            _genesis_context, _select_recording_device->selected_index());
-
-    if (!selected_recording_device)
-        panic("unable to get recording device %d", _select_recording_device->selected_index());
+    GenesisAudioDevice *selected_recording_device =
+        _recording_devices.at(_select_recording_device->selected_index());
 
     GenesisAudioFile *audio_file = genesis_audio_file_create(_genesis_context);
     if (genesis_audio_file_set_channel_layout(audio_file,
