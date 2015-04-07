@@ -325,6 +325,23 @@ static int port_connected(struct GenesisNode *node) {
         }
     }
 
+    // mix left of center/right of center into front left/right or center
+    if (unaccounted[GenesisChannelIdFrontLeftOfCenter] &&
+        unaccounted[GenesisChannelIdFrontRightOfCenter])
+    {
+        if (out_contains[GenesisChannelIdFrontLeft] >= 0 && out_contains[GenesisChannelIdFrontRight] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdFrontLeftOfCenter]] += 1.0;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdFrontRightOfCenter]] += 1.0;
+            unaccounted[GenesisChannelIdFrontLeftOfCenter] = false;
+            unaccounted[GenesisChannelIdFrontRightOfCenter] = false;
+        } else if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontLeftOfCenter]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontRightOfCenter]] += M_SQRT1_2;
+            unaccounted[GenesisChannelIdFrontLeftOfCenter] = false;
+            unaccounted[GenesisChannelIdFrontRightOfCenter] = false;
+        }
+    }
+
     // mix LFE into front left/right or center
     if (unaccounted[GenesisChannelIdLowFrequency]) {
         if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
