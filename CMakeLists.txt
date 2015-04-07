@@ -55,7 +55,6 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/png_image.cpp"
     "${CMAKE_SOURCE_DIR}/src/spritesheet.cpp"
     "${CMAKE_SOURCE_DIR}/src/genesis_editor.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_edit_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/texture.cpp"
     "${CMAKE_SOURCE_DIR}/src/shader_program_manager.cpp"
     "${CMAKE_SOURCE_DIR}/src/alpha_texture.cpp"

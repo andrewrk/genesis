@@ -1,13 +1,11 @@
 #include "genesis_editor.hpp"
 #include "list.hpp"
-#include "audio_edit_widget.hpp"
 #include "gui_window.hpp"
 #include "genesis.h"
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("resources.bundle"),
-    _find_file_widget(NULL),
-    _audio_edit_widget(NULL)
+    _find_file_widget(NULL)
 {
     int err = genesis_create_context(&_genesis_context);
     if (err)
@@ -39,13 +37,6 @@ void GenesisEditor::destroy_find_file_widget() {
         return;
     _gui_window->destroy_widget(_find_file_widget);
     _find_file_widget = NULL;
-}
-
-void GenesisEditor::destroy_audio_edit_widget() {
-    if (!_audio_edit_widget)
-        return;
-    _gui_window->destroy_widget(_audio_edit_widget);
-    _audio_edit_widget = NULL;
 }
 
 bool GenesisEditor::on_text_event(GuiWindow *window, const TextInputEvent *event) {
@@ -92,7 +83,6 @@ void GenesisEditor::show_save_file() {
 }
 
 void GenesisEditor::show_open_file() {
-    destroy_audio_edit_widget();
     ensure_find_file_widget();
     _find_file_widget->set_mode(FindFileWidget::ModeOpen);
     _find_file_widget->set_on_choose_file(static_on_choose_file);
@@ -101,13 +91,6 @@ void GenesisEditor::show_open_file() {
 
 void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
     destroy_find_file_widget();
-
-    destroy_audio_edit_widget();
-    _audio_edit_widget = _gui_window->create_audio_edit_widget();
-    _audio_edit_widget->set_pos(10, 10);
-    _audio_edit_widget->set_size(_gui_window->_width - 20, _gui_window->_height - 20);
-    _audio_edit_widget->load_file(file_path);
-    _gui_window->set_focus_widget(_audio_edit_widget);
 }
 
 void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
@@ -122,9 +105,6 @@ void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
     if (sample_format_count <= 0)
         panic("unsupported sample format");
     export_format.sample_format = genesis_audio_file_codec_sample_format_index(export_format.codec, 0);
-
-    _audio_edit_widget->save_as(file_path, &export_format);
-
 }
 
 void GenesisEditor::edit_file(const char *filename) {
@@ -132,10 +112,4 @@ void GenesisEditor::edit_file(const char *filename) {
 }
 
 void GenesisEditor::create_new_file() {
-    destroy_audio_edit_widget();
-
-    _audio_edit_widget = _gui_window->create_audio_edit_widget();
-    _audio_edit_widget->set_pos(10, 10);
-    _audio_edit_widget->set_size(_gui_window->_width - 20, _gui_window->_height - 20);
-    _gui_window->set_focus_widget(_audio_edit_widget);
 }

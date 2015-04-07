@@ -6,7 +6,6 @@
 #include "find_file_widget.hpp"
 #include "gui.hpp"
 
-class AudioEditWidget;
 class GuiWindow;
 struct GenesisContext;
 
@@ -27,7 +26,6 @@ private:
     GuiWindow *_gui_window;
 
     FindFileWidget *_find_file_widget;
-    AudioEditWidget *_audio_edit_widget;
 
     bool on_key_event(GuiWindow *window, const KeyEvent *event);
     bool on_text_event(GuiWindow *window, const TextInputEvent *event);

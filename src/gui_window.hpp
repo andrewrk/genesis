@@ -27,7 +27,6 @@ public:
     SelectWidget *create_select_widget();
     TextWidget *create_text_widget();
     FindFileWidget *create_find_file_widget();
-    AudioEditWidget *create_audio_edit_widget();
 
     void destroy_widget(Widget *widget);
     void set_focus_widget(Widget *widget);

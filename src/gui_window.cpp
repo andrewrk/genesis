@@ -4,7 +4,6 @@
 #include "widget.hpp"
 #include "text_widget.hpp"
 #include "find_file_widget.hpp"
-#include "audio_edit_widget.hpp"
 #include "select_widget.hpp"
 
 static bool default_on_key_event(GuiWindow *, const KeyEvent *event) {
@@ -333,12 +332,6 @@ FindFileWidget * GuiWindow::create_find_file_widget() {
     FindFileWidget *find_file_widget = create<FindFileWidget>(this, _gui);
     init_widget(find_file_widget);
     return find_file_widget;
-}
-
-AudioEditWidget * GuiWindow::create_audio_edit_widget() {
-    AudioEditWidget *audio_edit_widget = create<AudioEditWidget>(this, _gui, _gui->_genesis_context);
-    init_widget(audio_edit_widget);
-    return audio_edit_widget;
 }
 
 void GuiWindow::destroy_widget(Widget *widget) {
