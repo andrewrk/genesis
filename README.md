@@ -9,6 +9,7 @@
  * Recording and playback audio devices. PulseAudio only so far.
  * Basic synthesizer plugin. [YouTube Demo](https://www.youtube.com/watch?v=K5r_o331Eqo)
  * Basic delay plugin.
+ * Resampling and channel remapping plugin.
 
 ### Examples
 
@@ -104,7 +105,6 @@ make
 
 ## Roadmap
 
- 0. modify ui code to use libgenesis
  0. user interface for making music
 
 ## Grand Plans
