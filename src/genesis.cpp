@@ -44,13 +44,13 @@ static void midi_events_signal(MidiHardware *midi_hardware) {
 }
 
 static void on_devices_change(AudioHardware *audio_hardware) {
-    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->_userdata);
+    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->userdata);
     if (context->devices_change_callback)
         context->devices_change_callback(context->devices_change_callback_userdata);
 }
 
 static void on_audio_hardware_events_signal(AudioHardware *audio_hardware) {
-    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->_userdata);
+    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->userdata);
     genesis_wakeup(context);
 }
 
@@ -99,6 +99,13 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return err;
     }
 
+    err = create_audio_hardware(context, context, on_devices_change,
+            on_audio_hardware_events_signal, &context->audio_hardware);
+    if (err) {
+        genesis_destroy_context(context);
+        return err;
+    }
+
     err = audio_file_get_out_formats(context->out_formats);
     if (err) {
         genesis_destroy_context(context);
@@ -110,10 +117,6 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return err;
     }
-
-    context->audio_hardware.set_on_devices_change(on_devices_change);
-    context->audio_hardware.set_on_events_signal(on_audio_hardware_events_signal);
-    context->audio_hardware._userdata = context;
 
     for (int i = 0; i < array_length(plugin_create_list); i += 1) {
         int (*create_fn)(GenesisContext *) = plugin_create_list[i];
@@ -154,7 +157,7 @@ void genesis_destroy_context(struct GenesisContext *context) {
 }
 
 void genesis_flush_events(struct GenesisContext *context) {
-    context->audio_hardware.flush_events();
+    audio_hardware_flush_events(context->audio_hardware);
     midi_hardware_flush_events(context->midi_hardware);
 }
 
@@ -262,6 +265,8 @@ static void destroy_events_port(GenesisEventsPort *events_port) {
 }
 
 static void destroy_port(struct GenesisPort *port) {
+    if (!port)
+        return;
     switch (port->descriptor->port_type) {
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeAudioOut:
@@ -277,11 +282,13 @@ static void destroy_port(struct GenesisPort *port) {
 
 void genesis_node_destroy(struct GenesisNode *node) {
     if (node) {
+        GenesisContext *context = node->descriptor->context;
+
         // first all disconnect methods on all ports
         if (node->ports) {
             for (int i = 0; i < node->port_count; i += 1) {
-                if (node->ports[i]) {
-                    GenesisPort *port = node->ports[i];
+                GenesisPort *port = node->ports[i];
+                if (port) {
                     if (port->output_to)
                         genesis_disconnect_ports(port, port->output_to);
                     if (port->input_from)
@@ -294,7 +301,6 @@ void genesis_node_destroy(struct GenesisNode *node) {
         if (node->constructed && node->descriptor->destroy)
             node->descriptor->destroy(node);
 
-        GenesisContext *context = node->descriptor->context;
         if (node->set_index >= 0) {
             context->nodes.swap_remove(node->set_index);
             if (node->set_index < context->nodes.length())
@@ -304,10 +310,8 @@ void genesis_node_destroy(struct GenesisNode *node) {
 
         if (node->ports) {
             for (int i = 0; i < node->port_count; i += 1) {
-                if (node->ports[i]) {
-                    GenesisPort *port = node->ports[i];
-                    destroy_port(port);
-                }
+                GenesisPort *port = node->ports[i];
+                destroy_port(port);
             }
             destroy(node->ports, node->port_count);
         }
@@ -496,7 +500,7 @@ static int playback_node_create(struct GenesisNode *node) {
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
     playback_node_context->playback_device = create_zero<OpenPlaybackDevice>(
-            &context->audio_hardware, &device->channel_layout,
+            context->audio_hardware, &device->channel_layout,
             GenesisSampleFormatFloat, context->latency, device->default_sample_rate,
             playback_node_callback, node);
     if (!playback_node_context->playback_device) {
@@ -603,7 +607,7 @@ static int recording_node_create(struct GenesisNode *node) {
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
     recording_node_context->recording_device = create_zero<OpenRecordingDevice>(
-            &context->audio_hardware, &device->channel_layout,
+            context->audio_hardware, &device->channel_layout,
             GenesisSampleFormatFloat, context->latency, device->default_sample_rate,
             recording_node_callback, node);
     if (!recording_node_context->recording_device) {

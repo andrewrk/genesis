@@ -14,7 +14,7 @@ using std::atomic_bool;
 using std::atomic_flag;
 
 struct GenesisContext {
-    AudioHardware audio_hardware;
+    AudioHardware *audio_hardware;
     void (*devices_change_callback)(void *userdata);
     void *devices_change_callback_userdata;
 
@@ -36,8 +36,6 @@ struct GenesisContext {
     ThreadSafeQueue<GenesisNode *> task_queue;
 
     double latency;
-
-    GenesisContext() : audio_hardware(this) {}
 };
 
 struct GenesisPortDescriptor {

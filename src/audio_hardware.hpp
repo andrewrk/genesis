@@ -32,7 +32,7 @@ struct AudioDevicesInfo {
     int default_input_index;
 };
 
-class AudioHardware;
+struct AudioHardware;
 typedef void PaStream;
 class OpenPlaybackDevice {
 public:
@@ -116,105 +116,43 @@ private:
     OpenRecordingDevice &operator=(const OpenRecordingDevice &copy) = delete;
 };
 
-class AudioHardware {
-public:
-    AudioHardware(GenesisContext *context);
-    ~AudioHardware();
-
-    // the device list is valid only for the duration of the callback
-    void set_on_devices_change(void (*on_devices_change)(AudioHardware *)) {
-        _on_devices_change = on_devices_change;
-    }
-    void clear_on_devices_change();
-
-    void set_on_events_signal(void (*on_events_signal)(AudioHardware *)) {
-        _on_events_signal = on_events_signal;
-    }
-
-    const AudioDevicesInfo *devices_info() const {
-        return _safe_devices_info;
-    }
-
-    // call this and on_devices_change will be called 0 or 1 times, and then
-    // this function will return
-    void flush_events();
-
-    void block_until_ready();
-    void block_until_have_devices();
-
-    void *_userdata;
-
-
-
-    pa_context *_context;
-    GenesisContext *_genesis_context;
-private:
-    atomic_bool _device_scan_queued;
-    void (*_on_devices_change)(AudioHardware *);
-    void (*_on_events_signal)(AudioHardware *);
+struct AudioHardware {
+    pa_context *pulse_context;
+    GenesisContext *genesis_context;
+    atomic_bool device_scan_queued;
+    void (*on_devices_change)(AudioHardware *);
+    void (*on_events_signal)(AudioHardware *);
 
     // the one that we're working on building
-    AudioDevicesInfo *_current_audio_devices_info;
-    char * _default_sink_name;
-    char * _default_source_name;
+    AudioDevicesInfo *current_audio_devices_info;
+    char * default_sink_name;
+    char * default_source_name;
 
     // this one is ready to be read with flush_events. protected by mutex
-    AudioDevicesInfo *_ready_audio_devices_info;
+    AudioDevicesInfo *ready_audio_devices_info;
 
     // this one is safe to read from the gui thread
-    AudioDevicesInfo *_safe_devices_info;
+    AudioDevicesInfo *safe_devices_info;
 
-    bool _have_sink_list;
-    bool _have_source_list;
-    bool _have_default_sink;
+    bool have_sink_list;
+    bool have_source_list;
+    bool have_default_sink;
 
-    atomic_bool _ready_flag;
-    atomic_bool _have_devices_flag;
+    atomic_bool ready_flag;
+    atomic_bool have_devices_flag;
 
-    pa_threaded_mainloop *_main_loop;
+    pa_threaded_mainloop *main_loop;
+    pa_proplist *props;
 
-    void subscribe_to_events();
-    void scan_devices();
-
-    void context_state_callback(pa_context *context);
-    void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol);
-    void source_info_callback(pa_context *context, const pa_source_info *info, int eol);
-    void server_info_callback(pa_context *context, const pa_server_info *info);
-
-    void destroy_current_audio_devices_info();
-    void destroy_ready_audio_devices_info();
-    void initialize_current_device_list();
-    void set_ready_flag();
-    void finish_device_query();
-    int perform_operation(pa_operation *op);
-    void subscribe_callback(pa_context *context, pa_subscription_event_type_t event_type, uint32_t index);
-
-    static void context_state_callback(pa_context *context, void *userdata) {
-        return static_cast<AudioHardware*>(userdata)->context_state_callback(context);
-    }
-    static void sink_info_callback(pa_context *context, const pa_sink_info *info, int eol, void *userdata) {
-        return static_cast<AudioHardware*>(userdata)->sink_info_callback(context, info, eol);
-    }
-    static void static_source_info_callback(pa_context *context,
-            const pa_source_info *info, int eol, void *userdata)
-    {
-        return static_cast<AudioHardware*>(userdata)->source_info_callback(context, info, eol);
-    }
-    static void server_info_callback(pa_context *context, const pa_server_info *info, void *userdata) {
-        return static_cast<AudioHardware*>(userdata)->server_info_callback(context, info);
-    }
-
-    static void static_subscribe_callback(pa_context *context,
-            pa_subscription_event_type_t event_type, uint32_t index, void *userdata)
-    {
-        return static_cast<AudioHardware*>(userdata)->subscribe_callback(context, event_type, index);
-    }
-
-    AudioHardware(const AudioHardware &copy) = delete;
-    AudioHardware &operator=(const AudioHardware &copy) = delete;
-
-    friend class OpenPlaybackDevice;
-    friend class OpenRecordingDevice;
+    void *userdata;
 };
+
+int create_audio_hardware(GenesisContext *context, void *userdata,
+        void (*on_devices_change)(AudioHardware *), void (*on_events_signal)(AudioHardware *),
+        struct AudioHardware **out_audio_hardware);
+
+void destroy_audio_hardware(struct AudioHardware *audio_hardware);
+
+void audio_hardware_flush_events(struct AudioHardware *audio_hardware);
 
 #endif

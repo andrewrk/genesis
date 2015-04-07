@@ -7,111 +7,30 @@
 #include <stdint.h>
 #include <string.h>
 
-void default_on_devices_change(AudioHardware *audio_hardware) {
-    // do nothing
-}
-
-AudioHardware::AudioHardware(GenesisContext *genesis_context) :
-    _userdata(NULL),
-    _genesis_context(genesis_context),
-    _device_scan_queued(false),
-    _on_devices_change(default_on_devices_change),
-    _on_events_signal(nullptr),
-    _current_audio_devices_info(NULL),
-    _default_sink_name(nullptr),
-    _default_source_name(nullptr),
-    _ready_audio_devices_info(NULL),
-    _safe_devices_info(NULL),
-    _ready_flag(false),
-    _have_devices_flag(false)
+static void subscribe_callback(pa_context *context,
+        pa_subscription_event_type_t event_bits, uint32_t index, void *userdata)
 {
-    _main_loop = pa_threaded_mainloop_new();
-    if (!_main_loop)
-        panic("unable to create pulseaudio mainloop");
-
-    pa_mainloop_api *main_loop_api = pa_threaded_mainloop_get_api(_main_loop);
-
-    pa_proplist *props = pa_proplist_new();
-    if (!props)
-        panic("unable to allocate property list");
-    pa_proplist_sets(props, PA_PROP_APPLICATION_NAME, "Genesis Audio Software");
-    pa_proplist_sets(props, PA_PROP_APPLICATION_VERSION, GENESIS_VERSION_STRING);
-    pa_proplist_sets(props, PA_PROP_APPLICATION_ID, "me.andrewkelley.genesis");
-
-    _context = pa_context_new_with_proplist(main_loop_api, "Genesis", props);
-    if (!_context)
-        panic("unable to create pulseaudio context");
-
-    pa_proplist_free(props);
-
-    pa_context_set_subscribe_callback(_context, static_subscribe_callback, this);
-    pa_context_set_state_callback(_context, context_state_callback, this);
-
-    int err = pa_context_connect(_context, NULL, (pa_context_flags_t)0, NULL);
-    if (err)
-        panic("pulseaudio context connect failed");
-
-    if (pa_threaded_mainloop_start(_main_loop))
-        panic("unable to start pulseaudio main loop");
-}
-
-AudioHardware::~AudioHardware() {
-    pa_threaded_mainloop_stop(_main_loop);
-
-    destroy_current_audio_devices_info();
-    destroy_ready_audio_devices_info();
-
-    for (int i = 0; i < _safe_devices_info->devices.length(); i += 1)
-        genesis_audio_device_unref(_safe_devices_info->devices.at(i));
-    destroy(_safe_devices_info, 1);
-
-    pa_context_disconnect(_context);
-    pa_context_unref(_context);
-
-    pa_threaded_mainloop_free(_main_loop);
-
-    free(_default_sink_name);
-    free(_default_source_name);
-}
-
-void AudioHardware::clear_on_devices_change() {
-    _on_devices_change = default_on_devices_change;
-}
-
-void AudioHardware::subscribe_callback(pa_context *context,
-        pa_subscription_event_type_t event_bits, uint32_t index)
-{
+    AudioHardware *audio_hardware = (AudioHardware *)userdata;
     int facility = (event_bits & PA_SUBSCRIPTION_EVENT_FACILITY_MASK);
     if (facility == PA_SUBSCRIPTION_EVENT_SOURCE || facility == PA_SUBSCRIPTION_EVENT_SINK) {
-        _device_scan_queued = true;
-        pa_threaded_mainloop_signal(_main_loop, 0);
+        audio_hardware->device_scan_queued = true;
+        pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
     }
 }
 
-void AudioHardware::destroy_ready_audio_devices_info() {
-    if (_ready_audio_devices_info) {
-        for (int i = 0; i < _ready_audio_devices_info->devices.length(); i += 1)
-            genesis_audio_device_unref(_ready_audio_devices_info->devices.at(i));
-        destroy(_ready_audio_devices_info, 1);
-        _ready_audio_devices_info = nullptr;
-    }
+static void subscribe_to_events(AudioHardware *audio_hardware) {
+    pa_subscription_mask_t events = (pa_subscription_mask_t)(
+            PA_SUBSCRIPTION_MASK_SINK|PA_SUBSCRIPTION_MASK_SOURCE);
+    pa_operation *subscribe_op = pa_context_subscribe(audio_hardware->pulse_context,
+            events, nullptr, audio_hardware);
+    if (!subscribe_op)
+        panic("pa_context_subscribe failed: %s", pa_strerror(pa_context_errno(audio_hardware->pulse_context)));
+    pa_operation_unref(subscribe_op);
 }
 
-void AudioHardware::destroy_current_audio_devices_info() {
-    if (_current_audio_devices_info) {
-        for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1)
-            genesis_audio_device_unref(_current_audio_devices_info->devices.at(i));
-        destroy(_current_audio_devices_info, 1);
-        _current_audio_devices_info = nullptr;
-    }
-}
+static void context_state_callback(pa_context *context, void *userdata) {
+    AudioHardware *audio_hardware = (AudioHardware *)userdata;
 
-void AudioHardware::initialize_current_device_list() {
-    destroy_current_audio_devices_info();
-    _current_audio_devices_info = create<AudioDevicesInfo>();
-}
-
-void AudioHardware::context_state_callback(pa_context *context) {
     switch (pa_context_get_state(context)) {
     case PA_CONTEXT_UNCONNECTED: // The context hasn't been connected yet.
         return;
@@ -122,17 +41,125 @@ void AudioHardware::context_state_callback(pa_context *context) {
     case PA_CONTEXT_SETTING_NAME: // The client is passing its application name to the daemon.
         return;
     case PA_CONTEXT_READY: // The connection is established, the context is ready to execute operations.
-        _device_scan_queued = true;
-        subscribe_to_events();
-        _ready_flag = true;
-        pa_threaded_mainloop_signal(_main_loop, 0);
+        audio_hardware->device_scan_queued = true;
+        subscribe_to_events(audio_hardware);
+        audio_hardware->ready_flag = true;
+        pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
         return;
     case PA_CONTEXT_TERMINATED: // The connection was terminated cleanly.
-        pa_threaded_mainloop_signal(_main_loop, 0);
+        pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
         return;
     case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
         panic("pulsaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
     }
+}
+
+static void destroy_current_audio_devices_info(AudioHardware *audio_hardware) {
+    if (audio_hardware->current_audio_devices_info) {
+        for (int i = 0; i < audio_hardware->current_audio_devices_info->devices.length(); i += 1)
+            genesis_audio_device_unref(audio_hardware->current_audio_devices_info->devices.at(i));
+
+        destroy(audio_hardware->current_audio_devices_info, 1);
+        audio_hardware->current_audio_devices_info = nullptr;
+    }
+}
+
+static void destroy_ready_audio_devices_info(AudioHardware *audio_hardware) {
+    if (audio_hardware->ready_audio_devices_info) {
+        for (int i = 0; i < audio_hardware->ready_audio_devices_info->devices.length(); i += 1)
+            genesis_audio_device_unref(audio_hardware->ready_audio_devices_info->devices.at(i));
+        destroy(audio_hardware->ready_audio_devices_info, 1);
+        audio_hardware->ready_audio_devices_info = nullptr;
+    }
+}
+
+void destroy_audio_hardware(struct AudioHardware *audio_hardware) {
+    if (audio_hardware) {
+        if (audio_hardware->main_loop)
+            pa_threaded_mainloop_stop(audio_hardware->main_loop);
+
+        destroy_current_audio_devices_info(audio_hardware);
+        destroy_ready_audio_devices_info(audio_hardware);
+
+        for (int i = 0; i < audio_hardware->safe_devices_info->devices.length(); i += 1)
+            genesis_audio_device_unref(audio_hardware->safe_devices_info->devices.at(i));
+        destroy(audio_hardware->safe_devices_info, 1);
+
+        pa_context_disconnect(audio_hardware->pulse_context);
+        pa_context_unref(audio_hardware->pulse_context);
+
+        if (audio_hardware->main_loop)
+            pa_threaded_mainloop_free(audio_hardware->main_loop);
+
+        if (audio_hardware->props)
+            pa_proplist_free(audio_hardware->props);
+
+        free(audio_hardware->default_sink_name);
+        free(audio_hardware->default_source_name);
+    }
+}
+
+int create_audio_hardware(GenesisContext *context, void *userdata,
+        void (*on_devices_change)(AudioHardware *), void (*on_events_signal)(AudioHardware *),
+        struct AudioHardware **out_audio_hardware)
+{
+    *out_audio_hardware = nullptr;
+
+    AudioHardware *audio_hardware = create_zero<AudioHardware>();
+    if (!audio_hardware) {
+        destroy_audio_hardware(audio_hardware);
+        return GenesisErrorNoMem;
+    }
+
+    audio_hardware->genesis_context = context;
+    audio_hardware->userdata = userdata;
+    audio_hardware->on_devices_change = on_devices_change;
+    audio_hardware->on_events_signal = on_events_signal;
+    audio_hardware->device_scan_queued = false;
+    audio_hardware->ready_flag = false;
+    audio_hardware->have_devices_flag = false;
+
+    audio_hardware->main_loop = pa_threaded_mainloop_new();
+    if (!audio_hardware->main_loop) {
+        destroy_audio_hardware(audio_hardware);
+        return GenesisErrorNoMem;
+    }
+
+    pa_mainloop_api *main_loop_api = pa_threaded_mainloop_get_api(audio_hardware->main_loop);
+
+    audio_hardware->props = pa_proplist_new();
+    if (!audio_hardware->props) {
+        destroy_audio_hardware(audio_hardware);
+        return GenesisErrorNoMem;
+    }
+
+    pa_proplist_sets(audio_hardware->props, PA_PROP_APPLICATION_NAME, "Genesis Audio Software");
+    pa_proplist_sets(audio_hardware->props, PA_PROP_APPLICATION_VERSION, GENESIS_VERSION_STRING);
+    pa_proplist_sets(audio_hardware->props, PA_PROP_APPLICATION_ID, "me.andrewkelley.genesis");
+
+    audio_hardware->pulse_context = pa_context_new_with_proplist(main_loop_api, "Genesis",
+            audio_hardware->props);
+    if (!audio_hardware->pulse_context) {
+        destroy_audio_hardware(audio_hardware);
+        return GenesisErrorNoMem;
+    }
+
+    pa_context_set_subscribe_callback(audio_hardware->pulse_context, subscribe_callback, audio_hardware);
+    pa_context_set_state_callback(audio_hardware->pulse_context, context_state_callback, audio_hardware);
+
+    int err = pa_context_connect(audio_hardware->pulse_context, NULL, (pa_context_flags_t)0, NULL);
+    if (err) {
+        destroy_audio_hardware(audio_hardware);
+        return GenesisErrorOpeningAudioHardware;
+    }
+
+    if (pa_threaded_mainloop_start(audio_hardware->main_loop)) {
+        destroy_audio_hardware(audio_hardware);
+        return GenesisErrorNoMem;
+    }
+
+    *out_audio_hardware = audio_hardware;
+    return 0;
 }
 
 static double usec_to_sec(pa_usec_t usec) {
@@ -151,34 +178,6 @@ static GenesisSampleFormat sample_format_from_pulseaudio(pa_sample_spec sample_s
 
 static int sample_rate_from_pulseaudio(pa_sample_spec sample_spec) {
     return sample_spec.rate;
-}
-
-void AudioHardware::finish_device_query() {
-    if (!_have_sink_list || !_have_source_list || !_have_default_sink)
-        return;
-
-    // based on the default sink name, figure out the default output index
-    _current_audio_devices_info->default_output_index = -1;
-    _current_audio_devices_info->default_input_index = -1;
-    for (int i = 0; i < _current_audio_devices_info->devices.length(); i += 1) {
-        GenesisAudioDevice *audio_device = _current_audio_devices_info->devices.at(i);
-        if (audio_device->purpose == GenesisAudioDevicePurposePlayback &&
-            strcmp(audio_device->name, _default_sink_name) == 0)
-        {
-            _current_audio_devices_info->default_output_index = i;
-        } else if (audio_device->purpose == GenesisAudioDevicePurposeRecording &&
-            strcmp(audio_device->name, _default_source_name) == 0)
-        {
-            _current_audio_devices_info->default_input_index = i;
-        }
-    }
-
-    destroy_ready_audio_devices_info();
-    _ready_audio_devices_info = _current_audio_devices_info;
-    _current_audio_devices_info = NULL;
-    _have_devices_flag = true;
-    pa_threaded_mainloop_signal(_main_loop, 0);
-    _on_events_signal(this);
 }
 
 static GenesisChannelId from_pulseaudio_channel_pos(pa_channel_position_t pos) {
@@ -224,80 +223,11 @@ static void set_from_pulseaudio_channel_map(pa_channel_map channel_map, GenesisC
     }
 }
 
-void AudioHardware::sink_info_callback(pa_context *context, const pa_sink_info *info, int eol) {
-    if (eol) {
-        _have_sink_list = true;
-        finish_device_query();
-    } else {
-        GenesisAudioDevice *audio_device = create_zero<GenesisAudioDevice>();
-        if (!audio_device)
-            panic("out of memory");
-
-        audio_device->ref_count = 1;
-        audio_device->context = _genesis_context;
-        audio_device->name = strdup(info->name);
-        audio_device->description = strdup(info->description);
-        if (!audio_device->name || !audio_device->description)
-            panic("out of memory");
-        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
-        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
-        audio_device->default_latency = usec_to_sec(info->configured_latency);
-        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
-        audio_device->purpose = GenesisAudioDevicePurposePlayback;
-
-        if (_current_audio_devices_info->devices.append(audio_device))
-            panic("out of memory");
-    }
-    pa_threaded_mainloop_signal(_main_loop, 0);
-}
-
-void AudioHardware::source_info_callback(pa_context *context, const pa_source_info *info, int eol) {
-    if (eol) {
-        _have_source_list = true;
-        finish_device_query();
-    } else {
-        GenesisAudioDevice *audio_device = create_zero<GenesisAudioDevice>();
-        if (!audio_device)
-            panic("out of memory");
-
-        audio_device->ref_count = 1;
-        audio_device->context = _genesis_context;
-        audio_device->name = strdup(info->name);
-        audio_device->description = strdup(info->description);
-        if (!audio_device->name || !audio_device->description)
-            panic("out of memory");
-        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
-        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
-        audio_device->default_latency = usec_to_sec(info->configured_latency);
-        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
-        audio_device->purpose = GenesisAudioDevicePurposeRecording;
-
-        if (_current_audio_devices_info->devices.append(audio_device))
-            panic("out of memory");
-    }
-    pa_threaded_mainloop_signal(_main_loop, 0);
-}
-
-void AudioHardware::server_info_callback(pa_context *context, const pa_server_info *info) {
-    free(_default_sink_name);
-    free(_default_source_name);
-
-    _default_sink_name = strdup(info->default_sink_name);
-    _default_source_name = strdup(info->default_source_name);
-
-    if (!_default_sink_name || !_default_source_name)
-        panic("out of memory");
-
-    _have_default_sink = true;
-    finish_device_query();
-    pa_threaded_mainloop_signal(_main_loop, 0);
-}
-
-int AudioHardware::perform_operation(pa_operation *op) {
+static int perform_operation(AudioHardware *audio_hardware, pa_operation *op) {
     for (;;) {
         switch (pa_operation_get_state(op)) {
         case PA_OPERATION_RUNNING:
-            pa_threaded_mainloop_wait(_main_loop);
+            pa_threaded_mainloop_wait(audio_hardware->main_loop);
             continue;
         case PA_OPERATION_DONE:
             pa_operation_unref(op);
@@ -309,63 +239,164 @@ int AudioHardware::perform_operation(pa_operation *op) {
     }
 }
 
-void AudioHardware::subscribe_to_events() {
-    pa_subscription_mask_t events = (pa_subscription_mask_t)(
-            PA_SUBSCRIPTION_MASK_SINK|PA_SUBSCRIPTION_MASK_SOURCE);
-    pa_operation *subscribe_op = pa_context_subscribe(_context, events, nullptr, this);
-    if (!subscribe_op)
-        panic("pa_context_subscribe failed: %s", pa_strerror(pa_context_errno(_context)));
-    pa_operation_unref(subscribe_op);
+static void finish_device_query(AudioHardware *audio_hardware) {
+    if (!audio_hardware->have_sink_list ||
+        !audio_hardware->have_source_list ||
+        !audio_hardware->have_default_sink)
+    {
+        return;
+    }
+
+    // based on the default sink name, figure out the default output index
+    audio_hardware->current_audio_devices_info->default_output_index = -1;
+    audio_hardware->current_audio_devices_info->default_input_index = -1;
+    for (int i = 0; i < audio_hardware->current_audio_devices_info->devices.length(); i += 1) {
+        GenesisAudioDevice *audio_device = audio_hardware->current_audio_devices_info->devices.at(i);
+        if (audio_device->purpose == GenesisAudioDevicePurposePlayback &&
+            strcmp(audio_device->name, audio_hardware->default_sink_name) == 0)
+        {
+            audio_hardware->current_audio_devices_info->default_output_index = i;
+        } else if (audio_device->purpose == GenesisAudioDevicePurposeRecording &&
+            strcmp(audio_device->name, audio_hardware->default_source_name) == 0)
+        {
+            audio_hardware->current_audio_devices_info->default_input_index = i;
+        }
+    }
+
+    destroy_ready_audio_devices_info(audio_hardware);
+    audio_hardware->ready_audio_devices_info = audio_hardware->current_audio_devices_info;
+    audio_hardware->current_audio_devices_info = NULL;
+    audio_hardware->have_devices_flag = true;
+    pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
+    audio_hardware->on_events_signal(audio_hardware);
 }
 
-void AudioHardware::scan_devices() {
-    _have_sink_list = false;
-    _have_default_sink = false;
-    _have_source_list = false;
+static void sink_info_callback(pa_context *pulse_context, const pa_sink_info *info, int eol, void *userdata) {
+    AudioHardware *audio_hardware = (AudioHardware *)userdata;
+    if (eol) {
+        audio_hardware->have_sink_list = true;
+        finish_device_query(audio_hardware);
+    } else {
+        GenesisAudioDevice *audio_device = create_zero<GenesisAudioDevice>();
+        if (!audio_device)
+            panic("out of memory");
 
-    initialize_current_device_list();
+        audio_device->ref_count = 1;
+        audio_device->context = audio_hardware->genesis_context;
+        audio_device->name = strdup(info->name);
+        audio_device->description = strdup(info->description);
+        if (!audio_device->name || !audio_device->description)
+            panic("out of memory");
+        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
+        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
+        audio_device->default_latency = usec_to_sec(info->configured_latency);
+        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+        audio_device->purpose = GenesisAudioDevicePurposePlayback;
 
-    pa_threaded_mainloop_lock(_main_loop);
+        if (audio_hardware->current_audio_devices_info->devices.append(audio_device))
+            panic("out of memory");
+    }
+    pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
+}
 
-    pa_operation *list_sink_op = pa_context_get_sink_info_list(_context, sink_info_callback, this);
-    pa_operation *list_source_op = pa_context_get_source_info_list(_context,
-            static_source_info_callback, this);
-    pa_operation *server_info_op = pa_context_get_server_info(_context, server_info_callback, this);
+static void source_info_callback(pa_context *pulse_context, const pa_source_info *info, int eol, void *userdata) {
+    AudioHardware *audio_hardware = (AudioHardware *)userdata;
+    if (eol) {
+        audio_hardware->have_source_list = true;
+        finish_device_query(audio_hardware);
+    } else {
+        GenesisAudioDevice *audio_device = create_zero<GenesisAudioDevice>();
+        if (!audio_device)
+            panic("out of memory");
 
-    if (perform_operation(list_sink_op))
+        audio_device->ref_count = 1;
+        audio_device->context = audio_hardware->genesis_context;
+        audio_device->name = strdup(info->name);
+        audio_device->description = strdup(info->description);
+        if (!audio_device->name || !audio_device->description)
+            panic("out of memory");
+        set_from_pulseaudio_channel_map(info->channel_map, &audio_device->channel_layout);
+        audio_device->default_sample_format = sample_format_from_pulseaudio(info->sample_spec);
+        audio_device->default_latency = usec_to_sec(info->configured_latency);
+        audio_device->default_sample_rate = sample_rate_from_pulseaudio(info->sample_spec);
+        audio_device->purpose = GenesisAudioDevicePurposeRecording;
+
+        if (audio_hardware->current_audio_devices_info->devices.append(audio_device))
+            panic("out of memory");
+    }
+    pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
+}
+
+static void server_info_callback(pa_context *pulse_context, const pa_server_info *info, void *userdata) {
+    AudioHardware *audio_hardware = (AudioHardware *)userdata;
+
+    free(audio_hardware->default_sink_name);
+    free(audio_hardware->default_source_name);
+
+    audio_hardware->default_sink_name = strdup(info->default_sink_name);
+    audio_hardware->default_source_name = strdup(info->default_source_name);
+
+    if (!audio_hardware->default_sink_name || !audio_hardware->default_source_name)
+        panic("out of memory");
+
+    audio_hardware->have_default_sink = true;
+    finish_device_query(audio_hardware);
+    pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
+}
+
+static void scan_devices(AudioHardware *audio_hardware) {
+    audio_hardware->have_sink_list = false;
+    audio_hardware->have_default_sink = false;
+    audio_hardware->have_source_list = false;
+
+    destroy_current_audio_devices_info(audio_hardware);
+    audio_hardware->current_audio_devices_info = create_zero<AudioDevicesInfo>();
+    if (!audio_hardware->current_audio_devices_info)
+        panic("out of memory");
+
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+
+    pa_operation *list_sink_op = pa_context_get_sink_info_list(audio_hardware->pulse_context,
+            sink_info_callback, audio_hardware);
+    pa_operation *list_source_op = pa_context_get_source_info_list(audio_hardware->pulse_context,
+            source_info_callback, audio_hardware);
+    pa_operation *server_info_op = pa_context_get_server_info(audio_hardware->pulse_context,
+            server_info_callback, audio_hardware);
+
+    if (perform_operation(audio_hardware, list_sink_op))
         panic("list sinks failed");
-    if (perform_operation(list_source_op))
+    if (perform_operation(audio_hardware, list_source_op))
         panic("list sources failed");
-    if (perform_operation(server_info_op))
+    if (perform_operation(audio_hardware, server_info_op))
         panic("get server info failed");
 
-    pa_threaded_mainloop_signal(_main_loop, 0);
+    pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
 
-    pa_threaded_mainloop_unlock(_main_loop);
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 }
 
-void AudioHardware::flush_events() {
-    if (_device_scan_queued) {
-        _device_scan_queued = false;
-        scan_devices();
+void audio_hardware_flush_events(struct AudioHardware *audio_hardware) {
+    if (audio_hardware->device_scan_queued) {
+        audio_hardware->device_scan_queued = false;
+        scan_devices(audio_hardware);
     }
 
     AudioDevicesInfo *old_devices_info = nullptr;
     bool change = false;
 
-    pa_threaded_mainloop_lock(_main_loop);
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
 
-    if (_ready_audio_devices_info) {
-        old_devices_info = _safe_devices_info;
-        _safe_devices_info = _ready_audio_devices_info;
-        _ready_audio_devices_info = nullptr;
+    if (audio_hardware->ready_audio_devices_info) {
+        old_devices_info = audio_hardware->safe_devices_info;
+        audio_hardware->safe_devices_info = audio_hardware->ready_audio_devices_info;
+        audio_hardware->ready_audio_devices_info = nullptr;
         change = true;
     }
 
-    pa_threaded_mainloop_unlock(_main_loop);
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 
     if (change)
-        _on_devices_change(this);
+        audio_hardware->on_devices_change(audio_hardware);
 
     if (old_devices_info) {
         for (int i = 0; i < old_devices_info->devices.length(); i += 1)
@@ -374,24 +405,24 @@ void AudioHardware::flush_events() {
     }
 }
 
-void AudioHardware::block_until_ready() {
-    if (_ready_flag)
+static void block_until_ready(AudioHardware *audio_hardware) {
+    if (audio_hardware->ready_flag)
         return;
-    pa_threaded_mainloop_lock(_main_loop);
-    while (!_ready_flag) {
-        pa_threaded_mainloop_wait(_main_loop);
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+    while (!audio_hardware->ready_flag) {
+        pa_threaded_mainloop_wait(audio_hardware->main_loop);
     }
-    pa_threaded_mainloop_unlock(_main_loop);
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 }
 
-void AudioHardware::block_until_have_devices() {
-    if (_have_devices_flag)
+static void block_until_have_devices(AudioHardware *audio_hardware) {
+    if (audio_hardware->have_devices_flag)
         return;
-    pa_threaded_mainloop_lock(_main_loop);
-    while (!_have_devices_flag) {
-        pa_threaded_mainloop_wait(_main_loop);
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+    while (!audio_hardware->have_devices_flag) {
+        pa_threaded_mainloop_wait(audio_hardware->main_loop);
     }
-    pa_threaded_mainloop_unlock(_main_loop);
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 }
 
 static pa_sample_format_t to_pulseaudio_sample_format(GenesisSampleFormat sample_format) {
@@ -480,7 +511,7 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
             break;
         case PA_STREAM_READY:
             _stream_ready = true;
-            pa_threaded_mainloop_signal(_audio_hardware->_main_loop, 0);
+            pa_threaded_mainloop_signal(_audio_hardware->main_loop, 0);
             break;
         case PA_STREAM_FAILED:
             panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
@@ -502,17 +533,17 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
     _callback_userdata(userdata),
     _callback(callback)
 {
-    if (!_audio_hardware->_ready_flag)
+    if (!_audio_hardware->ready_flag)
         panic("audio hardware not ready");
 
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
     sample_spec.rate = sample_rate;
     sample_spec.channels = channel_layout->channel_count;
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
-    _stream = pa_stream_new(_audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    _stream = pa_stream_new(_audio_hardware->pulse_context, "Genesis", &sample_spec, &channel_map);
     if (!_stream)
         panic("unable to create pulseaudio stream");
 
@@ -529,29 +560,29 @@ OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
     _buffer_attr.minreq = UINT32_MAX;
     _buffer_attr.fragsize = UINT32_MAX;
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 }
 
 int OpenPlaybackDevice::start(const char *device_name) {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     int err = pa_stream_connect_playback(_stream, device_name, &_buffer_attr,
             PA_STREAM_ADJUST_LATENCY, NULL, NULL);
     if (err) {
         return GenesisErrorOpeningAudioHardware;
-        pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+        pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
     }
 
     while (!_stream_ready)
-        pa_threaded_mainloop_wait(_audio_hardware->_main_loop);
+        pa_threaded_mainloop_wait(_audio_hardware->main_loop);
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 
     return 0;
 }
 
 OpenPlaybackDevice::~OpenPlaybackDevice() {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     pa_stream_set_write_callback(_stream, NULL, this);
     pa_stream_set_state_callback(_stream, NULL, this);
@@ -559,15 +590,15 @@ OpenPlaybackDevice::~OpenPlaybackDevice() {
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 }
 
 void OpenPlaybackDevice::lock() {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 }
 
 void OpenPlaybackDevice::unlock() {
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 }
 
 int OpenPlaybackDevice::writable_size() {
@@ -577,22 +608,22 @@ int OpenPlaybackDevice::writable_size() {
 void OpenPlaybackDevice::begin_write(char **data, int *byte_count) {
     size_t size_t_byte_count = *byte_count;
     if (pa_stream_begin_write(_stream, (void**)data, &size_t_byte_count))
-        panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+        panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->pulse_context)));
     *byte_count = size_t_byte_count;
 }
 
 void OpenPlaybackDevice::write(char *data, int byte_count) {
     if (pa_stream_write(_stream, data, byte_count, NULL, 0, PA_SEEK_RELATIVE))
-        panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+        panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->pulse_context)));
 }
 
 void OpenPlaybackDevice::clear_buffer() {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
     pa_operation *op = pa_stream_flush(_stream, NULL, NULL);
     if (!op)
-        panic("pa_stream_flush failed: %s", pa_strerror(pa_context_errno(_audio_hardware->_context)));
+        panic("pa_stream_flush failed: %s", pa_strerror(pa_context_errno(_audio_hardware->pulse_context)));
     pa_operation_unref(op);
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 }
 
 OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
@@ -603,10 +634,10 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
     _callback_userdata(userdata),
     _callback(callback)
 {
-    if (!_audio_hardware->_ready_flag)
+    if (!_audio_hardware->ready_flag)
         panic("audio hardware not ready");
 
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
@@ -615,7 +646,7 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
 
     pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
 
-    _stream = pa_stream_new(_audio_hardware->_context, "Genesis", &sample_spec, &channel_map);
+    _stream = pa_stream_new(_audio_hardware->pulse_context, "Genesis", &sample_spec, &channel_map);
     if (!_stream)
         panic("unable to create pulseaudio stream");
 
@@ -631,29 +662,29 @@ OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
     _buffer_attr.minreq = UINT32_MAX;
     _buffer_attr.fragsize = buffer_length;
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 
 }
 
 OpenRecordingDevice::~OpenRecordingDevice() {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     pa_stream_set_state_callback(_stream, NULL, this);
     pa_stream_set_read_callback(_stream, NULL, this);
     pa_stream_disconnect(_stream);
     pa_stream_unref(_stream);
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 }
 
 int OpenRecordingDevice::start(const char *device_name) {
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     int err = pa_stream_connect_record(_stream, device_name, &_buffer_attr, PA_STREAM_ADJUST_LATENCY);
     if (err)
         panic("unable to connect pulseaudio record stream");
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
     return 0;
 }
 
@@ -693,7 +724,7 @@ void OpenRecordingDevice::clear_buffer() {
     if (!_stream_ready)
         return;
 
-    pa_threaded_mainloop_lock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
 
     for (;;) {
         const char *data;
@@ -708,7 +739,7 @@ void OpenRecordingDevice::clear_buffer() {
             panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
     }
 
-    pa_threaded_mainloop_unlock(_audio_hardware->_main_loop);
+    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
 }
 
 void genesis_audio_device_unref(struct GenesisAudioDevice *device) {
@@ -730,20 +761,20 @@ void genesis_audio_device_ref(struct GenesisAudioDevice *device) {
 }
 
 void genesis_refresh_audio_devices(struct GenesisContext *context) {
-    context->audio_hardware.block_until_ready();
-    context->audio_hardware.flush_events();
-    context->audio_hardware.block_until_have_devices();
+    block_until_ready(context->audio_hardware);
+    audio_hardware_flush_events(context->audio_hardware);
+    block_until_have_devices(context->audio_hardware);
 }
 
 int genesis_get_audio_device_count(struct GenesisContext *context) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
+    const AudioDevicesInfo *audio_device_info = context->audio_hardware->safe_devices_info;
     if (!audio_device_info)
         return -1;
     return audio_device_info->devices.length();
 }
 
 struct GenesisAudioDevice *genesis_get_audio_device(struct GenesisContext *context, int index) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
+    const AudioDevicesInfo *audio_device_info = context->audio_hardware->safe_devices_info;
     if (!audio_device_info)
         return nullptr;
     if (index < 0 || index >= audio_device_info->devices.length())
@@ -754,14 +785,14 @@ struct GenesisAudioDevice *genesis_get_audio_device(struct GenesisContext *conte
 }
 
 int genesis_get_default_playback_device_index(struct GenesisContext *context) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
+    const AudioDevicesInfo *audio_device_info = context->audio_hardware->safe_devices_info;
     if (!audio_device_info)
         return -1;
     return audio_device_info->default_output_index;
 }
 
 int genesis_get_default_recording_device_index(struct GenesisContext *context) {
-    const AudioDevicesInfo *audio_device_info = context->audio_hardware.devices_info();
+    const AudioDevicesInfo *audio_device_info = context->audio_hardware->safe_devices_info;
     if (!audio_device_info)
         return -1;
     return audio_device_info->default_input_index;
