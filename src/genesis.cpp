@@ -452,8 +452,7 @@ static void playback_node_destroy(struct GenesisNode *node) {
     }
 }
 
-static void fill_playback_device_with_silence(OpenPlaybackDevice *playback_device) {
-    int requested_frame_count = open_playback_device_free_count(playback_device);
+static void fill_playback_device_with_silence(OpenPlaybackDevice *playback_device, int requested_frame_count) {
     while (requested_frame_count > 0) {
         int frame_count = requested_frame_count;
 
@@ -472,7 +471,7 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
     GenesisContext *context = playback_node_context->context;
 
     if (!context->pipeline_running) {
-        fill_playback_device_with_silence(open_playback_device);
+        fill_playback_device_with_silence(open_playback_device, requested_frame_count);
         return;
     }
 
@@ -480,7 +479,7 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
 }
 
 static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_device) {
-    fill_playback_device_with_silence(open_playback_device);
+    fill_playback_device_with_silence(open_playback_device, open_playback_device_free_count(open_playback_device));
 }
 
 static int playback_node_create(struct GenesisNode *node) {
