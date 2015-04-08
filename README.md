@@ -1,8 +1,17 @@
-# Genesis Audio Software
+# Genesis Digital Audio Workstation
+
+Genesis is a work-in-progress digital audio workstation with some ambitious
+goals: peer-to-peer multiplayer editing, complete plugin safety, and a built-in
+peer-to-peer community which shares plugins, projects, and samples.
+
+Cross platform support is planned, however, currently only Linux is supported.
+
+Genesis is not ready for serious users yet. Come back in a few months.
 
 ## Status
 
- * Not ready for serious users yet.
+### Core Library (libgenesis)
+
  * Load and save any format audio file.
  * Multi-threaded audio pipeline working.
  * MIDI Keyboard support.
@@ -10,6 +19,10 @@
  * Basic synthesizer plugin. [YouTube Demo](https://www.youtube.com/watch?v=K5r_o331Eqo)
  * Basic delay plugin.
  * Resampling and channel remapping plugin.
+
+### GUI
+
+ * Blank window that does nothing :)
 
 ### Examples
 
@@ -22,26 +35,6 @@
  * `list_supported_formats.c` - list available audio import and export formats.
  * `normalize_audio.c` - open an audio file, normalize it, and export it as a
    new file.
-
-## The Vision
-
- * Safe plugins. Plugins crashing must not crash the studio.
- * Projects must work on every computer. It's not possible to have a plugin
-   that works on one person's computer and not another.
- * Tight integration with an online sample/project sharing service. Make it
-   almost easier to save it open source than to save it privately.
- * Multiplayer support. Each person can simultaneously edit different sections.
- * Backend decoupled from the UI. Someone should be able to depend only
-   on a C library and headlessly synthesize music.
- * Take full advantage of multiple cores.
- * Sample-accurate mixing.
- * Never require the user to restart the program
- * Let's get these things right the first time around:
-   - Undo/redo
-   - Ability to edit multiple projects at once.
-   - Support for N audio channels instead of hardcoded stereo
- * Cross-platform. I will charge money for nonfree operating systems such as
-   OS X and Windows.
 
 ## Contributing
 
@@ -109,6 +102,46 @@ make
 
 ## Grand Plans
 
+### libgenesis
+
+The core backend and the GUI are decoupled. The core backend is in a shared
+library called libgenesis which does not link against any GUI-related
+libraries - not even libstdc++.
+
+Meanwhile, the GUI depends on libgenesis and puts a user-interface on top of it.
+
+libgenesis is intended to be a general-purpose utility library for doing
+digital audio workstation related things, such as using it as the backend for
+a headless computer-created music stream.
+
+### Real-time Safety and Multithreading
+
+Most operating systems do not attempt to make any real-time guarantees. This
+means that various operations do not guarantee a maximum bound on how long it
+might take. For example, when you allocate memory, it might be very quick, or
+the kernel might have to do some memory defragmentation and cache invalidation
+to make room for your new segment of memory. Writing to a hard drive might
+cause it to have to warm up and start spinning.
+
+This can be a disaster if one of these non-bounded operations is in the
+audio rendering pipeline, especially if the latency is low. The buffer of audio
+going to the sound card might empty before it gets filled up, causing a nasty
+audio glitch sound known as a "buffer underrun".
+
+In general, all syscalls are suspect when it comes to real-time guarantees. The
+careful audio programmer will avoid them all.
+
+libgenesis meets this criteria with one exception. libgenesis takes advantage
+of hardware concurrency by using one worker thread per CPU core to render
+audio. It carefully uses a lock-free queue data structure to avoid making
+syscalls, but when there is not enough work to do and some threads are sitting
+idly by, those threads need to suspend execution until there is work to do.
+
+So if there is more work to be done than worker threads, no syscalls are made.
+However, if a worker thread has nothing to do and needs to suspend execution,
+it makes a `FUTEX_WAIT` syscall, and then is woken up by another worker thread
+making a `FUTEX_WAKE` syscall.
+
 ### Compatibility
 
 libgenesis follows [semver](http://semver.org/). Major version is bumped when
@@ -143,6 +176,14 @@ The server(s) that provide this chat are also peers. Individuals or businesses
 could donate to the server space, similar to being a seeder in a torrent
 situation, by running the server software, adding their node to the pool.
 
+When two (or more) users are simultaneously working on a project, the playback
+head is not synchronized. The users are free to roam about the project, making
+changes here and there. However, each person will see "where" in the project
+the other person is working, and see the changes that they are making. So it
+would be trivial, for example, for both users to look at a particular bassline,
+both listening to it on loop, albeit at different offsets, while one person
+works on the drums, and the other person works on the bass rhythm.
+
 ### Plugin Registry and Safety
 
 Plugins must be provided as source code and published to the Genesis registry.
@@ -155,13 +196,17 @@ It's not clear how this goal will be accomplished, but we will attempt to build
 a system where these constraints are met:
 
  * Plugins are provided as source code that is guaranteed to build on all
-   supported platforms.
+   supported platforms. It's not possible to have a plugin that works on one
+   person's computer and not another.
  * Plugins either have compile-time protection against malicious code and
    crashes (such as segfaults) or run-time protection.
+   - One idea: instead of one sandboxed process per plugin, have one sandboxed
+     process that runs all the untrusted plugin code; the entire real-time
+     execution path.
 
 DRM will never be supported although paid plugins are not out of the question,
-as long as the restraint is met that if a user wants another user to join their
-project, the other user is able to use the plugin as well.
+as long as the constraint is met that if a user wants another user to join their
+project, the other user is able to use the plugin with no restrictions.
 
 ### Project Network
 
@@ -182,6 +227,20 @@ modify the effects, and then create 10 projects which are drum loops using the
 samples. A third user might use 2-3 of these drum loops, edit them to modify
 the tempo, and produce a song with them and publish the song. Yet another user
 might edit the song, produce a remix, and then publish the remix.
+
+This project, sample, and plugin network should be easily browsable directly
+from the Genesis user interface. It should be very easy to use content from the
+network, and equally easy to publish content *to* the network. It should almost
+be easier to save it open source to save it privately.
+
+### General Principles
+
+ * Never require the user to restart the program.
+ * Let's get these things right the first time around:
+   - Undo/redo. Make sure it works correctly with multiplayer.
+   - Ability to edit multiple projects at once. There's no reason users
+     shouldn't be able to copy and paste stuff from one project to another.
+   - Support for N audio channels instead of hardcoded stereo.
 
 ## License
 
