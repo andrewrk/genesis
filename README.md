@@ -231,7 +231,7 @@ might edit the song, produce a remix, and then publish the remix.
 This project, sample, and plugin network should be easily browsable directly
 from the Genesis user interface. It should be very easy to use content from the
 network, and equally easy to publish content *to* the network. It should almost
-be easier to save it open source to save it privately.
+be easier to save it open source than to save it privately.
 
 ### General Principles
 
