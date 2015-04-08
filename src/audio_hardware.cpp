@@ -282,7 +282,7 @@ static void sink_info_callback(pa_context *pulse_context, const pa_sink_info *in
             panic("out of memory");
 
         audio_device->ref_count = 1;
-        audio_device->context = audio_hardware->genesis_context;
+        audio_device->audio_hardware = audio_hardware;
         audio_device->name = strdup(info->name);
         audio_device->description = strdup(info->description);
         if (!audio_device->name || !audio_device->description)
@@ -310,7 +310,7 @@ static void source_info_callback(pa_context *pulse_context, const pa_source_info
             panic("out of memory");
 
         audio_device->ref_count = 1;
-        audio_device->context = audio_hardware->genesis_context;
+        audio_device->audio_hardware = audio_hardware;
         audio_device->name = strdup(info->name);
         audio_device->description = strdup(info->description);
         if (!audio_device->name || !audio_device->description)
@@ -503,15 +503,17 @@ static pa_channel_map to_pulseaudio_channel_map(const GenesisChannelLayout *chan
     return channel_map;
 }
 
-void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
+static void playback_stream_state_callback(pa_stream *stream, void *userdata) {
+    OpenPlaybackDevice *open_playback_device = (OpenPlaybackDevice*) userdata;
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
     switch (pa_stream_get_state(stream)) {
         case PA_STREAM_UNCONNECTED:
         case PA_STREAM_CREATING:
         case PA_STREAM_TERMINATED:
             break;
         case PA_STREAM_READY:
-            _stream_ready = true;
-            pa_threaded_mainloop_signal(_audio_hardware->main_loop, 0);
+            open_playback_device->stream_ready = true;
+            pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
             break;
         case PA_STREAM_FAILED:
             panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
@@ -520,182 +522,175 @@ void OpenPlaybackDevice::stream_state_callback(pa_stream *stream) {
 }
 
 static void playback_stream_underflow_callback(pa_stream *stream, void *userdata) {
-    OpenPlaybackDevice *device = (OpenPlaybackDevice*)userdata;
-    device->_underrun_callback(device->_callback_userdata);
+    OpenPlaybackDevice *open_playback_device = (OpenPlaybackDevice*)userdata;
+    open_playback_device->underrun_callback(open_playback_device);
 }
 
-OpenPlaybackDevice::OpenPlaybackDevice(AudioHardware *audio_hardware,
-        const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, void (*callback)(int, void *), void *userdata) :
-    _audio_hardware(audio_hardware),
-    _stream(NULL),
-    _stream_ready(false),
-    _callback_userdata(userdata),
-    _callback(callback)
+
+static void playback_stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
+    OpenPlaybackDevice *open_playback_device = (OpenPlaybackDevice*)(userdata);
+    int frame_count = ((int)nbytes) / open_playback_device->bytes_per_frame;
+    open_playback_device->write_callback(open_playback_device, frame_count);
+}
+
+int open_playback_device_create(GenesisAudioDevice *audio_device, GenesisSampleFormat sample_format,
+        double latency, void *userdata, void (*write_callback)(OpenPlaybackDevice *, int),
+        void (*underrun_callback)(OpenPlaybackDevice *),
+        OpenPlaybackDevice **out_open_playback_device)
 {
-    if (!_audio_hardware->ready_flag)
-        panic("audio hardware not ready");
+    *out_open_playback_device = nullptr;
 
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-
-    pa_sample_spec sample_spec;
-    sample_spec.format = to_pulseaudio_sample_format(sample_format);
-    sample_spec.rate = sample_rate;
-    sample_spec.channels = channel_layout->channel_count;
-    pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
-    _stream = pa_stream_new(_audio_hardware->pulse_context, "Genesis", &sample_spec, &channel_map);
-    if (!_stream)
-        panic("unable to create pulseaudio stream");
-
-    pa_stream_set_state_callback(_stream, stream_state_callback, this);
-    pa_stream_set_write_callback(_stream, stream_write_callback, this);
-    pa_stream_set_underflow_callback(_stream, playback_stream_underflow_callback, this);
-
-    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
-    int buffer_length = latency * bytes_per_second;
-
-    _buffer_attr.maxlength = buffer_length;
-    _buffer_attr.tlength = buffer_length;
-    _buffer_attr.prebuf = 0;
-    _buffer_attr.minreq = UINT32_MAX;
-    _buffer_attr.fragsize = UINT32_MAX;
-
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
-}
-
-int OpenPlaybackDevice::start(const char *device_name) {
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-
-    int err = pa_stream_connect_playback(_stream, device_name, &_buffer_attr,
-            PA_STREAM_ADJUST_LATENCY, NULL, NULL);
-    if (err) {
-        return GenesisErrorOpeningAudioHardware;
-        pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
+    OpenPlaybackDevice *open_playback_device = create_zero<OpenPlaybackDevice>();
+    if (!open_playback_device) {
+        open_playback_device_destroy(open_playback_device);
+        return GenesisErrorNoMem;
     }
 
-    while (!_stream_ready)
-        pa_threaded_mainloop_wait(_audio_hardware->main_loop);
+    genesis_audio_device_ref(audio_device);
+    open_playback_device->audio_device = audio_device;
+    open_playback_device->stream_ready = false;
+    open_playback_device->userdata = userdata;
+    open_playback_device->write_callback = write_callback;
+    open_playback_device->underrun_callback = underrun_callback;
 
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
+    AudioHardware *audio_hardware = audio_device->audio_hardware;
 
-    return 0;
-}
-
-OpenPlaybackDevice::~OpenPlaybackDevice() {
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-
-    pa_stream_set_write_callback(_stream, NULL, this);
-    pa_stream_set_state_callback(_stream, NULL, this);
-    pa_stream_set_underflow_callback(_stream, NULL, this);
-    pa_stream_disconnect(_stream);
-    pa_stream_unref(_stream);
-
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
-}
-
-void OpenPlaybackDevice::lock() {
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-}
-
-void OpenPlaybackDevice::unlock() {
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
-}
-
-int OpenPlaybackDevice::writable_size() {
-    return pa_stream_writable_size(_stream);
-}
-
-void OpenPlaybackDevice::begin_write(char **data, int *byte_count) {
-    size_t size_t_byte_count = *byte_count;
-    if (pa_stream_begin_write(_stream, (void**)data, &size_t_byte_count))
-        panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->pulse_context)));
-    *byte_count = size_t_byte_count;
-}
-
-void OpenPlaybackDevice::write(char *data, int byte_count) {
-    if (pa_stream_write(_stream, data, byte_count, NULL, 0, PA_SEEK_RELATIVE))
-        panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(_audio_hardware->pulse_context)));
-}
-
-void OpenPlaybackDevice::clear_buffer() {
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-    pa_operation *op = pa_stream_flush(_stream, NULL, NULL);
-    if (!op)
-        panic("pa_stream_flush failed: %s", pa_strerror(pa_context_errno(_audio_hardware->pulse_context)));
-    pa_operation_unref(op);
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
-}
-
-OpenRecordingDevice::OpenRecordingDevice(AudioHardware *audio_hardware,
-        const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, void (*callback)(void *), void *userdata) :
-    _audio_hardware(audio_hardware),
-    _stream_ready(false),
-    _callback_userdata(userdata),
-    _callback(callback)
-{
-    if (!_audio_hardware->ready_flag)
-        panic("audio hardware not ready");
-
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
 
     pa_sample_spec sample_spec;
     sample_spec.format = to_pulseaudio_sample_format(sample_format);
-    sample_spec.rate = sample_rate;
-    sample_spec.channels = channel_layout->channel_count;
+    sample_spec.rate = audio_device->default_sample_rate;
+    sample_spec.channels = audio_device->channel_layout.channel_count;
+    pa_channel_map channel_map = to_pulseaudio_channel_map(&audio_device->channel_layout);
 
-    pa_channel_map channel_map = to_pulseaudio_channel_map(channel_layout);
+    open_playback_device->stream = pa_stream_new(audio_hardware->pulse_context,
+            "Genesis", &sample_spec, &channel_map);
+    if (!open_playback_device->stream) {
+        pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+        open_playback_device_destroy(open_playback_device);
+        return GenesisErrorNoMem;
+    }
 
-    _stream = pa_stream_new(_audio_hardware->pulse_context, "Genesis", &sample_spec, &channel_map);
-    if (!_stream)
-        panic("unable to create pulseaudio stream");
+    pa_stream_set_state_callback(open_playback_device->stream, playback_stream_state_callback,
+            open_playback_device);
+    pa_stream_set_write_callback(open_playback_device->stream, playback_stream_write_callback,
+            open_playback_device);
+    pa_stream_set_underflow_callback(open_playback_device->stream, playback_stream_underflow_callback,
+            open_playback_device);
 
-    pa_stream_set_state_callback(_stream, static_stream_state_callback, this);
-    pa_stream_set_read_callback(_stream, stream_read_callback, this);
+    open_playback_device->bytes_per_frame = genesis_get_bytes_per_frame(sample_format,
+            audio_device->channel_layout.channel_count);
+    int bytes_per_second = open_playback_device->bytes_per_frame * audio_device->default_sample_rate;
+    int buffer_length = open_playback_device->bytes_per_frame *
+        ceil(latency * bytes_per_second / (double)open_playback_device->bytes_per_frame);
 
-    int bytes_per_second = get_bytes_per_second(sample_format, channel_layout->channel_count, sample_rate);
-    int buffer_length = latency * bytes_per_second;
+    open_playback_device->buffer_attr.maxlength = buffer_length;
+    open_playback_device->buffer_attr.tlength = buffer_length;
+    open_playback_device->buffer_attr.prebuf = 0;
+    open_playback_device->buffer_attr.minreq = UINT32_MAX;
+    open_playback_device->buffer_attr.fragsize = UINT32_MAX;
 
-    _buffer_attr.maxlength = UINT32_MAX;
-    _buffer_attr.tlength = UINT32_MAX;
-    _buffer_attr.prebuf = 0;
-    _buffer_attr.minreq = UINT32_MAX;
-    _buffer_attr.fragsize = buffer_length;
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
-
-}
-
-OpenRecordingDevice::~OpenRecordingDevice() {
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-
-    pa_stream_set_state_callback(_stream, NULL, this);
-    pa_stream_set_read_callback(_stream, NULL, this);
-    pa_stream_disconnect(_stream);
-    pa_stream_unref(_stream);
-
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
-}
-
-int OpenRecordingDevice::start(const char *device_name) {
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
-
-    int err = pa_stream_connect_record(_stream, device_name, &_buffer_attr, PA_STREAM_ADJUST_LATENCY);
-    if (err)
-        panic("unable to connect pulseaudio record stream");
-
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
+    *out_open_playback_device = open_playback_device;
     return 0;
 }
 
-void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
+void open_playback_device_destroy(OpenPlaybackDevice *open_playback_device) {
+    if (open_playback_device) {
+        AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+
+        pa_stream *stream = open_playback_device->stream;
+        if (stream) {
+            pa_threaded_mainloop_lock(audio_hardware->main_loop);
+
+            pa_stream_set_write_callback(stream, nullptr, nullptr);
+            pa_stream_set_state_callback(stream, nullptr, nullptr);
+            pa_stream_set_underflow_callback(stream, nullptr, nullptr);
+            pa_stream_disconnect(stream);
+            pa_stream_unref(stream);
+
+            pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+        }
+
+        genesis_audio_device_unref(open_playback_device->audio_device);
+        destroy(open_playback_device, 1);
+    }
+}
+
+int open_playback_device_start(OpenPlaybackDevice *open_playback_device) {
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+
+    int err = pa_stream_connect_playback(open_playback_device->stream,
+            open_playback_device->audio_device->name, &open_playback_device->buffer_attr,
+            PA_STREAM_ADJUST_LATENCY, nullptr, nullptr);
+    if (err) {
+        pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+        return GenesisErrorOpeningAudioHardware;
+    }
+
+    while (!open_playback_device->stream_ready)
+        pa_threaded_mainloop_wait(audio_hardware->main_loop);
+
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+
+    return 0;
+}
+
+void open_playback_device_lock(OpenPlaybackDevice *open_playback_device) {
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+}
+
+void open_playback_device_unlock(OpenPlaybackDevice *open_playback_device) {
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+}
+
+int open_playback_device_free_count(OpenPlaybackDevice *open_playback_device) {
+    return pa_stream_writable_size(open_playback_device->stream) / open_playback_device->bytes_per_frame;
+}
+
+void open_playback_device_begin_write(OpenPlaybackDevice *open_playback_device, char **data, int *frame_count) {
+    pa_stream *stream = open_playback_device->stream;
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+    size_t byte_count = *frame_count * open_playback_device->bytes_per_frame;
+    if (pa_stream_begin_write(stream, (void**)data, &byte_count))
+        panic("pa_stream_begin_write error: %s", pa_strerror(pa_context_errno(audio_hardware->pulse_context)));
+
+    *frame_count = byte_count / open_playback_device->bytes_per_frame;
+}
+
+void open_playback_device_write(OpenPlaybackDevice *open_playback_device, char *data, int frame_count) {
+    pa_stream *stream = open_playback_device->stream;
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+    size_t byte_count = frame_count * open_playback_device->bytes_per_frame;
+    if (pa_stream_write(stream, data, byte_count, NULL, 0, PA_SEEK_RELATIVE))
+        panic("pa_stream_write error: %s", pa_strerror(pa_context_errno(audio_hardware->pulse_context)));
+}
+
+void open_playback_device_clear_buffer(OpenPlaybackDevice *open_playback_device) {
+    pa_stream *stream = open_playback_device->stream;
+    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+    pa_operation *op = pa_stream_flush(stream, NULL, NULL);
+    if (!op)
+        panic("pa_stream_flush failed: %s", pa_strerror(pa_context_errno(audio_hardware->pulse_context)));
+    pa_operation_unref(op);
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+}
+
+static void recording_stream_state_callback(pa_stream *stream, void *userdata) {
+    OpenRecordingDevice *open_recording_device = (OpenRecordingDevice*)userdata;
     switch (pa_stream_get_state(stream)) {
         case PA_STREAM_UNCONNECTED:
         case PA_STREAM_CREATING:
         case PA_STREAM_TERMINATED:
             break;
         case PA_STREAM_READY:
-            _stream_ready = true;
+            open_recording_device->stream_ready = true;
             break;
         case PA_STREAM_FAILED:
             panic("pulseaudio stream error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
@@ -703,43 +698,153 @@ void OpenRecordingDevice::stream_state_callback(pa_stream *stream) {
     }
 }
 
-void OpenRecordingDevice::peek(const char **data, int *byte_count) {
-    if (_stream_ready) {
-        size_t nbytes;
-        if (pa_stream_peek(_stream, (const void **)data, &nbytes))
-            panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
-        *byte_count = nbytes;
-    } else {
-        *data = nullptr;
-        *byte_count = 0;
+static void recording_stream_read_callback(pa_stream *stream, size_t nbytes, void *userdata) {
+    OpenRecordingDevice *open_recording_device = (OpenRecordingDevice*)userdata;
+    open_recording_device->read_callback(open_recording_device);
+}
+
+int open_recording_device_create(GenesisAudioDevice *audio_device,
+        GenesisSampleFormat sample_format, double latency, void *userdata,
+        void (*read_callback)(OpenRecordingDevice *),
+        OpenRecordingDevice **out_open_recording_device)
+{
+    *out_open_recording_device = nullptr;
+
+    OpenRecordingDevice *open_recording_device = create_zero<OpenRecordingDevice>();
+    if (!open_recording_device) {
+        open_recording_device_destroy(open_recording_device);
+        return GenesisErrorNoMem;
+    }
+
+    genesis_audio_device_ref(audio_device);
+    open_recording_device->audio_device = audio_device;
+    open_recording_device->stream_ready = false;
+    open_recording_device->userdata = userdata;
+    open_recording_device->read_callback = read_callback;
+
+    AudioHardware *audio_hardware = audio_device->audio_hardware;
+
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+
+    pa_sample_spec sample_spec;
+    sample_spec.format = to_pulseaudio_sample_format(sample_format);
+    sample_spec.rate = audio_device->default_sample_rate;
+    sample_spec.channels = audio_device->channel_layout.channel_count;
+
+    pa_channel_map channel_map = to_pulseaudio_channel_map(&audio_device->channel_layout);
+
+    open_recording_device->stream = pa_stream_new(audio_hardware->pulse_context,
+            "Genesis", &sample_spec, &channel_map);
+    if (!open_recording_device) {
+        pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+        open_recording_device_destroy(open_recording_device);
+        return GenesisErrorNoMem;
+    }
+
+    pa_stream *stream = open_recording_device->stream;
+
+    pa_stream_set_state_callback(stream, recording_stream_state_callback, open_recording_device);
+    pa_stream_set_read_callback(stream, recording_stream_read_callback, open_recording_device);
+
+    open_recording_device->bytes_per_frame = genesis_get_bytes_per_frame(sample_format,
+            audio_device->channel_layout.channel_count);
+    int bytes_per_second = open_recording_device->bytes_per_frame * audio_device->default_sample_rate;
+    int buffer_length = open_recording_device->bytes_per_frame *
+        ceil(latency * bytes_per_second / (double)open_recording_device->bytes_per_frame);
+
+    open_recording_device->buffer_attr.maxlength = UINT32_MAX;
+    open_recording_device->buffer_attr.tlength = UINT32_MAX;
+    open_recording_device->buffer_attr.prebuf = 0;
+    open_recording_device->buffer_attr.minreq = UINT32_MAX;
+    open_recording_device->buffer_attr.fragsize = buffer_length;
+
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+
+    *out_open_recording_device = open_recording_device;
+    return 0;
+}
+
+void open_recording_device_destroy(OpenRecordingDevice *open_recording_device) {
+    if (open_recording_device) {
+        pa_stream *stream = open_recording_device->stream;
+        if (stream) {
+            AudioHardware *audio_hardware = open_recording_device->audio_device->audio_hardware;
+            pa_threaded_mainloop_lock(audio_hardware->main_loop);
+
+            pa_stream_set_state_callback(stream, nullptr, nullptr);
+            pa_stream_set_read_callback(stream, nullptr, nullptr);
+            pa_stream_disconnect(stream);
+            pa_stream_unref(stream);
+
+            pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+        }
+
+        genesis_audio_device_unref(open_recording_device->audio_device);
+        destroy(open_recording_device, 1);
     }
 }
 
-void OpenRecordingDevice::drop() {
-    if (pa_stream_drop(_stream))
-        panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+int open_recording_device_start(OpenRecordingDevice *open_recording_device) {
+    AudioHardware *audio_hardware = open_recording_device->audio_device->audio_hardware;
+
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
+
+    int err = pa_stream_connect_record(open_recording_device->stream,
+            open_recording_device->audio_device->name,
+            &open_recording_device->buffer_attr, PA_STREAM_ADJUST_LATENCY);
+    if (err) {
+        pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+        return GenesisErrorOpeningAudioHardware;
+    }
+
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
+    return 0;
 }
 
-void OpenRecordingDevice::clear_buffer() {
-    if (!_stream_ready)
+void open_recording_device_peek(OpenRecordingDevice *open_recording_device,
+        const char **data, int *frame_count)
+{
+    pa_stream *stream = open_recording_device->stream;
+    if (open_recording_device->stream_ready) {
+        size_t nbytes;
+        if (pa_stream_peek(stream, (const void **)data, &nbytes))
+            panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
+        *frame_count = ((int)nbytes) / open_recording_device->bytes_per_frame;
+    } else {
+        *data = nullptr;
+        *frame_count = 0;
+    }
+}
+
+void open_recording_device_drop(OpenRecordingDevice *open_recording_device) {
+    pa_stream *stream = open_recording_device->stream;
+    if (pa_stream_drop(stream))
+        panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
+}
+
+void open_recording_device_clear_buffer(OpenRecordingDevice *open_recording_device) {
+    if (!open_recording_device->stream_ready)
         return;
 
-    pa_threaded_mainloop_lock(_audio_hardware->main_loop);
+    pa_stream *stream = open_recording_device->stream;
+    AudioHardware *audio_hardware = open_recording_device->audio_device->audio_hardware;
+
+    pa_threaded_mainloop_lock(audio_hardware->main_loop);
 
     for (;;) {
         const char *data;
         size_t nbytes;
-        if (pa_stream_peek(_stream, (const void **)&data, &nbytes))
-            panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+        if (pa_stream_peek(stream, (const void **)&data, &nbytes))
+            panic("pa_stream_peek error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
 
         if (nbytes == 0)
             break;
 
-        if (pa_stream_drop(_stream))
-            panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(_stream))));
+        if (pa_stream_drop(stream))
+            panic("pa_stream_drop error: %s", pa_strerror(pa_context_errno(pa_stream_get_context(stream))));
     }
 
-    pa_threaded_mainloop_unlock(_audio_hardware->main_loop);
+    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 }
 
 void genesis_audio_device_unref(struct GenesisAudioDevice *device) {

@@ -394,35 +394,34 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
 }
 
 static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playback_node_context,
-        OpenPlaybackDevice *playback_device, int requested_byte_count)
+        OpenPlaybackDevice *open_playback_device, int requested_frame_count)
 {
     GenesisPort *audio_in_port = genesis_node_port(node, 0);
 
     int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
     int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
-    int fill_count = bytes_per_frame * input_frame_count;
     bool need_more_data = true;
 
     char *buffer;
     for (;;) {
-        int byte_count = requested_byte_count;
+        int frame_count = requested_frame_count;
 
-        if (byte_count > fill_count) {
-            byte_count = fill_count;
-            requested_byte_count = byte_count;
-            if (byte_count <= 0)
+        if (frame_count > input_frame_count) {
+            frame_count = input_frame_count;
+            requested_frame_count = frame_count;
+            if (frame_count <= 0)
                 break;
         }
 
         need_more_data = false;
-        playback_device->begin_write(&buffer, &byte_count);
-        memcpy(buffer, genesis_audio_in_port_read_ptr(audio_in_port), byte_count);
-        playback_device->write(buffer, byte_count);
-        genesis_audio_in_port_advance_read_ptr(audio_in_port, byte_count / bytes_per_frame);
+        open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
+        memcpy(buffer, genesis_audio_in_port_read_ptr(audio_in_port), frame_count * bytes_per_frame);
+        open_playback_device_write(open_playback_device, buffer, frame_count);
+        genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count);
 
-        requested_byte_count -= byte_count;
-        fill_count -= byte_count;
-        if (requested_byte_count <= 0)
+        requested_frame_count -= frame_count;
+        input_frame_count -= frame_count;
+        if (requested_frame_count <= 0)
             break;
     }
     if (need_more_data)
@@ -432,12 +431,15 @@ static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playbac
 static void playback_node_run(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
-    int writable_size = playback_device->writable_size();
-    if (writable_size <= 0)
+    int output_frame_count = open_playback_device_free_count(playback_device);
+    if (output_frame_count <= 0)
         return;
-    playback_device->lock();
-    fill_playback_buffer(node, playback_node_context, playback_device, writable_size);
-    playback_device->unlock();
+
+    open_playback_device_lock(playback_device);
+
+    fill_playback_buffer(node, playback_node_context, playback_device, output_frame_count);
+
+    open_playback_device_unlock(playback_device);
 }
 
 static void playback_node_destroy(struct GenesisNode *node) {
@@ -451,39 +453,34 @@ static void playback_node_destroy(struct GenesisNode *node) {
 }
 
 static void fill_playback_device_with_silence(OpenPlaybackDevice *playback_device) {
-    int requested_byte_count = playback_device->writable_size();
-    while (requested_byte_count > 0) {
-        int byte_count = requested_byte_count;
+    int requested_frame_count = open_playback_device_free_count(playback_device);
+    while (requested_frame_count > 0) {
+        int frame_count = requested_frame_count;
 
         char *buffer;
-        playback_device->begin_write(&buffer, &byte_count);
-        memset(buffer, 0, byte_count);
-        playback_device->write(buffer, byte_count);
+        open_playback_device_begin_write(playback_device, &buffer, &frame_count);
+        memset(buffer, 0, frame_count * playback_device->bytes_per_frame);
+        open_playback_device_write(playback_device, buffer, frame_count);
 
-        requested_byte_count -= byte_count;
+        requested_frame_count -= frame_count;
     }
 }
 
-static void playback_node_callback(int requested_byte_count, void *userdata) {
-    GenesisNode *node = (GenesisNode *)userdata;
+static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int requested_frame_count) {
+    GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
     GenesisContext *context = playback_node_context->context;
 
     if (!context->pipeline_running) {
-        fill_playback_device_with_silence(playback_device);
+        fill_playback_device_with_silence(open_playback_device);
         return;
     }
 
-    fill_playback_buffer(node, playback_node_context, playback_device, requested_byte_count);
+    fill_playback_buffer(node, playback_node_context, open_playback_device, requested_frame_count);
 }
 
-static void playback_node_underrun_callback(void *userdata) {
-    GenesisNode *node = (GenesisNode *)userdata;
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    OpenPlaybackDevice *playback_device = playback_node_context->playback_device;
-
-    fill_playback_device_with_silence(playback_device);
+static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_device) {
+    fill_playback_device_with_silence(open_playback_device);
 }
 
 static int playback_node_create(struct GenesisNode *node) {
@@ -499,18 +496,15 @@ static int playback_node_create(struct GenesisNode *node) {
 
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
-    playback_node_context->playback_device = create_zero<OpenPlaybackDevice>(
-            context->audio_hardware, &device->channel_layout,
-            GenesisSampleFormatFloat, context->latency, device->default_sample_rate,
-            playback_node_callback, node);
-    if (!playback_node_context->playback_device) {
+    int err = open_playback_device_create(device, GenesisSampleFormatFloat,
+            context->latency, node, playback_node_callback, playback_node_underrun_callback,
+            &playback_node_context->playback_device);
+    if (err) {
         playback_node_destroy(node);
-        return GenesisErrorNoMem;
+        return err;
     }
 
-    playback_node_context->playback_device->set_underrun_callback(playback_node_underrun_callback);
-
-    int err = playback_node_context->playback_device->start(device->name);
+    err = open_playback_device_start(playback_node_context->playback_device);
     if (err) {
         playback_node_destroy(node);
         return err;
@@ -521,7 +515,7 @@ static int playback_node_create(struct GenesisNode *node) {
 
 static void playback_node_seek(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    playback_node_context->playback_device->clear_buffer();
+    open_playback_device_clear_buffer(playback_node_context->playback_device);
 }
 
 static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
@@ -529,23 +523,21 @@ static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *n
     genesis_audio_device_unref(audio_device);
 }
 
-static void recording_node_callback(void *userdata) {
-    GenesisNode *node = (GenesisNode *)userdata;
+static void recording_node_callback(OpenRecordingDevice *open_recording_device) {
+    GenesisNode *node = (GenesisNode *)open_recording_device->userdata;
     GenesisContext *context = node->descriptor->context;
-    RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
-    OpenRecordingDevice *device = recording_node_context->recording_device;
 
     if (!context->pipeline_running) {
         for (;;) {
             const char *in_buf;
-            int byte_count;
+            int frame_count;
 
-            device->peek(&in_buf, &byte_count);
+            open_recording_device_peek(open_recording_device, &in_buf, &frame_count);
 
-            if (byte_count <= 0)
+            if (frame_count <= 0)
                 break;
 
-            device->drop();
+            open_recording_device_drop(open_recording_device);
         }
 
         return;
@@ -556,28 +548,29 @@ static void recording_node_callback(void *userdata) {
 
     for (;;) {
         const char *in_buf;
-        int byte_count;
+        int frame_count;
 
-        device->peek(&in_buf, &byte_count);
+        open_recording_device_peek(open_recording_device, &in_buf, &frame_count);
 
-        if (byte_count <= 0)
+        if (frame_count <= 0)
             break;
 
-        int free_count = bytes_per_frame * genesis_audio_out_port_free_count(audio_out_port);
-        int write_count = min(byte_count, free_count);
-        if (write_count > 0) {
+        int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
+        int write_frame_count = min(frame_count, output_frame_count);
+
+        if (write_frame_count > 0) {
             float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
             if (in_buf) {
-                memcpy(out_buf, in_buf, write_count);
+                memcpy(out_buf, in_buf, write_frame_count * bytes_per_frame);
             } else {
                 // there's a hole. fill it with silence
-                memset(out_buf, 0, write_count);
+                memset(out_buf, 0, write_frame_count * bytes_per_frame);
             }
 
-            genesis_audio_out_port_advance_write_ptr(audio_out_port, write_count / bytes_per_frame);
+            genesis_audio_out_port_advance_write_ptr(audio_out_port, write_frame_count);
         }
 
-        device->drop();
+        open_recording_device_drop(open_recording_device);
     }
 }
 
@@ -587,7 +580,7 @@ static void recording_node_run(struct GenesisNode *node) {
 
 static void recording_node_seek(struct GenesisNode *node) {
     RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
-    recording_node_context->recording_device->clear_buffer();
+    open_recording_device_clear_buffer(recording_node_context->recording_device);
 }
 
 static void recording_node_destroy(struct GenesisNode *node) {
@@ -606,16 +599,14 @@ static int recording_node_create(struct GenesisNode *node) {
 
     GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
 
-    recording_node_context->recording_device = create_zero<OpenRecordingDevice>(
-            context->audio_hardware, &device->channel_layout,
-            GenesisSampleFormatFloat, context->latency, device->default_sample_rate,
-            recording_node_callback, node);
-    if (!recording_node_context->recording_device) {
+    int err = open_recording_device_create(device, GenesisSampleFormatFloat,
+            context->latency, node, recording_node_callback, &recording_node_context->recording_device);
+    if (err) {
         recording_node_destroy(node);
-        return GenesisErrorNoMem;
+        return err;
     }
 
-    int err = recording_node_context->recording_device->start(device->name);
+    err = open_recording_device_start(recording_node_context->recording_device);
     if (err) {
         recording_node_destroy(node);
         return err;
@@ -627,7 +618,7 @@ static int recording_node_create(struct GenesisNode *node) {
 int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio_device,
         struct GenesisNodeDescriptor **out)
 {
-    GenesisContext *context = audio_device->context;
+    GenesisContext *context = audio_device->audio_hardware->genesis_context;
 
     *out = nullptr;
 

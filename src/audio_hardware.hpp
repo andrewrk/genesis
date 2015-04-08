@@ -10,8 +10,10 @@
 #include <atomic>
 using std::atomic_bool;
 
+struct AudioHardware;
+
 struct GenesisAudioDevice {
-    GenesisContext *context;
+    AudioHardware *audio_hardware;
     char *name;
     char *description;
     GenesisChannelLayout channel_layout;
@@ -22,9 +24,6 @@ struct GenesisAudioDevice {
     int ref_count;
 };
 
-void audio_device_unref(struct GenesisAudioDevice *device);
-void audio_device_ref(struct GenesisAudioDevice *device);
-
 struct AudioDevicesInfo {
     List<GenesisAudioDevice *> devices;
     // can be -1 when default device is unknown
@@ -32,94 +31,72 @@ struct AudioDevicesInfo {
     int default_input_index;
 };
 
-struct AudioHardware;
 typedef void PaStream;
-class OpenPlaybackDevice {
-public:
-    OpenPlaybackDevice(AudioHardware *audio_hardware,
-            const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-            int sample_rate, void (*callback)(int byte_count, void *), void *userdata);
-    ~OpenPlaybackDevice();
 
-    int start(const char *device_name);
+struct OpenPlaybackDevice {
+    GenesisAudioDevice *audio_device;
+    pa_stream *stream;
 
-    int writable_size();
-    void begin_write(char **data, int *byte_count);
-    void write(char *data, int byte_count);
-    void clear_buffer();
+    void *userdata;
+    void (*underrun_callback)(OpenPlaybackDevice *);
+    void (*write_callback)(OpenPlaybackDevice *, int frame_count);
 
-    void lock();
-    void unlock();
+    atomic_bool stream_ready;
+    pa_buffer_attr buffer_attr;
 
-    AudioHardware *_audio_hardware;
-    pa_stream *_stream;
-
-    void (*_underrun_callback)(void *);
-    void set_underrun_callback(void (*fn)(void *)) {
-        _underrun_callback = fn;
-    }
-
-
-    atomic_bool _stream_ready;
-    void *_callback_userdata;
-    void (*_callback)(int byte_count, void *);
-    pa_buffer_attr _buffer_attr;
-
-    void stream_state_callback(pa_stream *stream);
-
-    static void stream_state_callback(pa_stream *stream, void *userdata) {
-        return static_cast<OpenPlaybackDevice*>(userdata)->stream_state_callback(stream);
-    }
-
-    static void stream_write_callback(pa_stream *stream, size_t nbytes, void *userdata) {
-        OpenPlaybackDevice *device = static_cast<OpenPlaybackDevice*>(userdata);
-        device->_callback((int)nbytes, device->_callback_userdata);
-    }
-
-    OpenPlaybackDevice(const OpenPlaybackDevice &copy) = delete;
-    OpenPlaybackDevice &operator=(const OpenPlaybackDevice &copy) = delete;
+    int bytes_per_frame;
 };
 
-class OpenRecordingDevice {
-public:
-    OpenRecordingDevice(AudioHardware *audio_hardware,
-        const GenesisChannelLayout *channel_layout, GenesisSampleFormat sample_format, double latency,
-        int sample_rate, void (*callback)(void *), void *userdata);
-    ~OpenRecordingDevice();
+int open_playback_device_create(GenesisAudioDevice *audio_device, GenesisSampleFormat sample_format,
+        double latency, void *userdata, void (*write_callback)(OpenPlaybackDevice *, int),
+        void (*underrun_callback)(OpenPlaybackDevice *),
+        OpenPlaybackDevice **out_open_playback_device);
+void open_playback_device_destroy(OpenPlaybackDevice *open_playback_device);
 
-    int start(const char *device_name);
+int open_playback_device_start(OpenPlaybackDevice *open_playback_device);
 
-    void peek(const char **data, int *byte_count);
-    void drop();
-    void clear_buffer();
+void open_playback_device_lock(OpenPlaybackDevice *open_playback_device);
+void open_playback_device_unlock(OpenPlaybackDevice *open_playback_device);
 
-private:
-    AudioHardware *_audio_hardware;
-    pa_stream *_stream;
-    atomic_bool _stream_ready;
-    void *_callback_userdata;
-    void (*_callback)(void *);
-    pa_buffer_attr _buffer_attr;
+// number of frames available to write
+int open_playback_device_free_count(OpenPlaybackDevice *open_playback_device);
+void open_playback_device_begin_write(OpenPlaybackDevice *open_playback_device, char **data, int *frame_count);
+void open_playback_device_write(OpenPlaybackDevice *open_playback_device, char *data, int frame_count);
 
-    void stream_state_callback(pa_stream *stream);
+void open_playback_device_clear_buffer(OpenPlaybackDevice *open_playback_device);
 
-    static void static_stream_state_callback(pa_stream *stream, void *userdata) {
-        return static_cast<OpenRecordingDevice*>(userdata)->stream_state_callback(stream);
-    }
+struct OpenRecordingDevice {
+    GenesisAudioDevice *audio_device;
+    pa_stream *stream;
+    atomic_bool stream_ready;
 
-    static void stream_read_callback(pa_stream *stream, size_t nbytes, void *userdata) {
-        OpenRecordingDevice *device = static_cast<OpenRecordingDevice*>(userdata);
-        device->_callback(device->_callback_userdata);
-    }
+    void *userdata;
+    void (*read_callback)(OpenRecordingDevice *);
 
-    OpenRecordingDevice(const OpenRecordingDevice &copy) = delete;
-    OpenRecordingDevice &operator=(const OpenRecordingDevice &copy) = delete;
+    pa_buffer_attr buffer_attr;
+
+    int bytes_per_frame;
 };
+
+int open_recording_device_create(GenesisAudioDevice *audio_device,
+        GenesisSampleFormat sample_format, double latency, void *userdata,
+        void (*read_callback)(OpenRecordingDevice *),
+        OpenRecordingDevice **out_open_recording_device);
+void open_recording_device_destroy(OpenRecordingDevice *open_recording_device);
+
+int open_recording_device_start(OpenRecordingDevice *open_recording_device);
+void open_recording_device_peek(OpenRecordingDevice *open_recording_device,
+        const char **data, int *frame_count);
+void open_recording_device_drop(OpenRecordingDevice *open_recording_device);
+
+void open_recording_device_clear_buffer(OpenRecordingDevice *open_recording_device);
 
 struct AudioHardware {
     pa_context *pulse_context;
     GenesisContext *genesis_context;
     atomic_bool device_scan_queued;
+
+    void *userdata;
     void (*on_devices_change)(AudioHardware *);
     void (*on_events_signal)(AudioHardware *);
 
@@ -143,8 +120,6 @@ struct AudioHardware {
 
     pa_threaded_mainloop *main_loop;
     pa_proplist *props;
-
-    void *userdata;
 };
 
 int create_audio_hardware(GenesisContext *context, void *userdata,
