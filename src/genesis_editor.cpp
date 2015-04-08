@@ -20,12 +20,12 @@ GenesisEditor::GenesisEditor() :
     _gui_window->set_on_close_event(static_on_close_event);
 }
 
-GenesisEditor::~GenesisEditor() {}
+GenesisEditor::~GenesisEditor() {
+    genesis_destroy_context(_genesis_context);
+}
 
 void GenesisEditor::on_close_event(GuiWindow *window) {
     _gui->destroy_window(_gui_window);
-
-    genesis_destroy_context(_genesis_context);
 }
 
 void GenesisEditor::exec() {

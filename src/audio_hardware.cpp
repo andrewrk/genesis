@@ -96,6 +96,8 @@ void destroy_audio_hardware(struct AudioHardware *audio_hardware) {
 
         free(audio_hardware->default_sink_name);
         free(audio_hardware->default_source_name);
+
+        destroy(audio_hardware, 1);
     }
 }
 

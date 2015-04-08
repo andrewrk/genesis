@@ -138,6 +138,9 @@ void genesis_destroy_context(struct GenesisContext *context) {
         if (context->midi_hardware)
             destroy_midi_hardware(context->midi_hardware);
 
+        if (context->audio_hardware)
+            destroy_audio_hardware(context->audio_hardware);
+
         while (context->nodes.length()) {
             genesis_node_destroy(context->nodes.at(context->nodes.length() - 1));
         }
