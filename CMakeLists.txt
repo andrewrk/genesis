@@ -62,6 +62,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/vertex_array.cpp"
     "${CMAKE_SOURCE_DIR}/src/gui_window.cpp"
     "${CMAKE_SOURCE_DIR}/src/select_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/random.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")

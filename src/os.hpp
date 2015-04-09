@@ -9,4 +9,7 @@ extern ByteBuffer os_home_dir;
 
 void os_init();
 
+
+uint32_t random_uint32(void);
+
 #endif
