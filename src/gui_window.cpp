@@ -18,34 +18,13 @@ static void default_on_close_event(GuiWindow *) {
 
 static void run(void *arg) {
     GuiWindow *gui_window = (GuiWindow *)arg;
-    GLFWwindow *window = gui_window->_window;
-
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-
-    glClearColor(0.3, 0.3, 0.3, 1.0);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    // Vertex Array Objects can't be shared between contexts. This makes managing
-    // these VAOs very difficult. So we simply create and bind exactly one vertex
-    // array per context and use glVertexAttribPointer etc every frame.
-    GLuint global_vertex_array;
-    glGenVertexArrays(1, &global_vertex_array);
-    glBindVertexArray(global_vertex_array);
-
-    assert_no_gl_error();
+    gui_window->setup_context();
 
     while (gui_window->running) {
         gui_window->draw();
-        glfwSwapBuffers(window);
     }
 
-    glDeleteVertexArrays(1, &global_vertex_array);
-    assert_no_gl_error();
+    gui_window->teardown_context();
 }
 
 GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
@@ -69,53 +48,86 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
         glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
         glfwWindowHint(GLFW_DECORATED, GL_TRUE);
         glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
-        _window = glfwCreateWindow(1366, 768, "genesis", NULL, _gui->_utility_window->_window);
+        window = glfwCreateWindow(1366, 768, "genesis", NULL, _gui->_utility_window->window);
     } else {
         glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
         glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
         glfwWindowHint(GLFW_DECORATED, GL_FALSE);
         glfwWindowHint(GLFW_FOCUSED, GL_FALSE);
-        _window = glfwCreateWindow(100, 100, "genesis", NULL, NULL);
+        window = glfwCreateWindow(100, 100, "genesis", NULL, NULL);
         is_visible = false;
     }
-    if (!_window)
+    if (!window)
         panic("unable to create window");
-    glfwSetWindowUserPointer(_window, this);
+    glfwSetWindowUserPointer(window, this);
 
-    glfwSetWindowIconifyCallback(_window, static_window_iconify_callback);
-    glfwSetFramebufferSizeCallback(_window, static_framebuffer_size_callback);
-    glfwSetWindowSizeCallback(_window, static_window_size_callback);
-    glfwSetKeyCallback(_window, static_key_callback);
-    glfwSetCharModsCallback(_window, static_charmods_callback);
-    glfwSetWindowCloseCallback(_window, static_window_close_callback);
-    glfwSetCursorPosCallback(_window, static_cursor_pos_callback);
-    glfwSetMouseButtonCallback(_window, static_mouse_button_callback);
-    glfwSetScrollCallback(_window, static_scroll_callback);
-
-    // we want to know the framebuffer size right now
-    int framebuffer_width, framebuffer_height;
-    glfwGetFramebufferSize(_window, &framebuffer_width, &framebuffer_height);
-    framebuffer_size_callback(framebuffer_width, framebuffer_height);
-
-    // we want to know the window size right now
-    int window_size_width, window_size_height;
-    glfwGetWindowSize(_window, &window_size_width, &window_size_height);
-    window_size_callback(window_size_width, window_size_height);
-
-    if (thread.start(run, this))
-        panic("unable to start thread");
+    if (is_normal_window) {
+        if (thread.start(run, this))
+            panic("unable to start thread");
+    } else {
+        setup_context();
+    }
 }
 
 GuiWindow::~GuiWindow() {
-    running = false;
-    thread.join();
+    if (_gui->_utility_window == this) {
+        teardown_context();
+    } else {
+        running = false;
+        thread.join();
+    }
 
     while (_widget_list.length()) {
         Widget *widget = _widget_list.at(_widget_list.length() - 1);
         destroy(widget, 1);
     }
 
-    glfwDestroyWindow(_window);
+    glfwDestroyWindow(window);
+}
+
+void GuiWindow::setup_context() {
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
+
+    glClearColor(0.3, 0.3, 0.3, 1.0);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // Vertex Array Objects can't be shared between contexts. This makes managing
+    // these VAOs very difficult. So we simply create and bind exactly one vertex
+    // array per context and use glVertexAttribPointer etc every frame.
+    glGenVertexArrays(1, &vertex_array_object);
+    glBindVertexArray(vertex_array_object);
+
+    assert_no_gl_error();
+
+    glfwSetWindowIconifyCallback(window, static_window_iconify_callback);
+    glfwSetFramebufferSizeCallback(window, static_framebuffer_size_callback);
+    glfwSetWindowSizeCallback(window, static_window_size_callback);
+    glfwSetKeyCallback(window, static_key_callback);
+    glfwSetCharModsCallback(window, static_charmods_callback);
+    glfwSetWindowCloseCallback(window, static_window_close_callback);
+    glfwSetCursorPosCallback(window, static_cursor_pos_callback);
+    glfwSetMouseButtonCallback(window, static_mouse_button_callback);
+    glfwSetScrollCallback(window, static_scroll_callback);
+
+    // we want to know the framebuffer size right now
+    int framebuffer_width, framebuffer_height;
+    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+    framebuffer_size_callback(framebuffer_width, framebuffer_height);
+
+    // we want to know the window size right now
+    int window_size_width, window_size_height;
+    glfwGetWindowSize(window, &window_size_width, &window_size_height);
+    window_size_callback(window_size_width, window_size_height);
+}
+
+void GuiWindow::teardown_context() {
+    glDeleteVertexArrays(1, &vertex_array_object);
+    assert_no_gl_error();
 }
 
 void GuiWindow::window_iconify_callback(int iconified) {
@@ -130,6 +142,7 @@ void GuiWindow::draw() {
         if (widget->is_visible)
             widget->draw(_projection);
     }
+    glfwSwapBuffers(window);
 }
 
 void GuiWindow::layout_main_widget() {
@@ -201,14 +214,14 @@ void GuiWindow::charmods_callback(unsigned int codepoint, int mods) {
 }
 
 int GuiWindow::get_modifiers() {
-    int mod_shift  = (glfwGetKey(_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
-                      glfwGetKey(_window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) ? GLFW_MOD_SHIFT : 0;
-    int mod_alt    = (glfwGetKey(_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
-                      glfwGetKey(_window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ? GLFW_MOD_ALT : 0;
-    int mod_control= (glfwGetKey(_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
-                      glfwGetKey(_window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) ? GLFW_MOD_CONTROL : 0;
-    int mod_super  = (glfwGetKey(_window, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS ||
-                      glfwGetKey(_window, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS) ? GLFW_MOD_SUPER : 0;
+    int mod_shift  = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+                      glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) ? GLFW_MOD_SHIFT : 0;
+    int mod_alt    = (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
+                      glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ? GLFW_MOD_ALT : 0;
+    int mod_control= (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+                      glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) ? GLFW_MOD_CONTROL : 0;
+    int mod_super  = (glfwGetKey(window, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS ||
+                      glfwGetKey(window, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS) ? GLFW_MOD_SUPER : 0;
     return mod_shift|mod_control|mod_alt|mod_super;
 }
 
@@ -216,9 +229,9 @@ void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
 
-    bool left = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
-    bool middle = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
-    bool right = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+    bool left = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
+    bool middle = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
+    bool right = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
     MouseEvent mouse_event = {
         x,
         y,
@@ -247,12 +260,12 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
             return;
     }
     double xpos, ypos;
-    glfwGetCursorPos(_window, &xpos, &ypos);
+    glfwGetCursorPos(window, &xpos, &ypos);
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
-    bool left = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
-    bool middle = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
-    bool right = (glfwGetMouseButton(_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+    bool left = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
+    bool middle = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
+    bool right = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
     MouseAction mouse_action = (action == GLFW_PRESS) ? MouseActionDown : MouseActionUp;
     bool is_double_click = false;
@@ -281,7 +294,7 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
         return;
 
     double xpos, ypos;
-    glfwGetCursorPos(_window, &xpos, &ypos);
+    glfwGetCursorPos(window, &xpos, &ypos);
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
     MouseWheelEvent wheel_event = {
@@ -441,19 +454,19 @@ void GuiWindow::draw_image(const SpritesheetImage *img, int x, int y, int w, int
 }
 
 void GuiWindow::set_cursor_beam() {
-    glfwSetCursor(_window, _gui->_cursor_ibeam);
+    glfwSetCursor(window, _gui->_cursor_ibeam);
 }
 
 void GuiWindow::set_cursor_default() {
-    glfwSetCursor(_window, _gui->_cursor_default);
+    glfwSetCursor(window, _gui->_cursor_default);
 }
 
 void GuiWindow::set_clipboard_string(const String &str) {
-    glfwSetClipboardString(_window, str.encode().raw());
+    glfwSetClipboardString(window, str.encode().raw());
 }
 
 String GuiWindow::get_clipboard_string() const {
-    const char* clip_text = glfwGetClipboardString(_window);
+    const char* clip_text = glfwGetClipboardString(window);
     if (!clip_text)
         return String();
 
@@ -465,6 +478,6 @@ String GuiWindow::get_clipboard_string() const {
 }
 
 bool GuiWindow::clipboard_has_string() const {
-    const char* clip_text = glfwGetClipboardString(_window);
+    const char* clip_text = glfwGetClipboardString(window);
     return (clip_text != nullptr);
 }

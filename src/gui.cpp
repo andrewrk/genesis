@@ -72,16 +72,11 @@ Gui::~Gui() {
     FT_Done_FreeType(_ft_library);
 }
 
-static void wakeup_glfw(void *userdata) {
-    glfwPostEmptyEvent();
-}
-
 void Gui::exec() {
-    genesis_set_event_callback(_genesis_context, wakeup_glfw, nullptr);
     while (_running) {
         genesis_flush_events(_genesis_context);
-        // we call glfwPostEmptyEvent() from the genesis_set_event_callback callback
-        glfwWaitEvents();
+        glfwPollEvents();
+        _utility_window->draw();
     }
 }
 
