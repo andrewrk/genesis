@@ -118,7 +118,3 @@ void Gui::destroy_window(GuiWindow *window) {
         _running = false;
 }
 
-GuiWindow *Gui::get_bound_window() {
-    GLFWwindow *window = glfwGetCurrentContext();
-    return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window));
-}

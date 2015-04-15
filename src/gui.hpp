@@ -40,8 +40,6 @@ public:
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
 
 
-    GuiWindow *get_bound_window();
-
 
     bool _running;
     List<GuiWindow*> _window_list;
