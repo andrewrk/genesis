@@ -11,7 +11,6 @@
 #include "spritesheet.hpp"
 #include "gui_window.hpp"
 #include "static_geometry.hpp"
-#include "vertex_array.hpp"
 #include "glfw.hpp"
 
 uint32_t hash_int(const int &x);
@@ -38,7 +37,6 @@ public:
 
     FontSize *get_font_size(int font_size);
 
-    void fill_rect(GuiWindow *window, const glm::vec4 &color, const glm::mat4 &mvp);
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
 
 
@@ -47,7 +45,6 @@ public:
 
     bool _running;
     List<GuiWindow*> _window_list;
-    List<VertexArray*> _vertex_array_list;
     GuiWindow *_focus_window;
 
     GlobalGlfwContext _global_glfw_context;
@@ -76,14 +73,7 @@ public:
     const SpritesheetImage *_img_entry_file;
     const SpritesheetImage *_img_null;
 
-    VertexArray _primitive_vertex_array;
     GenesisContext *_genesis_context;
-
-    void init_primitive_vertex_array();
-
-    static void init_primitive_vertex_array(void *userdata) {
-        return static_cast<Gui*>(userdata)->init_primitive_vertex_array();
-    }
 
     Gui(const Gui &copy) = delete;
     Gui &operator=(const Gui &copy) = delete;

@@ -27,6 +27,14 @@ void genesis_wait_events(struct GenesisContext *context);
 // makes genesis_wait_events stop blocking
 void genesis_wakeup(struct GenesisContext *context);
 
+// optionally set a callback to be called when an event becomes ready
+// it might be called spuriously, and it will be called from an
+// internal genesis thread. You would typically use this to wake up another
+// blocking call in order to call genesis_flush_events and then go back to
+// blocking.
+void genesis_set_event_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata);
+
 
 double genesis_frames_to_whole_notes(struct GenesisContext *context, int frames, int frame_rate);
 int genesis_whole_notes_to_frames(struct GenesisContext *context, double whole_notes, int frame_rate);

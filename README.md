@@ -98,7 +98,14 @@ make
 
 ## Roadmap
 
- 0. user interface for making music
+ 0. multi-window, one thread and opengl context per window
+ 0. vertical layout in each window with a total of 4 widgets
+ 0. menu widget
+ 0. tree view widget
+ 0. dockable pane widget
+ 0. track editor widget
+ 0. piano roll widget
+ 0. mixer widget
 
 ## Grand Plans
 

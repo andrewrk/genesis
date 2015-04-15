@@ -2,9 +2,7 @@
 #include "gui.hpp"
 #include "util.hpp"
 #include "widget.hpp"
-#include "text_widget.hpp"
-#include "find_file_widget.hpp"
-#include "select_widget.hpp"
+#include "debug.hpp"
 
 static bool default_on_key_event(GuiWindow *, const KeyEvent *event) {
     return false;
@@ -18,6 +16,38 @@ static void default_on_close_event(GuiWindow *) {
     fprintf(stderr, "no window close handler attached\n");
 }
 
+static void run(void *arg) {
+    GuiWindow *gui_window = (GuiWindow *)arg;
+    GLFWwindow *window = gui_window->_window;
+
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
+
+    glClearColor(0.3, 0.3, 0.3, 1.0);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // Vertex Array Objects can't be shared between contexts. This makes managing
+    // these VAOs very difficult. So we simply create and bind exactly one vertex
+    // array per context and use glVertexAttribPointer etc every frame.
+    GLuint global_vertex_array;
+    glGenVertexArrays(1, &global_vertex_array);
+    glBindVertexArray(global_vertex_array);
+
+    assert_no_gl_error();
+
+    while (gui_window->running) {
+        gui_window->draw();
+        glfwSwapBuffers(window);
+    }
+
+    glDeleteVertexArrays(1, &global_vertex_array);
+    assert_no_gl_error();
+}
+
 GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _userdata(nullptr),
     _gui(gui),
@@ -27,10 +57,12 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _on_text_event(default_on_text_event),
     _on_close_event(default_on_close_event),
     _is_iconified(false),
-    _is_visible(true),
+    is_visible(true),
     _last_click_time(glfwGetTime()),
     _last_click_button(MouseButtonLeft),
-    _double_click_timeout(0.3)
+    _double_click_timeout(0.3),
+    running(true),
+    main_widget(nullptr)
 {
     if (is_normal_window) {
         glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
@@ -44,22 +76,11 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
         glfwWindowHint(GLFW_DECORATED, GL_FALSE);
         glfwWindowHint(GLFW_FOCUSED, GL_FALSE);
         _window = glfwCreateWindow(100, 100, "genesis", NULL, NULL);
-        _is_visible = false;
+        is_visible = false;
     }
     if (!_window)
         panic("unable to create window");
     glfwSetWindowUserPointer(_window, this);
-
-    bind();
-    // utility window is the only one that has vsync on, and we draw it last
-    glfwSwapInterval(is_normal_window ? 0 : 1);
-
-    glClearColor(0.3, 0.3, 0.3, 1.0);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     glfwSetWindowIconifyCallback(_window, static_window_iconify_callback);
     glfwSetFramebufferSizeCallback(_window, static_framebuffer_size_callback);
@@ -81,12 +102,17 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     glfwGetWindowSize(_window, &window_size_width, &window_size_height);
     window_size_callback(window_size_width, window_size_height);
 
+    if (thread.start(run, this))
+        panic("unable to start thread");
 }
 
 GuiWindow::~GuiWindow() {
-    for (int i = 0; i < _widget_list.length(); i += 1) {
-        Widget *widget = _widget_list.at(i);
-        destroy_widget(widget);
+    running = false;
+    thread.join();
+
+    while (_widget_list.length()) {
+        Widget *widget = _widget_list.at(_widget_list.length() - 1);
+        destroy(widget, 1);
     }
 
     glfwDestroyWindow(_window);
@@ -96,40 +122,42 @@ void GuiWindow::window_iconify_callback(int iconified) {
     _is_iconified = iconified;
 }
 
-void GuiWindow::bind() {
-    glfwMakeContextCurrent(_window);
-}
-
-void GuiWindow::flush_events() {
-    for (int i = 0; i < _widget_list.length(); i += 1) {
-        Widget *widget = _widget_list.at(i);
-        widget->flush_events();
-    }
-}
-
 void GuiWindow::draw() {
-    if (_gui->_utility_window != this) {
-        if (_is_iconified)
-            return;
-        if (!_is_visible)
-            return;
-    }
-
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
     for (int i = 0; i < _widget_list.length(); i += 1) {
         Widget *widget = _widget_list.at(i);
-        if (widget->_is_visible)
-            widget->draw(this, _projection);
+        if (widget->is_visible)
+            widget->draw(_projection);
     }
-    glfwSwapBuffers(_window);
+}
+
+void GuiWindow::layout_main_widget() {
+    if (main_widget) {
+        main_widget->left = 0;
+        main_widget->top = 0;
+        main_widget->width = _width;
+        main_widget->height = _height;
+        main_widget->on_resize();
+    }
 }
 
 void GuiWindow::framebuffer_size_callback(int width, int height) {
+    MutexLocker locker(&mutex);
+
     _width = width;
     _height = height;
     glViewport(0, 0, _width, _height);
     _projection = glm::ortho(0.0f, (float)_width, (float)_height, 0.0f);
+
+    layout_main_widget();
+
+}
+
+void GuiWindow::set_main_widget(Widget *widget) {
+    MutexLocker locker(&mutex);
+    main_widget = widget;
+    layout_main_widget();
 }
 
 void GuiWindow::window_size_callback(int width, int height) {
@@ -257,8 +285,8 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
     MouseWheelEvent wheel_event = {
-        x - _focus_widget->left(),
-        y - _focus_widget->top(),
+        x - _focus_widget->left,
+        y - _focus_widget->top,
         (int)sign(xoffset),
         (int)sign(yoffset),
         get_modifiers(),
@@ -271,16 +299,16 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
     // if we're pressing a mouse button, the mouse over widget gets the event
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
     if (_mouse_over_widget) {
-        int right = _mouse_over_widget->left() + _mouse_over_widget->width();
-        int bottom = _mouse_over_widget->top() + _mouse_over_widget->height();
-        bool in_bounds = (event->x >= _mouse_over_widget->left() &&
-                event->y >= _mouse_over_widget->top() &&
+        int right = _mouse_over_widget->left + _mouse_over_widget->width;
+        int bottom = _mouse_over_widget->top + _mouse_over_widget->height;
+        bool in_bounds = (event->x >= _mouse_over_widget->left &&
+                event->y >= _mouse_over_widget->top &&
                 event->x < right &&
                 event->y < bottom);
 
         MouseEvent mouse_event = *event;
-        mouse_event.x -= _mouse_over_widget->left();
-        mouse_event.y -= _mouse_over_widget->top();
+        mouse_event.x -= _mouse_over_widget->left;
+        mouse_event.y -= _mouse_over_widget->top;
 
         if (in_bounds || pressing_any_btn) {
             if (pressing_any_btn && _mouse_over_widget != _focus_widget)
@@ -309,56 +337,43 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
     }
 }
 
-void GuiWindow::init_widget(Widget *widget) {
-    widget->_is_visible = true;
-    widget->_gui_index = _widget_list.length();
+void GuiWindow::add_widget(Widget *widget) {
+    if (widget->parent_widget)
+        panic("widget already has parent");
+    if (widget->set_index >= 0)
+        panic("widget already in window");
+
+    widget->set_index = _widget_list.length();
     if (_widget_list.append(widget))
         panic("out of memory");
 }
 
-SelectWidget * GuiWindow::create_select_widget() {
-    SelectWidget *select_widget = create<SelectWidget>(this, _gui);
-    init_widget(select_widget);
-    return select_widget;
-}
-
-TextWidget * GuiWindow::create_text_widget() {
-    TextWidget *text_widget = create<TextWidget>(this, _gui);
-    init_widget(text_widget);
-    return text_widget;
-}
-
-FindFileWidget * GuiWindow::create_find_file_widget() {
-    FindFileWidget *find_file_widget = create<FindFileWidget>(this, _gui);
-    init_widget(find_file_widget);
-    return find_file_widget;
-}
-
-void GuiWindow::destroy_widget(Widget *widget) {
+void GuiWindow::remove_widget(Widget *widget) {
     if (widget == _mouse_over_widget)
         _mouse_over_widget = NULL;
     if (widget == _focus_widget)
         _focus_widget = NULL;
 
-    if (widget->_gui_index >= 0) {
-        int index = widget->_gui_index;
+    if (!widget->parent_widget && widget->set_index >= 0) {
+        int index = widget->set_index;
+        widget->set_index = -1;
+
         _widget_list.swap_remove(index);
         if (index < _widget_list.length())
-            _widget_list.at(index)->_gui_index = index;
+            _widget_list.at(index)->set_index = index;
     }
-    destroy(widget, 1);
 }
 
 bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
-    int right = widget->left() + widget->width();
-    int bottom = widget->top() + widget->height();
-    if (event->x >= widget->left() && event->y >= widget->top() &&
+    int right = widget->left + widget->width;
+    int bottom = widget->top + widget->height;
+    if (event->x >= widget->left && event->y >= widget->top &&
         event->x < right && event->y < bottom)
     {
         MouseEvent mouse_event = *event;
-        mouse_event.x -= widget->left();
-        mouse_event.y -= widget->top();
+        mouse_event.x -= widget->left;
+        mouse_event.y -= widget->top;
 
         _mouse_over_widget = widget;
 
@@ -386,6 +401,23 @@ void GuiWindow::set_focus_widget(Widget *widget) {
     _focus_widget->on_gain_focus();
 }
 
+void GuiWindow::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
+    _gui->_shader_program_manager._primitive_shader_program.bind();
+
+    _gui->_shader_program_manager._primitive_shader_program.set_uniform(
+            _gui->_shader_program_manager._primitive_uniform_color, color);
+
+    _gui->_shader_program_manager._primitive_shader_program.set_uniform(
+            _gui->_shader_program_manager._primitive_uniform_mvp, mvp);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._primitive_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+
 void GuiWindow::fill_rect(const glm::vec4 &color, int x, int y, int w, int h) {
     glm::mat4 model = glm::scale(
                         glm::translate(
@@ -393,7 +425,7 @@ void GuiWindow::fill_rect(const glm::vec4 &color, int x, int y, int w, int h) {
                             glm::vec3(x, y, 0.0f)),
                         glm::vec3(w, h, 0.0f));
     glm::mat4 mvp = _projection * model;
-    _gui->fill_rect(this, color, mvp);
+    fill_rect(color, mvp);
 }
 
 void GuiWindow::draw_image(const SpritesheetImage *img, int x, int y, int w, int h) {

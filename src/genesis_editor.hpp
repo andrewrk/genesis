@@ -9,13 +9,20 @@
 class GuiWindow;
 struct GenesisContext;
 
+struct GuiWindowLayout {
+    GuiWindow *gui_window;
+};
+
+struct GuiPerspective {
+    List<GuiWindowLayout *> gui_window_layouts;
+};
+
 class GenesisEditor {
 public:
     GenesisEditor();
     ~GenesisEditor();
 
     void edit_file(const char *filename);
-    void create_new_file();
 
     void exec();
 

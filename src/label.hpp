@@ -8,7 +8,6 @@
 #include "glfw.hpp"
 
 class Gui;
-class VertexArray;
 class GuiWindow;
 
 class Label {
@@ -74,7 +73,6 @@ private:
     int _width;
     int _height;
     GLuint _texture_id;
-    VertexArray *_vertex_array;
     GLuint _vertex_buffer;
 
     String _text;
@@ -85,12 +83,6 @@ private:
 
     // cached from _text on update()
     List<Letter> _letters;
-
-    void init_vertex_array();
-
-    static void init_vertex_array_static(void *userdata) {
-        return static_cast<Label*>(userdata)->init_vertex_array();
-    }
 };
 
 #endif

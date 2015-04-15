@@ -32,6 +32,12 @@ struct RecordingNodeContext {
     OpenRecordingDevice *recording_device;
 };
 
+static void emit_event_ready(struct GenesisContext *context) {
+    if (context->event_callback)
+        context->event_callback(context->event_callback_userdata);
+    genesis_wakeup(context);
+}
+
 static void on_midi_devices_change(MidiHardware *midi_hardware) {
     GenesisContext *context = reinterpret_cast<GenesisContext *>(midi_hardware->userdata);
     if (context->midi_change_callback)
@@ -40,7 +46,7 @@ static void on_midi_devices_change(MidiHardware *midi_hardware) {
 
 static void midi_events_signal(MidiHardware *midi_hardware) {
     GenesisContext *context = reinterpret_cast<GenesisContext *>(midi_hardware->userdata);
-    genesis_wakeup(context);
+    emit_event_ready(context);
 }
 
 static void on_devices_change(AudioHardware *audio_hardware) {
@@ -51,7 +57,7 @@ static void on_devices_change(AudioHardware *audio_hardware) {
 
 static void on_audio_hardware_events_signal(AudioHardware *audio_hardware) {
     GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->userdata);
-    genesis_wakeup(context);
+    emit_event_ready(context);
 }
 
 double genesis_frames_to_whole_notes(GenesisContext *context, int frames, int frame_rate) {
@@ -175,6 +181,13 @@ void genesis_wakeup(struct GenesisContext *context) {
     context->events_mutex.lock();
     context->events_cond.signal();
     context->events_mutex.unlock();
+}
+
+void genesis_set_event_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata)
+{
+    context->event_callback_userdata = userdata;
+    context->event_callback = callback;
 }
 
 struct GenesisNodeDescriptor *genesis_node_descriptor_find(

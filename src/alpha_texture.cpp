@@ -5,8 +5,7 @@
 AlphaTexture::AlphaTexture(Gui *gui) :
     _gui(gui),
     _width(0),
-    _height(0),
-    _vertex_array(gui, static_init_vertex_array, this)
+    _height(0)
 {
     glGenTextures(1, &_texture_id);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
@@ -18,16 +17,6 @@ AlphaTexture::AlphaTexture(Gui *gui) :
 
 AlphaTexture::~AlphaTexture() {
     glDeleteTextures(1, &_texture_id);
-}
-
-void AlphaTexture::init_vertex_array() {
-    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_vertex_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 
 void AlphaTexture::send_pixels(const ByteBuffer &pixels, int width, int height) {
@@ -58,7 +47,14 @@ void AlphaTexture::draw(GuiWindow *window, const glm::vec4 &color, const glm::ma
     _gui->_shader_program_manager._text_shader_program.set_uniform(
             _gui->_shader_program_manager._text_uniform_mvp, mvp);
 
-    _vertex_array.bind(window);
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 

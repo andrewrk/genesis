@@ -14,8 +14,8 @@ static bool default_on_mouse_event(TextWidget *, const MouseEvent *event) {
     return false;
 }
 
-TextWidget::TextWidget(GuiWindow *gui_window, Gui *gui) :
-    Widget(),
+TextWidget::TextWidget(GuiWindow *gui_window) :
+    Widget(gui_window),
     _userdata(NULL),
     _label(gui),
     _padding_left(4),
@@ -29,16 +29,15 @@ TextWidget::TextWidget(GuiWindow *gui_window, Gui *gui) :
     _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
     _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
     _auto_size(false),
+    fixed_min_width(-1),
+    fixed_max_width(-1),
     _icon_size_w(16),
     _icon_size_h(16),
     _icon_margin(4),
-    _gui_window(gui_window),
-    _gui(gui),
     _cursor_start(0),
     _cursor_end(0),
     _select_down(false),
     _have_focus(false),
-    _width(100),
     _scroll_x(0),
     _placeholder_label(gui),
     _placeholder_color(0.4f, 0.4f, 0.4f, 1.0f),
@@ -55,23 +54,23 @@ TextWidget::TextWidget(GuiWindow *gui_window, Gui *gui) :
     update_model();
 }
 
-void TextWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
+void TextWidget::draw(const glm::mat4 &projection) {
     bool should_hover = (_hover_on && _hovering);
     if (_background_on || should_hover) {
         glm::mat4 bg_mvp = projection * _bg_model;
         glm::vec4 color = should_hover ? _hover_color : _background_color;
-        _gui->fill_rect(window, color, bg_mvp);
+        gui_window->fill_rect(color, bg_mvp);
     }
 
     if (_icon_img) {
         glm::mat4 icon_mvp = projection * _icon_model;
-        _gui->draw_image(window, _icon_img, icon_mvp);
+        gui->draw_image(gui_window, _icon_img, icon_mvp);
     }
 
     glm::mat4 label_mvp = projection * _label_model;
     if (_text_interaction_on) {
         if (_placeholder_label.text().length() > 0 && _label.text().length() == 0)
-            _placeholder_label.draw(window, label_mvp, _placeholder_color);
+            _placeholder_label.draw(gui_window, label_mvp, _placeholder_color);
     }
 
     glEnable(GL_STENCIL_TEST);
@@ -83,14 +82,14 @@ void TextWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glClear(GL_STENCIL_BUFFER_BIT);
 
-    window->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-            _left + label_start_x(), _top + label_start_y(),
+    gui_window->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            left + label_start_x(), top + label_start_y(),
             label_area_width(), _label.height());
 
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-    _label.draw(window, label_mvp, _text_color);
+    _label.draw(gui_window, label_mvp, _text_color);
 
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
@@ -102,17 +101,17 @@ void TextWidget::draw(GuiWindow *window, const glm::mat4 &projection) {
         if (_cursor_start == _cursor_end) {
             // draw cursor
             glm::mat4 cursor_mvp = projection * _cursor_model;
-            _gui->fill_rect(window, _selection_color, cursor_mvp);
+            gui_window->fill_rect(_selection_color, cursor_mvp);
         } else {
 
             // draw selection rectangle
             glm::mat4 sel_mvp = projection * _sel_model;
-            _gui->fill_rect(window, _selection_color, sel_mvp);
+            gui_window->fill_rect(_selection_color, sel_mvp);
 
             glStencilFunc(GL_EQUAL, 1, 0xFF);
             glStencilMask(0x00);
 
-            _label.draw(window, label_mvp, _sel_text_color);
+            _label.draw(gui_window, label_mvp, _sel_text_color);
         }
     }
 
@@ -127,30 +126,30 @@ void TextWidget::update_model() {
         _icon_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
-                            glm::vec3(_left + _padding_left, _top + _padding_top, 0.0f)),
+                            glm::vec3(left + _padding_left, top + _padding_top, 0.0f)),
                         glm::vec3(scale_x, scale_y, 0.0f));
     }
 
-    float label_left = _left + label_start_x() - _scroll_x;
-    float label_top = _top + label_start_y();
+    float label_left = left + label_start_x() - _scroll_x;
+    float label_top = top + label_start_y();
     _label_model = glm::translate(glm::mat4(1.0f),
             glm::vec3(label_left, label_top, 0.0f));
 
     _bg_model = glm::scale(
                     glm::translate(
                         glm::mat4(1.0f),
-                        glm::vec3(_left, _top, 0.0f)),
-                    glm::vec3(width(), height(), 0.0f));
+                        glm::vec3(left, top, 0.0f)),
+                    glm::vec3(bg_width(), bg_height(), 0.0f));
 }
 
 void TextWidget::on_mouse_over(const MouseEvent *event) {
     if (_text_interaction_on)
-        _gui_window->set_cursor_beam();
+        gui_window->set_cursor_beam();
     _hovering = true;
 }
 
 void TextWidget::on_mouse_out(const MouseEvent *event) {
-    _gui_window->set_cursor_default();
+    gui_window->set_cursor_default();
     _hovering = false;
 }
 
@@ -215,14 +214,14 @@ int TextWidget::label_start_x() const {
 }
 
 int TextWidget::label_start_y() const {
-    return (height() - _label.height()) / 2;
+    return (bg_height() - _label.height()) / 2;
 }
 
 int TextWidget::label_area_width() const {
     if (_auto_size) {
         return _label.width();
     } else {
-        return _width - label_start_x() - _padding_right;
+        return width - label_start_x() - _padding_right;
     }
 }
 
@@ -249,14 +248,14 @@ void TextWidget::get_cursor_slice(int &start, int &end) const {
 }
 
 void TextWidget::update_selection_model() {
-    int sel_height = height() - _padding_top - _padding_bottom;
+    int sel_height = bg_height() - _padding_top - _padding_bottom;
     if (_cursor_start == _cursor_end) {
         int x, y;
         pos_at_cursor(_cursor_start, x, y);
         _cursor_model = glm::scale(
                             glm::translate(
                                 glm::mat4(1.0f),
-                                glm::vec3(_left + x, _top + _padding_top, 0.0f)),
+                                glm::vec3(left + x, top + _padding_top, 0.0f)),
                             glm::vec3(2.0f, sel_height, 1.0f));;
     } else {
         int start, end;
@@ -271,7 +270,7 @@ void TextWidget::update_selection_model() {
         _sel_model = glm::scale(
                         glm::translate(
                             glm::mat4(1.0f),
-                            glm::vec3(_left + label_start_x() + start_x, _top + _padding_top, 0.0f)),
+                            glm::vec3(left + label_start_x() + start_x, top + _padding_top, 0.0f)),
                         glm::vec3(sel_width, sel_height, 1.0f));
     }
 }
@@ -312,6 +311,7 @@ void TextWidget::replace_text(int start, int end, const String &text, int cursor
 
     _label.update();
     scroll_cursor_into_view();
+    on_size_hints_changed();
 
     _on_text_change_event(this);
 }
@@ -461,30 +461,34 @@ void TextWidget::select_all() {
 void TextWidget::cut() {
     int start, end;
     get_cursor_slice(start, end);
-    _gui_window->set_clipboard_string(_label.text().substring(start, end));
+    gui_window->set_clipboard_string(_label.text().substring(start, end));
     replace_text(start, end, "", 0);
 }
 
 void TextWidget::copy() {
     int start, end;
     get_cursor_slice(start, end);
-    _gui_window->set_clipboard_string(_label.text().substring(start, end));
+    gui_window->set_clipboard_string(_label.text().substring(start, end));
 }
 
 void TextWidget::paste() {
-    if (!_gui_window->clipboard_has_string())
+    if (!gui_window->clipboard_has_string())
         return;
     int start, end;
     get_cursor_slice(start, end);
-    String str = _gui_window->get_clipboard_string();
+    String str = gui_window->get_clipboard_string();
     replace_text(start, end, str, str.length());
 }
 
-int TextWidget::width() const {
-    return label_area_width() + label_start_x() + _padding_right;
+int TextWidget::min_width() const {
+    return _auto_size ? (_label.width() + _padding_left + _padding_right) : fixed_min_width;
 }
 
-int TextWidget::height() const {
+int TextWidget::max_width() const {
+    return _auto_size ? (_label.width() + _padding_left + _padding_right) : fixed_max_width;
+}
+
+int TextWidget::bg_height() const {
     int height_from_label = _label.height() + _padding_top + _padding_bottom;
 
     if (_icon_img) {
@@ -495,10 +499,28 @@ int TextWidget::height() const {
     }
 }
 
-void TextWidget::set_width(int new_width) {
-    _width = new_width;
+int TextWidget::min_height() const {
+    return bg_height();
+}
+
+int TextWidget::max_height() const {
+    return min_height();
+}
+
+int TextWidget::bg_width() const {
+    return label_area_width() + label_start_x() + _padding_right;
+}
+
+void TextWidget::set_min_width(int new_width) {
+    fixed_min_width = new_width;
     _auto_size = false;
-    scroll_cursor_into_view();
+    on_size_hints_changed();
+}
+
+void TextWidget::set_max_width(int new_width) {
+    fixed_max_width = new_width;
+    _auto_size = false;
+    on_size_hints_changed();
 }
 
 void TextWidget::set_auto_size(bool value) {
@@ -513,7 +535,7 @@ void TextWidget::scroll_index_into_view(int char_index) {
         int x, y;
         pos_at_cursor(char_index, x, y);
 
-        int cursor_too_far_right = x - (_width - _padding_right);
+        int cursor_too_far_right = x - (width - _padding_right);
         if (cursor_too_far_right > 0)
             _scroll_x += cursor_too_far_right;
 
@@ -521,7 +543,7 @@ void TextWidget::scroll_index_into_view(int char_index) {
         if (cursor_too_far_left > 0)
             _scroll_x -= cursor_too_far_left;
 
-        int max_scroll_x = max(0, _label.width() - (_width - label_start_x() - _padding_right));
+        int max_scroll_x = max(0, _label.width() - (width - label_start_x() - _padding_right));
         _scroll_x = clamp(0, _scroll_x, max_scroll_x);
     }
 
@@ -543,6 +565,7 @@ void TextWidget::set_text(const String &text) {
     _label.set_text(text);
     _label.update();
     set_selection(_cursor_start, _cursor_end);
+    on_size_hints_changed();
 }
 
 void TextWidget::set_icon(const SpritesheetImage *icon) {
