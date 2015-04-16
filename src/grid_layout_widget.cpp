@@ -293,10 +293,12 @@ void GridLayoutWidget::layout_x() {
     if (col_props.resize(cols()))
         panic("out of memory");
 
+    bool expanding = (max_width() == -1);
     for (int col = 0; col < cols(); col += 1) {
-        col_props.at(col).done = false;
-        col_props.at(col).min_size = get_col_min_width(col);
-        col_props.at(col).max_size = get_col_max_width(col);
+        ColRowInfo *col_info = &col_props.at(col);
+        col_info->done = false;
+        col_info->min_size = get_col_min_width(col);
+        col_info->max_size = get_col_max_width(col);
     }
     int not_done_count = cols();
 
@@ -308,7 +310,7 @@ void GridLayoutWidget::layout_x() {
             ColRowInfo *col_info = &col_props.at(col);
             if (col_info->done)
                 continue;
-            if (each_col_amt > col_info->max_size) {
+            if (expanding && each_col_amt > col_info->max_size) {
                 col_info->size = col_info->max_size;
                 col_info->done = true;
                 available_width -= col_info->size;
@@ -370,6 +372,7 @@ void GridLayoutWidget::layout_y() {
     if (row_props.resize(rows()))
         panic("out of memory");
 
+    bool expanding = (max_height() == -1);
     for (int row = 0; row < rows(); row += 1) {
         row_props.at(row).done = false;
         row_props.at(row).min_size = get_row_min_height(row);
@@ -385,7 +388,7 @@ void GridLayoutWidget::layout_y() {
             ColRowInfo *row_info = &row_props.at(row);
             if (row_info->done)
                 continue;
-            if (each_row_amt > row_info->max_size) {
+            if (expanding && each_row_amt > row_info->max_size) {
                 row_info->size = row_info->max_size;
                 row_info->done = true;
                 available_height -= row_info->size;

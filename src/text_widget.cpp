@@ -30,7 +30,7 @@ TextWidget::TextWidget(GuiWindow *gui_window) :
     _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
     _auto_size(false),
     fixed_min_width(0),
-    fixed_max_width(0),
+    fixed_max_width(200),
     _icon_size_w(16),
     _icon_size_h(16),
     _icon_margin(4),

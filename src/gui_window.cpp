@@ -87,10 +87,8 @@ GuiWindow::~GuiWindow() {
         thread.join();
     }
 
-    while (_widget_list.length()) {
-        Widget *widget = _widget_list.at(_widget_list.length() - 1);
-        destroy(widget, 1);
-    }
+    if (main_widget)
+        destroy(main_widget, 1);
 
     glfwDestroyWindow(window);
 }
@@ -143,11 +141,9 @@ void GuiWindow::draw() {
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
-    for (int i = 0; i < _widget_list.length(); i += 1) {
-        Widget *widget = _widget_list.at(i);
-        if (widget->is_visible)
-            widget->draw(_projection);
-    }
+    if (main_widget && main_widget->is_visible)
+        main_widget->draw(_projection);
+
     glfwSwapBuffers(window);
 }
 
@@ -347,38 +343,15 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
     if (_mouse_over_widget != NULL)
         panic("expected _mouse_over_widget NULL");
 
-    for (int i = 0; i < _widget_list.length(); i += 1) {
-        Widget *widget = _widget_list.at(i);
-        if (try_mouse_move_event_on_widget(widget, event))
-            return;
-    }
-}
-
-void GuiWindow::add_widget(Widget *widget) {
-    if (widget->parent_widget)
-        panic("widget already has parent");
-    if (widget->set_index >= 0)
-        panic("widget already in window");
-
-    widget->set_index = _widget_list.length();
-    if (_widget_list.append(widget))
-        panic("out of memory");
+    if (main_widget)
+        try_mouse_move_event_on_widget(main_widget, event);
 }
 
 void GuiWindow::remove_widget(Widget *widget) {
     if (widget == _mouse_over_widget)
-        _mouse_over_widget = NULL;
+        _mouse_over_widget = nullptr;
     if (widget == _focus_widget)
-        _focus_widget = NULL;
-
-    if (!widget->parent_widget && widget->set_index >= 0) {
-        int index = widget->set_index;
-        widget->set_index = -1;
-
-        _widget_list.swap_remove(index);
-        if (index < _widget_list.length())
-            _widget_list.at(index)->set_index = index;
-    }
+        _focus_widget = nullptr;
 }
 
 bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {

@@ -23,7 +23,6 @@ public:
 
     void draw();
 
-    void add_widget(Widget *widget);
     void remove_widget(Widget *widget);
     void set_focus_widget(Widget *widget);
 
@@ -74,7 +73,6 @@ public:
     int _client_height;
 
     glm::mat4 _projection;
-    List<Widget *> _widget_list;
     Widget *_mouse_over_widget;
     Widget *_focus_widget;
 
