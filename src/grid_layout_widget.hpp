@@ -139,14 +139,15 @@ public:
     int padding;
     List<List<Cell>> cells;
 
-    struct ColInfo {
+    struct ColRowInfo {
         bool done;
         int min_size; // min_width/min_height
         int max_size; // max_width/max_height
         int size;     // width/height
         int start;    // left/top
     };
-    List<ColInfo> col_props;
+    List<ColRowInfo> col_props;
+    List<ColRowInfo> row_props;
 
     void ensure_size(int row_count, int col_count) {
         if (rows() < row_count) {
@@ -227,6 +228,8 @@ public:
         int total = 0;
         for (int col = 0; col < cols(); col += 1) {
             const Cell *cell = &r->at(col);
+            if (!cell->widget)
+                continue;
             total += cell->widget->min_width();
         }
         return total + padding * 2 + spacing * (cols() - 1);
@@ -240,6 +243,8 @@ public:
         int total = 0;
         for (int col = 0; col < cols(); col += 1) {
             const Cell *cell = &r->at(col);
+            if (!cell->widget)
+                return -1;
             int widget_max_width = cell->widget->max_width();
             if (widget_max_width == -1)
                 return -1;
@@ -248,12 +253,63 @@ public:
         return total + padding * 2 + spacing * (cols() - 1);
     }
 
+    int get_row_min_height(int row) const {
+        // return the largest min height
+        // don't take spacing into account
+        int biggest = 0;
+        for (int col = 0; col < cols(); col += 1) {
+            const Cell *cell = &cells.at(row).at(col);
+            if (!cell->widget)
+                continue;
+            biggest = max(biggest, cell->widget->min_height());
+        }
+        return biggest;
+    }
+
+    int get_row_max_height(int row) const {
+        // if any widget has max height -1, return -1
+        // otherwise, return the largest max height
+        int biggest = 0;
+        for (int col = 0; col < cols(); col += 1) {
+            const Cell *cell = &cells.at(row).at(col);
+            if (!cell->widget)
+                return -1;
+            int widget_max_height = cell->widget->max_height();
+            if (widget_max_height == -1)
+                return -1;
+            biggest = max(biggest, widget_max_height);
+        }
+        return biggest;
+    }
+
     int get_col_min_width(int col) const {
-        panic("TODO");
+        // return the largest min width
+        // don't take spacing into account
+        int biggest = 0;
+        for (int row = 0; row < rows(); row += 1) {
+            const Cell *cell = &cells.at(row).at(col);
+            if (!cell->widget)
+                continue;
+            biggest = max(biggest, cell->widget->min_width());
+        }
+        return biggest;
     }
 
     int get_col_max_width(int col) const {
-        panic("TODO");
+        // if any widget has max width -1, return -1
+        // otherwise, return the largest max width
+        // don't take spacing into account
+        int biggest = 0;
+        for (int row = 0; row < rows(); row += 1) {
+            const Cell *cell = &cells.at(row).at(col);
+            if (!cell->widget)
+                return -1;
+            int widget_max_width = cell->widget->max_width();
+            if (widget_max_width == -1)
+                return -1;
+            biggest = max(biggest, widget_max_width);
+        }
+        return biggest;
     }
 
     int get_col_min_height(int col) const {
@@ -274,6 +330,8 @@ public:
         int total = 0;
         for (int row = 0; row < rows(); row += 1) {
             const Cell *cell = &cells.at(row).at(col);
+            if (!cell->widget)
+                return -1;
             int widget_max_height = cell->widget->max_height();
             if (widget_max_height == -1)
                 return -1;
@@ -300,23 +358,23 @@ public:
             // about getting a fair share
             int each_col_amt = available_width / not_done_count;
             for (int col = 0; col < cols(); col += 1) {
-                ColInfo *col_info = &col_props.at(col);
-                if (!col_info->done) {
-                    if (each_col_amt > col_info->max_size) {
-                        col_info->size = col_info->max_size;
-                        col_info->done = true;
-                        available_width -= col_info->size;
-                        not_done_count -= 1;
-                        continue;
-                    } else if (each_col_amt < col_info->min_size) {
-                        col_info->size = col_info->min_size;
-                        col_info->done = true;
-                        available_width -= col_info->size;
-                        not_done_count -= 1;
-                        continue;
-                    } else {
-                        col_info->size = each_col_amt;
-                    }
+                ColRowInfo *col_info = &col_props.at(col);
+                if (col_info->done)
+                    continue;
+                if (each_col_amt > col_info->max_size) {
+                    col_info->size = col_info->max_size;
+                    col_info->done = true;
+                    available_width -= col_info->size;
+                    not_done_count -= 1;
+                    continue;
+                } else if (each_col_amt < col_info->min_size) {
+                    col_info->size = col_info->min_size;
+                    col_info->done = true;
+                    available_width -= col_info->size;
+                    not_done_count -= 1;
+                    continue;
+                } else {
+                    col_info->size = each_col_amt;
                 }
             }
             // everybody is happy
@@ -326,18 +384,20 @@ public:
         // determine each column's left
         int next_left = padding;
         for (int col = 0; col < cols(); col += 1) {
-            ColInfo *col_info = &col_props.at(col);
+            ColRowInfo *col_info = &col_props.at(col);
             col_info->start = next_left;
             next_left += col_info->size + spacing;
         }
 
-        // now we know each column's width. iterate over every widget and set
-        // the width and left properties
+        // now we know each column's left and width. iterate over every widget
+        // and set the width and left properties
         for (int row = 0; row < rows(); row += 1) {
             for (int col = 0; col < cols(); col += 1) {
                 Cell *cell = &cells.at(row).at(col);
                 Widget *widget = cell->widget;
-                ColInfo *col_info = &col_props.at(col);
+                if (!widget)
+                    continue;
+                ColRowInfo *col_info = &col_props.at(col);
                 int cell_width = col_info->size;
                 int widget_min_width = widget->min_width();
                 int widget_max_width = widget->max_width();
@@ -358,7 +418,80 @@ public:
     }
 
     void layout_y() {
-        panic("TODO");
+        int available_height = height - padding * 2 - spacing * (rows() - 1);
+
+        if (row_props.resize(rows()))
+            panic("out of memory");
+
+        for (int row = 0; row < rows(); row += 1) {
+            row_props.at(row).done = false;
+            row_props.at(row).min_size = get_row_min_height(row);
+            row_props.at(row).max_size = get_row_max_height(row);
+        }
+        int not_done_count = rows();
+
+        for (;;) {
+            // iterate over the rows and see if any rows complain
+            // about getting a fair share
+            int each_row_amt = available_height / not_done_count;
+            for (int row = 0; row < rows(); row += 1) {
+                ColRowInfo *row_info = &row_props.at(row);
+                if (row_info->done)
+                    continue;
+                if (each_row_amt > row_info->max_size) {
+                    row_info->size = row_info->max_size;
+                    row_info->done = true;
+                    available_height -= row_info->size;
+                    not_done_count -= 1;
+                    continue;
+                } else if (each_row_amt < row_info->min_size) {
+                    row_info->size = row_info->min_size;
+                    row_info->done = true;
+                    available_height -= row_info->size;
+                    not_done_count -= 1;
+                    continue;
+                } else {
+                    row_info->size = each_row_amt;
+                }
+            }
+            // everybody is happy
+            break;
+        }
+
+        // determine each row's top
+        int next_top = padding;
+        for (int row = 0; row < rows(); row += 1) {
+            ColRowInfo *row_info = &row_props.at(row);
+            row_info->start = next_top;
+            next_top += row_info->size + spacing;
+        }
+
+        // now we know each row's top and height. iterate over every widget
+        // and set the height and top properties
+        for (int row = 0; row < rows(); row += 1) {
+            ColRowInfo *row_info = &row_props.at(row);
+            for (int col = 0; col < cols(); col += 1) {
+                Cell *cell = &cells.at(row).at(col);
+                Widget *widget = cell->widget;
+                if (!widget)
+                    continue;
+                int cell_height = row_info->size;
+                int widget_min_height = widget->min_height();
+                int widget_max_height = widget->max_height();
+                widget->height = min(max(cell_height, widget_min_height), widget_max_height);
+                switch (cell->v_align) {
+                    case VAlignTop:
+                        widget->top = row_info->start;
+                        break;
+                    case VAlignBottom:
+                        widget->top = row_info->start + cell_height - widget->height;
+                        break;
+                    case VAlignCenter:
+                        widget->top = row_info->start + cell_height / 2 - widget->height / 2;
+                        break;
+                }
+            }
+        }
     }
 };
 
