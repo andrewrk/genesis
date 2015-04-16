@@ -45,6 +45,8 @@ public:
 
     void on_resize() override;
 
+    void on_mouse_move(const MouseEvent *) override;
+
     struct Cell {
         Widget *widget;
         HAlign h_align;

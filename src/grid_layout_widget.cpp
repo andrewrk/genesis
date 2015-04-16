@@ -1,4 +1,5 @@
 #include "grid_layout_widget.hpp"
+#include "gui_window.hpp"
 
 void GridLayoutWidget::draw(const glm::mat4 &projection) {
     for (int row = 0; row < rows(); row += 1) {
@@ -440,6 +441,24 @@ void GridLayoutWidget::layout_y() {
                     widget->top = row_info->start + cell_height / 2 - widget->height / 2;
                     break;
             }
+        }
+    }
+}
+
+void GridLayoutWidget::on_mouse_move(const MouseEvent *event) {
+    MouseEvent mouse_event = *event;
+    mouse_event.x += left;
+    mouse_event.y += top;
+    for (int row = 0; row < rows(); row += 1) {
+        List<Cell> *r = &cells.at(row);
+        for (int col = 0; col < cols(); col += 1) {
+            Widget *widget = r->at(col).widget;
+            if (!widget)
+                continue;
+            if (!widget->is_visible)
+                continue;
+            if (gui_window->try_mouse_move_event_on_widget(widget, &mouse_event))
+                return;
         }
     }
 }
