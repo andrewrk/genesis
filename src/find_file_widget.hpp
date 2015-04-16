@@ -18,9 +18,9 @@ public:
     void on_mouse_move(const MouseEvent *event) override;
     void on_gain_focus() override;
 
-    int min_width() const override { return -1; }
+    int min_width() const override { return 0; }
     int max_width() const override { return -1; }
-    int min_height() const override { return -1; }
+    int min_height() const override { return 0; }
     int max_height() const override { return -1; }
 
     enum Mode {

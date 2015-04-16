@@ -14,7 +14,7 @@ public:
     virtual ~Widget();
     virtual void draw(const glm::mat4 &projection) = 0;
 
-    // for these, -1 means no min/max
+    // -1 means no max
     virtual int min_width() const = 0;
     virtual int max_width() const = 0;
     virtual int min_height() const = 0;
