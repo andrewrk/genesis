@@ -39,6 +39,7 @@ public:
 
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
 
+    Mutex gui_mutex;
 
 
     bool _running;

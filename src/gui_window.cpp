@@ -27,6 +27,12 @@ static void run(void *arg) {
     gui_window->teardown_context();
 }
 
+static void handle_new_size(GuiWindow *gui_window, int width, int height) {
+    gui_window->_width = width;
+    gui_window->_height = height;
+    gui_window->_projection = glm::ortho(0.0f, (float)width, (float)height, 0.0f);
+}
+
 GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _userdata(nullptr),
     _gui(gui),
@@ -41,7 +47,6 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _last_click_button(MouseButtonLeft),
     _double_click_timeout(0.3),
     running(true),
-    queue_layout_main_widget(false),
     main_widget(nullptr)
 {
     if (is_normal_window) {
@@ -68,8 +73,18 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
 
     int framebuffer_width, framebuffer_height;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
-    _width = framebuffer_width;
-    _height = framebuffer_height;
+    handle_new_size(this, framebuffer_width, framebuffer_height);
+
+    glfwSetWindowIconifyCallback(window, static_window_iconify_callback);
+    glfwSetFramebufferSizeCallback(window, static_framebuffer_size_callback);
+    glfwSetWindowSizeCallback(window, static_window_size_callback);
+    glfwSetKeyCallback(window, static_key_callback);
+    glfwSetCharModsCallback(window, static_charmods_callback);
+    glfwSetWindowCloseCallback(window, static_window_close_callback);
+    glfwSetCursorPosCallback(window, static_cursor_pos_callback);
+    glfwSetMouseButtonCallback(window, static_mouse_button_callback);
+    glfwSetScrollCallback(window, static_scroll_callback);
+
 
     if (is_normal_window) {
         if (thread.start(run, this))
@@ -97,6 +112,12 @@ void GuiWindow::setup_context() {
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
+    // Vertex Array Objects can't be shared between contexts. This makes managing
+    // these VAOs very difficult. So we simply create and bind exactly one vertex
+    // array per context and use glVertexAttribPointer etc every frame.
+    glGenVertexArrays(1, &vertex_array_object);
+    glBindVertexArray(vertex_array_object);
+
     glClearColor(0.3, 0.3, 0.3, 1.0);
 
     glEnable(GL_BLEND);
@@ -104,27 +125,9 @@ void GuiWindow::setup_context() {
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    // Vertex Array Objects can't be shared between contexts. This makes managing
-    // these VAOs very difficult. So we simply create and bind exactly one vertex
-    // array per context and use glVertexAttribPointer etc every frame.
-    glGenVertexArrays(1, &vertex_array_object);
-    glBindVertexArray(vertex_array_object);
-
     assert_no_gl_error();
 
-    glfwSetWindowIconifyCallback(window, static_window_iconify_callback);
-    glfwSetFramebufferSizeCallback(window, static_framebuffer_size_callback);
-    glfwSetWindowSizeCallback(window, static_window_size_callback);
-    glfwSetKeyCallback(window, static_key_callback);
-    glfwSetCharModsCallback(window, static_charmods_callback);
-    glfwSetWindowCloseCallback(window, static_window_close_callback);
-    glfwSetCursorPosCallback(window, static_cursor_pos_callback);
-    glfwSetMouseButtonCallback(window, static_mouse_button_callback);
-    glfwSetScrollCallback(window, static_scroll_callback);
-
-    int framebuffer_width, framebuffer_height;
-    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
-    framebuffer_size_callback(framebuffer_width, framebuffer_height);
+    viewport_update_queued = true;
 }
 
 void GuiWindow::teardown_context() {
@@ -133,56 +136,65 @@ void GuiWindow::teardown_context() {
 }
 
 void GuiWindow::window_iconify_callback(int iconified) {
+    MutexLocker locker(&_gui->gui_mutex);
     _is_iconified = iconified;
 }
 
 void GuiWindow::draw() {
-    layout_main_widget();
+    if (viewport_update_queued.exchange(false))
+        glViewport(0, 0, _width, _height);
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
-    if (main_widget && main_widget->is_visible)
-        main_widget->draw(_projection);
+    {
+        MutexLocker locker(&_gui->gui_mutex);
 
+        if (main_widget && main_widget->is_visible)
+            main_widget->draw(_projection);
+
+    }
     glfwSwapBuffers(window);
 }
 
 void GuiWindow::layout_main_widget() {
-    if (queue_layout_main_widget.exchange(false)) {
-        if (main_widget) {
-            main_widget->left = 0;
-            main_widget->top = 0;
-            main_widget->width = _width;
-            main_widget->height = _height;
-            main_widget->on_resize();
-        }
+    if (main_widget) {
+        main_widget->left = 0;
+        main_widget->top = 0;
+        main_widget->width = _width;
+        main_widget->height = _height;
+        main_widget->on_resize();
     }
 }
 
 void GuiWindow::framebuffer_size_callback(int width, int height) {
-    _width = width;
-    _height = height;
-    glViewport(0, 0, _width, _height);
-    _projection = glm::ortho(0.0f, (float)_width, (float)_height, 0.0f);
+    MutexLocker locker(&_gui->gui_mutex);
 
-    queue_layout_main_widget = true;
+    handle_new_size(this, width, height);
+
+    layout_main_widget();
+
+    viewport_update_queued = true;
 }
 
 void GuiWindow::set_main_widget(Widget *widget) {
     main_widget = widget;
-    queue_layout_main_widget = true;
+    layout_main_widget();
 }
 
 void GuiWindow::window_size_callback(int width, int height) {
+    MutexLocker locker(&_gui->gui_mutex);
     _client_width = width;
     _client_height = height;
 }
 
 void GuiWindow::window_close_callback() {
+    MutexLocker locker(&_gui->gui_mutex);
     _on_close_event(this);
 }
 
 void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
+    MutexLocker locker(&_gui->gui_mutex);
+
     KeyEvent key_event = {
         (action == GLFW_PRESS || action == GLFW_REPEAT) ? KeyActionDown : KeyActionUp,
         (VirtKey)key,
@@ -199,6 +211,9 @@ void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
 }
 
 void GuiWindow::charmods_callback(unsigned int codepoint, int mods) {
+    MutexLocker locker(&_gui->gui_mutex);
+
+
     TextInputEvent text_event = {
         codepoint,
         mods,
@@ -226,6 +241,8 @@ int GuiWindow::get_modifiers() {
 }
 
 void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
+    MutexLocker locker(&_gui->gui_mutex);
+
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
 
@@ -245,6 +262,8 @@ void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
 }
 
 void GuiWindow::mouse_button_callback(int button, int action, int mods) {
+    MutexLocker locker(&_gui->gui_mutex);
+
     MouseButton btn;
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
@@ -290,6 +309,8 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
 }
 
 void GuiWindow::scroll_callback(double xoffset, double yoffset) {
+    MutexLocker locker(&_gui->gui_mutex);
+
     if (!_focus_widget)
         return;
 

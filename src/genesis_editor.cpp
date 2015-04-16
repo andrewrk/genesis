@@ -30,6 +30,21 @@ GenesisEditor::GenesisEditor() :
     grid_layout->add_widget(bottom_widget, 1, 0, HAlignCenter, VAlignCenter);
     _gui_window->set_main_widget(grid_layout);
 
+
+    GuiWindow *window2 = _gui->create_window(true);
+    window2->_userdata = this;
+
+    TextWidget *left_widget = create<TextWidget>(window2);
+    left_widget->set_text("left widget");
+    TextWidget *right_widget = create<TextWidget>(window2);
+    right_widget->set_text("right widget");
+
+    GridLayoutWidget *grid_layout2 = create<GridLayoutWidget>(window2);
+    grid_layout2->add_widget(left_widget, 0, 0, HAlignCenter, VAlignCenter);
+    grid_layout2->add_widget(right_widget, 0, 1, HAlignCenter, VAlignCenter);
+    window2->set_main_widget(grid_layout2);
+
+
 }
 
 GenesisEditor::~GenesisEditor() {

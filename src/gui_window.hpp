@@ -89,7 +89,7 @@ public:
 
     Thread thread;
     atomic_bool running;
-    atomic_bool queue_layout_main_widget;
+    atomic_bool viewport_update_queued;
 
     Widget *main_widget;
 
