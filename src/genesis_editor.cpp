@@ -2,7 +2,7 @@
 #include "list.hpp"
 #include "gui_window.hpp"
 #include "genesis.h"
-#include "vertical_layout_widget.hpp"
+#include "grid_layout_widget.hpp"
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("resources.bundle"),
@@ -25,10 +25,10 @@ GenesisEditor::GenesisEditor() :
     TextWidget *bottom_widget = create<TextWidget>(_gui_window);
     bottom_widget->set_text("bottom widget");
 
-    VerticalLayoutWidget *vertical_layout = create<VerticalLayoutWidget>(_gui_window, 0, 0);
-    vertical_layout->add_widget(top_widget);
-    vertical_layout->add_widget(bottom_widget);
-    _gui_window->set_main_widget(vertical_layout);
+    GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
+    grid_layout->add_widget(top_widget, 0, 0, HAlignCenter, VAlignCenter);
+    grid_layout->add_widget(bottom_widget, 1, 0, HAlignCenter, VAlignCenter);
+    _gui_window->set_main_widget(grid_layout);
 
 }
 
