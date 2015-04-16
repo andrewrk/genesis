@@ -91,7 +91,7 @@ public:
 
     Thread thread;
     atomic_bool running;
-    Mutex mutex;
+    atomic_bool queue_layout_main_widget;
 
     Widget *main_widget;
 

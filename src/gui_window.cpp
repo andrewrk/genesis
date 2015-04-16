@@ -41,6 +41,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _last_click_button(MouseButtonLeft),
     _double_click_timeout(0.3),
     running(true),
+    queue_layout_main_widget(false),
     main_widget(nullptr)
 {
     if (is_normal_window) {
@@ -60,6 +61,15 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     if (!window)
         panic("unable to create window");
     glfwSetWindowUserPointer(window, this);
+
+    int window_size_width, window_size_height;
+    glfwGetWindowSize(window, &window_size_width, &window_size_height);
+    window_size_callback(window_size_width, window_size_height);
+
+    int framebuffer_width, framebuffer_height;
+    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+    _width = framebuffer_width;
+    _height = framebuffer_height;
 
     if (is_normal_window) {
         if (thread.start(run, this))
@@ -114,15 +124,9 @@ void GuiWindow::setup_context() {
     glfwSetMouseButtonCallback(window, static_mouse_button_callback);
     glfwSetScrollCallback(window, static_scroll_callback);
 
-    // we want to know the framebuffer size right now
     int framebuffer_width, framebuffer_height;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
     framebuffer_size_callback(framebuffer_width, framebuffer_height);
-
-    // we want to know the window size right now
-    int window_size_width, window_size_height;
-    glfwGetWindowSize(window, &window_size_width, &window_size_height);
-    window_size_callback(window_size_width, window_size_height);
 }
 
 void GuiWindow::teardown_context() {
@@ -135,6 +139,8 @@ void GuiWindow::window_iconify_callback(int iconified) {
 }
 
 void GuiWindow::draw() {
+    layout_main_widget();
+
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
     for (int i = 0; i < _widget_list.length(); i += 1) {
@@ -146,31 +152,29 @@ void GuiWindow::draw() {
 }
 
 void GuiWindow::layout_main_widget() {
-    if (main_widget) {
-        main_widget->left = 0;
-        main_widget->top = 0;
-        main_widget->width = _width;
-        main_widget->height = _height;
-        main_widget->on_resize();
+    if (queue_layout_main_widget.exchange(false)) {
+        if (main_widget) {
+            main_widget->left = 0;
+            main_widget->top = 0;
+            main_widget->width = _width;
+            main_widget->height = _height;
+            main_widget->on_resize();
+        }
     }
 }
 
 void GuiWindow::framebuffer_size_callback(int width, int height) {
-    MutexLocker locker(&mutex);
-
     _width = width;
     _height = height;
     glViewport(0, 0, _width, _height);
     _projection = glm::ortho(0.0f, (float)_width, (float)_height, 0.0f);
 
-    layout_main_widget();
-
+    queue_layout_main_widget = true;
 }
 
 void GuiWindow::set_main_widget(Widget *widget) {
-    MutexLocker locker(&mutex);
     main_widget = widget;
-    layout_main_widget();
+    queue_layout_main_widget = true;
 }
 
 void GuiWindow::window_size_callback(int width, int height) {

@@ -16,7 +16,7 @@ void GridLayoutWidget::add_widget(Widget *widget, int row, int col, HAlign h_ali
         panic("widget already has parent");
     if (widget->set_index >= 0)
         panic("widget already attached to window");
-    ensure_size(row, col);
+    ensure_size(row + 1, col + 1);
     widget->parent_widget = this;
     widget->layout_row = row;
     widget->layout_col = col;
@@ -62,7 +62,7 @@ int GridLayoutWidget::max_width() const {
 }
 
 int GridLayoutWidget::min_height() const {
-    int max_min_col_height;
+    int max_min_col_height = 0;
     for (int col = 0; col < cols(); col += 1) {
         int col_height = get_col_min_height(col);
         max_min_col_height = max(max_min_col_height, col_height);
