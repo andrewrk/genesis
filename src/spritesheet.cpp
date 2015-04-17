@@ -1,7 +1,6 @@
 #include "spritesheet.hpp"
 #include "png_image.hpp"
 #include "gui.hpp"
-#include "vertex_array.hpp"
 
 #include <rucksack/rucksack.h>
 
@@ -120,7 +119,6 @@ Spritesheet::Spritesheet(Gui *gui, const ByteBuffer &key) :
             glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(GLfloat), coords, GL_STATIC_DRAW);
         }
 
-        img->vertex_array = create<VertexArray>(_gui, static_init_vertex_array, img);
         _info_dict.put(image->key, img);
     }
 
@@ -137,16 +135,6 @@ Spritesheet::~Spritesheet() {
     }
 }
 
-void Spritesheet::init_vertex_array(SpritesheetImage *img) {
-    glBindBuffer(GL_ARRAY_BUFFER, img->vertex_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-    glBindBuffer(GL_ARRAY_BUFFER, img->tex_coord_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
-}
-
 void Spritesheet::draw(GuiWindow *window, const SpritesheetImage *image, const glm::mat4 &mvp) const {
     _gui->_shader_program_manager._texture_shader_program.bind();
 
@@ -156,7 +144,14 @@ void Spritesheet::draw(GuiWindow *window, const SpritesheetImage *image, const g
     _gui->_shader_program_manager._texture_shader_program.set_uniform(
             _gui->_shader_program_manager._texture_uniform_tex, 0);
 
-    image->vertex_array->bind(window);
+    glBindBuffer(GL_ARRAY_BUFFER, image->vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, image->tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 

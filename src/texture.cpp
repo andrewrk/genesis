@@ -6,8 +6,7 @@
 Texture::Texture(Gui *gui) :
     _gui(gui),
     _width(0),
-    _height(0),
-    _vertex_array(gui, vertex_array_init, this)
+    _height(0)
 {
     glGenTextures(1, &_texture_id);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
@@ -19,16 +18,6 @@ Texture::Texture(Gui *gui) :
 
 Texture::~Texture() {
     glDeleteTextures(1, &_texture_id);
-}
-
-void Texture::vertex_array_init() {
-    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_vertex_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 
 void Texture::send_pixels(const ByteBuffer &pixels, int width, int height) {
@@ -56,7 +45,14 @@ void Texture::draw(GuiWindow *window, const glm::mat4 &mvp) {
     _gui->_shader_program_manager._texture_shader_program.set_uniform(
             _gui->_shader_program_manager._texture_uniform_mvp, mvp);
 
-    _vertex_array.bind(window);
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._texture_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._texture_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 

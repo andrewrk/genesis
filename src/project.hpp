@@ -26,7 +26,7 @@ struct AudioClipSegment {
 struct Project {
     IdMap<AudioClipSegment *> audio_clip_segments;
     IdMap<AudioClip *> audio_clips;
-    IdMap<AudioASsets *> audio_assets;
+    IdMap<AudioAsset *> audio_assets;
 };
 
 #endif

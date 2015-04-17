@@ -1,6 +1,5 @@
 #include "gui.hpp"
 #include "debug.hpp"
-#include "vertex_array.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -35,12 +34,6 @@ GlobalGlfwContext::~GlobalGlfwContext() {
     glfwTerminate();
 }
 
-void Gui::init_primitive_vertex_array() {
-    glBindBuffer(GL_ARRAY_BUFFER, _static_geometry._rect_2d_vertex_buffer);
-    glEnableVertexAttribArray(_shader_program_manager._primitive_attrib_position);
-    glVertexAttribPointer(_shader_program_manager._primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-}
-
 Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _running(true),
     _focus_window(nullptr),
@@ -50,7 +43,6 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _img_entry_dir(_spritesheet.get_image_info("img/entry-dir.png")),
     _img_entry_file(_spritesheet.get_image_info("img/entry-file.png")),
     _img_null(_spritesheet.get_image_info("img/null.png")),
-    _primitive_vertex_array(this, init_primitive_vertex_array, this),
     _genesis_context(context)
 {
 
@@ -82,20 +74,9 @@ Gui::~Gui() {
 
 void Gui::exec() {
     while (_running) {
-        glfwPollEvents();
         genesis_flush_events(_genesis_context);
-        for (int i = 0; i < _window_list.length(); i += 1) {
-            _window_list.at(i)->flush_events();
-        }
-
-        // draw the utility window first because it's the one with vsync on
-        _utility_window->bind();
+        glfwPollEvents();
         _utility_window->draw();
-        for (int i = 1; i < _window_list.length(); i += 1) {
-            GuiWindow *_gui_window = _window_list.at(i);
-            _gui_window->bind();
-            _gui_window->draw();
-        }
     }
 }
 
@@ -108,19 +89,6 @@ FontSize *Gui::get_font_size(int font_size) {
     return font_size_object;
 }
 
-void Gui::fill_rect(GuiWindow *window, const glm::vec4 &color, const glm::mat4 &mvp) {
-    _shader_program_manager._primitive_shader_program.bind();
-
-    _shader_program_manager._primitive_shader_program.set_uniform(
-            _shader_program_manager._primitive_uniform_color, color);
-
-    _shader_program_manager._primitive_shader_program.set_uniform(
-            _shader_program_manager._primitive_uniform_mvp, mvp);
-
-    _primitive_vertex_array.bind(window);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
 void Gui::draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp) {
     _spritesheet.draw(window, img, mvp);
 }
@@ -130,11 +98,6 @@ GuiWindow *Gui::create_window(bool with_borders) {
     window->_gui_index = _window_list.length();
     if (_window_list.append(window))
         panic("out of memory");
-    for (int i = 0; i < _vertex_array_list.length(); i += 1) {
-        VertexArray *vertex_array = _vertex_array_list.at(i);
-        // the context is bound because it happens in create<GuiWindow>()
-        vertex_array->append_context();
-    }
     return window;
 }
 
@@ -146,10 +109,6 @@ void Gui::destroy_window(GuiWindow *window) {
         panic("window did not have its gui index set");
 
     int index = window->_gui_index;
-    for (int i = 0; i < _vertex_array_list.length(); i += 1) {
-        VertexArray *vertex_array = _vertex_array_list.at(i);
-        vertex_array->remove_index(index);
-    }
     _window_list.swap_remove(index);
     if (index < _window_list.length())
         _window_list.at(index)->_gui_index = index;
@@ -159,7 +118,3 @@ void Gui::destroy_window(GuiWindow *window) {
         _running = false;
 }
 
-GuiWindow *Gui::get_bound_window() {
-    GLFWwindow *window = glfwGetCurrentContext();
-    return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window));
-}

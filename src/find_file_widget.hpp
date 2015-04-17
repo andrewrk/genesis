@@ -11,16 +11,17 @@ class GuiWindow;
 
 class FindFileWidget : public Widget {
 public:
-    FindFileWidget(GuiWindow *window, Gui *gui);
+    FindFileWidget(GuiWindow *window);
     ~FindFileWidget();
 
-    void draw(GuiWindow *window, const glm::mat4 &projection) override;
-    int left() const override { return _left; }
-    int top() const override { return _top; }
-    int width() const override;
-    int height() const override;
+    void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *event) override;
     void on_gain_focus() override;
+
+    int min_width() const override { return 0; }
+    int max_width() const override { return -1; }
+    int min_height() const override { return 0; }
+    int max_height() const override { return -1; }
 
     enum Mode {
         ModeOpen,
@@ -31,9 +32,7 @@ public:
         _mode = mode;
     }
 
-    void set_pos(int new_left, int new_top) {
-        _left = new_left;
-        _top = new_top;
+    void on_resize() override {
         update_model();
     }
 
@@ -41,8 +40,9 @@ public:
         _on_choose_file = fn;
     }
 
+
     void *_userdata;
-private:
+
     struct TextWidgetUserData {
         FindFileWidget *find_file_widget;
         DirEntry *dir_entry;
@@ -50,10 +50,6 @@ private:
 
     Mode _mode;
 
-    int _left;
-    int _top;
-    int _width;
-    int _height;
     int _padding_left;
     int _padding_right;
     int _padding_top;
@@ -62,9 +58,6 @@ private:
 
     TextWidget *_current_path_widget;
     TextWidget *_filter_widget;
-
-    GuiWindow *_gui_window;
-    Gui *_gui;
 
     ByteBuffer _current_path;
     List<DirEntry*> _entries;

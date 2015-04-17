@@ -24,6 +24,8 @@ struct GenesisContext {
 
     MutexCond events_cond;
     Mutex events_mutex;
+    void (*event_callback)(void *userdata);
+    void *event_callback_userdata;
 
     List<GenesisAudioFileFormat*> out_formats;
     List<GenesisAudioFileFormat*> in_formats;

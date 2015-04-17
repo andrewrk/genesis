@@ -1,8 +1,6 @@
 #include "label.hpp"
 #include "gui.hpp"
 #include "debug.hpp"
-#include "vertex_array.hpp"
-
 
 static void ft_ok(FT_Error err) {
     if (err)
@@ -37,26 +35,12 @@ Label::Label(Gui *gui) :
     glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(GLfloat), vertexes, GL_DYNAMIC_DRAW);
 
-    _vertex_array = create<VertexArray>(_gui, init_vertex_array_static, this);
-
     update();
 }
 
 Label::~Label() {
     glDeleteBuffers(1, &_vertex_buffer);
-    destroy(_vertex_array, 1);
-
     glDeleteTextures(1, &_texture_id);
-}
-
-void Label::init_vertex_array() {
-    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-
-    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
-    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 }
 
 void Label::draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color) {
@@ -74,7 +58,14 @@ void Label::draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 
     _gui->_shader_program_manager._text_shader_program.set_uniform(
             _gui->_shader_program_manager._text_uniform_mvp, mvp);
 
-    _vertex_array->bind(window);
+    glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager._text_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager._text_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture_id);
 

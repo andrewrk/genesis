@@ -12,14 +12,11 @@ class GuiWindow;
 
 class TextWidget : public Widget {
 public:
-    TextWidget(GuiWindow *gui_window, Gui *gui);
+    TextWidget(GuiWindow *gui_window);
     ~TextWidget() {}
 
-    void draw(GuiWindow *window, const glm::mat4 &projection) override;
-    int left() const override { return _left; }
-    int top() const override { return _top; }
-    int width() const override;
-    int height() const override;
+    void draw(const glm::mat4 &projection) override;
+
     void on_mouse_move(const MouseEvent *event) override;
     void on_mouse_out(const MouseEvent *event) override;
     void on_mouse_over(const MouseEvent *event) override;
@@ -27,6 +24,11 @@ public:
     void on_lose_focus() override;
     void on_text_input(const TextInputEvent *event) override;
     void on_key_event(const KeyEvent *event) override;
+
+    int min_width() const override;
+    int max_width() const override;
+    int min_height() const override;
+    int max_height() const override;
 
     // return true if you ate the event
     void set_on_key_event(bool (*fn)(TextWidget *, const KeyEvent *event)) {
@@ -56,15 +58,14 @@ public:
         update_model();
     }
 
-    void set_pos(int new_left, int new_top) {
-        _left = new_left;
-        _top = new_top;
-        update_model();
+    void on_resize() override {
+        scroll_cursor_into_view();
     }
 
 
 
-    void set_width(int new_width);
+    void set_min_width(int width);
+    void set_max_width(int width);
 
     void set_auto_size(bool value);
 
@@ -89,7 +90,7 @@ public:
     }
 
     void set_text_interaction(bool value) {
-        _text_interaction_on = false;
+        _text_interaction_on = value;
     }
 
     void set_background_color(const glm::vec4 &color) {
@@ -102,12 +103,10 @@ public:
 
     void set_icon(const SpritesheetImage *icon);
 
+
     void *_userdata;
 
-private:
     Label _label;
-    int _left;
-    int _top;
     glm::mat4 _label_model;
     glm::mat4 _bg_model;
 
@@ -122,12 +121,11 @@ private:
     glm::vec4 _selection_color;
     glm::vec4 _cursor_color;
     bool _auto_size;
+    int fixed_min_width;
+    int fixed_max_width;
     int _icon_size_w;
     int _icon_size_h;
     int _icon_margin;
-
-    GuiWindow *_gui_window;
-    Gui *_gui;
 
     int _cursor_start;
     int _cursor_end;
@@ -137,9 +135,6 @@ private:
     glm::mat4 _cursor_model;
 
     bool _have_focus;
-
-    // used when _auto_size is false
-    int _width;
 
     int _scroll_x;
 
@@ -179,6 +174,9 @@ private:
     int label_start_x() const;
     int label_start_y() const;
     int label_area_width() const;
+
+    int bg_width() const;
+    int bg_height() const;
 
     TextWidget(const TextWidget &copy) = delete;
     TextWidget &operator=(const TextWidget &copy) = delete;

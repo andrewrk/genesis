@@ -2,6 +2,7 @@
 #include "list.hpp"
 #include "gui_window.hpp"
 #include "genesis.h"
+#include "grid_layout_widget.hpp"
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("resources.bundle"),
@@ -18,6 +19,18 @@ GenesisEditor::GenesisEditor() :
     _gui_window->set_on_key_event(static_on_key_event);
     _gui_window->set_on_text_event(static_on_text_event);
     _gui_window->set_on_close_event(static_on_close_event);
+
+    TextWidget *top_widget = create<TextWidget>(_gui_window);
+    top_widget->set_text("top widget");
+    TextWidget *bottom_widget = create<TextWidget>(_gui_window);
+    bottom_widget->set_text("bottom widget");
+
+    GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
+    grid_layout->add_widget(top_widget, 0, 0, HAlignCenter, VAlignCenter);
+    grid_layout->add_widget(bottom_widget, 1, 0, HAlignCenter, VAlignCenter);
+    _gui_window->set_main_widget(grid_layout);
+
+
 }
 
 GenesisEditor::~GenesisEditor() {
@@ -35,7 +48,7 @@ void GenesisEditor::exec() {
 void GenesisEditor::destroy_find_file_widget() {
     if (!_find_file_widget)
         return;
-    _gui_window->destroy_widget(_find_file_widget);
+    destroy(_find_file_widget, 1);
     _find_file_widget = NULL;
 }
 
@@ -70,9 +83,11 @@ void GenesisEditor::ensure_find_file_widget() {
     if (_find_file_widget)
         return;
 
-    _find_file_widget = _gui_window->create_find_file_widget();
+    _find_file_widget = create<FindFileWidget>(_gui_window);
     _find_file_widget->_userdata = this;
-    _find_file_widget->set_pos(100, 100);
+    _find_file_widget->left = 100;
+    _find_file_widget->top = 100;
+    _find_file_widget->on_resize();
 }
 
 void GenesisEditor::show_save_file() {
@@ -109,7 +124,4 @@ void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
 
 void GenesisEditor::edit_file(const char *filename) {
     on_choose_file(filename);
-}
-
-void GenesisEditor::create_new_file() {
 }

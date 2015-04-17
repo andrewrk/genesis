@@ -59,10 +59,10 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/shader_program_manager.cpp"
     "${CMAKE_SOURCE_DIR}/src/alpha_texture.cpp"
     "${CMAKE_SOURCE_DIR}/src/static_geometry.cpp"
-    "${CMAKE_SOURCE_DIR}/src/vertex_array.cpp"
     "${CMAKE_SOURCE_DIR}/src/gui_window.cpp"
-    "${CMAKE_SOURCE_DIR}/src/select_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/grid_layout_widget.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")

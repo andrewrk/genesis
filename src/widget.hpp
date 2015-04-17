@@ -6,15 +6,22 @@
 #include "key_event.hpp"
 
 class GuiWindow;
+class Gui;
+
 class Widget {
 public:
-    Widget() : _gui_index(-1), _is_visible(true) {}
-    virtual ~Widget() {}
-    virtual void draw(GuiWindow *window, const glm::mat4 &projection) = 0;
-    virtual int left() const = 0;
-    virtual int top() const = 0;
-    virtual int width() const = 0;
-    virtual int height() const = 0;
+    Widget(GuiWindow *gui_window);
+    virtual ~Widget();
+    virtual void draw(const glm::mat4 &projection) = 0;
+
+    // -1 means no max
+    virtual int min_width() const = 0;
+    virtual int max_width() const = 0;
+    virtual int min_height() const = 0;
+    virtual int max_height() const = 0;
+    // call when one of the above 4 functions values will be different
+    void on_size_hints_changed();
+
     virtual void on_mouse_move(const MouseEvent *) {}
     virtual void on_mouse_out(const MouseEvent *) {}
     virtual void on_mouse_over(const MouseEvent *) {}
@@ -23,11 +30,25 @@ public:
     virtual void on_text_input(const TextInputEvent *event) {}
     virtual void on_key_event(const KeyEvent *) {}
     virtual void on_mouse_wheel(const MouseWheelEvent *) {}
+    virtual void on_resize() {}
+    virtual void remove_widget(Widget *widget);
 
-    virtual void flush_events() {}
 
-    int _gui_index;
-    bool _is_visible;
+    GuiWindow *gui_window;
+    Widget *parent_widget;
+    Gui *gui;
+
+    int left;
+    int top;
+    int width;
+    int height;
+
+    // index into gui_window's set of widgets
+    int set_index;
+    // index into grid layout widget parent, if any
+    int layout_row;
+    int layout_col;
+    bool is_visible;
 };
 
 #endif

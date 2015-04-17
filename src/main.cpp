@@ -25,8 +25,6 @@ int main(int argc, char *argv[]) {
     GenesisEditor genesis_editor;
     if (input_filename)
         genesis_editor.edit_file(input_filename);
-    else
-        genesis_editor.create_new_file();
     genesis_editor.exec();
 
     return 0;

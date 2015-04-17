@@ -3,7 +3,6 @@
 
 #include "byte_buffer.hpp"
 #include "glm.hpp"
-#include "vertex_array.hpp"
 #include "glfw.hpp"
 
 class Gui;
@@ -23,13 +22,6 @@ public:
 
 private:
     GLuint _texture_id;
-    VertexArray _vertex_array;
-
-    void init_vertex_array();
-
-    static void static_init_vertex_array(void *userdata) {
-        return static_cast<AlphaTexture*>(userdata)->init_vertex_array();
-    }
 
     AlphaTexture(const AlphaTexture &copy) = delete;
     AlphaTexture &operator=(const AlphaTexture &copy) = delete;

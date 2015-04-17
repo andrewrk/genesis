@@ -164,4 +164,17 @@ private:
     MutexCond &operator=(const MutexCond &copy) = delete;
 };
 
+class MutexLocker {
+public:
+    MutexLocker(Mutex *_mutex) : mutex(_mutex) {
+        mutex->lock();
+    }
+
+    ~MutexLocker() {
+        mutex->unlock();
+    }
+
+    Mutex *mutex;
+};
+
 #endif

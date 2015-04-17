@@ -7,28 +7,23 @@
 #include "mouse_event.hpp"
 #include "string.hpp"
 #include "glfw.hpp"
+#include "threads.hpp"
+
+#include <atomic>
+using std::atomic_bool;
 
 class Gui;
 class Widget;
-class TextWidget;
-class FindFileWidget;
-class AudioEditWidget;
 struct SpritesheetImage;
-class SelectWidget;
 
 class GuiWindow {
 public:
     GuiWindow(Gui *gui, bool is_normal_window);
     ~GuiWindow();
 
-    void bind();
     void draw();
 
-    SelectWidget *create_select_widget();
-    TextWidget *create_text_widget();
-    FindFileWidget *create_find_file_widget();
-
-    void destroy_widget(Widget *widget);
+    void remove_widget(Widget *widget);
     void set_focus_widget(Widget *widget);
 
     // return true if you ate the event
@@ -49,6 +44,7 @@ public:
 
     bool try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event);
 
+    void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
     void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
     void draw_image(const SpritesheetImage *img, int x, int y, int w, int h);
 
@@ -56,7 +52,8 @@ public:
     String get_clipboard_string() const;
     bool clipboard_has_string() const;
 
-    void flush_events();
+    void set_main_widget(Widget *widget);
+
 
 
     void *_userdata;
@@ -64,7 +61,8 @@ public:
     int _gui_index;
 
     Gui *_gui;
-    GLFWwindow *_window;
+    GLFWwindow *window;
+    GLuint vertex_array_object;
 
     // pixels
     int _width;
@@ -74,10 +72,7 @@ public:
     int _client_width;
     int _client_height;
 
-private:
-
     glm::mat4 _projection;
-    List<Widget *> _widget_list;
     Widget *_mouse_over_widget;
     Widget *_focus_widget;
 
@@ -86,13 +81,19 @@ private:
     void (*_on_close_event)(GuiWindow *);
 
     bool _is_iconified;
-    bool _is_visible;
+    bool is_visible;
 
     double _last_click_time;
     MouseButton _last_click_button;
     double _double_click_timeout;
 
-    void init_widget(Widget *widget);
+    Thread thread;
+    atomic_bool running;
+    atomic_bool viewport_update_queued;
+
+    Widget *main_widget;
+
+    void layout_main_widget();
     int get_modifiers();
     void on_mouse_move(const MouseEvent *event);
 
@@ -105,6 +106,8 @@ private:
     void cursor_pos_callback(double xpos, double ypos);
     void mouse_button_callback(int button, int action, int mods);
     void scroll_callback(double xoffset, double yoffset);
+    void setup_context();
+    void teardown_context();
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);
