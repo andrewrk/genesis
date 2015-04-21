@@ -36,6 +36,7 @@ public:
 
     Label label;
     glm::mat4 label_model;
+    glm::mat4 mnemonic_model;
     Label shortcut_label;
     glm::mat4 shortcut_label_model;
 

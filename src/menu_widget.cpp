@@ -91,6 +91,19 @@ void ContextMenuWidget::update_model() {
         child->label_model = glm::translate(
                                 glm::mat4(1.0f),
                                 glm::vec3(label_left, label_top, 0.0f));
+
+        if (child->mnemonic_index >= 0) {
+            int start_x, end_x;
+            int start_y, end_y;
+            child->label.pos_at_cursor(child->mnemonic_index, start_x, start_y);
+            child->label.pos_at_cursor(child->mnemonic_index + 1, end_x, end_y);
+            child->mnemonic_model = glm::scale(
+                            glm::translate(
+                                glm::mat4(1.0f),
+                                glm::vec3(label_left + start_x, label_top + start_y + 1, 0.0f)),
+                            glm::vec3(end_x - start_x, 1.0f, 1.0f));
+        }
+
         if (!null_key_sequence(child->shortcut)) {
             int shortcut_label_left = calculated_width - padding_right - child->shortcut_label.width();
             int shortcut_label_top = label_top;
@@ -126,6 +139,11 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
         if (!null_key_sequence(child->shortcut)) {
             glm::mat4 shortcut_label_mvp = projection * child->shortcut_label_model;
             child->shortcut_label.draw(gui_window, shortcut_label_mvp, this_text_color);
+        }
+
+        if (child->mnemonic_index >= 0) {
+            glm::mat4 mnemonic_mvp = projection * child->mnemonic_model;
+            gui_window->fill_rect(this_text_color, mnemonic_mvp);
         }
     }
 }
@@ -184,13 +202,16 @@ void MenuWidget::draw(const glm::mat4 &projection) {
     for (int i = 0; i < children.length(); i += 1) {
         TopLevelMenu *child = &children.at(i);
         glm::mat4 label_mvp = projection * child->item->label_model;
+        glm::vec4 this_text_color = (activated_item == child) ? activated_text_color : text_color;
         if (activated_item == child) {
             gui_window->fill_rect(activated_color,
                     left + child->left, top,
                     child->right - child->left, calculated_height);
-            child->item->label.draw(gui_window, label_mvp, activated_text_color);
-        } else {
-            child->item->label.draw(gui_window, label_mvp, text_color);
+        }
+        child->item->label.draw(gui_window, label_mvp, this_text_color);
+        if (child->item->mnemonic_index >= 0) {
+            glm::mat4 mnemonic_mvp = projection * child->item->mnemonic_model;
+            gui_window->fill_rect(this_text_color, mnemonic_mvp);
         }
     }
 }
@@ -212,6 +233,18 @@ void MenuWidget::update_model() {
         child->item->label_model = glm::translate(
                                 glm::mat4(1.0f),
                                 glm::vec3(label_left, label_top, 0.0f));
+
+        if (child->item->mnemonic_index >= 0) {
+            int start_x, end_x;
+            int start_y, end_y;
+            child->item->label.pos_at_cursor(child->item->mnemonic_index, start_x, start_y);
+            child->item->label.pos_at_cursor(child->item->mnemonic_index + 1, end_x, end_y);
+            child->item->mnemonic_model = glm::scale(
+                            glm::translate(
+                                glm::mat4(1.0f),
+                                glm::vec3(label_left + start_x, label_top + start_y + 1, 0.0f)),
+                            glm::vec3(end_x - start_x, 1.0f, 1.0f));
+        }
     }
     calculated_width = next_left;
     calculated_height = spacing_top + max_label_height + spacing_bottom;
