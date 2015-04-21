@@ -25,7 +25,7 @@ GenesisEditor::GenesisEditor() :
 
     project_menu->add_menu("Exit", 1, MenuWidget::alt_shortcut(VirtKeyF4));
 
-    help_menu->add_menu("Report a Bug", 1, MenuWidget::no_shortcut());
+    help_menu->add_menu("Report a Bug", 0, MenuWidget::no_shortcut());
 
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
     grid_layout->padding = 0;

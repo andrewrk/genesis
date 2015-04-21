@@ -61,6 +61,9 @@ public:
     int min_height() const override { return calculated_height; }
     int max_height() const override { return calculated_height; }
 
+    void on_mouse_move(const MouseEvent *) override;
+    void on_mouse_out(const MouseEvent *) override;
+
     void on_resize() override { update_model(); }
 
     MenuWidgetItem *menu_widget_item;
@@ -74,12 +77,16 @@ public:
     int item_padding_top;
     int item_padding_bottom;
     glm::vec4 bg_color;
+    glm::vec4 activated_color;
     glm::vec4 text_color;
+    glm::vec4 activated_text_color;
     glm::mat4 bg_model;
     void *userdata;
     void (*on_destroy)(ContextMenuWidget *);
+    MenuWidgetItem *activated_item;
 
     void update_model();
+    MenuWidgetItem *get_item_at(int y);
 };
 
 class MenuWidget : public Widget {

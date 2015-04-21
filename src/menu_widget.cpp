@@ -50,7 +50,12 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     item_padding_top(4),
     item_padding_bottom(4),
     bg_color(parse_color("#FCFCFC")),
-    text_color(parse_color("#353535"))
+    activated_color(parse_color("#2B71BC")),
+    text_color(parse_color("#353535")),
+    activated_text_color(parse_color("#f0f0f0")),
+    userdata(nullptr),
+    on_destroy(nullptr),
+    activated_item(nullptr)
 {
     update_model();
 }
@@ -109,15 +114,53 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
 
     for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
         MenuWidgetItem *child = menu_widget_item->children.at(i);
+        glm::vec4 this_text_color = (child == activated_item) ? activated_text_color : text_color;
+        if (child == activated_item) {
+            gui_window->fill_rect(activated_color,
+                left, top + child->top,
+                calculated_width, child->bottom - child->top);
+        }
+
         glm::mat4 label_mvp = projection * child->label_model;
-        child->label.draw(gui_window, label_mvp, text_color);
+        child->label.draw(gui_window, label_mvp, this_text_color);
         if (!null_key_sequence(child->shortcut)) {
             glm::mat4 shortcut_label_mvp = projection * child->shortcut_label_model;
-            child->shortcut_label.draw(gui_window, shortcut_label_mvp, text_color);
+            child->shortcut_label.draw(gui_window, shortcut_label_mvp, this_text_color);
         }
     }
 }
 
+MenuWidgetItem *ContextMenuWidget::get_item_at(int y) {
+    for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
+        MenuWidgetItem *child = menu_widget_item->children.at(i);
+        if (y >= child->top && y < child->bottom)
+            return child;
+    }
+    return nullptr;
+}
+
+void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
+    MenuWidgetItem *hover_item = get_item_at(event->y);
+    switch (event->action) {
+        case MouseActionMove:
+            activated_item = hover_item;
+            break;
+        case MouseActionUp:
+            if (hover_item->activate_handler) {
+                hover_item->activate_handler(hover_item->userdata);
+            } else {
+                fprintf(stderr, "No handler attached: %s\n", hover_item->label.text().encode().raw());
+            }
+            gui_window->destroy_context_menu();
+            break;
+        default:
+            return;
+    }
+}
+
+void ContextMenuWidget::on_mouse_out(const MouseEvent *event) {
+    activated_item = nullptr;
+}
 
 MenuWidget::MenuWidget(GuiWindow *gui_window) :
     Widget(gui_window),
@@ -220,9 +263,14 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                 if (!activated_item)
                     return;
                 TopLevelMenu *child = get_child_at(event->x, event->y);
-                if (!child)
-                    return;
-                pop_top_level(child);
+                if (child) {
+                    pop_top_level(child);
+                } else if (gui_window->context_menu) {
+                    MouseEvent event_for_child = *event;
+                    event_for_child.x -= left;
+                    event_for_child.y -= top;
+                    gui_window->try_mouse_move_event_on_widget(gui_window->context_menu, &event_for_child);
+                }
                 break;
             }
         default:

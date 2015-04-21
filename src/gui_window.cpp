@@ -353,10 +353,9 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
         mouse_event.x -= _mouse_over_widget->left;
         mouse_event.y -= _mouse_over_widget->top;
 
-        if ((in_bounds || pressing_any_btn) && (!context_menu || _mouse_over_widget == context_menu)) {
-            if (event->action == MouseActionDown && pressing_any_btn && _mouse_over_widget != _focus_widget) {
+        if (in_bounds || pressing_any_btn) {
+            if (event->action == MouseActionDown)
                 set_focus_widget(_mouse_over_widget);
-            }
             _mouse_over_widget->on_mouse_move(&mouse_event);
             return;
         } else {
@@ -374,9 +373,13 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
     if (_mouse_over_widget != NULL)
         panic("expected _mouse_over_widget NULL");
 
-    if (event->action == MouseActionDown && context_menu) {
-        destroy_context_menu();
-        return;
+    if (context_menu) {
+        if (event->action == MouseActionDown) {
+            destroy_context_menu();
+            return;
+        }
+        if (try_mouse_move_event_on_widget(context_menu, event))
+            return;
     }
 
     if (main_widget)
@@ -420,6 +423,8 @@ void GuiWindow::set_focus_widget(Widget *widget) {
         Widget *old_focus_widget = _focus_widget;
         _focus_widget = NULL;
         old_focus_widget->on_lose_focus();
+        if (old_focus_widget == context_menu)
+            destroy_context_menu();
     }
     if (!widget)
         return;
