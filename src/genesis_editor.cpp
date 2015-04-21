@@ -3,6 +3,7 @@
 #include "gui_window.hpp"
 #include "genesis.h"
 #include "grid_layout_widget.hpp"
+#include "menu_widget.hpp"
 
 GenesisEditor::GenesisEditor() :
     _resource_bundle("resources.bundle"),
@@ -16,21 +17,14 @@ GenesisEditor::GenesisEditor() :
 
     _gui_window = _gui->create_window(true);
     _gui_window->_userdata = this;
-    _gui_window->set_on_key_event(static_on_key_event);
-    _gui_window->set_on_text_event(static_on_text_event);
     _gui_window->set_on_close_event(static_on_close_event);
 
-    TextWidget *top_widget = create<TextWidget>(_gui_window);
-    top_widget->set_text("top widget");
-    TextWidget *bottom_widget = create<TextWidget>(_gui_window);
-    bottom_widget->set_text("bottom widget");
+    MenuWidget *menu_widget = create<MenuWidget>(_gui_window);
+    menu_widget->add_menu("Project", 0);
 
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
-    grid_layout->add_widget(top_widget, 0, 0, HAlignCenter, VAlignCenter);
-    grid_layout->add_widget(bottom_widget, 1, 0, HAlignCenter, VAlignCenter);
+    grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
     _gui_window->set_main_widget(grid_layout);
-
-
 }
 
 GenesisEditor::~GenesisEditor() {
@@ -45,83 +39,6 @@ void GenesisEditor::exec() {
     _gui->exec();
 }
 
-void GenesisEditor::destroy_find_file_widget() {
-    if (!_find_file_widget)
-        return;
-    destroy(_find_file_widget, 1);
-    _find_file_widget = NULL;
-}
-
-bool GenesisEditor::on_text_event(GuiWindow *window, const TextInputEvent *event) {
-    return false;
-}
-
-bool GenesisEditor::on_key_event(GuiWindow *window, const KeyEvent *event) {
-    if (event->action != KeyActionDown)
-        return false;
-
-    switch (event->virt_key) {
-        default:
-            return false;
-        case VirtKeyO:
-            if (key_mod_only_ctrl(event->modifiers)) {
-                show_open_file();
-                return true;
-            }
-            return false;
-        case VirtKeyS:
-            if (key_mod_only_ctrl(event->modifiers)) {
-                show_save_file();
-                return true;
-            }
-            return false;
-    }
-    return false;
-}
-
-void GenesisEditor::ensure_find_file_widget() {
-    if (_find_file_widget)
-        return;
-
-    _find_file_widget = create<FindFileWidget>(_gui_window);
-    _find_file_widget->_userdata = this;
-    _find_file_widget->left = 100;
-    _find_file_widget->top = 100;
-    _find_file_widget->on_resize();
-}
-
-void GenesisEditor::show_save_file() {
-    ensure_find_file_widget();
-    _find_file_widget->set_mode(FindFileWidget::ModeSave);
-    _gui_window->set_focus_widget(_find_file_widget);
-    _find_file_widget->set_on_choose_file(on_choose_save_file);
-}
-
-void GenesisEditor::show_open_file() {
-    ensure_find_file_widget();
-    _find_file_widget->set_mode(FindFileWidget::ModeOpen);
-    _find_file_widget->set_on_choose_file(static_on_choose_file);
-    _gui_window->set_focus_widget(_find_file_widget);
-}
-
-void GenesisEditor::on_choose_file(const ByteBuffer &file_path) {
-    destroy_find_file_widget();
-}
-
-void GenesisEditor::on_choose_save_file(const ByteBuffer &file_path) {
-    destroy_find_file_widget();
-
-    struct GenesisExportFormat export_format;
-    export_format.bit_rate = 320 * 1000;
-    export_format.codec = genesis_guess_audio_file_codec(_genesis_context, file_path.raw(), nullptr, nullptr);
-    if (!export_format.codec)
-        panic("can't find suitable format to save");
-    int sample_format_count = genesis_audio_file_codec_sample_format_count(export_format.codec);
-    if (sample_format_count <= 0)
-        panic("unsupported sample format");
-    export_format.sample_format = genesis_audio_file_codec_sample_format_index(export_format.codec, 0);
-}
-
 void GenesisEditor::edit_file(const char *filename) {
-    on_choose_file(filename);
+    fprintf(stderr, "edit file %s\n", filename);
 }

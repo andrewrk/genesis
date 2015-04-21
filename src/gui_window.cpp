@@ -99,7 +99,10 @@ GuiWindow::~GuiWindow() {
         teardown_context();
     } else {
         running = false;
+
+        _gui->gui_mutex.unlock();
         thread.join();
+        _gui->gui_mutex.lock();
     }
 
     if (main_widget)
