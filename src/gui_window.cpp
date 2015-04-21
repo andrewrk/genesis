@@ -354,8 +354,13 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
         mouse_event.y -= _mouse_over_widget->top;
 
         if (in_bounds || pressing_any_btn) {
-            if (pressing_any_btn && _mouse_over_widget != _focus_widget)
+            if (pressing_any_btn && _mouse_over_widget != _focus_widget) {
+                if (context_menu && _mouse_over_widget != context_menu) {
+                    destroy_context_menu();
+                    return;
+                }
                 set_focus_widget(_mouse_over_widget);
+            }
             _mouse_over_widget->on_mouse_move(&mouse_event);
             return;
         } else {
@@ -372,6 +377,11 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
 
     if (_mouse_over_widget != NULL)
         panic("expected _mouse_over_widget NULL");
+
+    if (event->action == MouseActionDown && context_menu) {
+        destroy_context_menu();
+        return;
+    }
 
     if (main_widget)
         try_mouse_move_event_on_widget(main_widget, event);
@@ -489,7 +499,7 @@ bool GuiWindow::clipboard_has_string() const {
     return (clip_text != nullptr);
 }
 
-void GuiWindow::pop_context_menu(MenuWidgetItem *menu_widget_item,
+ContextMenuWidget * GuiWindow::pop_context_menu(MenuWidgetItem *menu_widget_item,
         int left, int top, int width, int height)
 {
     destroy_context_menu();
@@ -503,6 +513,10 @@ void GuiWindow::pop_context_menu(MenuWidgetItem *menu_widget_item,
         context_menu->top = top - context_menu->height;
 
     context_menu->on_resize();
+
+    set_focus_widget(context_menu);
+
+    return context_menu;
 }
 
 void GuiWindow::destroy_context_menu() {

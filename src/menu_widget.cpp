@@ -55,6 +55,11 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     update_model();
 }
 
+ContextMenuWidget::~ContextMenuWidget() {
+    if (on_destroy)
+        on_destroy(this);
+}
+
 void ContextMenuWidget::update_model() {
     calculated_width = 0;
     int next_top = padding_top;
@@ -121,7 +126,8 @@ MenuWidget::MenuWidget(GuiWindow *gui_window) :
     spacing_left(12),
     spacing_right(12),
     spacing_top(4),
-    spacing_bottom(4)
+    spacing_bottom(4),
+    activated(false)
 {
 }
 
@@ -164,6 +170,32 @@ void MenuWidget::update_model() {
                     glm::vec3(width, calculated_height, 1.0f));
 }
 
+static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
+    MenuWidget *menu_widget = (MenuWidget*)context_menu->userdata;
+    menu_widget->activated = false;
+}
+
+void MenuWidget::pop_top_level(TopLevelMenu *child) {
+    ContextMenuWidget *context_menu = gui_window->pop_context_menu(child->item,
+            left + child->left, top,
+            child->right - child->left, calculated_height);
+    context_menu->userdata = this;
+    context_menu->on_destroy = on_context_menu_destroy;
+    activated = true;
+}
+
+MenuWidget::TopLevelMenu *MenuWidget::get_child_at(int x, int y) {
+    for (int i = 0; i < children.length(); i += 1) {
+        TopLevelMenu *child = &children.at(i);
+        if (x >= child->left && x < child->right &&
+            y >= 0 && y < calculated_height)
+        {
+            return child;
+        }
+    }
+    return nullptr;
+}
+
 void MenuWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:
@@ -171,9 +203,17 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                 TopLevelMenu *child = get_child_at(event->x, event->y);
                 if (!child)
                     return;
-                gui_window->pop_context_menu(child->item,
-                        left + child->left, top,
-                        child->right - child->left, calculated_height);
+                pop_top_level(child);
+                break;
+            }
+        case MouseActionMove:
+            {
+                if (!activated)
+                    return;
+                TopLevelMenu *child = get_child_at(event->x, event->y);
+                if (!child)
+                    return;
+                pop_top_level(child);
                 break;
             }
         default:

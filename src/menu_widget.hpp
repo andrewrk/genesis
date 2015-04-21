@@ -52,7 +52,7 @@ public:
 class ContextMenuWidget : public Widget {
 public:
     ContextMenuWidget(MenuWidgetItem *menu_widget_item);
-    ~ContextMenuWidget() {}
+    ~ContextMenuWidget();
 
     void draw(const glm::mat4 &projection) override;
 
@@ -76,6 +76,8 @@ public:
     glm::vec4 bg_color;
     glm::vec4 text_color;
     glm::mat4 bg_model;
+    void *userdata;
+    void (*on_destroy)(ContextMenuWidget *);
 
     void update_model();
 };
@@ -167,20 +169,11 @@ public:
     int spacing_right;
     int spacing_top;
     int spacing_bottom;
+    bool activated;
 
     void update_model();
-
-    TopLevelMenu *get_child_at(int x, int y) {
-        for (int i = 0; i < children.length(); i += 1) {
-            TopLevelMenu *child = &children.at(i);
-            if (x >= child->left && x < child->right &&
-                y >= 0 && y < calculated_height)
-            {
-                return child;
-            }
-        }
-        return nullptr;
-    }
+    void pop_top_level(TopLevelMenu *child);
+    TopLevelMenu *get_child_at(int x, int y);
 };
 
 #endif
