@@ -5,14 +5,6 @@
 #include "debug.hpp"
 #include "menu_widget.hpp"
 
-static bool default_on_key_event(GuiWindow *, const KeyEvent *event) {
-    return false;
-}
-
-static bool default_on_text_event(GuiWindow *, const TextInputEvent *event) {
-    return false;
-}
-
 static void default_on_close_event(GuiWindow *) {
     fprintf(stderr, "no window close handler attached\n");
 }
@@ -39,8 +31,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _gui(gui),
     _mouse_over_widget(nullptr),
     _focus_widget(nullptr),
-    _on_key_event(default_on_key_event),
-    _on_text_event(default_on_text_event),
+    menu_widget(nullptr),
     _on_close_event(default_on_close_event),
     _is_iconified(false),
     is_visible(true),
@@ -210,13 +201,15 @@ void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
         mods,
     };
 
-    if (_on_key_event(this, &key_event))
-        return;
+    if (_focus_widget) {
+        if (_focus_widget->on_key_event(&key_event))
+            return;
+    }
 
-    if (!_focus_widget)
-        return;
-
-    _focus_widget->on_key_event(&key_event);
+    if (menu_widget) {
+        if (menu_widget->on_key_event(&key_event))
+            return;
+    }
 }
 
 void GuiWindow::charmods_callback(unsigned int codepoint, int mods) {
@@ -228,13 +221,8 @@ void GuiWindow::charmods_callback(unsigned int codepoint, int mods) {
         mods,
     };
 
-    if (_on_text_event(this, &text_event))
-        return;
-
-    if (!_focus_widget)
-        return;
-
-    _focus_widget->on_text_input(&text_event);
+    if (_focus_widget)
+        _focus_widget->on_text_input(&text_event);
 }
 
 int GuiWindow::get_modifiers() {

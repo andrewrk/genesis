@@ -23,13 +23,14 @@ public:
     // call when one of the above 4 functions values will be different
     void on_size_hints_changed();
 
+    // return true if you ate the event
     virtual void on_mouse_move(const MouseEvent *) {}
     virtual void on_mouse_out(const MouseEvent *) {}
     virtual void on_mouse_over(const MouseEvent *) {}
     virtual void on_gain_focus() {}
     virtual void on_lose_focus() {}
     virtual void on_text_input(const TextInputEvent *event) {}
-    virtual void on_key_event(const KeyEvent *) {}
+    virtual bool on_key_event(const KeyEvent *) { return false; }
     virtual void on_mouse_wheel(const MouseWheelEvent *) {}
     virtual void on_resize() {}
     virtual void remove_widget(Widget *widget);

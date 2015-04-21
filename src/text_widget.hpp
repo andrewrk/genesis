@@ -23,7 +23,7 @@ public:
     void on_gain_focus() override;
     void on_lose_focus() override;
     void on_text_input(const TextInputEvent *event) override;
-    void on_key_event(const KeyEvent *event) override;
+    bool on_key_event(const KeyEvent *event) override;
 
     int min_width() const override;
     int max_width() const override;

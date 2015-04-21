@@ -39,6 +39,53 @@ MenuWidgetItem::~MenuWidgetItem() {
     }
 }
 
+VirtKey MenuWidgetItem::get_mnemonic_key() {
+    if (mnemonic_index == -1)
+        return VirtKeyUnknown;
+
+    uint32_t orig_codepoint = label.text().at(mnemonic_index);
+    uint32_t lower_codepoint = String::char_to_lower(orig_codepoint);
+    switch (lower_codepoint) {
+        default: return VirtKeyUnknown;
+        case (uint32_t)'0': return VirtKey0;
+        case (uint32_t)'1': return VirtKey1;
+        case (uint32_t)'2': return VirtKey2;
+        case (uint32_t)'3': return VirtKey3;
+        case (uint32_t)'4': return VirtKey4;
+        case (uint32_t)'5': return VirtKey5;
+        case (uint32_t)'6': return VirtKey6;
+        case (uint32_t)'7': return VirtKey7;
+        case (uint32_t)'8': return VirtKey8;
+        case (uint32_t)'9': return VirtKey9;
+        case (uint32_t)'a': return VirtKeyA;
+        case (uint32_t)'b': return VirtKeyB;
+        case (uint32_t)'c': return VirtKeyC;
+        case (uint32_t)'d': return VirtKeyD;
+        case (uint32_t)'e': return VirtKeyE;
+        case (uint32_t)'f': return VirtKeyF;
+        case (uint32_t)'g': return VirtKeyG;
+        case (uint32_t)'h': return VirtKeyH;
+        case (uint32_t)'i': return VirtKeyI;
+        case (uint32_t)'j': return VirtKeyJ;
+        case (uint32_t)'k': return VirtKeyK;
+        case (uint32_t)'l': return VirtKeyL;
+        case (uint32_t)'m': return VirtKeyM;
+        case (uint32_t)'n': return VirtKeyN;
+        case (uint32_t)'o': return VirtKeyO;
+        case (uint32_t)'p': return VirtKeyP;
+        case (uint32_t)'q': return VirtKeyQ;
+        case (uint32_t)'r': return VirtKeyR;
+        case (uint32_t)'s': return VirtKeyS;
+        case (uint32_t)'t': return VirtKeyT;
+        case (uint32_t)'u': return VirtKeyU;
+        case (uint32_t)'v': return VirtKeyV;
+        case (uint32_t)'w': return VirtKeyW;
+        case (uint32_t)'x': return VirtKeyX;
+        case (uint32_t)'y': return VirtKeyY;
+        case (uint32_t)'z': return VirtKeyZ;
+    }
+}
+
 ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     Widget(menu_widget_item->gui_window),
     menu_widget_item(menu_widget_item),
@@ -157,6 +204,14 @@ MenuWidgetItem *ContextMenuWidget::get_item_at(int y) {
     return nullptr;
 }
 
+void MenuWidgetItem::activate() {
+    if (!activate_handler) {
+        fprintf(stderr, "No handler attached: %s\n", label.text().encode().raw());
+        return;
+    }
+    activate_handler(userdata);
+}
+
 void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
     MenuWidgetItem *hover_item = get_item_at(event->y);
     switch (event->action) {
@@ -165,15 +220,71 @@ void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
             break;
         case MouseActionUp:
             gui_window->destroy_context_menu();
-            if (hover_item->activate_handler) {
-                hover_item->activate_handler(hover_item->userdata);
-            } else {
-                fprintf(stderr, "No handler attached: %s\n", hover_item->label.text().encode().raw());
-            }
+            hover_item->activate();
             break;
         default:
             return;
     }
+}
+
+int ContextMenuWidget::get_menu_widget_index(MenuWidgetItem *item) {
+    for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
+        MenuWidgetItem *child = menu_widget_item->children.at(i);
+        if (child == item)
+            return i;
+    }
+    panic("item not found");
+}
+
+bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
+    if (event->action != KeyActionDown)
+        return false;
+
+    if (event->modifiers != 0)
+        return false;
+
+    if (event->virt_key == VirtKeyUp || event->virt_key == VirtKeyDown) {
+        int dir = (event->virt_key == VirtKeyUp) ? -1 : 1;
+        int new_index;
+        if (activated_item) {
+            int activated_index = get_menu_widget_index(activated_item);
+            new_index = (activated_index + dir) % menu_widget_item->children.length();
+        } else {
+            new_index = (dir == 1) ? 0 : (menu_widget_item->children.length() - 1);
+        }
+        activated_item = menu_widget_item->children.at(new_index);
+        return true;
+    }
+
+    if (event->virt_key == VirtKeyLeft || event->virt_key == VirtKeyRight) {
+        int dir = (event->virt_key == VirtKeyLeft) ? -1 : 1;
+        MenuWidget *menu_widget = gui_window->menu_widget;
+        int current_index = menu_widget->get_item_index(menu_widget->activated_item);
+        int new_index = (current_index + dir) % menu_widget->children.length();
+        menu_widget->pop_top_level(&menu_widget->children.at(new_index), true);
+        return true;
+    }
+
+    if (activated_item && (event->virt_key == VirtKeyEnter || event->virt_key == VirtKeySpace)) {
+        activated_item->activate();
+        return true;
+    }
+
+    if (event->virt_key == VirtKeyEscape) {
+        gui_window->destroy_context_menu();
+        return true;
+    }
+
+    for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
+        MenuWidgetItem *child = menu_widget_item->children.at(i);
+        VirtKey target_key = child->get_mnemonic_key();
+        if (target_key == event->virt_key) {
+            child->activate();
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void ContextMenuWidget::on_mouse_out(const MouseEvent *event) {
@@ -192,6 +303,16 @@ MenuWidget::MenuWidget(GuiWindow *gui_window) :
     spacing_bottom(4),
     activated_item(nullptr)
 {
+    gui_window->menu_widget = this;
+}
+
+MenuWidget::~MenuWidget() {
+    gui_window->menu_widget = nullptr;
+
+    for (int i = 0; i < children.length(); i += 1) {
+        TopLevelMenu *child = &children.at(i);
+        destroy(child->item, 1);
+    }
 }
 
 void MenuWidget::draw(const glm::mat4 &projection) {
@@ -260,13 +381,16 @@ static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
     menu_widget->activated_item = nullptr;
 }
 
-void MenuWidget::pop_top_level(TopLevelMenu *child) {
+void MenuWidget::pop_top_level(TopLevelMenu *child, bool select_first_item) {
     ContextMenuWidget *context_menu = gui_window->pop_context_menu(child->item,
             left + child->left, top,
             child->right - child->left, calculated_height);
     context_menu->userdata = this;
     context_menu->on_destroy = on_context_menu_destroy;
     activated_item = child;
+
+    if (select_first_item)
+        context_menu->activated_item = context_menu->menu_widget_item->children.at(0);
 }
 
 MenuWidget::TopLevelMenu *MenuWidget::get_child_at(int x, int y) {
@@ -288,7 +412,7 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                 TopLevelMenu *child = get_child_at(event->x, event->y);
                 if (!child)
                     return;
-                pop_top_level(child);
+                pop_top_level(child, false);
                 break;
             }
         case MouseActionMove:
@@ -297,7 +421,7 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                     return;
                 TopLevelMenu *child = get_child_at(event->x, event->y);
                 if (child) {
-                    pop_top_level(child);
+                    pop_top_level(child, false);
                 } else if (gui_window->context_menu) {
                     MouseEvent event_for_child = *event;
                     event_for_child.x -= left;
@@ -310,3 +434,33 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
             return;
     }
 }
+
+bool MenuWidget::on_key_event(const KeyEvent *event) {
+    if (event->action != KeyActionDown)
+        return false;
+
+    // TODO try to match keyboard shortcuts
+
+    if (key_mod_only_alt(event->modifiers)) {
+        for (int i = 0; i < children.length(); i += 1) {
+            TopLevelMenu *child = &children.at(i);
+            VirtKey target_key = child->item->get_mnemonic_key();
+            if (target_key == event->virt_key) {
+                pop_top_level(child, true);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+int MenuWidget::get_item_index(TopLevelMenu *item) {
+    for (int i = 0; i < children.length(); i += 1) {
+        TopLevelMenu *child = &children.at(i);
+        if (child == item)
+            return i;
+    }
+    panic("item not found");
+}
+

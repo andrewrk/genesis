@@ -316,17 +316,17 @@ void TextWidget::replace_text(int start, int end, const String &text, int cursor
     _on_text_change_event(this);
 }
 
-void TextWidget::on_key_event(const KeyEvent *event) {
+bool TextWidget::on_key_event(const KeyEvent *event) {
     if (!_text_interaction_on)
-        return;
+        return false;
 
     if (_on_key_event(this, event)) {
         // user ate this event
-        return;
+        return true;
     }
 
     if (event->action == KeyActionUp)
-        return;
+        return false;
 
     int start, end;
     get_cursor_slice(start, end);
@@ -347,7 +347,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
                     set_selection(start, start);
                 }
             }
-            break;
+            return true;
         case VirtKeyRight:
             if (key_mod_ctrl(event->modifiers) && key_mod_shift(event->modifiers)) {
                 int new_end = forward_word();
@@ -364,7 +364,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
                     set_selection(end, end);
                 }
             }
-            break;
+            return true;
         case VirtKeyBackspace:
             if (start == end) {
                 if (key_mod_ctrl(event->modifiers)) {
@@ -376,7 +376,7 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             } else {
                 replace_text(start, end, "", 0);
             }
-            break;
+            return true;
         case VirtKeyDelete:
             if (start == end) {
                 if (key_mod_ctrl(event->modifiers)) {
@@ -388,40 +388,44 @@ void TextWidget::on_key_event(const KeyEvent *event) {
             } else {
                 replace_text(start, end, "", 0);
             }
-            break;
+            return true;
         case VirtKeyHome:
             if (key_mod_shift(event->modifiers)) {
                 set_selection(_cursor_start, 0);
             } else {
                 set_selection(0, 0);
             }
-            break;
+            return true;
         case VirtKeyEnd:
             if (key_mod_shift(event->modifiers)) {
                 set_selection(_cursor_start, _label.text().length());
             } else {
                 set_selection(_label.text().length(), _label.text().length());
             }
-            break;
+            return true;
         case VirtKeyA:
-            if (key_mod_ctrl(event->modifiers))
+            if (key_mod_only_ctrl(event->modifiers)) {
                 select_all();
-            break;
+                return true;
+            }
         case VirtKeyX:
-            if (key_mod_ctrl(event->modifiers))
+            if (key_mod_only_ctrl(event->modifiers)) {
                 cut();
-            break;
+                return true;
+            }
         case VirtKeyC:
-            if (key_mod_ctrl(event->modifiers))
+            if (key_mod_only_ctrl(event->modifiers)) {
                 copy();
-            break;
+                return true;
+            }
         case VirtKeyV:
-            if (key_mod_ctrl(event->modifiers))
+            if (key_mod_only_ctrl(event->modifiers)) {
                 paste();
-            break;
+                return true;
+            }
         default:
             // do nothing
-            break;
+            return false;
     }
 }
 

@@ -48,12 +48,16 @@ public:
     List<MenuWidgetItem *> children;
     void (*activate_handler)(void *);
     void *userdata;
+
+    void activate();
+    VirtKey get_mnemonic_key();
+
 };
 
 class ContextMenuWidget : public Widget {
 public:
     ContextMenuWidget(MenuWidgetItem *menu_widget_item);
-    ~ContextMenuWidget();
+    ~ContextMenuWidget() override;
 
     void draw(const glm::mat4 &projection) override;
 
@@ -64,6 +68,7 @@ public:
 
     void on_mouse_move(const MouseEvent *) override;
     void on_mouse_out(const MouseEvent *) override;
+    bool on_key_event(const KeyEvent *) override;
 
     void on_resize() override { update_model(); }
 
@@ -88,17 +93,13 @@ public:
 
     void update_model();
     MenuWidgetItem *get_item_at(int y);
+    int get_menu_widget_index(MenuWidgetItem *item);
 };
 
 class MenuWidget : public Widget {
 public:
     MenuWidget(GuiWindow *gui_window);
-    ~MenuWidget() override {
-        for (int i = 0; i < children.length(); i += 1) {
-            TopLevelMenu *child = &children.at(i);
-            destroy(child->item, 1);
-        }
-    }
+    ~MenuWidget() override;
 
     MenuWidgetItem *add_menu(String name, int mnemonic_index) {
         if (children.resize(children.length() + 1))
@@ -133,6 +134,8 @@ public:
     }
 
     void on_mouse_move(const MouseEvent *event) override;
+    bool on_key_event(const KeyEvent *) override;
+
 
     static KeySequence no_shortcut() {
         return {
@@ -182,8 +185,9 @@ public:
     TopLevelMenu *activated_item;
 
     void update_model();
-    void pop_top_level(TopLevelMenu *child);
+    void pop_top_level(TopLevelMenu *child, bool select_first_item);
     TopLevelMenu *get_child_at(int x, int y);
+    int get_item_index(TopLevelMenu *item);
 };
 
 #endif

@@ -98,9 +98,6 @@ make
 
 ## Roadmap
 
- 0. menu widget
-    - hook up mnemonics
-    - keyboard interaction
  0. tree view widget
  0. dockable pane widget
  0. track editor widget

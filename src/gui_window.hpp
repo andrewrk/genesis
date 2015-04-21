@@ -16,6 +16,7 @@ class Gui;
 class Widget;
 struct SpritesheetImage;
 class MenuWidgetItem;
+class MenuWidget;
 class ContextMenuWidget;
 
 class GuiWindow {
@@ -27,15 +28,6 @@ public:
 
     void remove_widget(Widget *widget);
     void set_focus_widget(Widget *widget);
-
-    // return true if you ate the event
-    void set_on_key_event(bool (*fn)(GuiWindow *, const KeyEvent *event)) {
-        _on_key_event = fn;
-    }
-    // return true if you ate the event
-    void set_on_text_event(bool (*fn)(GuiWindow *, const TextInputEvent *event)) {
-        _on_text_event = fn;
-    }
 
     void set_on_close_event(void (*fn)(GuiWindow *)) {
         _on_close_event = fn;
@@ -78,9 +70,8 @@ public:
     glm::mat4 _projection;
     Widget *_mouse_over_widget;
     Widget *_focus_widget;
+    MenuWidget *menu_widget;
 
-    bool (*_on_key_event)(GuiWindow *, const KeyEvent *event);
-    bool (*_on_text_event)(GuiWindow *, const TextInputEvent *event);
     void (*_on_close_event)(GuiWindow *);
 
     bool _is_iconified;
