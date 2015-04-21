@@ -7,7 +7,12 @@
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
-    genesis_editor->_gui->destroy_window(genesis_editor->_gui_window);
+    genesis_editor->_gui->_running = false;
+}
+
+static void new_window_handler(void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->create_window();
 }
 
 static void report_bug_handler(void *userdata) {
@@ -15,8 +20,7 @@ static void report_bug_handler(void *userdata) {
 }
 
 GenesisEditor::GenesisEditor() :
-    _resource_bundle("resources.bundle"),
-    _find_file_widget(NULL)
+    _resource_bundle("resources.bundle")
 {
     int err = genesis_create_context(&_genesis_context);
     if (err)
@@ -24,33 +28,54 @@ GenesisEditor::GenesisEditor() :
 
     _gui = create<Gui>(_genesis_context, &_resource_bundle);
 
-    _gui_window = _gui->create_window(true);
-    _gui_window->_userdata = this;
-    _gui_window->set_on_close_event(static_on_close_event);
+    create_window();
+}
 
-    MenuWidget *menu_widget = create<MenuWidget>(_gui_window);
+static int window_index(GenesisEditor *genesis_editor, GuiWindow *window) {
+    for (int i = 0; i < genesis_editor->windows.length(); i += 1) {
+        if (window == genesis_editor->windows.at(i))
+            return i;
+    }
+    panic("window not found");
+}
+
+static void on_close_event(GuiWindow *window) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)window->_userdata;
+    int index = window_index(genesis_editor, window);
+    genesis_editor->windows.swap_remove(index);
+    genesis_editor->_gui->destroy_window(window);
+}
+
+void GenesisEditor::create_window() {
+    GuiWindow *new_window = _gui->create_window(true);
+    new_window->_userdata = this;
+    new_window->set_on_close_event(on_close_event);
+
+    if (windows.append(new_window))
+        panic("out of memory");
+
+    MenuWidget *menu_widget = create<MenuWidget>(new_window);
     MenuWidgetItem *project_menu = menu_widget->add_menu("Project", 0);
+    MenuWidgetItem *window_menu = menu_widget->add_menu("Window", 0);
     MenuWidgetItem *help_menu = menu_widget->add_menu("Help", 0);
 
-    MenuWidgetItem *exit_menu = project_menu->add_menu("Exit", 1, MenuWidget::alt_shortcut(VirtKeyF4));
-    MenuWidgetItem *report_bug_menu = help_menu->add_menu("Report a Bug", 0, MenuWidget::shortcut(VirtKeyF1));
+    MenuWidgetItem *exit_menu = project_menu->add_menu("Exit", 1, alt_shortcut(VirtKeyF4));
+    MenuWidgetItem *new_window_menu = window_menu->add_menu("New Window", 0, no_shortcut());
+    MenuWidgetItem *report_bug_menu = help_menu->add_menu("Report a Bug", 0, shortcut(VirtKeyF1));
 
     exit_menu->set_activate_handler(exit_handler, this);
+    new_window_menu->set_activate_handler(new_window_handler, this);
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
-    GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
+    GridLayoutWidget *grid_layout = create<GridLayoutWidget>(new_window);
     grid_layout->padding = 0;
     grid_layout->spacing = 0;
     grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
-    _gui_window->set_main_widget(grid_layout);
+    new_window->set_main_widget(grid_layout);
 }
 
 GenesisEditor::~GenesisEditor() {
     genesis_destroy_context(_genesis_context);
-}
-
-void GenesisEditor::on_close_event(GuiWindow *window) {
-    _gui->destroy_window(window);
 }
 
 void GenesisEditor::exec() {

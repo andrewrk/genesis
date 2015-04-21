@@ -53,9 +53,13 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
 
     _cursor_default = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
     _cursor_ibeam = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+
+    gui_mutex.lock();
 }
 
 Gui::~Gui() {
+    gui_mutex.unlock();
+
     glfwDestroyCursor(_cursor_default);
     glfwDestroyCursor(_cursor_ibeam);
 
@@ -73,11 +77,13 @@ Gui::~Gui() {
 }
 
 void Gui::exec() {
+    gui_mutex.unlock();
     while (_running) {
         genesis_flush_events(_genesis_context);
         glfwPollEvents();
         _utility_window->draw();
     }
+    gui_mutex.lock();
 }
 
 FontSize *Gui::get_font_size(int font_size) {

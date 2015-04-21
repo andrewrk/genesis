@@ -15,6 +15,34 @@ bool null_key_sequence(const KeySequence &seq);
 String key_sequence_to_string(const KeySequence &seq);
 bool key_sequence_match(const KeySequence &seq, const KeyEvent *event);
 
+static inline KeySequence no_shortcut() {
+    return {
+        .modifiers = -1,
+        .key = VirtKeyUnknown,
+    };
+}
+
+static inline KeySequence alt_shortcut(VirtKey key) {
+    return {
+        .modifiers = KeyModAlt,
+        .key = key,
+    };
+}
+
+static inline KeySequence ctrl_shortcut(VirtKey key) {
+    return {
+        .modifiers = KeyModControl,
+        .key = key,
+    };
+}
+
+static inline KeySequence shortcut(VirtKey key) {
+    return {
+        .modifiers = 0,
+        .key = key,
+    };
+}
+
 class GuiWindow;
 class MenuWidgetItem {
 public:
@@ -136,35 +164,6 @@ public:
 
     void on_mouse_move(const MouseEvent *event) override;
     bool on_key_event(const KeyEvent *) override;
-
-
-    static KeySequence no_shortcut() {
-        return {
-            .modifiers = -1,
-            .key = VirtKeyUnknown,
-        };
-    }
-
-    static KeySequence alt_shortcut(VirtKey key) {
-        return {
-            .modifiers = KeyModAlt,
-            .key = key,
-        };
-    }
-
-    static KeySequence ctrl_shortcut(VirtKey key) {
-        return {
-            .modifiers = KeyModControl,
-            .key = key,
-        };
-    }
-
-    static KeySequence shortcut(VirtKey key) {
-        return {
-            .modifiers = 0,
-            .key = key,
-        };
-    }
 
     struct TopLevelMenu {
         MenuWidgetItem *item;

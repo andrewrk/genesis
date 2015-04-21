@@ -84,7 +84,7 @@ When you build, you have 2 choices:
  * `Debug`: slower, but contains useful information for reporting and fixing
    bugs. This is the default configuration.
  * `Release`: generates optimized code, but if the software crashes or
-   misbehaves, it's really hard to figure out why.
+   misbehaves, it is difficult to troubleshoot.
 
 To build in `Release` mode:
 

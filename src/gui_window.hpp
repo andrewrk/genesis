@@ -101,9 +101,11 @@ public:
     void cursor_pos_callback(double xpos, double ypos);
     void mouse_button_callback(int button, int action, int mods);
     void scroll_callback(double xoffset, double yoffset);
+
     void setup_context();
     void teardown_context();
     void destroy_context_menu();
+    void got_window_size(int width, int height);
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);

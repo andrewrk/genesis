@@ -62,7 +62,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
 
     int window_size_width, window_size_height;
     glfwGetWindowSize(window, &window_size_width, &window_size_height);
-    window_size_callback(window_size_width, window_size_height);
+    got_window_size(window_size_width, window_size_height);
 
     int framebuffer_width, framebuffer_height;
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
@@ -183,6 +183,10 @@ void GuiWindow::set_main_widget(Widget *widget) {
 
 void GuiWindow::window_size_callback(int width, int height) {
     MutexLocker locker(&_gui->gui_mutex);
+    got_window_size(width, height);
+}
+
+void GuiWindow::got_window_size(int width, int height) {
     _client_width = width;
     _client_height = height;
 }
@@ -352,11 +356,9 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
                 // give them the mouse up event
                 _mouse_over_widget->on_mouse_move(&mouse_event);
             }
-            if (_mouse_over_widget) {
-                Widget *old_mouse_over_widget = _mouse_over_widget;
-                _mouse_over_widget = NULL;
-                old_mouse_over_widget->on_mouse_out(&mouse_event);
-            }
+            Widget *old_mouse_over_widget = _mouse_over_widget;
+            _mouse_over_widget = NULL;
+            old_mouse_over_widget->on_mouse_out(&mouse_event);
         }
     }
 
