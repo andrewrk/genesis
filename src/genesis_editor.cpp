@@ -4,6 +4,7 @@
 #include "genesis.h"
 #include "grid_layout_widget.hpp"
 #include "menu_widget.hpp"
+#include "resources_tree_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -67,10 +68,13 @@ void GenesisEditor::create_window() {
     new_window_menu->set_activate_handler(new_window_handler, this);
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
+    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
+
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(new_window);
     grid_layout->padding = 0;
     grid_layout->spacing = 0;
     grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
+    grid_layout->add_widget(resources_tree, 1, 0, HAlignLeft, VAlignTop);
     new_window->set_main_widget(grid_layout);
 }
 

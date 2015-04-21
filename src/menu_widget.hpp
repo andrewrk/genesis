@@ -137,6 +137,7 @@ public:
         TopLevelMenu *child = &children.at(children.length() - 1);
         child->item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, no_shortcut());
         update_model();
+        on_size_hints_changed();
         return child->item;
     }
 

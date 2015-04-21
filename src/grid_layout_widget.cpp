@@ -295,7 +295,8 @@ void GridLayoutWidget::layout_x() {
     }
     int not_done_count = cols();
 
-    for (;;) {
+outer:
+    while (not_done_count > 0) {
         // iterate over the columns and see if any columns complain
         // about getting a fair share
         int each_col_amt = available_width / not_done_count;
@@ -308,13 +309,13 @@ void GridLayoutWidget::layout_x() {
                 col_info->done = true;
                 available_width -= col_info->size;
                 not_done_count -= 1;
-                continue;
+                goto outer;
             } else if (each_col_amt < col_info->min_size) {
                 col_info->size = col_info->min_size;
                 col_info->done = true;
                 available_width -= col_info->size;
                 not_done_count -= 1;
-                continue;
+                goto outer;
             } else {
                 col_info->size = each_col_amt;
             }
@@ -369,13 +370,15 @@ void GridLayoutWidget::layout_y() {
 
     bool expanding = expanding_y();
     for (int row = 0; row < rows(); row += 1) {
-        row_props.at(row).done = false;
-        row_props.at(row).min_size = get_row_min_height(row);
-        row_props.at(row).max_size = get_row_max_height(row);
+        ColRowInfo *row_info = &row_props.at(row);
+        row_info->done = false;
+        row_info->min_size = get_row_min_height(row);
+        row_info->max_size = get_row_max_height(row);
     }
     int not_done_count = rows();
 
-    for (;;) {
+outer:
+    while (not_done_count > 0) {
         // iterate over the rows and see if any rows complain
         // about getting a fair share
         int each_row_amt = available_height / not_done_count;
@@ -388,13 +391,13 @@ void GridLayoutWidget::layout_y() {
                 row_info->done = true;
                 available_height -= row_info->size;
                 not_done_count -= 1;
-                continue;
+                goto outer;
             } else if (each_row_amt < row_info->min_size) {
                 row_info->size = row_info->min_size;
                 row_info->done = true;
                 available_height -= row_info->size;
                 not_done_count -= 1;
-                continue;
+                goto outer;
             } else {
                 row_info->size = each_row_amt;
             }
