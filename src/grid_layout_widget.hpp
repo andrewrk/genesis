@@ -39,9 +39,9 @@ public:
     void remove_widget(Widget *widget) override;
 
     int min_width() const override;
-    int max_width() const override;
+    int max_width() const override { return -1; }
     int min_height() const override;
-    int max_height() const override;
+    int max_height() const override { return -1; }
 
     void on_resize() override;
 
@@ -82,6 +82,9 @@ public:
 
     void layout_x();
     void layout_y();
+
+    bool expanding_x() const;
+    bool expanding_y() const;
 };
 
 #endif

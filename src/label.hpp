@@ -25,10 +25,6 @@ public:
     // need to call update() to make it take effect
     void set_font_size(int size);
 
-    void set_color(glm::vec4 color) {
-        _color = color;
-    }
-
     void update();
 
     int width() const {
@@ -76,7 +72,6 @@ private:
     GLuint _vertex_buffer;
 
     String _text;
-    glm::vec4 _color;
     FontSize *_font_size;
 
     ByteBuffer _img_buffer;

@@ -23,6 +23,8 @@ GenesisEditor::GenesisEditor() :
     menu_widget->add_menu("Project", 0);
 
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
+    grid_layout->padding = 0;
+    grid_layout->spacing = 0;
     grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
     _gui_window->set_main_widget(grid_layout);
 }

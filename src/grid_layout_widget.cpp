@@ -49,17 +49,13 @@ int GridLayoutWidget::min_width() const {
     return max_min_row_width;
 }
 
-int GridLayoutWidget::max_width() const {
-    // if any widget has max_width -1, then return -1.
-    // otherwise, return the max max row width
-    int max_max_row_width = 0;
+bool GridLayoutWidget::expanding_x() const {
+    // if and only if any widget has max_width -1
     for (int row = 0; row < rows(); row += 1) {
-        int row_width = get_row_max_width(row);
-        if (row_width == -1)
-            return -1;
-        max_max_row_width = max(max_max_row_width, row_width);
+        if (get_row_max_width(row) == -1)
+            return true;
     }
-    return max_max_row_width;
+    return false;
 }
 
 int GridLayoutWidget::min_height() const {
@@ -71,17 +67,13 @@ int GridLayoutWidget::min_height() const {
     return max_min_col_height;
 }
 
-int GridLayoutWidget::max_height() const {
-    // if any widget has max_height -1, then return -1.
-    // otherwise, return the max max col height
-    int max_max_col_height = 0;
+bool GridLayoutWidget::expanding_y() const {
+    // if and only if any widget has max_height -1
     for (int col = 0; col < cols(); col += 1) {
-        int col_height = get_col_max_height(col);
-        if (col_height == -1)
-            return -1;
-        max_max_col_height = max(max_max_col_height, col_height);
+        if (get_col_max_height(col) == -1)
+            return true;
     }
-    return max_max_col_height;
+    return false;
 }
 
 void GridLayoutWidget::on_resize() {
@@ -294,7 +286,7 @@ void GridLayoutWidget::layout_x() {
     if (col_props.resize(cols()))
         panic("out of memory");
 
-    bool expanding = (max_width() == -1);
+    bool expanding = expanding_x();
     for (int col = 0; col < cols(); col += 1) {
         ColRowInfo *col_info = &col_props.at(col);
         col_info->done = false;
@@ -311,7 +303,7 @@ void GridLayoutWidget::layout_x() {
             ColRowInfo *col_info = &col_props.at(col);
             if (col_info->done)
                 continue;
-            if (expanding && each_col_amt > col_info->max_size) {
+            if (expanding && col_info->max_size != -1 && each_col_amt > col_info->max_size) {
                 col_info->size = col_info->max_size;
                 col_info->done = true;
                 available_width -= col_info->size;
@@ -351,7 +343,9 @@ void GridLayoutWidget::layout_x() {
             int cell_width = col_info->size;
             int widget_min_width = widget->min_width();
             int widget_max_width = widget->max_width();
-            widget->width = min(max(cell_width, widget_min_width), widget_max_width);
+            widget->width = max(cell_width, widget_min_width);
+            if (widget_max_width >= 0)
+                widget->width = min(widget->width, widget_max_width);
             switch (cell->h_align) {
                 case HAlignLeft:
                     widget->left = col_info->start;
@@ -373,7 +367,7 @@ void GridLayoutWidget::layout_y() {
     if (row_props.resize(rows()))
         panic("out of memory");
 
-    bool expanding = (max_height() == -1);
+    bool expanding = expanding_y();
     for (int row = 0; row < rows(); row += 1) {
         row_props.at(row).done = false;
         row_props.at(row).min_size = get_row_min_height(row);
@@ -389,7 +383,7 @@ void GridLayoutWidget::layout_y() {
             ColRowInfo *row_info = &row_props.at(row);
             if (row_info->done)
                 continue;
-            if (expanding && each_row_amt > row_info->max_size) {
+            if (expanding && row_info->max_size != -1 && each_row_amt > row_info->max_size) {
                 row_info->size = row_info->max_size;
                 row_info->done = true;
                 available_height -= row_info->size;
@@ -429,7 +423,9 @@ void GridLayoutWidget::layout_y() {
             int cell_height = row_info->size;
             int widget_min_height = widget->min_height();
             int widget_max_height = widget->max_height();
-            widget->height = min(max(cell_height, widget_min_height), widget_max_height);
+            widget->height = max(cell_height, widget_min_height);
+            if (widget_max_height >= 0)
+                widget->height = min(widget->height, widget_max_height);
             switch (cell->v_align) {
                 case VAlignTop:
                     widget->top = row_info->start;

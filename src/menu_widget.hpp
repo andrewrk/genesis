@@ -54,6 +54,7 @@ public:
         TopLevelMenu *child = &children.at(children.length() - 1);
         child->item = create<MenuWidgetItem>(name, mnemonic_index, no_shortcut());
         child->label = create<Label>(gui);
+        child->label->set_text(name);
         update_model();
         return child->item;
     }
@@ -65,7 +66,7 @@ public:
     }
 
     int max_width() const override {
-        return calculated_width;
+        return -1;
     }
 
     int min_height() const override {
@@ -76,6 +77,9 @@ public:
         return calculated_height;
     }
 
+    void on_resize() override {
+        update_model();
+    }
 
     static KeySequence no_shortcut() {
         return {
@@ -108,7 +112,7 @@ public:
     struct TopLevelMenu {
         Label *label;
         MenuWidgetItem *item;
-        glm::mat4 label_mvp;
+        glm::mat4 label_model;
         int left;
         int right;
     };
@@ -137,7 +141,7 @@ public:
 
             int label_left = left + child->left + spacing_left;
             int label_top = top + spacing_top;
-            child->label_mvp = glm::translate(
+            child->label_model = glm::translate(
                                     glm::mat4(1.0f),
                                     glm::vec3(label_left, label_top, 0.0f));
         }
@@ -147,7 +151,7 @@ public:
                         glm::translate(
                             glm::mat4(1.0f),
                             glm::vec3(left, top, 0.0f)),
-                        glm::vec3(calculated_width, calculated_height, 1.0f));
+                        glm::vec3(width, calculated_height, 1.0f));
     }
 };
 

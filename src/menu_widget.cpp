@@ -20,6 +20,7 @@ void MenuWidget::draw(const glm::mat4 &projection) {
 
     for (int i = 0; i < children.length(); i += 1) {
         TopLevelMenu *child = &children.at(i);
-        child->label->draw(gui_window, child->label_mvp, text_color);
+        glm::mat4 label_mvp = projection * child->label_model;
+        child->label->draw(gui_window, label_mvp, text_color);
     }
 }
