@@ -42,8 +42,8 @@ MenuWidgetItem::~MenuWidgetItem() {
 ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     Widget(menu_widget_item->gui_window),
     menu_widget_item(menu_widget_item),
-    padding_top(0),
-    padding_bottom(0),
+    padding_top(2),
+    padding_bottom(2),
     padding_left(12),
     padding_right(2),
     spacing(12),
@@ -123,11 +123,13 @@ MenuWidget::MenuWidget(GuiWindow *gui_window) :
     Widget(gui_window),
     bg_color(parse_color("#CECECE")),
     text_color(parse_color("#353535")),
+    activated_color(parse_color("#2E5783")),
+    activated_text_color(parse_color("#f0f0f0")),
     spacing_left(12),
     spacing_right(12),
     spacing_top(4),
     spacing_bottom(4),
-    activated(false)
+    activated_item(nullptr)
 {
 }
 
@@ -139,7 +141,14 @@ void MenuWidget::draw(const glm::mat4 &projection) {
     for (int i = 0; i < children.length(); i += 1) {
         TopLevelMenu *child = &children.at(i);
         glm::mat4 label_mvp = projection * child->item->label_model;
-        child->item->label.draw(gui_window, label_mvp, text_color);
+        if (activated_item == child) {
+            gui_window->fill_rect(activated_color,
+                    left + child->left, top,
+                    child->right - child->left, calculated_height);
+            child->item->label.draw(gui_window, label_mvp, activated_text_color);
+        } else {
+            child->item->label.draw(gui_window, label_mvp, text_color);
+        }
     }
 }
 
@@ -172,7 +181,7 @@ void MenuWidget::update_model() {
 
 static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
     MenuWidget *menu_widget = (MenuWidget*)context_menu->userdata;
-    menu_widget->activated = false;
+    menu_widget->activated_item = nullptr;
 }
 
 void MenuWidget::pop_top_level(TopLevelMenu *child) {
@@ -181,7 +190,7 @@ void MenuWidget::pop_top_level(TopLevelMenu *child) {
             child->right - child->left, calculated_height);
     context_menu->userdata = this;
     context_menu->on_destroy = on_context_menu_destroy;
-    activated = true;
+    activated_item = child;
 }
 
 MenuWidget::TopLevelMenu *MenuWidget::get_child_at(int x, int y) {
@@ -208,7 +217,7 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
             }
         case MouseActionMove:
             {
-                if (!activated)
+                if (!activated_item)
                     return;
                 TopLevelMenu *child = get_child_at(event->x, event->y);
                 if (!child)

@@ -162,6 +162,8 @@ public:
     List<TopLevelMenu> children;
     glm::vec4 bg_color;
     glm::vec4 text_color;
+    glm::vec4 activated_color;
+    glm::vec4 activated_text_color;
     glm::mat4 bg_model;
     int calculated_width;
     int calculated_height;
@@ -169,7 +171,7 @@ public:
     int spacing_right;
     int spacing_top;
     int spacing_bottom;
-    bool activated;
+    TopLevelMenu *activated_item;
 
     void update_model();
     void pop_top_level(TopLevelMenu *child);

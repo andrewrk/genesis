@@ -353,12 +353,8 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
         mouse_event.x -= _mouse_over_widget->left;
         mouse_event.y -= _mouse_over_widget->top;
 
-        if (in_bounds || pressing_any_btn) {
-            if (pressing_any_btn && _mouse_over_widget != _focus_widget) {
-                if (context_menu && _mouse_over_widget != context_menu) {
-                    destroy_context_menu();
-                    return;
-                }
+        if ((in_bounds || pressing_any_btn) && (!context_menu || _mouse_over_widget == context_menu)) {
+            if (event->action == MouseActionDown && pressing_any_btn && _mouse_over_widget != _focus_widget) {
                 set_focus_widget(_mouse_over_widget);
             }
             _mouse_over_widget->on_mouse_move(&mouse_event);
