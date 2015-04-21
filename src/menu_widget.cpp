@@ -156,7 +156,7 @@ void ContextMenuWidget::update_model() {
         }
 
         if (!null_key_sequence(child->shortcut)) {
-            int shortcut_label_left = calculated_width - padding_right - child->shortcut_label.width();
+            int shortcut_label_left = left + calculated_width - padding_right - child->shortcut_label.width();
             int shortcut_label_top = label_top;
             child->shortcut_label_model = glm::translate(
                                     glm::mat4(1.0f),
@@ -299,7 +299,7 @@ MenuWidget::MenuWidget(GuiWindow *gui_window) :
     Widget(gui_window),
     bg_color(parse_color("#CECECE")),
     text_color(parse_color("#353535")),
-    activated_color(parse_color("#2E5783")),
+    activated_color(parse_color("#2B71BC")),
     activated_text_color(parse_color("#f0f0f0")),
     spacing_left(12),
     spacing_right(12),
