@@ -308,7 +308,8 @@ MenuWidget::MenuWidget(GuiWindow *gui_window) :
     spacing_right(12),
     spacing_top(4),
     spacing_bottom(4),
-    activated_item(nullptr)
+    activated_item(nullptr),
+    down_unclick(false)
 {
     gui_window->menu_widget = this;
 }
@@ -417,6 +418,7 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
         case MouseActionDown:
             {
                 TopLevelMenu *child = get_child_at(event->x, event->y);
+                down_unclick = (activated_item && activated_item == child);
                 if (!child)
                     return;
                 pop_top_level(child, false);
@@ -428,7 +430,8 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                     return;
                 TopLevelMenu *child = get_child_at(event->x, event->y);
                 if (child) {
-                    pop_top_level(child, false);
+                    if (child != activated_item)
+                        pop_top_level(child, false);
                 } else if (gui_window->context_menu) {
                     MouseEvent event_for_child = *event;
                     event_for_child.x += left - gui_window->context_menu->left;
@@ -442,8 +445,11 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                 if (!activated_item)
                     return;
                 TopLevelMenu *child = get_child_at(event->x, event->y);
-                if (child)
+                if (child) {
+                    if (down_unclick && child == activated_item)
+                        gui_window->destroy_context_menu();
                     return;
+                }
                 if (gui_window->context_menu) {
                     MouseEvent event_for_child = *event;
                     event_for_child.x += left - gui_window->context_menu->left;

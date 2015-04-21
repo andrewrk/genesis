@@ -413,7 +413,7 @@ void GuiWindow::set_focus_widget(Widget *widget) {
         Widget *old_focus_widget = _focus_widget;
         _focus_widget = NULL;
         old_focus_widget->on_lose_focus();
-        if (old_focus_widget == context_menu)
+        if (old_focus_widget == context_menu && widget != menu_widget)
             destroy_context_menu();
     }
     if (!widget)

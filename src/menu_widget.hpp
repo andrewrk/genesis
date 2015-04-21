@@ -184,6 +184,7 @@ public:
     int spacing_top;
     int spacing_bottom;
     TopLevelMenu *activated_item;
+    bool down_unclick;
 
     void update_model();
     void pop_top_level(TopLevelMenu *child, bool select_first_item);

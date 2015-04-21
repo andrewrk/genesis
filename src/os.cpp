@@ -3,6 +3,7 @@
 #include "path.hpp"
 #include "random.hpp"
 #include "error.h"
+#include "glfw.hpp"
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -78,4 +79,8 @@ void os_open_in_browser(const String &url) {
     if (args.append(url.encode()))
         panic("out of memory");
     os_spawn_process("xdg-open", args, true);
+}
+
+double os_get_time(void) {
+    return glfwGetTime();
 }

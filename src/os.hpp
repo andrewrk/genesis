@@ -13,5 +13,6 @@ void os_init();
 
 uint32_t random_uint32(void);
 void os_open_in_browser(const String &url);
+double os_get_time(void);
 
 #endif
