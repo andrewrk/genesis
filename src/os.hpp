@@ -2,6 +2,7 @@
 #define OS_HPP
 
 #include "byte_buffer.hpp"
+#include "string.hpp"
 
 extern ByteBuffer os_dir_path;
 extern ByteBuffer os_sample_path;
@@ -11,5 +12,6 @@ void os_init();
 
 
 uint32_t random_uint32(void);
+void os_open_in_browser(const String &url);
 
 #endif

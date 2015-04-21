@@ -26,7 +26,7 @@ public:
 
     void exec();
 
-private:
+
     GenesisContext *_genesis_context;
     ResourceBundle _resource_bundle;
     Gui *_gui;

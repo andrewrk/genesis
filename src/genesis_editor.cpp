@@ -5,6 +5,15 @@
 #include "grid_layout_widget.hpp"
 #include "menu_widget.hpp"
 
+static void exit_handler(void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->_gui->destroy_window(genesis_editor->_gui_window);
+}
+
+static void report_bug_handler(void *userdata) {
+    os_open_in_browser("https://github.com/andrewrk/genesis/issues");
+}
+
 GenesisEditor::GenesisEditor() :
     _resource_bundle("resources.bundle"),
     _find_file_widget(NULL)
@@ -23,9 +32,11 @@ GenesisEditor::GenesisEditor() :
     MenuWidgetItem *project_menu = menu_widget->add_menu("Project", 0);
     MenuWidgetItem *help_menu = menu_widget->add_menu("Help", 0);
 
-    project_menu->add_menu("Exit", 1, MenuWidget::alt_shortcut(VirtKeyF4));
+    MenuWidgetItem *exit_menu = project_menu->add_menu("Exit", 1, MenuWidget::alt_shortcut(VirtKeyF4));
+    MenuWidgetItem *report_bug_menu = help_menu->add_menu("Report a Bug", 0, MenuWidget::no_shortcut());
 
-    help_menu->add_menu("Report a Bug", 0, MenuWidget::no_shortcut());
+    exit_menu->set_activate_handler(exit_handler, this);
+    report_bug_menu->set_activate_handler(report_bug_handler, this);
 
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
     grid_layout->padding = 0;
@@ -39,7 +50,7 @@ GenesisEditor::~GenesisEditor() {
 }
 
 void GenesisEditor::on_close_event(GuiWindow *window) {
-    _gui->destroy_window(_gui_window);
+    _gui->destroy_window(window);
 }
 
 void GenesisEditor::exec() {

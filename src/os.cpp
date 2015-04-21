@@ -9,6 +9,7 @@
 #include <sys/fcntl.h>
 #include <pwd.h>
 #include <stdlib.h>
+#include <errno.h>
 
 ByteBuffer os_dir_path;
 ByteBuffer os_sample_path;
@@ -49,4 +50,32 @@ void os_init() {
     if (err)
         panic("Unable to get random seed: %s", genesis_error_string(err));
     init_random_state(&random_state, seed);
+}
+
+void os_spawn_process(const char *exe, const List<ByteBuffer> &args, bool detached) {
+    pid_t pid = fork();
+    if (pid == -1)
+        panic("fork failed");
+    if (pid != 0)
+        return;
+    if (detached) {
+        if (setsid() == -1)
+            panic("process detach failed");
+    }
+
+    const char **argv = allocate<const char *>(args.length() + 2);
+    argv[0] = exe;
+    argv[args.length() + 1] = nullptr;
+    for (int i = 0; i < args.length(); i += 1) {
+        argv[i + 1] = args.at(i).raw();
+    }
+    execvp(exe, const_cast<char * const *>(argv));
+    panic("execvp failed: %s", strerror(errno));
+}
+
+void os_open_in_browser(const String &url) {
+    List<ByteBuffer> args;
+    if (args.append(url.encode()))
+        panic("out of memory");
+    os_spawn_process("xdg-open", args, true);
 }

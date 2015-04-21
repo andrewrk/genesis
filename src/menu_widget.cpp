@@ -146,12 +146,12 @@ void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
             activated_item = hover_item;
             break;
         case MouseActionUp:
+            gui_window->destroy_context_menu();
             if (hover_item->activate_handler) {
                 hover_item->activate_handler(hover_item->userdata);
             } else {
                 fprintf(stderr, "No handler attached: %s\n", hover_item->label.text().encode().raw());
             }
-            gui_window->destroy_context_menu();
             break;
         default:
             return;
