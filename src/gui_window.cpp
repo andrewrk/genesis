@@ -352,9 +352,11 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
                 // give them the mouse up event
                 _mouse_over_widget->on_mouse_move(&mouse_event);
             }
-            Widget *old_mouse_over_widget = _mouse_over_widget;
-            _mouse_over_widget = NULL;
-            old_mouse_over_widget->on_mouse_out(&mouse_event);
+            if (_mouse_over_widget) {
+                Widget *old_mouse_over_widget = _mouse_over_widget;
+                _mouse_over_widget = NULL;
+                old_mouse_over_widget->on_mouse_out(&mouse_event);
+            }
         }
     }
 

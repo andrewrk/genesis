@@ -209,6 +209,7 @@ MenuWidgetItem *ContextMenuWidget::get_item_at(int y) {
 }
 
 void MenuWidgetItem::activate() {
+    gui_window->destroy_context_menu();
     if (!activate_handler) {
         fprintf(stderr, "No handler attached: %s\n", label.text().encode().raw());
         return;
@@ -223,8 +224,10 @@ void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
             activated_item = hover_item;
             break;
         case MouseActionUp:
-            gui_window->destroy_context_menu();
-            hover_item->activate();
+            if (hover_item)
+                hover_item->activate();
+            else
+                gui_window->destroy_context_menu();
             break;
         default:
             return;
@@ -428,9 +431,24 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
                     pop_top_level(child, false);
                 } else if (gui_window->context_menu) {
                     MouseEvent event_for_child = *event;
-                    event_for_child.x -= left;
-                    event_for_child.y -= top;
-                    gui_window->try_mouse_move_event_on_widget(gui_window->context_menu, &event_for_child);
+                    event_for_child.x += left - gui_window->context_menu->left;
+                    event_for_child.y += top - gui_window->context_menu->top;
+                    gui_window->context_menu->on_mouse_move(&event_for_child);
+                }
+                break;
+            }
+        case MouseActionUp:
+            {
+                if (!activated_item)
+                    return;
+                TopLevelMenu *child = get_child_at(event->x, event->y);
+                if (child)
+                    return;
+                if (gui_window->context_menu) {
+                    MouseEvent event_for_child = *event;
+                    event_for_child.x += left - gui_window->context_menu->left;
+                    event_for_child.y += top - gui_window->context_menu->top;
+                    gui_window->context_menu->on_mouse_move(&event_for_child);
                 }
                 break;
             }
