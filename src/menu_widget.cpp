@@ -20,6 +20,10 @@ String key_sequence_to_string(const KeySequence &seq) {
     return result;
 }
 
+bool key_sequence_match(const KeySequence &seq, const KeyEvent *event) {
+    return (seq.modifiers == event->modifiers) && (seq.key == event->virt_key);
+}
+
 MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_index, KeySequence shortcut) :
     gui_window(gui_window),
     label(gui_window->_gui),
@@ -435,11 +439,29 @@ void MenuWidget::on_mouse_move(const MouseEvent *event) {
     }
 }
 
+bool MenuWidget::dispatch_shortcut(MenuWidgetItem *parent, const KeyEvent *event) {
+    for (int i = 0; i < parent->children.length(); i += 1) {
+        MenuWidgetItem *child = parent->children.at(i);
+        if (child->children.length() > 0) {
+            if (dispatch_shortcut(child, event))
+                return true;
+        } else if (key_sequence_match(child->shortcut, event)) {
+            child->activate();
+            return true;
+        }
+    }
+    return false;
+}
+
 bool MenuWidget::on_key_event(const KeyEvent *event) {
     if (event->action != KeyActionDown)
         return false;
 
-    // TODO try to match keyboard shortcuts
+    for (int i = 0; i < children.length(); i += 1) {
+        MenuWidgetItem *top_level_child = children.at(i).item;
+        if (dispatch_shortcut(top_level_child, event))
+            return true;
+    }
 
     if (key_mod_only_alt(event->modifiers)) {
         for (int i = 0; i < children.length(); i += 1) {

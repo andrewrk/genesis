@@ -13,6 +13,7 @@ struct KeySequence {
 
 bool null_key_sequence(const KeySequence &seq);
 String key_sequence_to_string(const KeySequence &seq);
+bool key_sequence_match(const KeySequence &seq, const KeyEvent *event);
 
 class GuiWindow;
 class MenuWidgetItem {
@@ -188,6 +189,7 @@ public:
     void pop_top_level(TopLevelMenu *child, bool select_first_item);
     TopLevelMenu *get_child_at(int x, int y);
     int get_item_index(TopLevelMenu *item);
+    bool dispatch_shortcut(MenuWidgetItem *parent, const KeyEvent *event);
 };
 
 #endif

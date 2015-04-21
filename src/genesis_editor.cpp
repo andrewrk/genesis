@@ -33,7 +33,7 @@ GenesisEditor::GenesisEditor() :
     MenuWidgetItem *help_menu = menu_widget->add_menu("Help", 0);
 
     MenuWidgetItem *exit_menu = project_menu->add_menu("Exit", 1, MenuWidget::alt_shortcut(VirtKeyF4));
-    MenuWidgetItem *report_bug_menu = help_menu->add_menu("Report a Bug", 0, MenuWidget::no_shortcut());
+    MenuWidgetItem *report_bug_menu = help_menu->add_menu("Report a Bug", 0, MenuWidget::shortcut(VirtKeyF1));
 
     exit_menu->set_activate_handler(exit_handler, this);
     report_bug_menu->set_activate_handler(report_bug_handler, this);
