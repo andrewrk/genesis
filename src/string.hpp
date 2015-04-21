@@ -41,6 +41,7 @@ public:
         if (_chars.append(c))
             panic("out of memory");
     }
+    void append(String s);
     String substring(int start, int end) const;
     String substring(int start) const;
 

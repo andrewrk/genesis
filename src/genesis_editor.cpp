@@ -20,7 +20,12 @@ GenesisEditor::GenesisEditor() :
     _gui_window->set_on_close_event(static_on_close_event);
 
     MenuWidget *menu_widget = create<MenuWidget>(_gui_window);
-    menu_widget->add_menu("Project", 0);
+    MenuWidgetItem *project_menu = menu_widget->add_menu("Project", 0);
+    MenuWidgetItem *help_menu = menu_widget->add_menu("Help", 0);
+
+    project_menu->add_menu("Exit", 1, MenuWidget::alt_shortcut(VirtKeyF4));
+
+    help_menu->add_menu("Report a Bug", 1, MenuWidget::no_shortcut());
 
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(_gui_window);
     grid_layout->padding = 0;

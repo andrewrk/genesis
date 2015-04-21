@@ -14,11 +14,12 @@ public:
     virtual ~Widget();
     virtual void draw(const glm::mat4 &projection) = 0;
 
-    // -1 means no max
-    virtual int min_width() const = 0;
-    virtual int max_width() const = 0;
-    virtual int min_height() const = 0;
-    virtual int max_height() const = 0;
+    // default no minimum, no maximum
+    virtual int min_width() const { return 0; }
+    virtual int max_width() const { return -1; }
+    virtual int min_height() const { return 0; }
+    virtual int max_height() const { return -1; }
+
     // call when one of the above 4 functions values will be different
     void on_size_hints_changed();
 

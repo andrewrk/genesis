@@ -3,6 +3,7 @@
 #include "util.hpp"
 #include "widget.hpp"
 #include "debug.hpp"
+#include "menu_widget.hpp"
 
 static bool default_on_key_event(GuiWindow *, const KeyEvent *event) {
     return false;
@@ -47,7 +48,8 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _last_click_button(MouseButtonLeft),
     _double_click_timeout(0.3),
     running(true),
-    main_widget(nullptr)
+    main_widget(nullptr),
+    context_menu(nullptr)
 {
     if (is_normal_window) {
         glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
@@ -95,6 +97,8 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
 }
 
 GuiWindow::~GuiWindow() {
+    destroy_context_menu();
+
     if (_gui->_utility_window == this) {
         teardown_context();
     } else {
@@ -154,6 +158,8 @@ void GuiWindow::draw() {
 
         if (main_widget && main_widget->is_visible)
             main_widget->draw(_projection);
+        if (context_menu && context_menu->is_visible)
+            context_menu->draw(_projection);
 
     }
     glfwSwapBuffers(window);
@@ -481,4 +487,27 @@ String GuiWindow::get_clipboard_string() const {
 bool GuiWindow::clipboard_has_string() const {
     const char* clip_text = glfwGetClipboardString(window);
     return (clip_text != nullptr);
+}
+
+void GuiWindow::pop_context_menu(MenuWidgetItem *menu_widget_item,
+        int left, int top, int width, int height)
+{
+    destroy_context_menu();
+    context_menu = create<ContextMenuWidget>(menu_widget_item);
+    context_menu->left = left;
+    context_menu->top = top + height;
+
+    if (context_menu->left + context_menu->width > _width)
+        context_menu->left = left - context_menu->width;
+    if (context_menu->top + context_menu->height > _height)
+        context_menu->top = top - context_menu->height;
+
+    context_menu->on_resize();
+}
+
+void GuiWindow::destroy_context_menu() {
+    if (context_menu) {
+        destroy(context_menu, 1);
+        context_menu = nullptr;
+    }
 }

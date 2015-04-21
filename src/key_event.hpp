@@ -2,6 +2,7 @@
 #define KEY_EVENT_HPP
 
 #include "glfw.hpp"
+#include "string.hpp"
 
 const int KeyModShift   = GLFW_MOD_SHIFT;
 const int KeyModControl = GLFW_MOD_CONTROL;
@@ -135,7 +136,6 @@ enum VirtKey {
     VirtKeyRightAlt = GLFW_KEY_RIGHT_ALT,
     VirtKeyRightSuper = GLFW_KEY_RIGHT_SUPER,
     VirtKeyMenu = GLFW_KEY_MENU,
-    VirtKeyLast = GLFW_KEY_LAST,
 };
 
 struct KeyEvent {
@@ -180,5 +180,7 @@ static inline bool key_mod_only_alt(int mods) {
 static inline bool key_mod_only_super(int mods) {
     return !key_mod_ctrl(mods) && !key_mod_shift(mods) && !key_mod_alt(mods) && key_mod_super(mods);
 }
+
+String virt_key_to_string(VirtKey key);
 
 #endif

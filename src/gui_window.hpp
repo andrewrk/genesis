@@ -15,6 +15,8 @@ using std::atomic_bool;
 class Gui;
 class Widget;
 struct SpritesheetImage;
+class MenuWidgetItem;
+class ContextMenuWidget;
 
 class GuiWindow {
 public:
@@ -53,7 +55,8 @@ public:
     bool clipboard_has_string() const;
 
     void set_main_widget(Widget *widget);
-
+    // coords are the rectangle that originated the menu. you might only need left and top.
+    void pop_context_menu(MenuWidgetItem *menu_widget_item, int left, int top, int width, int height);
 
 
     void *_userdata;
@@ -92,6 +95,7 @@ public:
     atomic_bool viewport_update_queued;
 
     Widget *main_widget;
+    ContextMenuWidget *context_menu;
 
     void layout_main_widget();
     int get_modifiers();
@@ -108,6 +112,7 @@ public:
     void scroll_callback(double xoffset, double yoffset);
     void setup_context();
     void teardown_context();
+    void destroy_context_menu();
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);

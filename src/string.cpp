@@ -208,6 +208,14 @@ void String::replace(int start, int end, String s) {
     }
 }
 
+void String::append(String s) {
+    int start = _chars.length();
+    assert_no_err(_chars.resize(_chars.length() + s.length()));
+    for (int i = 0; i < s.length(); i += 1) {
+        _chars.at(start + i) = s.at(i);
+    }
+}
+
 int String::compare(const String &a, const String &b) {
     for (int i = 0;; i += 1) {
         bool a_end = (i >= a.length());

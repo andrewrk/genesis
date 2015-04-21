@@ -15,9 +15,9 @@ enum MouseAction {
 };
 
 struct MouseButtons {
-    unsigned left   : 1;
-    unsigned middle : 1;
-    unsigned right  : 1;
+    bool left;
+    bool middle;
+    bool right;
 };
 
 struct MouseEvent {

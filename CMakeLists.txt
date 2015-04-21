@@ -64,6 +64,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/grid_layout_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/menu_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/key_event.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")

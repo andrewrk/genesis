@@ -99,6 +99,9 @@ make
 ## Roadmap
 
  0. menu widget
+    - underline mnemonic character
+    - submenus
+    - hook up mnemonics
  0. tree view widget
  0. dockable pane widget
  0. track editor widget

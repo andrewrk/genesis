@@ -11,55 +11,96 @@ struct KeySequence {
     VirtKey key;
 };
 
+bool null_key_sequence(const KeySequence &seq);
+String key_sequence_to_string(const KeySequence &seq);
+
+class GuiWindow;
 class MenuWidgetItem {
 public:
-    MenuWidgetItem(String name, int mnemonic_index, KeySequence shortcut) :
-        name(name),
-        mnemonic_index(mnemonic_index),
-        shortcut(shortcut)
-    {
-    }
-
-    ~MenuWidgetItem() {
-        panic("TODO");
-    }
+    MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_index, KeySequence shortcut);
+    ~MenuWidgetItem();
 
     MenuWidgetItem *add_menu(String name, int mnemonic_index, KeySequence shortcut) {
-        panic("TODO");
+        MenuWidgetItem *new_item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, shortcut);
+        if (children.append(new_item))
+            panic("out of memory");
+        return new_item;
     }
 
-    void set_activate_handler(void (*fn)(MenuWidgetItem *)) {
-        activate_handler = fn;
+    void set_activate_handler(void (*fn)(void *), void *userdata) {
+        this->activate_handler = fn;
+        this->userdata = userdata;
     }
 
-private:
-    String name;
+    GuiWindow *gui_window;
+
+    Label label;
+    glm::mat4 label_model;
+    Label shortcut_label;
+    glm::mat4 shortcut_label_model;
+
+    int top;
+    int bottom;
+
     int mnemonic_index;
     KeySequence shortcut;
     List<MenuWidgetItem *> children;
-    GuiWindow *window;
-    void (*activate_handler)(MenuWidgetItem *item);
+    void (*activate_handler)(void *);
+    void *userdata;
 };
 
-class GuiWindow;
+class ContextMenuWidget : public Widget {
+public:
+    ContextMenuWidget(MenuWidgetItem *menu_widget_item);
+    ~ContextMenuWidget() {}
+
+    void draw(const glm::mat4 &projection) override;
+
+    int min_width() const override { return calculated_width; }
+    int max_width() const override { return calculated_width; }
+    int min_height() const override { return calculated_height; }
+    int max_height() const override { return calculated_height; }
+
+    void on_resize() override { update_model(); }
+
+    MenuWidgetItem *menu_widget_item;
+    int calculated_width;
+    int calculated_height;
+    int padding_top;
+    int padding_bottom;
+    int padding_left;
+    int padding_right;
+    int spacing;
+    int item_padding_top;
+    int item_padding_bottom;
+    glm::vec4 bg_color;
+    glm::vec4 text_color;
+    glm::mat4 bg_model;
+
+    void update_model();
+};
+
 class MenuWidget : public Widget {
 public:
     MenuWidget(GuiWindow *gui_window);
-    ~MenuWidget() override { }
+    ~MenuWidget() override {
+        for (int i = 0; i < children.length(); i += 1) {
+            TopLevelMenu *child = &children.at(i);
+            destroy(child->item, 1);
+        }
+    }
 
     MenuWidgetItem *add_menu(String name, int mnemonic_index) {
         if (children.resize(children.length() + 1))
             panic("out of memory");
 
         TopLevelMenu *child = &children.at(children.length() - 1);
-        child->item = create<MenuWidgetItem>(name, mnemonic_index, no_shortcut());
-        child->label = create<Label>(gui);
-        child->label->set_text(name);
+        child->item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, no_shortcut());
         update_model();
         return child->item;
     }
 
-    void draw(const glm::mat4 &projection);
+    void draw(const glm::mat4 &projection) override;
 
     int min_width() const override {
         return calculated_width;
@@ -80,6 +121,8 @@ public:
     void on_resize() override {
         update_model();
     }
+
+    void on_mouse_move(const MouseEvent *event) override;
 
     static KeySequence no_shortcut() {
         return {
@@ -110,9 +153,7 @@ public:
     }
 
     struct TopLevelMenu {
-        Label *label;
         MenuWidgetItem *item;
-        glm::mat4 label_model;
         int left;
         int right;
     };
@@ -127,31 +168,18 @@ public:
     int spacing_top;
     int spacing_bottom;
 
-    void update_model() {
-        int next_left = 0;
-        int max_label_height = 0;
+    void update_model();
+
+    TopLevelMenu *get_child_at(int x, int y) {
         for (int i = 0; i < children.length(); i += 1) {
             TopLevelMenu *child = &children.at(i);
-            child->label->update();
-            max_label_height = max(max_label_height, child->label->height());
-
-            child->left = next_left;
-            next_left += spacing_left + child->label->width() + spacing_right;
-            child->right = next_left;
-
-            int label_left = left + child->left + spacing_left;
-            int label_top = top + spacing_top;
-            child->label_model = glm::translate(
-                                    glm::mat4(1.0f),
-                                    glm::vec3(label_left, label_top, 0.0f));
+            if (x >= child->left && x < child->right &&
+                y >= 0 && y < calculated_height)
+            {
+                return child;
+            }
         }
-        calculated_width = next_left;
-        calculated_height = spacing_top + max_label_height + spacing_bottom;
-        bg_model = glm::scale(
-                        glm::translate(
-                            glm::mat4(1.0f),
-                            glm::vec3(left, top, 0.0f)),
-                        glm::vec3(width, calculated_height, 1.0f));
+        return nullptr;
     }
 };
 

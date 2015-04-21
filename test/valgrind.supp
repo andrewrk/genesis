@@ -71,16 +71,16 @@
 {
    <insert_a_suppression_name_here>
    Memcheck:Cond
-   obj:/usr/lib/nvidia-346/libnvidia-glcore.so.346.47
+   obj:/usr/lib/nvidia-346/libnvidia-glcore.so.346.59
    ...
-   obj:/usr/lib/nvidia-346/libnvidia-glcore.so.346.47
+   obj:/usr/lib/nvidia-346/libnvidia-glcore.so.346.59
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
    match-leak-kinds: definite
    fun:malloc
-   obj:/usr/lib/nvidia-346/libGL.so.346.47
+   obj:/usr/lib/nvidia-346/libGL.so.346.59
    fun:glXQueryExtension
    obj:/usr/lib/x86_64-linux-gnu/libglfw.so.3.1
    obj:/usr/lib/x86_64-linux-gnu/libglfw.so.3.1
