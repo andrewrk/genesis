@@ -349,13 +349,13 @@ outer:
                 widget->width = min(widget->width, widget_max_width);
             switch (cell->h_align) {
                 case HAlignLeft:
-                    widget->left = col_info->start;
+                    widget->left = left + col_info->start;
                     break;
                 case HAlignRight:
-                    widget->left = col_info->start + cell_width - widget->width;
+                    widget->left = left + col_info->start + cell_width - widget->width;
                     break;
                 case HAlignCenter:
-                    widget->left = col_info->start + cell_width / 2 - widget->width / 2;
+                    widget->left = left + col_info->start + cell_width / 2 - widget->width / 2;
                     break;
             }
         }
@@ -431,13 +431,13 @@ outer:
                 widget->height = min(widget->height, widget_max_height);
             switch (cell->v_align) {
                 case VAlignTop:
-                    widget->top = row_info->start;
+                    widget->top = top + row_info->start;
                     break;
                 case VAlignBottom:
-                    widget->top = row_info->start + cell_height - widget->height;
+                    widget->top = top + row_info->start + cell_height - widget->height;
                     break;
                 case VAlignCenter:
-                    widget->top = row_info->start + cell_height / 2 - widget->height / 2;
+                    widget->top = top + row_info->start + cell_height / 2 - widget->height / 2;
                     break;
             }
         }

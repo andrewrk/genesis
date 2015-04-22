@@ -5,6 +5,7 @@
 #include "grid_layout_widget.hpp"
 #include "menu_widget.hpp"
 #include "resources_tree_widget.hpp"
+#include "track_editor_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -70,12 +71,20 @@ void GenesisEditor::create_window() {
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
 
+    TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window);
+
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(new_window);
     grid_layout->padding = 0;
     grid_layout->spacing = 0;
-    grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
-    grid_layout->add_widget(resources_tree, 1, 0, HAlignLeft, VAlignTop);
-    new_window->set_main_widget(grid_layout);
+    grid_layout->add_widget(resources_tree, 0, 0, HAlignLeft, VAlignTop);
+    grid_layout->add_widget(track_editor, 0, 1, HAlignLeft, VAlignTop);
+
+    GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
+    main_grid_layout->padding = 0;
+    main_grid_layout->spacing = 0;
+    main_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
+    main_grid_layout->add_widget(grid_layout, 1, 0, HAlignLeft, VAlignTop);
+    new_window->set_main_widget(main_grid_layout);
 }
 
 GenesisEditor::~GenesisEditor() {

@@ -37,6 +37,7 @@ Genesis is not ready for serious users yet. Come back in a few months.
  * Display recording and playback devices in a tree view.
 
 #### Screenshots
+
 ![](http://i.imgur.com/KtK8Kgi.png)
 
 ## Contributing
