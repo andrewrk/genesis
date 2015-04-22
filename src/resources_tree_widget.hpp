@@ -17,6 +17,7 @@ public:
     void draw(const glm::mat4 &projection) override;
 
     void on_resize() override { update_model(); }
+    void on_mouse_move(const MouseEvent *) override;
 
 
     enum NodeType {
@@ -40,6 +41,8 @@ public:
         int indent_level;
         int top;
         int bottom;
+        int icon_left;
+        int icon_top;
         NodeType node_type;
         GenesisAudioDevice *audio_device;
         GenesisMidiDevice *midi_device;
@@ -72,6 +75,9 @@ public:
 
     Node *create_parent_node(Node *parent, const char *text);
     void destroy_node(Node *node);
+    void add_children_to_stack(List<Node *> &stack, Node *node);
+    void toggle_expansion(Node *node);
+    bool should_draw_icon(Node *node);
 };
 
 #endif

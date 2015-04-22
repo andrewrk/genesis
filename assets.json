@@ -1,4 +1,3 @@
-// icons from https://useiconic.com/open/
 {
   files: {
     "font.ttf": {
@@ -14,6 +13,12 @@
           path: "assets/img/",
           glob: "*",
           prefix: "img/",
+          anchor: "topleft",
+        },
+        {
+          path: "assets/img/font-awesome/",
+          glob: "*",
+          prefix: "font-awesome/",
           anchor: "topleft",
         },
       ],

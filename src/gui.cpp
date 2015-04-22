@@ -50,10 +50,11 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _utility_window(create_window(false)),
     _resource_bundle(resource_bundle),
     _spritesheet(this, "spritesheet"),
-    img_entry_dir(_spritesheet.get_image_info("img/folder-4x.png")),
-    img_entry_file(_spritesheet.get_image_info("img/file-4x.png")),
-    img_plus(_spritesheet.get_image_info("img/plus-4x.png")),
-    img_minus(_spritesheet.get_image_info("img/minus-4x.png")),
+    img_entry_dir(_spritesheet.get_image_info("font-awesome/folder.png")),
+    img_entry_dir_open(_spritesheet.get_image_info("font-awesome/folder-open.png")),
+    img_entry_file(_spritesheet.get_image_info("font-awesome/file.png")),
+    img_plus(_spritesheet.get_image_info("font-awesome/plus-square.png")),
+    img_minus(_spritesheet.get_image_info("font-awesome/minus-square.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
     _genesis_context(context)
 {

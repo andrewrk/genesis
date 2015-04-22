@@ -78,6 +78,7 @@ public:
     Spritesheet _spritesheet;
 
     const SpritesheetImage *img_entry_dir;
+    const SpritesheetImage *img_entry_dir_open;
     const SpritesheetImage *img_entry_file;
     const SpritesheetImage *img_plus;
     const SpritesheetImage *img_minus;
