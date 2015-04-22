@@ -108,6 +108,7 @@ void ResourcesTreeWidget::update_model() {
             text.append(" (default)");
         }
         node->label->set_text(text);
+        node->label->update();
 
         if (playback) {
             playback_i += 1;
@@ -137,6 +138,7 @@ void ResourcesTreeWidget::update_model() {
         if (i == default_midi_index)
             text.append(" (default)");
         node->label->set_text(text);
+        node->label->update();
     }
     while (i < midi_devices_root->parent_data->children.length()) {
         pop_destroy_child(midi_devices_root);
@@ -152,7 +154,6 @@ void ResourcesTreeWidget::update_model() {
         add_children_to_stack(update_model_stack, child);
         if (child->indent_level == -1)
             continue;
-        child->label->update();
         child->top = next_top;
         next_top += item_padding_top + child->label->height() + item_padding_bottom;
         child->bottom = next_top;
@@ -220,6 +221,7 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent,
         panic("out of memory");
     node->label = create<Label>(gui);
     node->label->set_text(text);
+    node->label->update();
     node->icon_img = gui->img_plus;
     node->node_type = NodeTypeParent;
     node->parent_data = create<ParentNode>();
