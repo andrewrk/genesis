@@ -102,9 +102,9 @@ void ResourcesTreeWidget::update_model() {
         genesis_audio_device_unref(node->audio_device);
         node->audio_device = audio_device;
         String text = genesis_audio_device_description(audio_device);
-        if (playback && playback_i == default_playback_index) {
+        if (playback && i == default_playback_index) {
             text.append(" (default)");
-        } else if (!playback && record_i == default_recording_index) {
+        } else if (!playback && i == default_recording_index) {
             text.append(" (default)");
         }
         node->label->set_text(text);
