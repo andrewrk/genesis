@@ -26,17 +26,20 @@ class Spritesheet {
 public:
     Spritesheet(Gui *gui, const ByteBuffer &key);
     ~Spritesheet();
-    Spritesheet(const Spritesheet &copy) = delete;
-    Spritesheet &operator=(const Spritesheet &copy) = delete;
 
     const SpritesheetImage *get_image_info(const ByteBuffer &key) const;
     void draw(GuiWindow *window, const SpritesheetImage *image, const glm::mat4 &mvp) const;
+    void draw_color(GuiWindow *window, const SpritesheetImage *image,
+            const glm::mat4 &mvp, const glm::vec4 &color) const;
 
 private:
     Gui *_gui;
     GLuint _texture_id;
 
     HashMap<ByteBuffer, SpritesheetImage*, ByteBuffer::hash> _info_dict;
+
+    Spritesheet(const Spritesheet &copy) = delete;
+    Spritesheet &operator=(const Spritesheet &copy) = delete;
 };
 
 #endif

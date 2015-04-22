@@ -28,6 +28,13 @@ public:
     GLint _primitive_attrib_position;
     GLint _primitive_uniform_mvp;
     GLint _primitive_uniform_color;
+
+    ShaderProgram texture_color_program;
+    GLint texture_color_attrib_tex_coord;
+    GLint texture_color_attrib_position;
+    GLint texture_color_uniform_mvp;
+    GLint texture_color_uniform_tex;
+    GLint texture_color_uniform_color;
 };
 
 #endif

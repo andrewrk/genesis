@@ -216,11 +216,11 @@ void FindFileWidget::update_entries_display() {
             text_widget->_userdata = userdata;
 
             if (entry->is_dir) {
-                text_widget->set_icon(gui->_img_entry_dir);
+                text_widget->set_icon(gui->img_entry_dir);
             } else if (entry->is_file) {
-                text_widget->set_icon(gui->_img_entry_file);
+                text_widget->set_icon(gui->img_entry_file);
             } else {
-                text_widget->set_icon(gui->_img_null);
+                text_widget->set_icon(gui->img_null);
             }
 
             int err = _displayed_entries.append({

@@ -99,6 +99,9 @@ make
 ## Roadmap
 
  0. tree view widget
+    - Playback Devices
+    - Recording Devices
+    - MIDI Devices
  0. dockable pane widget
  0. track editor widget
  0. piano roll widget

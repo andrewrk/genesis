@@ -158,6 +158,34 @@ void Spritesheet::draw(GuiWindow *window, const SpritesheetImage *image, const g
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
+void Spritesheet::draw_color(GuiWindow *window, const SpritesheetImage *image,
+        const glm::mat4 &mvp, const glm::vec4 &color) const
+{
+    _gui->_shader_program_manager.texture_color_program.bind();
+
+    _gui->_shader_program_manager.texture_color_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_mvp, mvp);
+
+    _gui->_shader_program_manager.texture_color_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_tex, 0);
+
+    _gui->_shader_program_manager.texture_color_program.set_uniform(
+            _gui->_shader_program_manager._text_uniform_color, color);
+
+    glBindBuffer(GL_ARRAY_BUFFER, image->vertex_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager.texture_color_attrib_position);
+    glVertexAttribPointer(_gui->_shader_program_manager.texture_color_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glBindBuffer(GL_ARRAY_BUFFER, image->tex_coord_buffer);
+    glEnableVertexAttribArray(_gui->_shader_program_manager.texture_color_attrib_tex_coord);
+    glVertexAttribPointer(_gui->_shader_program_manager.texture_color_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _texture_id);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
 const SpritesheetImage *Spritesheet::get_image_info(const ByteBuffer &key) const {
     return _info_dict.get(key);
 }

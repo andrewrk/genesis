@@ -130,10 +130,10 @@ public:
     T unchecked_pop() {
         return _items[--_length];
     }
-private:
-    T * _items;
-    int _length;
-    int _capacity;
+
+    int capacity() const {
+        return _capacity;
+    }
 
     int ensure_capacity(int new_capacity) {
         int better_capacity = max(_capacity, 16);
@@ -148,6 +148,12 @@ private:
         }
         return 0;
     }
+
+private:
+    T * _items;
+    int _length;
+    int _capacity;
+
 
     List(const List &other) = delete;
     List<T>& operator= (const List<T> &other) = delete;

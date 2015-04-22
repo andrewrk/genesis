@@ -38,6 +38,14 @@ public:
     FontSize *get_font_size(int font_size);
 
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
+    void draw_image_color(GuiWindow *window, const SpritesheetImage *img,
+            const glm::mat4 &mvp, const glm::vec4 &color);
+
+    void attach_audio_device_callback(void (*fn)(void *), void *userdata);
+    void detach_audio_device_callback(void (*fn)(void *));
+
+    void attach_midi_device_callback(void (*fn)(void *), void *userdata);
+    void detach_midi_device_callback(void (*fn)(void *));
 
     Mutex gui_mutex;
 
@@ -48,7 +56,8 @@ public:
 
     GlobalGlfwContext _global_glfw_context;
     // utility window has 2 purposes. 1. to give us an OpenGL context before a
-    // real window is created, and 2. for use as a tool tip, menu, or dropdown
+    // real window is created, and 2. block on draw() gives our main loop
+    // something to block on
     GuiWindow *_utility_window;
     ShaderProgramManager _shader_program_manager;
     StaticGeometry _static_geometry;
@@ -68,11 +77,22 @@ public:
 
     Spritesheet _spritesheet;
 
-    const SpritesheetImage *_img_entry_dir;
-    const SpritesheetImage *_img_entry_file;
-    const SpritesheetImage *_img_null;
+    const SpritesheetImage *img_entry_dir;
+    const SpritesheetImage *img_entry_file;
+    const SpritesheetImage *img_plus;
+    const SpritesheetImage *img_minus;
+    const SpritesheetImage *img_null;
 
     GenesisContext *_genesis_context;
+
+    struct Handler {
+        void (*fn)(void *);
+        void *userdata;
+    };
+    List<Handler> audio_device_handlers;
+    List<Handler> midi_device_handlers;
+
+    void dispatch_handlers(const List<Handler> &list);
 
     Gui(const Gui &copy) = delete;
     Gui &operator=(const Gui &copy) = delete;
