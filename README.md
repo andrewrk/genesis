@@ -20,11 +20,7 @@ Genesis is not ready for serious users yet. Come back in a few months.
  * Basic delay plugin.
  * Resampling and channel remapping plugin.
 
-### GUI
-
- * Blank window that does nothing :)
-
-### Examples
+#### Examples
 
  * `delay.c` - default recording device connected to a delay effect connected
    to default playback device.
@@ -35,6 +31,13 @@ Genesis is not ready for serious users yet. Come back in a few months.
  * `list_supported_formats.c` - list available audio import and export formats.
  * `normalize_audio.c` - open an audio file, normalize it, and export it as a
    new file.
+
+### GUI
+
+ * Display recording and playback devices in a tree view.
+
+#### Screenshots
+![](http://i.imgur.com/KtK8Kgi.png)
 
 ## Contributing
 
@@ -98,12 +101,8 @@ make
 
 ## Roadmap
 
- 0. tree view widget
-    - Playback Devices
-    - Recording Devices
-    - MIDI Devices
- 0. dockable pane widget
  0. track editor widget
+ 0. dockable pane widget
  0. piano roll widget
  0. mixer widget
 
