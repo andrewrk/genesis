@@ -11,16 +11,13 @@ static void subscribe_callback(pa_context *context,
         pa_subscription_event_type_t event_bits, uint32_t index, void *userdata)
 {
     AudioHardware *audio_hardware = (AudioHardware *)userdata;
-    int facility = (event_bits & PA_SUBSCRIPTION_EVENT_FACILITY_MASK);
-    if (facility == PA_SUBSCRIPTION_EVENT_SOURCE || facility == PA_SUBSCRIPTION_EVENT_SINK) {
-        audio_hardware->device_scan_queued = true;
-        pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
-    }
+    audio_hardware->device_scan_queued = true;
+    pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
 }
 
 static void subscribe_to_events(AudioHardware *audio_hardware) {
     pa_subscription_mask_t events = (pa_subscription_mask_t)(
-            PA_SUBSCRIPTION_MASK_SINK|PA_SUBSCRIPTION_MASK_SOURCE);
+            PA_SUBSCRIPTION_MASK_SINK|PA_SUBSCRIPTION_MASK_SOURCE|PA_SUBSCRIPTION_MASK_SERVER);
     pa_operation *subscribe_op = pa_context_subscribe(audio_hardware->pulse_context,
             events, nullptr, audio_hardware);
     if (!subscribe_op)
