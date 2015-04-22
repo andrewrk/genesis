@@ -400,3 +400,11 @@ int close_midi_device(struct GenesisMidiDevice *device) {
     }
     return 0;
 }
+
+bool genesis_midi_device_equal(
+        const struct GenesisMidiDevice *a,
+        const struct GenesisMidiDevice *b)
+{
+    return a->client_id == b->client_id &&
+        a->port_id == b->port_id;
+}

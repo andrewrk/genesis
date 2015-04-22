@@ -77,6 +77,10 @@ const char *genesis_audio_device_description(const struct GenesisAudioDevice *de
 const struct GenesisChannelLayout *genesis_audio_device_channel_layout(const struct GenesisAudioDevice *device);
 int genesis_audio_device_sample_rate(const struct GenesisAudioDevice *device);
 
+bool genesis_audio_device_equal(
+        const struct GenesisAudioDevice *a,
+        const struct GenesisAudioDevice *b);
+
 enum GenesisAudioDevicePurpose {
     GenesisAudioDevicePurposePlayback,
     GenesisAudioDevicePurposeRecording,
@@ -108,11 +112,16 @@ void genesis_midi_device_unref(struct GenesisMidiDevice *device);
 const char *genesis_midi_device_name(const struct GenesisMidiDevice *device);
 const char *genesis_midi_device_description(const struct GenesisMidiDevice *device);
 
+bool genesis_midi_device_equal(
+        const struct GenesisMidiDevice *a,
+        const struct GenesisMidiDevice *b);
+
 // set callback for when midi devices change
 // callback is always called from genesis_flush_events or genesis_wait_events
 void genesis_set_midi_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata),
         void *userdata);
+
 
 #define GENESIS_NOTES_COUNT 128
 float genesis_midi_note_to_pitch(int note);

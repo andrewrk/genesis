@@ -74,7 +74,11 @@ public:
     void update_model();
 
     Node *create_parent_node(Node *parent, const char *text);
+    Node *create_playback_node();
+    Node *create_record_node();
+    Node *create_midi_node();
     void destroy_node(Node *node);
+    void pop_destroy_child(Node *node);
     void add_children_to_stack(List<Node *> &stack, Node *node);
     void toggle_expansion(Node *node);
     bool should_draw_icon(Node *node);

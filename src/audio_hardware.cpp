@@ -935,3 +935,10 @@ void genesis_set_audio_device_callback(struct GenesisContext *context,
     context->devices_change_callback = callback;
 }
 
+
+bool genesis_audio_device_equal(
+        const struct GenesisAudioDevice *a,
+        const struct GenesisAudioDevice *b)
+{
+    return strcmp(a->name, b->name) == 0;
+}

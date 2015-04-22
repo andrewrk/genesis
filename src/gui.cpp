@@ -55,6 +55,8 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_entry_file(_spritesheet.get_image_info("font-awesome/file.png")),
     img_plus(_spritesheet.get_image_info("font-awesome/plus-square.png")),
     img_minus(_spritesheet.get_image_info("font-awesome/minus-square.png")),
+    img_microphone(_spritesheet.get_image_info("font-awesome/microphone.png")),
+    img_volume_up(_spritesheet.get_image_info("font-awesome/volume-up.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
     _genesis_context(context)
 {
@@ -67,10 +69,13 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _cursor_default = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
     _cursor_ibeam = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
 
-    gui_mutex.lock();
-
     genesis_set_audio_device_callback(_genesis_context, audio_device_callback, this);
     genesis_set_midi_device_callback(_genesis_context, midi_device_callback, this);
+
+    genesis_refresh_audio_devices(_genesis_context);
+    genesis_refresh_midi_devices(_genesis_context);
+
+    gui_mutex.lock();
 }
 
 Gui::~Gui() {
