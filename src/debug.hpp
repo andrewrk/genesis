@@ -31,6 +31,4 @@ static inline int want_debug_context(void) {
 #endif
 }
 
-void dump_rgba_img(const ByteBuffer &img, int w, int h, const char *filename);
-
 #endif

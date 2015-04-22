@@ -47,7 +47,6 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/shader_program.cpp"
     "${CMAKE_SOURCE_DIR}/src/gui.cpp"
     "${CMAKE_SOURCE_DIR}/src/label.cpp"
-    "${CMAKE_SOURCE_DIR}/src/debug.cpp"
     "${CMAKE_SOURCE_DIR}/src/text_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/font_size.cpp"
     "${CMAKE_SOURCE_DIR}/src/find_file_widget.cpp"
