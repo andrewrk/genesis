@@ -8,7 +8,7 @@
 
 find_path(GLFW_INCLUDE_DIR NAMES GLFW/glfw3.h)
 
-find_library(GLFW_LIBRARY NAMES glfw)
+find_library(GLFW_LIBRARY NAMES glfw glfw3)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(GLFW DEFAULT_MSG GLFW_LIBRARY GLFW_INCLUDE_DIR)
