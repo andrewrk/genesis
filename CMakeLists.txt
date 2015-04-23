@@ -71,9 +71,6 @@ set(GENESIS_SOURCES
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
-set(GENESIS_HEADERS
-    ${UNICODE_HPP}
-)
 
 set(GENERATE_UNICODE_DATA_SOURCES
     "${CMAKE_SOURCE_DIR}/src/generate_unicode_data.cpp"
@@ -89,7 +86,6 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
 )
-set(TEST_HEADERS ${GENESIS_HEADERS})
 
 find_package(Threads)
 if(Threads_FOUND)
@@ -171,7 +167,7 @@ else()
     endif()
 endif()
 
-# GFTO, -lstdc++ !!
+# GTFO, -lstdc++ !!
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
@@ -187,7 +183,7 @@ configure_file (
     ${CONFIGURE_OUT_FILE}
 )
 
-add_library(libgenesis_shared SHARED ${LIBGENESIS_SOURCES} ${LIBGENESIS_HEADERS})
+add_library(libgenesis_shared SHARED ${LIBGENESIS_SOURCES})
 set_target_properties(libgenesis_shared PROPERTIES
     OUTPUT_NAME genesis
     SOVERSION ${LIBGENESIS_VERSION_MAJOR}
@@ -233,7 +229,6 @@ set_target_properties(list_devices PROPERTIES
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(list_devices libgenesis_shared)
-add_dependencies(list_devices libgenesis_shared)
 
 add_executable(normalize_audio example/normalize_audio.c)
 set_target_properties(normalize_audio PROPERTIES
@@ -241,7 +236,6 @@ set_target_properties(normalize_audio PROPERTIES
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(normalize_audio libgenesis_shared m)
-add_dependencies(normalize_audio libgenesis_shared)
 
 add_executable(list_supported_formats example/list_supported_formats.c)
 set_target_properties(list_supported_formats PROPERTIES
@@ -249,7 +243,6 @@ set_target_properties(list_supported_formats PROPERTIES
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(list_supported_formats libgenesis_shared)
-add_dependencies(list_supported_formats libgenesis_shared)
 
 add_executable(synth example/synth.c)
 set_target_properties(synth PROPERTIES
@@ -257,7 +250,6 @@ set_target_properties(synth PROPERTIES
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(synth libgenesis_shared)
-add_dependencies(synth libgenesis_shared)
 
 add_executable(delay example/delay.c)
 set_target_properties(delay PROPERTIES
@@ -265,7 +257,6 @@ set_target_properties(delay PROPERTIES
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(delay libgenesis_shared)
-add_dependencies(delay libgenesis_shared)
 
 add_executable(play example/play.c)
 set_target_properties(play PROPERTIES
@@ -273,7 +264,6 @@ set_target_properties(play PROPERTIES
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(play libgenesis_shared)
-add_dependencies(play libgenesis_shared)
 
 
 add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})
@@ -284,8 +274,7 @@ set_target_properties(generate_unicode_data PROPERTIES
 
 set(UNICODE_DATA_URL "ftp://ftp.unicode.org/Public/UNIDATA/UnicodeData.txt")
 set(UNICODE_DATA_TXT "/usr/share/unicode/UnicodeData.txt")
-if(EXISTS UNICODE_DATA_TXT)
-else()
+if(NOT EXISTS ${UNICODE_DATA_TXT})
     set(UNICODE_DATA_TXT "${CMAKE_BINARY_DIR}/UnicodeData.txt")
     file(DOWNLOAD ${UNICODE_DATA_URL} ${UNICODE_DATA_TXT}
         EXPECTED_HASH SHA1=499651b9370fec97517c17c256375c9f19d18234)
@@ -305,7 +294,7 @@ add_custom_target(rucksack_bundle ALL
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-add_executable(genesis ${GENESIS_SOURCES} ${GENESIS_HEADERS})
+add_executable(genesis ${GENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(genesis PROPERTIES
     LINKER_LANGUAGE CXX
     COMPILE_FLAGS ${LIB_CFLAGS}
@@ -324,12 +313,11 @@ target_link_libraries(genesis libgenesis_shared
     ${GLFW_LIBRARY}
     ${EPOXY_LIBRARY}
 )
-add_dependencies(genesis libgenesis_shared ${UNICODE_HPP})
 install(TARGETS genesis DESTINATION bin)
 
 
 enable_testing()
-add_executable(unit_tests ${TEST_SOURCES} ${TEST_HEADERS})
+add_executable(unit_tests ${TEST_SOURCES} ${UNICODE_HPP})
 target_link_libraries(unit_tests LINK_PUBLIC
     ${CMAKE_THREAD_LIBS_INIT}
     m
