@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
+cmake_policy(SET CMP0042 NEW)
+cmake_policy(SET CMP0046 NEW)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
@@ -156,11 +158,17 @@ else()
     set(STATUS_EPOXY "not found")
 endif()
 
-find_package(ALSA)
-if(ALSA_FOUND)
+if(APPLE)
+    set(GENESIS_HAVE_ALSA false)
     set(STATUS_ALSA "OK")
 else()
-    set(STATUS_ALSA "not found")
+    set(GENESIS_HAVE_ALSA true)
+    find_package(ALSA)
+    if(ALSA_FOUND)
+        set(STATUS_ALSA "OK")
+    else()
+        set(STATUS_ALSA "not found")
+    endif()
 endif()
 
 # GFTO, -lstdc++ !!
@@ -274,7 +282,14 @@ set_target_properties(generate_unicode_data PROPERTIES
     COMPILE_FLAGS ${LIB_CFLAGS}
 )
 
+set(UNICODE_DATA_URL "ftp://ftp.unicode.org/Public/UNIDATA/UnicodeData.txt")
 set(UNICODE_DATA_TXT "/usr/share/unicode/UnicodeData.txt")
+if(EXISTS UNICODE_DATA_TXT)
+else()
+    set(UNICODE_DATA_TXT "${CMAKE_BINARY_DIR}/UnicodeData.txt")
+    file(DOWNLOAD ${UNICODE_DATA_URL} ${UNICODE_DATA_TXT}
+        EXPECTED_HASH SHA1=499651b9370fec97517c17c256375c9f19d18234)
+endif()
 add_custom_command(
     OUTPUT ${UNICODE_HPP}
     COMMAND generate_unicode_data ARGS ${UNICODE_DATA_TXT} ${UNICODE_HPP}
