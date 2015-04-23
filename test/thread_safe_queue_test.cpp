@@ -47,7 +47,10 @@ void test_thread_safe_queue(void) {
     Thread thread2;
     assert_no_err(thread2.start(worker_thread_2, nullptr));
 
-    test_assert(queue->dequeue() + queue->dequeue() == 13 + 17, "wrong dequeue value 2");
+    int value_1 = queue->dequeue();
+    int value_2 = queue->dequeue();
+    if (value_1 + value_2 != 13 + 17)
+        panic("wrong dequeue value. Got: %d and %d. Expected 13 and 17 (in any order).", value_1, value_2);
 
     Thread thread3;
     assert_no_err(thread3.start(dequeue_no_assert, nullptr));
@@ -77,7 +80,7 @@ void test_thread_safe_queue(void) {
     Mutex mutex;
     MutexCond cond;
     cond.timed_wait(&mutex, 0.001);
-    queue->wakeup_all(0);
+    queue->wakeup_all(1);
     thread1.join();
 
 

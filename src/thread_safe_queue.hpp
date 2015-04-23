@@ -94,17 +94,14 @@ outer:
                 int err = futex_wait(reinterpret_cast<int*>(&_queue_count), my_queue_count - 1);
                 if (err == EACCES || err == EINVAL || err == ENOSYS) {
                     panic("futex wait error");
-                } else if (err == EWOULDBLOCK) {
-                    // waiting failed because _queue_count changed.
-                    // release the changed state and then try again
+                } else {
+                    // one of these things happened:
+                    //  * waiting failed because _queue_count changed.
+                    //  * spurious wakeup
+                    //  * normal wakeup
+                    // in any case, release the changed state and then try again
                     _queue_count += 1;
                     goto outer;
-                } else if (err == EINTR) {
-                    // spurious wakeup
-                    continue;
-                } else {
-                    // normal wakeup. continue the dequeue
-                    break;
                 }
             }
         }
