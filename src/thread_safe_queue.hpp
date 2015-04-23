@@ -86,24 +86,22 @@ public:
     // if the queue has 4 items and 8 threads try to dequeue at the same time,
     // 4 threads will block and 4 threads will return queue items.
     T dequeue() {
-outer:
-        int my_queue_count = _queue_count.fetch_sub(1);
-        if (my_queue_count <= 0) {
+        for (;;) {
+            int my_queue_count = _queue_count.fetch_sub(1);
+            if (my_queue_count > 0)
+                break;
+
             // need to block because there are no items in the queue
-            for (;;) {
-                int err = futex_wait(reinterpret_cast<int*>(&_queue_count), my_queue_count - 1);
-                if (err == EACCES || err == EINVAL || err == ENOSYS) {
-                    panic("futex wait error");
-                } else {
-                    // one of these things happened:
-                    //  * waiting failed because _queue_count changed.
-                    //  * spurious wakeup
-                    //  * normal wakeup
-                    // in any case, release the changed state and then try again
-                    _queue_count += 1;
-                    goto outer;
-                }
-            }
+            int err = futex_wait(reinterpret_cast<int*>(&_queue_count), my_queue_count - 1);
+            if (err == EACCES || err == EINVAL || err == ENOSYS)
+                panic("futex wait error");
+
+            // one of these things happened:
+            //  * waiting failed because _queue_count changed.
+            //  * spurious wakeup
+            //  * normal wakeup
+            // in any case, release the changed state and then try again
+            _queue_count += 1;
         }
 
         int my_read_index = _read_index.fetch_add(1);
