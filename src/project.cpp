@@ -58,6 +58,12 @@ void project_insert_track(Project *project, const Track *before, const Track *af
     project_perform_command(project, add_track);
 }
 
+void project_delete_track(Project *project, Track *track) {
+    DeleteTrackCommand *delete_track = create<DeleteTrackCommand>(
+            project->active_user, get_next_revision(project), track);
+    project_perform_command(project, delete_track);
+}
+
 AddTrackCommand::AddTrackCommand(User *user, int revision,
         String name, const SortKey &sort_key) :
     Command(user, revision),
@@ -94,4 +100,32 @@ User *user_create(const String &name) {
     user->name = name;
 
     return user;
+}
+
+DeleteTrackCommand::DeleteTrackCommand(User *user, int revision, Track *track) :
+    Command(user, revision),
+    track_id(track->id),
+    name(track->name),
+    sort_key(track->sort_key)
+{
+}
+
+void DeleteTrackCommand::undo(Project *project) {
+    Track *track = create<Track>();
+    track->id = track_id;
+    track->name = name;
+    track->sort_key = sort_key;
+    project->tracks.put(track->id, track);
+
+    project_sort_tracks(project);
+}
+
+void DeleteTrackCommand::redo(Project *project) {
+    Track *track = project->tracks.get(track_id);
+
+    assert(track->audio_clip_segments.length() == 0);
+
+    project->tracks.remove(track_id);
+
+    project_sort_tracks(project);
 }

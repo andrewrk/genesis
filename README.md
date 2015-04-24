@@ -38,7 +38,7 @@ Genesis is not ready for serious users yet. Come back in a few months.
 
 #### Screenshots
 
-![](http://i.imgur.com/KtK8Kgi.png)
+![](http://i.imgur.com/lJKWz4e.png)
 
 ## Contributing
 

@@ -100,7 +100,26 @@ public:
     uint256 track_id;
     String name;
     SortKey sort_key;
-    List<AudioClipSegment *> audio_clip_segments;
+};
+
+class DeleteTrackCommand : public Command {
+public:
+    DeleteTrackCommand(User *user, int revision, Track *track);
+    ~DeleteTrackCommand() override {}
+
+    String description() const override {
+        return "Delete Track";
+    }
+    int allocated_size() const override {
+        return sizeof(DeleteTrackCommand) + name.allocated_size() + sort_key.allocated_size();
+    }
+
+    void undo(Project *project) override;
+    void redo(Project *project) override;
+
+    uint256 track_id;
+    String name;
+    SortKey sort_key;
 };
 
 
@@ -109,5 +128,6 @@ User *user_create(const String &name);
 Project *project_create(User *user);
 void project_perform_command(Project *project, Command *command);
 void project_insert_track(Project *project, const Track *before, const Track *after);
+void project_delete_track(Project *project, Track *track);
 
 #endif

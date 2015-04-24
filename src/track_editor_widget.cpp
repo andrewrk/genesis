@@ -17,6 +17,12 @@ static void insert_track_after_handler(void *userdata) {
     track_editor_widget->update_model();
 }
 
+static void delete_track_handler(void *userdata) {
+    TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
+    project_delete_track(track_editor_widget->project, track_editor_widget->menu_track->track);
+    track_editor_widget->update_model();
+}
+
 TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     Widget(gui_window),
     project(project),
@@ -40,12 +46,14 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     update_model();
 
     track_context_menu = create<MenuWidgetItem>(gui_window);
-    track_context_menu->add_menu("&Rename", shortcut(VirtKeyF2));
+    track_context_menu->add_menu("&Rename Track", shortcut(VirtKeyF2));
     MenuWidgetItem *insert_track_before_menu = track_context_menu->add_menu("Insert Track &Before", no_shortcut());
     MenuWidgetItem *insert_track_after_menu = track_context_menu->add_menu("Insert Track &After", no_shortcut());
+    MenuWidgetItem *delete_track_menu = track_context_menu->add_menu("&Delete Track", no_shortcut());
 
     insert_track_before_menu->set_activate_handler(insert_track_before_handler, this);
     insert_track_after_menu->set_activate_handler(insert_track_after_handler, this);
+    delete_track_menu->set_activate_handler(delete_track_handler, this);
 }
 
 TrackEditorWidget::~TrackEditorWidget() {
