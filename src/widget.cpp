@@ -65,3 +65,9 @@ glm::mat4 Widget::transform2d(int rel_left, int rel_top) {
     return glm::translate(glm::mat4(1.0f),
                 glm::vec3(left + rel_left, top + rel_top, 0.0f));
 }
+
+ContextMenuWidget *Widget::pop_context_menu(MenuWidgetItem *menu_widget_item,
+        int rel_left, int rel_top, int box_width, int box_height)
+{
+    return gui_window->pop_context_menu(menu_widget_item, left + rel_left, top + rel_top, box_width, box_height);
+}

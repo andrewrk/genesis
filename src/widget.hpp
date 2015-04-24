@@ -7,6 +7,8 @@
 
 class GuiWindow;
 class Gui;
+class ContextMenuWidget;
+class MenuWidgetItem;
 
 class Widget {
 public:
@@ -52,8 +54,10 @@ public:
     int layout_col;
     bool is_visible;
 
+    // convenience methods
     glm::mat4 transform2d(int left, int top, float width, float height);
     glm::mat4 transform2d(int left, int top);
+    ContextMenuWidget *pop_context_menu(MenuWidgetItem *menu_widget_item, int left, int top, int width, int height);
 };
 
 #endif

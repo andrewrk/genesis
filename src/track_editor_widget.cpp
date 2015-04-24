@@ -3,6 +3,7 @@
 #include "color.hpp"
 #include "gui_window.hpp"
 #include "label.hpp"
+#include "menu_widget.hpp"
 
 TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     Widget(gui_window),
@@ -19,9 +20,13 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     track_name_color(color_dark_text()),
     track_head_bg_color(color_light_bg()),
     track_main_bg_color(color_dark_bg()),
-    timeline_bg_color(color_dark_bg_alt())
+    timeline_bg_color(color_dark_bg_alt()),
+    menu_track(nullptr)
 {
     update_model();
+
+    track_context_menu = create<MenuWidgetItem>(gui_window);
+    track_context_menu->add_menu("Rename", 0, shortcut(VirtKeyF2));
 }
 
 TrackEditorWidget::~TrackEditorWidget() {
@@ -59,9 +64,13 @@ void TrackEditorWidget::update_model() {
             ok_or_panic(tracks.append(gui_track));
         }
 
-        // update the track data
-        int head_left = padding_left;
-        int head_top = next_top;
+        gui_track->left = padding_left;
+        gui_track->top = next_top;
+        next_top += track_height;
+        gui_track->bottom = next_top;
+
+        int head_left = gui_track->left;
+        int head_top = gui_track->top;
         next_top += track_height;
         gui_track->head_model = transform2d(padding_left, head_top, track_head_width, track_height);
 
@@ -86,7 +95,42 @@ TrackEditorWidget::GuiTrack * TrackEditorWidget::create_gui_track(Track *track) 
 
 void TrackEditorWidget::destroy_gui_track(GuiTrack *gui_track) {
     if (gui_track) {
+        if (menu_track == gui_track)
+            clear_track_context_menu();
         destroy(gui_track->track_name_label, 1);
         destroy(gui_track, 1);
     }
+}
+
+void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
+    if (event->action != MouseActionDown)
+        return;
+    if (event->button != MouseButtonRight)
+        return;
+
+    for (int i = 0; i < tracks.length(); i += 1) {
+        GuiTrack *gui_track = tracks.at(i);
+
+        if (event->y >= gui_track->top && event->y < gui_track->bottom) {
+            right_click_track(gui_track, event->x, event->y);
+            return;
+        }
+    }
+}
+
+static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
+    TrackEditorWidget *track_editor_widget = (TrackEditorWidget*)context_menu->userdata;
+    track_editor_widget->menu_track = nullptr;
+}
+
+void TrackEditorWidget::right_click_track(GuiTrack *gui_track, int x, int y) {
+    menu_track = gui_track;
+    ContextMenuWidget *context_menu = pop_context_menu(track_context_menu, x, y, 1, 1);
+    context_menu->userdata = this;
+    context_menu->on_destroy = on_context_menu_destroy;
+}
+
+void TrackEditorWidget::clear_track_context_menu() {
+    if (menu_track)
+        gui_window->destroy_context_menu();
 }

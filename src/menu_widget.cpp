@@ -36,6 +36,11 @@ MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_
         shortcut_label.set_text(key_sequence_to_string(shortcut));
 }
 
+MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window) :
+    MenuWidgetItem(gui_window, "", -1, no_shortcut())
+{
+}
+
 MenuWidgetItem::~MenuWidgetItem() {
     for (int i = 0; i < children.length(); i += 1) {
         MenuWidgetItem *child = children.at(i);
@@ -321,6 +326,17 @@ MenuWidget::~MenuWidget() {
         TopLevelMenu *child = &children.at(i);
         destroy(child->item, 1);
     }
+}
+
+MenuWidgetItem *MenuWidget::add_menu(String name, int mnemonic_index) {
+    if (children.resize(children.length() + 1))
+        panic("out of memory");
+
+    TopLevelMenu *child = &children.at(children.length() - 1);
+    child->item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, no_shortcut());
+    update_model();
+    on_size_hints_changed();
+    return child->item;
 }
 
 void MenuWidget::draw(const glm::mat4 &projection) {

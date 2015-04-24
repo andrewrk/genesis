@@ -46,6 +46,7 @@ static inline KeySequence shortcut(VirtKey key) {
 class GuiWindow;
 class MenuWidgetItem {
 public:
+    MenuWidgetItem(GuiWindow *gui_window);
     MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_index, KeySequence shortcut);
     ~MenuWidgetItem();
 
@@ -130,16 +131,7 @@ public:
     MenuWidget(GuiWindow *gui_window);
     ~MenuWidget() override;
 
-    MenuWidgetItem *add_menu(String name, int mnemonic_index) {
-        if (children.resize(children.length() + 1))
-            panic("out of memory");
-
-        TopLevelMenu *child = &children.at(children.length() - 1);
-        child->item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, no_shortcut());
-        update_model();
-        on_size_hints_changed();
-        return child->item;
-    }
+    MenuWidgetItem *add_menu(String name, int mnemonic_index);
 
     void draw(const glm::mat4 &projection) override;
 

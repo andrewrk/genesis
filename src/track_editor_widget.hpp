@@ -6,6 +6,7 @@
 struct Project;
 struct Track;
 class Label;
+class MenuWidgetItem;
 
 class TrackEditorWidget : public Widget {
 public:
@@ -14,6 +15,7 @@ public:
 
     void draw(const glm::mat4 &projection) override;
     void on_resize() override { update_model(); }
+    void on_mouse_move(const MouseEvent *event) override;
 
 
     Project *project;
@@ -43,12 +45,21 @@ public:
 
         Label *track_name_label;
         glm::mat4 track_name_label_model;
+
+        int left;
+        int top;
+        int bottom;
     };
     List<GuiTrack *> tracks;
+
+    MenuWidgetItem *track_context_menu;
+    GuiTrack *menu_track;
 
     void update_model();
     GuiTrack *create_gui_track(Track *track);
     void destroy_gui_track(GuiTrack *gui_track);
+    void right_click_track(GuiTrack *gui_track, int x, int y);
+    void clear_track_context_menu();
 };
 
 #endif

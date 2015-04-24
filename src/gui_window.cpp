@@ -331,8 +331,18 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
 }
 
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
+    if (context_menu) {
+        if (try_mouse_move_event_on_widget(context_menu, event)) {
+            return;
+        } else if (event->action == MouseActionDown) {
+            destroy_context_menu();
+            return;
+        }
+    }
+
     // if we're pressing a mouse button, the mouse over widget gets the event
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
+
     if (_mouse_over_widget) {
         int right = _mouse_over_widget->left + _mouse_over_widget->width;
         int bottom = _mouse_over_widget->top + _mouse_over_widget->height;
@@ -362,17 +372,7 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
         }
     }
 
-    if (_mouse_over_widget != NULL)
-        panic("expected _mouse_over_widget NULL");
-
-    if (context_menu) {
-        if (event->action == MouseActionDown) {
-            destroy_context_menu();
-            return;
-        }
-        if (try_mouse_move_event_on_widget(context_menu, event))
-            return;
-    }
+    assert(_mouse_over_widget == nullptr);
 
     if (main_widget)
         try_mouse_move_event_on_widget(main_widget, event);
