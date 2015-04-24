@@ -115,6 +115,7 @@ void DeleteTrackCommand::undo(Project *project) {
     track->id = track_id;
     track->name = name;
     track->sort_key = sort_key;
+
     project->tracks.put(track->id, track);
 
     project_sort_tracks(project);

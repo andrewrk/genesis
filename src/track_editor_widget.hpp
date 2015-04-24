@@ -61,7 +61,7 @@ public:
     GuiTrack *menu_track;
 
     void update_model();
-    GuiTrack *create_gui_track(Track *track);
+    GuiTrack *create_gui_track();
     void destroy_gui_track(GuiTrack *gui_track);
     void right_click_track(GuiTrack *gui_track, int x, int y);
     void clear_track_context_menu();

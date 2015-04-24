@@ -4,6 +4,8 @@
 #include "os.hpp"
 #include "hash_map.hpp"
 
+#include <inttypes.h>
+
 template<int Size64>
 class UIntOversized {
 public:
@@ -38,6 +40,14 @@ public:
         UIntOversized<Size64> result;
         for (int i = 0; i < Size64; i += 1)
             result.values[i] = ((uint64_t)os_random_uint32()) << 32 | (uint64_t)os_random_uint32();
+        return result;
+    }
+
+    ByteBuffer to_string() {
+        ByteBuffer result;
+        for (int i = 0; i < Size64; i += 1) {
+            result.append(ByteBuffer::format("%" PRIx64, values[i]));
+        }
         return result;
     }
 };

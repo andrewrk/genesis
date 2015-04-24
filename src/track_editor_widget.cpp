@@ -91,9 +91,11 @@ void TrackEditorWidget::update_model() {
         if (i < tracks.length()) {
             gui_track = tracks.at(i);
         } else {
-            gui_track = create_gui_track(track);
+            gui_track = create_gui_track();
             ok_or_panic(tracks.append(gui_track));
         }
+
+        gui_track->track = track;
 
         gui_track->left = padding_left;
         gui_track->top = next_top;
@@ -125,9 +127,8 @@ void TrackEditorWidget::update_model() {
     }
 }
 
-TrackEditorWidget::GuiTrack * TrackEditorWidget::create_gui_track(Track *track) {
+TrackEditorWidget::GuiTrack * TrackEditorWidget::create_gui_track() {
     GuiTrack *gui_track = create<GuiTrack>();
-    gui_track->track = track;
     gui_track->track_name_label = create<Label>(gui_window->_gui);
     return gui_track;
 }
