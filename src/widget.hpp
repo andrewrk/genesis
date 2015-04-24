@@ -51,6 +51,9 @@ public:
     int layout_row;
     int layout_col;
     bool is_visible;
+
+    glm::mat4 transform2d(int left, int top, float width, float height);
+    glm::mat4 transform2d(int left, int top);
 };
 
 #endif

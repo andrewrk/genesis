@@ -52,3 +52,16 @@ void Widget::on_size_hints_changed() {
             on_resize();
     }
 }
+
+glm::mat4 Widget::transform2d(int rel_left, int rel_top, float scale_width, float scale_height) {
+    return glm::scale(
+                glm::translate(
+                    glm::mat4(1.0f),
+                    glm::vec3(left + rel_left, top + rel_top, 0.0f)),
+                glm::vec3(scale_width, scale_height, 1.0f));
+}
+
+glm::mat4 Widget::transform2d(int rel_left, int rel_top) {
+    return glm::translate(glm::mat4(1.0f),
+                glm::vec3(left + rel_left, top + rel_top, 0.0f));
+}

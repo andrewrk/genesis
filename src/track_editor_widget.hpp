@@ -23,6 +23,7 @@ public:
     int padding_right;
     int timeline_height;
     int track_head_width;
+    int track_height;
 
     glm::vec4 track_name_color;
     glm::vec4 track_head_bg_color;
