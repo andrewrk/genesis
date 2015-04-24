@@ -150,6 +150,38 @@ static void test_sort_keys_basic(void) {
     assert(SortKey::compare(a, b) < 0); // backwards
 }
 
+static void sort_keys_count_test_size(int size, const SortKey *low, const SortKey *high) {
+    List<SortKey> array;
+    SortKey::multi(array, low, high, size);
+    assert(array.length() == size);
+    const SortKey *prev = low;
+    for (int i = 0; i < array.length(); i += 1) {
+        const SortKey *this_one = &array.at(i);
+        if (prev)
+            assert(SortKey::compare(*prev, *this_one) < 0);
+        prev = this_one;
+    }
+    if (prev && high)
+        assert(SortKey::compare(*prev, *high));
+}
+
+static void run_sort_keys_count_test(const SortKey *low, const SortKey *high) {
+    sort_keys_count_test_size(0, low, high);
+    sort_keys_count_test_size(1, low, high);
+    sort_keys_count_test_size(2, low, high);
+    sort_keys_count_test_size(3, low, high);
+    sort_keys_count_test_size(1000, low, high);
+}
+
+static void test_sort_keys_count(void) {
+    SortKey some_value = SortKey::single(nullptr, nullptr);
+    run_sort_keys_count_test(nullptr, nullptr);
+    run_sort_keys_count_test(&some_value, nullptr);
+    run_sort_keys_count_test(nullptr, &some_value);
+    SortKey upper = SortKey::single(&some_value, nullptr);
+    run_sort_keys_count_test(&some_value, &upper);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -166,6 +198,7 @@ static struct Test tests[] = {
     {"ThreadSafeQueue", test_thread_safe_queue},
     {"greatest_common_denominator", test_gcd},
     {"sort keys basic", test_sort_keys_basic},
+    {"sort keys count", test_sort_keys_count},
     {NULL, NULL},
 };
 

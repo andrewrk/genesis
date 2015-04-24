@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-SortKey::SortKey() : SortKey(0) { }
+SortKey::SortKey() : magnitude(0) { }
 
 SortKey::SortKey(int value) {
     assert(value >= 0 && value < 256);
@@ -13,6 +13,11 @@ SortKey::SortKey(int value) {
         magnitude = 1;
         ok_or_panic(digits.append(value));
     }
+}
+
+SortKey::SortKey(int value, int magnitude) : magnitude(magnitude) {
+    assert(value >= 0 && value < 256);
+    ok_or_panic(digits.append(value));
 }
 
 SortKey::SortKey(const SortKey &other) {
@@ -59,7 +64,36 @@ SortKey SortKey::single(const SortKey *low, const SortKey *high) {
 void SortKey::multi(List<SortKey> &out_sort_key_list,
         const SortKey *low, const SortKey *high, int count)
 {
-    panic("TODO");
+    ok_or_panic(out_sort_key_list.resize(count));
+
+    if (count <= 0)
+        return;
+    if (high) {
+        // binary tree descent
+        multi_recurse(out_sort_key_list, low, high, 0, count);
+    } else {
+        // just allocate straight forward
+        const SortKey *last_value = low;
+        SortKey a_sort_key;
+        for (int i = 0; i < count; i += 1) {
+            a_sort_key = single(last_value, nullptr);
+            out_sort_key_list.at(i) = a_sort_key;
+            last_value = &a_sort_key;
+        }
+    }
+}
+
+void SortKey::multi_recurse(List<SortKey> &out_sort_key_list,
+        const SortKey *low_value, const SortKey *high_value,
+        int low_index, int high_index)
+{
+    int mid_index = (low_index + high_index) / 2;
+    SortKey mid_value = single(low_value, high_value);
+    out_sort_key_list.at(mid_index) = mid_value;
+    if (low_index < mid_index)
+        multi_recurse(out_sort_key_list, low_value, &mid_value, low_index, mid_index);
+    if (mid_index + 1 < high_index)
+        multi_recurse(out_sort_key_list, &mid_value, high_value, mid_index + 1, high_index);
 }
 
 void SortKey::truncate_fraction(SortKey &value) {
@@ -98,8 +132,8 @@ SortKey SortKey::average(const SortKey &low, const SortKey &high) {
         int half_distance_value = (b_value - a_value) / 2;
         ok_or_panic(half_distance.digits.append(half_distance_value));
         // truncate insignificant digits of a
-        if (i < a_padded.digits.length())
-            a_padded.digits.remove_range(i, a_padded.digits.length());
+        if (i + 1 < a_padded.digits.length())
+            a_padded.digits.remove_range(i + 1, a_padded.digits.length());
         return add(a_padded, half_distance);
     }
     panic("unreachable");
@@ -127,6 +161,7 @@ SortKey SortKey::add(const SortKey &a, const SortKey &b) {
     }
     for (int i = result_digits.length() - 1; i >= 0; i -= 1)
         ok_or_panic(result.digits.append(result_digits.at(i)));
+    result.normalize();
     return result;
 }
 
@@ -144,4 +179,17 @@ void SortKey::pad_in_place(SortKey &sort_key, int magnitude) {
     for (int i = 0; i < amount_to_add; i += 1)
         sort_key.digits.at(i) = 0;
     sort_key.magnitude += amount_to_add;
+}
+
+void SortKey::normalize() {
+    for (int i = 0; i < digits.length(); i += 1) {
+        if (digits.at(i) != 0) {
+            int amt = min(i, magnitude);
+            magnitude -= amt;
+            digits.remove_range(0, amt);
+            return;
+        }
+    }
+    magnitude = 0;
+    ok_or_panic(digits.resize(0));
 }
