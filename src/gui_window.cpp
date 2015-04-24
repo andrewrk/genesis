@@ -2,7 +2,7 @@
 #include "gui.hpp"
 #include "util.hpp"
 #include "widget.hpp"
-#include "debug.hpp"
+#include "debug_gl.hpp"
 #include "menu_widget.hpp"
 
 static void default_on_close_event(GuiWindow *) {

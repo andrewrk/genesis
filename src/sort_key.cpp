@@ -15,11 +15,6 @@ SortKey::SortKey(int value) {
     }
 }
 
-SortKey::SortKey(int value, int magnitude) : magnitude(magnitude) {
-    assert(value >= 0 && value < 256);
-    ok_or_panic(digits.append(value));
-}
-
 SortKey::SortKey(const SortKey &other) {
     *this = other;
 }

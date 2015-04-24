@@ -11,8 +11,9 @@ extern ByteBuffer os_home_dir;
 void os_init();
 
 
-uint32_t random_uint32(void);
+uint32_t os_random_uint32(void);
 void os_open_in_browser(const String &url);
 double os_get_time(void);
+String os_get_user_name(void);
 
 #endif

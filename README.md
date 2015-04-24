@@ -245,8 +245,6 @@ be easier to save it open source than to save it privately.
  * Never require the user to restart the program.
  * Let's get these things right the first time around:
    - Undo/redo. Make sure it works correctly with multiplayer.
-   - Ability to edit multiple projects at once. There's no reason users
-     shouldn't be able to copy and paste stuff from one project to another.
    - Support for N audio channels instead of hardcoded stereo.
 
 ## License

@@ -1,5 +1,5 @@
 #include "shader_program_manager.hpp"
-#include "debug.hpp"
+#include "debug_gl.hpp"
 
 ShaderProgramManager::ShaderProgramManager() :
     _texture_shader_program(R"VERTEX(

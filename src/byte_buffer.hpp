@@ -2,6 +2,8 @@
 #define BYTE_BUFFER_HPP
 
 #include "list.hpp"
+#include "debug.hpp"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -14,6 +16,11 @@ public:
     ByteBuffer(const char * str, int length);
     ~ByteBuffer() {}
     ByteBuffer& operator= (const ByteBuffer& other);
+
+    void clear() {
+        _buffer.clear();
+        ok_or_panic(_buffer.append(0));
+    }
 
     const char & at(int index) const {
         return _buffer.at(index);
@@ -108,6 +115,10 @@ public:
             h = h * 16777619;
         }
         return h;
+    }
+
+    int allocated_size() const {
+        return _buffer.allocated_size();
     }
 
     static bool equal(const ByteBuffer &a, const ByteBuffer &b) {

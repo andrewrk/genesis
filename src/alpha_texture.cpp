@@ -1,5 +1,5 @@
 #include "alpha_texture.hpp"
-#include "debug.hpp"
+#include "debug_gl.hpp"
 #include "gui.hpp"
 
 AlphaTexture::AlphaTexture(Gui *gui) :

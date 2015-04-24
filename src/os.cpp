@@ -41,6 +41,10 @@ static int get_random_seed(uint32_t *seed) {
     return 0;
 }
 
+uint32_t os_random_uint32(void) {
+    return get_random(&random_state);
+}
+
 void os_init() {
     os_home_dir = ByteBuffer(get_home_dir());
     os_dir_path = path_join(os_home_dir, "genesis");
@@ -83,4 +87,10 @@ void os_open_in_browser(const String &url) {
 
 double os_get_time(void) {
     return glfwGetTime();
+}
+
+String os_get_user_name(void) {
+    uid_t uid = geteuid();
+    struct passwd *pw = getpwuid(uid);
+    return pw ? pw->pw_name : "Unknown User";
 }

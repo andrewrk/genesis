@@ -51,6 +51,10 @@ public:
 
     off_t index_of_insensitive(const String &other) const;
 
+    int allocated_size() const {
+        return _chars.allocated_size();
+    }
+
     static bool equal(const String &a, const String &b);
     static int compare(const String &a, const String &b);
     static int compare_insensitive(const String &a, const String &b);

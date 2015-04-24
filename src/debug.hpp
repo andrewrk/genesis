@@ -2,33 +2,21 @@
 #define DEBUG_HPP
 
 #include "util.hpp"
-#include "byte_buffer.hpp"
-#include "glfw.hpp"
+#include "genesis.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-
-static inline void assert_no_gl_error() {
-#ifdef NDEBUG
-#else
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-        panic("GL error: %d\n", (int) err);
-    }
-#endif
-}
+#include <assert.h>
 
 static inline void ok_or_panic(int err) {
     if (err)
         panic("%s", genesis_error_string(err));
 }
 
-static inline int want_debug_context(void) {
 #ifdef NDEBUG
-    return 0;
+static const bool GENESIS_DEBUG_MODE = false;
 #else
-    return 1;
+static const bool GENESIS_DEBUG_MODE = true;
 #endif
-}
 
 #endif

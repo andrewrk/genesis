@@ -42,7 +42,7 @@ template<int Size64>
 static inline uint_oversized<Size64> random_oversized() {
     uint_oversized<Size64> result;
     for (int i = 0; i < Size64; i++)
-        result.values[i] = ((uint64_t)random_uint32()) << 32 | (uint64_t)random_uint32();
+        result.values[i] = ((uint64_t)os_random_uint32()) << 32 | (uint64_t)os_random_uint32();
     return result;
 }
 
@@ -57,9 +57,9 @@ static inline int compare(const uint_oversized<Size64> & a, const uint_oversized
 }
 
 typedef uint_oversized<4> uint256;
-
-static inline uint32_t hash_uint256(const uint256 & a) {
-    return hash_oversized<4>(a);
+uint32_t hash_uint256(const uint256 & a);
+static inline uint256 random_uint256() {
+    return random_oversized<4>();
 }
 
 template<typename K, typename V, uint32_t (*HashFunction)(const K &key)>
@@ -68,7 +68,7 @@ public:
     HashMap() {
         init_capacity(32);
     }
-    HashMap(long capacity) {
+    HashMap(int capacity) {
         init_capacity(capacity);
     }
     ~HashMap() {
@@ -79,13 +79,13 @@ public:
 
     struct Entry {
         bool used;
-        long distance_from_start_index;
+        int distance_from_start_index;
         K key;
         V value;
     };
 
     void clear() {
-        for (long i = 0; i < _capacity; i += 1) {
+        for (int i = 0; i < _capacity; i += 1) {
             _entries[i].used = false;
         }
         _size = 0;
@@ -93,7 +93,7 @@ public:
         _modification_count += 1;
     }
 
-    long size() const {
+    int size() const {
         return _size;
     }
 
@@ -104,10 +104,10 @@ public:
         // if we get too full (80%), double the capacity
         if (_size * 5 >= _capacity * 4) {
             Entry *old_entries = _entries;
-            long old_capacity = _capacity;
+            int old_capacity = _capacity;
             init_capacity(_capacity * 2);
             // dump all of the old elements into the new table
-            for (long i = 0; i < old_capacity; i += 1) {
+            for (int i = 0; i < old_capacity; i += 1) {
                 Entry *old_entry = &old_entries[i];
                 if (old_entry->used)
                     internal_put(old_entry->key, old_entry->value);
@@ -129,9 +129,9 @@ public:
 
     void remove(const K &key) {
         _modification_count += 1;
-        long start_index = key_to_index(key);
-        for (long roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
-            long index = (start_index + roll_over) % _capacity;
+        int start_index = key_to_index(key);
+        for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
+            int index = (start_index + roll_over) % _capacity;
             Entry *entry = &_entries[index];
 
             if (!entry->used)
@@ -141,7 +141,7 @@ public:
                 continue;
 
             for (; roll_over < _capacity; roll_over += 1) {
-                long next_index = (start_index + roll_over + 1) % _capacity;
+                int next_index = (start_index + roll_over + 1) % _capacity;
                 Entry *next_entry = &_entries[next_index];
                 if (!next_entry->used || next_entry->distance_from_start_index == 0) {
                     entry->used = false;
@@ -177,9 +177,9 @@ public:
     private:
         const HashMap * _table;
         // how many items have we returned
-        long _count = 0;
+        int _count = 0;
         // iterator through the entry array
-        long _index = 0;
+        int _index = 0;
         // used to detect concurrent modification
         uint32_t _inital_modification_count;
         Iterator(const HashMap * table) :
@@ -196,28 +196,28 @@ public:
 private:
 
     Entry *_entries;
-    long _capacity;
-    long _size;
-    long _max_distance_from_start_index;
+    int _capacity;
+    int _size;
+    int _max_distance_from_start_index;
     // this is used to detect bugs where a hashtable is edited while an iterator is running.
     uint32_t _modification_count = 0;
 
-    void init_capacity(long capacity) {
+    void init_capacity(int capacity) {
         _capacity = capacity;
         _entries = allocate<Entry>(_capacity);
         _size = 0;
         _max_distance_from_start_index = 0;
-        for (long i = 0; i < _capacity; i += 1) {
+        for (int i = 0; i < _capacity; i += 1) {
             _entries[i].used = false;
         }
     }
 
     void internal_put(K key, V value) {
-        long start_index = key_to_index(key);
-        for (long roll_over = 0, distance_from_start_index = 0;
+        int start_index = key_to_index(key);
+        for (int roll_over = 0, distance_from_start_index = 0;
                 roll_over < _capacity; roll_over += 1, distance_from_start_index += 1)
         {
-            long index = (start_index + roll_over) % _capacity;
+            int index = (start_index + roll_over) % _capacity;
             Entry *entry = &_entries[index];
 
             if (entry->used && entry->key != key) {
@@ -260,9 +260,9 @@ private:
 
 
     Entry *internal_get(const K &key) const {
-        long start_index = key_to_index(key);
-        for (long roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
-            long index = (start_index + roll_over) % _capacity;
+        int start_index = key_to_index(key);
+        for (int roll_over = 0; roll_over <= _max_distance_from_start_index; roll_over += 1) {
+            int index = (start_index + roll_over) % _capacity;
             Entry *entry = &_entries[index];
 
             if (!entry->used)
@@ -274,8 +274,8 @@ private:
         return NULL;
     }
 
-    long key_to_index(const K &key) const {
-        return (long)(HashFunction(key) % ((uint32_t)_capacity));
+    int key_to_index(const K &key) const {
+        return (int)(HashFunction(key) % ((uint32_t)_capacity));
     }
 };
 

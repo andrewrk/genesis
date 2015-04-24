@@ -6,6 +6,7 @@
 #include "menu_widget.hpp"
 #include "resources_tree_widget.hpp"
 #include "track_editor_widget.hpp"
+#include "project.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -22,7 +23,8 @@ static void report_bug_handler(void *userdata) {
 }
 
 GenesisEditor::GenesisEditor() :
-    _resource_bundle("resources.bundle")
+    _resource_bundle("resources.bundle"),
+    project(nullptr)
 {
     int err = genesis_create_context(&_genesis_context);
     if (err)
@@ -30,6 +32,8 @@ GenesisEditor::GenesisEditor() :
 
     _gui = create<Gui>(_genesis_context, &_resource_bundle);
 
+    User *user = user_create(os_get_user_name());
+    project = project_create(user);
     create_window();
 }
 
@@ -71,7 +75,7 @@ void GenesisEditor::create_window() {
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
 
-    TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window);
+    TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
 
     GridLayoutWidget *grid_layout = create<GridLayoutWidget>(new_window);
     grid_layout->padding = 0;

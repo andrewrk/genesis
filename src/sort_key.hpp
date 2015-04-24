@@ -13,11 +13,14 @@ public:
     static void multi(List<SortKey> &out_sort_key_list, const SortKey *low, const SortKey *high, int count);
     static int compare(const SortKey &a, const SortKey &b);
 
+    int allocated_size() const {
+        return digits.allocated_size();
+    }
+
     // don't use these
     SortKey();
-    SortKey(int value, int magnitude);
     SortKey(int value);
-//private:
+private:
 
     int magnitude;
     List<uint8_t> digits;

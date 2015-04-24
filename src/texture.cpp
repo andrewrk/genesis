@@ -1,5 +1,5 @@
 #include "texture.hpp"
-#include "debug.hpp"
+#include "debug_gl.hpp"
 #include "gui.hpp"
 #include "gui_window.hpp"
 

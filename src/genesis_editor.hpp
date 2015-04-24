@@ -7,6 +7,7 @@
 
 class GuiWindow;
 struct GenesisContext;
+class Project;
 
 class GenesisEditor {
 public:
@@ -24,7 +25,7 @@ public:
     Gui *_gui;
 
     List<GuiWindow *> windows;
-
+    Project *project;
 
     bool on_key_event(GuiWindow *window, const KeyEvent *event);
     bool on_text_event(GuiWindow *window, const TextInputEvent *event);

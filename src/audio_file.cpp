@@ -23,10 +23,9 @@ static const int prioritized_sample_rates[] = {
 static const char *prioritized_formats = {
     "flac",
     "wav",
-    "ogg",
     "opus",
+    "ogg",
     "mp3",
-    "wav",
     "mp4",
     "wma",
     "wv",
