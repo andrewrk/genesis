@@ -29,4 +29,20 @@ static glm::vec4 parse_color(const char *color) {
     return out;
 }
 
+static inline glm::vec4 color_fg_text(void) {
+    return parse_color("#DCDCDC");
+}
+
+static inline glm::vec4 color_light_bg(void) {
+    return parse_color("#949494");
+}
+
+static inline glm::vec4 color_dark_bg(void) {
+    return parse_color("#333333");
+}
+
+static inline glm::vec4 color_dark_bg_alt(void) {
+    return parse_color("#2E5986");
+};
+
 #endif

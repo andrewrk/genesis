@@ -5,3 +5,7 @@
 uint32_t hash_uint256(const uint256 & a) {
     return hash_oversized<4>(a);
 }
+
+int compare_uint256(const uint256 &a, const uint256 &b) {
+    return compare_oversized<4>(a, b);
+}

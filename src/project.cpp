@@ -10,7 +10,8 @@ static int get_next_revision(Project *project) {
 }
 
 static int compare_tracks(Track *a, Track *b) {
-    return SortKey::compare(a->sort_key, b->sort_key);
+    int sort_key_cmp = SortKey::compare(a->sort_key, b->sort_key);
+    return (sort_key_cmp == 0) ? compare_uint256(a->id, b->id) : sort_key_cmp;
 }
 
 static void project_sort_tracks(Project *project) {

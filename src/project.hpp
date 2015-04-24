@@ -5,6 +5,9 @@
 #include "hash_map.hpp"
 #include "sort_key.hpp"
 
+struct Command;
+struct AudioClipSegment;
+
 struct AudioAsset {
     uint256 id;
     ByteBuffer path;
@@ -17,7 +20,6 @@ struct AudioClip {
     GenesisNode *node;
 };
 
-struct AudioClipSegment;
 struct Track {
     // canonical data
     uint256 id;
@@ -44,7 +46,29 @@ struct User {
     String name;
 };
 
-struct Project;
+struct Project {
+    // canonical data
+    uint256 id;
+    IdMap<AudioClipSegment *> audio_clip_segments;
+    IdMap<AudioClip *> audio_clips;
+    IdMap<AudioAsset *> audio_assets;
+    IdMap<Track *> tracks;
+    IdMap<User *> users;
+
+    // this represents the true history of the project. you can create the
+    // entire project data structure just from this data
+    List<Command *> command_stack;
+
+    // prepared view of the data
+    List<Track *> track_list;
+
+    // transient state
+    User *active_user; // the user that is running this instance of genesis
+    // pointer into command_stack, the top of active_user's undo stack
+    // points to the top item in the stack
+    int active_user_undo_top;
+};
+
 class Command {
 public:
     Command(User *user, int revision) : user(user), revision(revision) {}
@@ -79,29 +103,6 @@ public:
     List<AudioClipSegment *> audio_clip_segments;
 };
 
-
-struct Project {
-    // canonical data
-    uint256 id;
-    IdMap<AudioClipSegment *> audio_clip_segments;
-    IdMap<AudioClip *> audio_clips;
-    IdMap<AudioAsset *> audio_assets;
-    IdMap<Track *> tracks;
-    IdMap<User *> users;
-
-    // this represents the true history of the project. you can create the
-    // entire project data structure just from this data
-    List<Command *> command_stack;
-
-    // prepared view of the data
-    List<Track *> track_list;
-
-    // transient state
-    User *active_user; // the user that is running this instance of genesis
-    // pointer into command_stack, the top of active_user's undo stack
-    // points to the top item in the stack
-    int active_user_undo_top;
-};
 
 User *user_create(const String &name);
 

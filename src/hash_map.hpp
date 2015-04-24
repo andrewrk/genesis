@@ -12,7 +12,7 @@ struct uint_oversized {
 
     static inline uint_oversized<Size64> zero() {
         uint_oversized<Size64> result;
-        for (int i = 0; i < Size64; i++)
+        for (int i = 0; i < Size64; i += 1)
             result.values[i] = 0;
         return result;
     }
@@ -20,7 +20,7 @@ struct uint_oversized {
 
 template<int Size64>
 static inline bool operator==(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    for (int i = 0; i < Size64; i++)
+    for (int i = 0; i < Size64; i += 1)
         if (a.values[i] != b.values[i])
             return false;
     return true;
@@ -33,22 +33,33 @@ template<int Size64>
 static inline uint32_t hash_oversized(const uint_oversized<Size64> & a) {
     // it's just a bunch of xor
     uint64_t result = 0;
-    for (int i = 0; i < Size64; i++)
+    for (int i = 0; i < Size64; i += 1)
         result ^= a.values[i];
     return (uint32_t)(result >> 32) ^ (uint32_t)(result & 0x00000000ffffffffULL);
 }
 
 template<int Size64>
+static inline int compare_oversized(const uint_oversized<Size64> &a, const uint_oversized<Size64> &b) {
+    for (int i = 0; i < Size64; i += 1) {
+        if (a.values[i] > b.values[i])
+            return 1;
+        else if (a.values[i] < b.values[i])
+            return -1;
+    }
+    return 0;
+}
+
+template<int Size64>
 static inline uint_oversized<Size64> random_oversized() {
     uint_oversized<Size64> result;
-    for (int i = 0; i < Size64; i++)
+    for (int i = 0; i < Size64; i += 1)
         result.values[i] = ((uint64_t)os_random_uint32()) << 32 | (uint64_t)os_random_uint32();
     return result;
 }
 
 template<int Size64>
 static inline int compare(const uint_oversized<Size64> & a, const uint_oversized<Size64> & b) {
-    for (int i = 0; i < Size64; i++) {
+    for (int i = 0; i < Size64; i += 1) {
         if (a.values[i] == b.values[i])
             continue;
         return a.values[i] < b.values[i] ? -1 : 1;
@@ -58,6 +69,7 @@ static inline int compare(const uint_oversized<Size64> & a, const uint_oversized
 
 typedef uint_oversized<4> uint256;
 uint32_t hash_uint256(const uint256 & a);
+int compare_uint256(const uint256 &a, const uint256 &b);
 static inline uint256 random_uint256() {
     return random_oversized<4>();
 }
