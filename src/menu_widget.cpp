@@ -48,6 +48,29 @@ MenuWidgetItem::~MenuWidgetItem() {
     }
 }
 
+MenuWidgetItem *MenuWidgetItem::add_menu(const String &name, int mnemonic_index, const KeySequence &shortcut) {
+    MenuWidgetItem *new_item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, shortcut);
+    if (children.append(new_item))
+        panic("out of memory");
+    return new_item;
+}
+
+MenuWidgetItem *MenuWidgetItem::add_menu(const String &name_orig, const KeySequence &shortcut) {
+    // parse for mnemonic_index
+    int mnemonic_index = -1;
+    String name = name_orig;
+    for (int i = 0; i < name.length() - 1; i += 1) {
+        uint32_t codepoint = name.at(i);
+        uint32_t next_codepoint = name.at(i + 1);
+        if (codepoint == (uint32_t)'&' && next_codepoint != (uint32_t)'&') {
+            mnemonic_index = i;
+            name.remove_range(i, i + 1);
+            break;
+        }
+    }
+    return add_menu(name, mnemonic_index, shortcut);
+}
+
 VirtKey MenuWidgetItem::get_mnemonic_key() {
     if (mnemonic_index == -1)
         return VirtKeyUnknown;

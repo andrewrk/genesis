@@ -85,8 +85,7 @@ public:
         assert(start <= end);
         assert(end <= _length);
         int del_count = end - start;
-        int move_count = min(del_count, _length - end);
-        for (int i = start; i < start + move_count; i += 1) {
+        for (int i = start; i < _length - del_count; i += 1) {
             _items[i] = _items[i + del_count];
         }
         _length -= del_count;

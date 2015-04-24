@@ -51,6 +51,10 @@ public:
 
     off_t index_of_insensitive(const String &other) const;
 
+    void remove_range(int start, int end) {
+        _chars.remove_range(start, end);
+    }
+
     int allocated_size() const {
         return _chars.allocated_size();
     }

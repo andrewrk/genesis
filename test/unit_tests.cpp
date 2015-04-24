@@ -52,18 +52,26 @@ static void test_string_make_lower_case(void) {
 
 static void test_list_remove_range(void) {
     List<int> list;
-    ok_or_panic(list.append(0));
-    ok_or_panic(list.append(1));
-    ok_or_panic(list.append(2));
-    ok_or_panic(list.append(3));
-    ok_or_panic(list.append(4));
-    ok_or_panic(list.append(5));
+    for (int i = 0; i < 6; i += 1)
+        ok_or_panic(list.append(i));
 
     list.remove_range(2, 5);
     assert(list.length() == 3);
     assert(list.at(0) == 0);
     assert(list.at(1) == 1);
     assert(list.at(2) == 5);
+
+    list.clear();
+    for (int i = 0; i < 10; i += 1)
+        ok_or_panic(list.append(i));
+
+    list.remove_range(2, 3);
+    assert(list.length() == 9);
+    assert(list.at(1) == 1);
+    assert(list.at(2) == 3);
+    assert(list.at(3) == 4);
+    assert(list.at(4) == 5);
+    assert(list.at(8) == 9);
 }
 
 static void test_list_insert_space(void) {

@@ -26,7 +26,9 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     update_model();
 
     track_context_menu = create<MenuWidgetItem>(gui_window);
-    track_context_menu->add_menu("Rename", 0, shortcut(VirtKeyF2));
+    track_context_menu->add_menu("&Rename", shortcut(VirtKeyF2));
+    track_context_menu->add_menu("Insert Track &Before", no_shortcut());
+    track_context_menu->add_menu("Insert Track &After", no_shortcut());
 }
 
 TrackEditorWidget::~TrackEditorWidget() {

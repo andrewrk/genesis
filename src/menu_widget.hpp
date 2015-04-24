@@ -50,12 +50,8 @@ public:
     MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_index, KeySequence shortcut);
     ~MenuWidgetItem();
 
-    MenuWidgetItem *add_menu(String name, int mnemonic_index, KeySequence shortcut) {
-        MenuWidgetItem *new_item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, shortcut);
-        if (children.append(new_item))
-            panic("out of memory");
-        return new_item;
-    }
+    MenuWidgetItem *add_menu(const String &name, const KeySequence &shortcut);
+    MenuWidgetItem *add_menu(const String &name, int mnemonic_index, const KeySequence &shortcut);
 
     void set_activate_handler(void (*fn)(void *), void *userdata) {
         this->activate_handler = fn;

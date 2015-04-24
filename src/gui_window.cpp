@@ -331,7 +331,7 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
 }
 
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
-    if (context_menu) {
+    if (context_menu && _mouse_over_widget != context_menu) {
         if (try_mouse_move_event_on_widget(context_menu, event)) {
             return;
         } else if (event->action == MouseActionDown) {
@@ -396,12 +396,14 @@ bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent 
         mouse_event.x -= widget->left;
         mouse_event.y -= widget->top;
 
+        bool first_over = _mouse_over_widget != widget;
         _mouse_over_widget = widget;
 
         if (pressing_any_btn && _mouse_over_widget != _focus_widget)
             set_focus_widget(_mouse_over_widget);
 
-        widget->on_mouse_over(&mouse_event);
+        if (first_over)
+            widget->on_mouse_over(&mouse_event);
         widget->on_mouse_move(&mouse_event);
         return true;
     }
@@ -504,6 +506,11 @@ ContextMenuWidget * GuiWindow::pop_context_menu(MenuWidgetItem *menu_widget_item
         context_menu->left = left - context_menu->width;
     if (context_menu->top + context_menu->height > _height)
         context_menu->top = top - context_menu->height;
+
+    context_menu->on_resize();
+
+    context_menu->width = context_menu->min_width();
+    context_menu->height = context_menu->min_height();
 
     context_menu->on_resize();
 
