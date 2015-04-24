@@ -78,9 +78,11 @@ void destroy_audio_hardware(struct AudioHardware *audio_hardware) {
         destroy_current_audio_devices_info(audio_hardware);
         destroy_ready_audio_devices_info(audio_hardware);
 
-        for (int i = 0; i < audio_hardware->safe_devices_info->devices.length(); i += 1)
-            genesis_audio_device_unref(audio_hardware->safe_devices_info->devices.at(i));
-        destroy(audio_hardware->safe_devices_info, 1);
+        if (audio_hardware->safe_devices_info) {
+            for (int i = 0; i < audio_hardware->safe_devices_info->devices.length(); i += 1)
+                genesis_audio_device_unref(audio_hardware->safe_devices_info->devices.at(i));
+            destroy(audio_hardware->safe_devices_info, 1);
+        }
 
         pa_context_disconnect(audio_hardware->pulse_context);
         pa_context_unref(audio_hardware->pulse_context);
