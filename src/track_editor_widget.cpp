@@ -5,6 +5,18 @@
 #include "label.hpp"
 #include "menu_widget.hpp"
 
+static void insert_track_before_handler(void *userdata) {
+    TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
+    project_insert_track(track_editor_widget->project, nullptr, track_editor_widget->menu_track->track);
+    track_editor_widget->update_model();
+}
+
+static void insert_track_after_handler(void *userdata) {
+    TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
+    project_insert_track(track_editor_widget->project, track_editor_widget->menu_track->track, nullptr);
+    track_editor_widget->update_model();
+}
+
 TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     Widget(gui_window),
     project(project),
@@ -21,14 +33,19 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     track_head_bg_color(color_light_bg()),
     track_main_bg_color(color_dark_bg()),
     timeline_bg_color(color_dark_bg_alt()),
+    dark_border_color(color_dark_border()),
+    light_border_color(color_light_border()),
     menu_track(nullptr)
 {
     update_model();
 
     track_context_menu = create<MenuWidgetItem>(gui_window);
     track_context_menu->add_menu("&Rename", shortcut(VirtKeyF2));
-    track_context_menu->add_menu("Insert Track &Before", no_shortcut());
-    track_context_menu->add_menu("Insert Track &After", no_shortcut());
+    MenuWidgetItem *insert_track_before_menu = track_context_menu->add_menu("Insert Track &Before", no_shortcut());
+    MenuWidgetItem *insert_track_after_menu = track_context_menu->add_menu("Insert Track &After", no_shortcut());
+
+    insert_track_before_menu->set_activate_handler(insert_track_before_handler, this);
+    insert_track_after_menu->set_activate_handler(insert_track_after_handler, this);
 }
 
 TrackEditorWidget::~TrackEditorWidget() {
@@ -47,6 +64,9 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
         gui_window->fill_rect(track_main_bg_color, projection * gui_track->body_model);
         gui_track->track_name_label->draw(
                 gui_window, projection * gui_track->track_name_label_model, track_name_color);
+
+        gui_window->fill_rect(light_border_color, projection * gui_track->border_top_model);
+        gui_window->fill_rect(dark_border_color, projection * gui_track->border_bottom_model);
     }
 }
 
@@ -56,7 +76,8 @@ void TrackEditorWidget::update_model() {
             width - padding_left - padding_right, timeline_height);
 
     int next_top = timeline_top + timeline_height;
-    for (int i = 0; i < project->track_list.length(); i += 1) {
+    int i;
+    for (i = 0; i < project->track_list.length(); i += 1) {
         Track *track = project->track_list.at(i);
         GuiTrack *gui_track;
         if (i < tracks.length()) {
@@ -70,10 +91,10 @@ void TrackEditorWidget::update_model() {
         gui_track->top = next_top;
         next_top += track_height;
         gui_track->bottom = next_top;
+        next_top += 1;
 
         int head_left = gui_track->left;
         int head_top = gui_track->top;
-        next_top += track_height;
         gui_track->head_model = transform2d(padding_left, head_top, track_head_width, track_height);
 
         int body_left = head_left + track_head_width;
@@ -85,6 +106,14 @@ void TrackEditorWidget::update_model() {
         int label_left = head_left + track_name_label_padding_left;
         int label_top = head_top + track_name_label_padding_top;
         gui_track->track_name_label_model = transform2d(label_left, label_top);
+
+        int entire_width = width - padding_left - padding_right;
+        gui_track->border_top_model = transform2d(gui_track->left, gui_track->top, entire_width, 1.0f);
+        gui_track->border_bottom_model = transform2d(gui_track->left, gui_track->bottom, entire_width, 1.0f);
+    }
+    while (i < tracks.length()) {
+        GuiTrack *gui_track = tracks.pop();
+        destroy_gui_track(gui_track);
     }
 }
 

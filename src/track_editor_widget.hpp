@@ -36,12 +36,17 @@ public:
     glm::vec4 track_main_bg_color;
     glm::vec4 timeline_bg_color;
 
+    glm::vec4 dark_border_color;
+    glm::vec4 light_border_color;
+
     glm::mat4 timeline_model;
 
     struct GuiTrack {
         Track *track;
         glm::mat4 head_model;
         glm::mat4 body_model;
+        glm::mat4 border_top_model;
+        glm::mat4 border_bottom_model;
 
         Label *track_name_label;
         glm::mat4 track_name_label_model;

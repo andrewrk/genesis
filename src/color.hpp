@@ -49,4 +49,12 @@ static inline glm::vec4 color_dark_text(void) {
     return parse_color("#232323");
 };
 
+static inline glm::vec4 color_dark_border(void) {
+    return parse_color("#1B1B1B");
+};
+
+static inline glm::vec4 color_light_border(void) {
+    return parse_color("#DADADA");
+};
+
 #endif

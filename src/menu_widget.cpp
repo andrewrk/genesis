@@ -237,12 +237,13 @@ MenuWidgetItem *ContextMenuWidget::get_item_at(int y) {
 }
 
 void MenuWidgetItem::activate() {
-    gui_window->destroy_context_menu();
     if (!activate_handler) {
         fprintf(stderr, "No handler attached: %s\n", label.text().encode().raw());
         return;
     }
+    GuiWindow *gui_window_ref = gui_window;
     activate_handler(userdata);
+    gui_window_ref->destroy_context_menu();
 }
 
 void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
