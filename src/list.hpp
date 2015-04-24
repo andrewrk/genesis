@@ -92,6 +92,20 @@ public:
         _length -= del_count;
     }
 
+    int __attribute__((warn_unused_result)) insert_space(int pos, int size) {
+        int old_length = _length;
+        assert(pos >= 0 && pos <= old_length);
+        int err = resize(old_length + size);
+        if (err)
+            return err;
+
+        for (int i = old_length - 1; i >= pos; i -= 1) {
+            _items[i + size] = _items[i];
+        }
+
+        return 0;
+    }
+
     void fill(T value) {
         for (int i = 0; i < _length; i += 1) {
             _items[i] = value;
@@ -147,6 +161,10 @@ public:
             _capacity = better_capacity;
         }
         return 0;
+    }
+
+    int allocated_size() const {
+        return _capacity * sizeof(T);
     }
 
 private:

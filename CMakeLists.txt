@@ -68,6 +68,9 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/key_event.cpp"
     "${CMAKE_SOURCE_DIR}/src/resources_tree_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/track_editor_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/hash_map.cpp"
+    "${CMAKE_SOURCE_DIR}/src/project.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -85,6 +88,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
 )
 
 find_package(Threads)

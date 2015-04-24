@@ -7,15 +7,12 @@
 #include "ring_buffer.hpp"
 #include "error.h"
 #include "thread_safe_queue_test.hpp"
+#include "sort_key.hpp"
+#include "debug.hpp"
 
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
-
-static void assert_no_err(int err) {
-    if (err)
-        panic("Error: %s", genesis_error_string(err));
-}
 
 static void debug_print_bb_list(const List<ByteBuffer> &list) {
     fprintf(stderr, "\n");
@@ -55,18 +52,33 @@ static void test_string_make_lower_case(void) {
 
 static void test_list_remove_range(void) {
     List<int> list;
-    assert_no_err(list.append(0));
-    assert_no_err(list.append(1));
-    assert_no_err(list.append(2));
-    assert_no_err(list.append(3));
-    assert_no_err(list.append(4));
-    assert_no_err(list.append(5));
+    ok_or_panic(list.append(0));
+    ok_or_panic(list.append(1));
+    ok_or_panic(list.append(2));
+    ok_or_panic(list.append(3));
+    ok_or_panic(list.append(4));
+    ok_or_panic(list.append(5));
 
     list.remove_range(2, 5);
     assert(list.length() == 3);
     assert(list.at(0) == 0);
     assert(list.at(1) == 1);
     assert(list.at(2) == 5);
+}
+
+static void test_list_insert_space(void) {
+    List<int> list;
+    for (int i = 0; i < 25; i += 1) {
+        ok_or_panic(list.append(i));
+    }
+
+    ok_or_panic(list.insert_space(0, 3));
+
+    assert(list.length() == 28);
+    assert(list.at(3) == 0);
+    assert(list.at(4) == 1);
+    assert(list.at(5) == 2);
+    assert(list.at(27) == 24);
 }
 
 static void test_parse_color(void) {
@@ -127,6 +139,17 @@ static void test_gcd(void) {
     assert(greatest_common_denominator(44100, 96000) == 300);
 }
 
+static void test_sort_keys_basic(void) {
+    SortKey b = SortKey::single(nullptr, nullptr);
+    SortKey d = SortKey::single(&b, nullptr);
+    assert(SortKey::compare(b, d) < 0); // forwards
+    SortKey c = SortKey::single(&b, &d);
+    assert(SortKey::compare(b, c) < 0); // between
+    assert(SortKey::compare(c, d) < 0);
+    SortKey a = SortKey::single(nullptr, &b);
+    assert(SortKey::compare(a, b) < 0); // backwards
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -136,11 +159,13 @@ static struct Test tests[] = {
     {"ByteBuffer::split", test_bytebuffer_split},
     {"String::make_lower_case", test_string_make_lower_case},
     {"List::remove_range", test_list_remove_range},
+    {"List::insert_space", test_list_insert_space},
     {"parse_color", test_parse_color},
     {"RingBuffer", test_ring_buffer},
     {"euclidean_mod", test_euclidean_mod},
     {"ThreadSafeQueue", test_thread_safe_queue},
     {"greatest_common_denominator", test_gcd},
+    {"sort keys basic", test_sort_keys_basic},
     {NULL, NULL},
 };
 
@@ -151,16 +176,16 @@ static void exec_test(struct Test *test) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc == 2) {
-        int index = atoi(argv[1]);
-        exec_test(&tests[index]);
-        return 0;
-    }
+    const char *match = nullptr;
+
+    if (argc == 2)
+        match = argv[1];
 
     struct Test *test = &tests[0];
 
     while (test->name) {
-        exec_test(test);
+        if (!match || strstr(test->name, match))
+            exec_test(test);
         test += 1;
     }
 
