@@ -5,11 +5,12 @@
 
 struct Project;
 struct Track;
+class Label;
 
 class TrackEditorWidget : public Widget {
 public:
     TrackEditorWidget(GuiWindow *gui_window, Project *project);
-    ~TrackEditorWidget() override {}
+    ~TrackEditorWidget() override;
 
     void draw(const glm::mat4 &projection) override;
     void on_resize() override { update_model(); }
@@ -25,6 +26,9 @@ public:
     int track_head_width;
     int track_height;
 
+    int track_name_label_padding_left;
+    int track_name_label_padding_top;
+
     glm::vec4 track_name_color;
     glm::vec4 track_head_bg_color;
     glm::vec4 track_main_bg_color;
@@ -36,10 +40,15 @@ public:
         Track *track;
         glm::mat4 head_model;
         glm::mat4 body_model;
+
+        Label *track_name_label;
+        glm::mat4 track_name_label_model;
     };
-    List<GuiTrack> tracks;
+    List<GuiTrack *> tracks;
 
     void update_model();
+    GuiTrack *create_gui_track(Track *track);
+    void destroy_gui_track(GuiTrack *gui_track);
 };
 
 #endif

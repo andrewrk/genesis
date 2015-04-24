@@ -45,4 +45,8 @@ static inline glm::vec4 color_dark_bg_alt(void) {
     return parse_color("#2E5986");
 };
 
+static inline glm::vec4 color_dark_text(void) {
+    return parse_color("#232323");
+};
+
 #endif
