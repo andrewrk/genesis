@@ -2,7 +2,8 @@
 #define PROJECT_HPP
 
 #include "genesis.h"
-#include "hash_map.hpp"
+#include "uint256.hpp"
+#include "id_map.hpp"
 #include "sort_key.hpp"
 
 struct Command;

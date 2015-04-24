@@ -11,7 +11,7 @@ static int get_next_revision(Project *project) {
 
 static int compare_tracks(Track *a, Track *b) {
     int sort_key_cmp = SortKey::compare(a->sort_key, b->sort_key);
-    return (sort_key_cmp == 0) ? compare_uint256(a->id, b->id) : sort_key_cmp;
+    return (sort_key_cmp == 0) ? uint256::compare(a->id, b->id) : sort_key_cmp;
 }
 
 static void project_sort_tracks(Project *project) {
@@ -31,7 +31,7 @@ static void project_sort_tracks(Project *project) {
 Project *project_create(User *user) {
     Project *project = create<Project>();
 
-    project->id = random_uint256();
+    project->id = uint256::random();
     project->active_user = user;
 
     project_insert_track(project, nullptr, nullptr);
@@ -70,7 +70,7 @@ AddTrackCommand::AddTrackCommand(User *user, int revision,
     name(name),
     sort_key(sort_key)
 {
-    track_id = random_uint256();
+    track_id = uint256::random();
 }
 
 void AddTrackCommand::undo(Project *project) {
@@ -96,7 +96,7 @@ void AddTrackCommand::redo(Project *project) {
 User *user_create(const String &name) {
     User *user = create<User>();
 
-    user->id = random_uint256();
+    user->id = uint256::random();
     user->name = name;
 
     return user;

@@ -102,8 +102,9 @@ make
 
 ## Roadmap
 
- 0. track editor widget
+ 0. save project to disk and load from disk
  0. dockable pane widget
+ 0. implement perspectives
  0. piano roll widget
  0. mixer widget
 

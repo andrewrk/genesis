@@ -68,7 +68,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/key_event.cpp"
     "${CMAKE_SOURCE_DIR}/src/resources_tree_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/track_editor_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/hash_map.cpp"
+    "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
     "${CMAKE_SOURCE_DIR}/src/project.cpp"
     "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
 )
