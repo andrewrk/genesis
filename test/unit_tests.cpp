@@ -9,6 +9,7 @@
 #include "thread_safe_queue_test.hpp"
 #include "sort_key.hpp"
 #include "debug.hpp"
+#include "locked_queue.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -190,6 +191,30 @@ static void test_sort_keys_count(void) {
     run_sort_keys_count_test(&some_value, &upper);
 }
 
+static void test_locked_queue(void) {
+    LockedQueue<int> queue;
+
+    for (int i = 0; i < 99; i += 1) {
+        ok_or_panic(queue.push(i));
+    }
+
+    for (int i = 0; i < 99; i += 1) {
+        assert(queue.shift() == i);
+    }
+
+    LockedQueue<int> queue2;
+    for (int i = 0; i < 15; i += 1) {
+        ok_or_panic(queue2.push(i));
+        assert(queue2.shift() == i);
+    }
+    for (int i = 0; i < 32; i += 1) {
+        ok_or_panic(queue2.push(i));
+    }
+    for (int i = 0; i < 32; i += 1) {
+        assert(queue2.shift() == i);
+    }
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -207,6 +232,7 @@ static struct Test tests[] = {
     {"greatest_common_denominator", test_gcd},
     {"sort keys basic", test_sort_keys_basic},
     {"sort keys count", test_sort_keys_count},
+    {"LockedQueue", test_locked_queue},
     {NULL, NULL},
 };
 
