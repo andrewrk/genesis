@@ -199,19 +199,25 @@ static void test_locked_queue(void) {
     }
 
     for (int i = 0; i < 99; i += 1) {
-        assert(queue.shift() == i);
+        int value;
+        ok_or_panic(queue.shift(&value));
+        assert(value == i);
     }
 
     LockedQueue<int> queue2;
     for (int i = 0; i < 15; i += 1) {
         ok_or_panic(queue2.push(i));
-        assert(queue2.shift() == i);
+        int value;
+        ok_or_panic(queue2.shift(&value));
+        assert(value == i);
     }
     for (int i = 0; i < 32; i += 1) {
         ok_or_panic(queue2.push(i));
     }
     for (int i = 0; i < 32; i += 1) {
-        assert(queue2.shift() == i);
+        int value;
+        ok_or_panic(queue2.shift(&value));
+        assert(value == i);
     }
 }
 

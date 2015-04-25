@@ -20,6 +20,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorPortNotFound: return "port not found";
         case GenesisErrorNoAudioFound: return "no audio found";
         case GenesisErrorUnimplemented: return "unimplemented (patch welcome!)";
+        case GenesisErrorAborted: return "aborted";
     }
     panic("invalid error enum value");
 }

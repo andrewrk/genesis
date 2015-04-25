@@ -39,21 +39,21 @@ public:
         return 0;
     }
 
-    // if you called wakeup_all then you must ignore this bogus return value
-    T shift() {
+    // returns 0 on success or GenesisErrorAborted
+    int shift(T *result) {
         MutexLocker locker(&_mutex);
 
         for (;;) {
             if (_shutdown)
-                return _items[0];
+                return GenesisErrorAborted;
             if (_length <= 0) {
                 _cond.wait(&_mutex);
                 continue;
             }
             _length -= 1;
-            int result_index = _start;
+            *result = _items[_start];
             _start = (_start + 1) % _capacity;
-            return _items[result_index];
+            return 0;
         }
     }
 
