@@ -6,7 +6,8 @@ peer-to-peer community which shares plugins, projects, and samples.
 
 Cross platform support is planned, however, currently only Linux is supported.
 
-Genesis is not ready for serious users yet. Come back in a few months.
+Genesis is not ready for serious users yet. If you're excited about the project,
+follow the <a href="http://genesisdaw.org/">development blog</a>.
 
 ## Status
 
