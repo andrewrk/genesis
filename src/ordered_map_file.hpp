@@ -46,13 +46,7 @@ struct OrderedMapFile {
     LockedQueue<OrderedMapFileBatch *> queue;
     FILE *file;
     long transaction_offset;
-
-    // when you open the file, it's in read-only mode and list is populated.
-    // when you're done reading, call ordered_map_file_done_reading which
-    // sets this property to NULL and the file is in write-only mode
     List<OrderedMapFileEntry *> *list;
-
-    // private
     HashMap<ByteBuffer, OrderedMapFileEntry *, ByteBuffer::hash> *map;
 };
 
@@ -70,6 +64,12 @@ void ordered_map_file_buffer_destroy(OrderedMapFileBuffer *buffer);
 // put and del transfer ownership of the buffers
 int ordered_map_file_batch_put(OrderedMapFileBatch *batch, OrderedMapFileBuffer *key, OrderedMapFileBuffer *value);
 int ordered_map_file_batch_del(OrderedMapFileBatch *batch, OrderedMapFileBuffer *key);
+
+// these reading functions are only valid after opening the file, until you call
+// ordered_map_file_done_reading. then only write functions can be called.
+int ordered_map_file_count(OrderedMapFile *omf);
+int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key);
+int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer &out_key, ByteBuffer &out_value);
 
 
 #endif

@@ -13,13 +13,10 @@ static void test_open_close(void) {
     int err = ordered_map_file_open(tmp_file_path, &omf);
     assert(err == 0);
     assert(omf);
+    ordered_map_file_done_reading(omf);
     ordered_map_file_close(omf);
     delete_tmp_file();
 }
-
-int ordered_map_file_open(const char *path, OrderedMapFile **omf);
-void ordered_map_file_done_reading(OrderedMapFile *omf);
-void ordered_map_file_close(OrderedMapFile *omf);
 
 void test_ordered_map_file(void) {
     delete_tmp_file();

@@ -362,3 +362,42 @@ void ordered_map_file_done_reading(OrderedMapFile *omf) {
     if (fseek(omf->file, omf->transaction_offset, SEEK_SET))
         panic("unable to seek in file");
 }
+
+int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key) {
+    // binary search
+    int start = 0;
+    int end = omf->list->length();
+    while (start < end) {
+        int middle = (start + end) / 2;
+        OrderedMapFileEntry *entry = omf->list->at(middle);
+        if (ByteBuffer::compare(entry->key, key) == -1)
+            start = middle + 1;
+        else
+            end = middle;
+    }
+
+    if (start != end)
+        return -1;
+
+    OrderedMapFileEntry *entry = omf->list->at(start);
+    if (ByteBuffer::compare(entry->key, key) == 0)
+        return start;
+
+    return -1;
+}
+
+int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer **out_key, ByteBuffer &out_value) {
+    OrderedMapFileEntry *entry = omf->list->at(index);
+    *out_key = &entry->key;
+    out_value.resize(entry->size);
+    if (fseek(omf->file, entry->offset, SEEK_SET))
+        return GenesisErrorFileAccess;
+    size_t amt_read = fread(out_value.raw(), 1, out_value.length(), omf->file);
+    if (amt_read != (size_t)out_value.length())
+        return GenesisErrorFileAccess;
+    return 0;
+}
+
+int ordered_map_file_count(OrderedMapFile *omf) {
+    return omf->list->length();
+}
