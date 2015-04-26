@@ -11,6 +11,8 @@
 #include "debug.hpp"
 #include "locked_queue.hpp"
 #include "crc32.hpp"
+#include "ordered_map_file_test.hpp"
+#include "os.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -254,6 +256,15 @@ static void test_crc32(void) {
     assert(crc32(0, crc_test_10, array_length(crc_test_10)) == 0x479f16e);
 }
 
+static void test_os_get_time(void) {
+    double prev_time = os_get_time();
+    for (int i = 0; i < 1000; i += 1) {
+        double time = os_get_time();
+        assert(time >= prev_time);
+        prev_time = time;
+    }
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -273,6 +284,8 @@ static struct Test tests[] = {
     {"sort keys count", test_sort_keys_count},
     {"LockedQueue", test_locked_queue},
     {"crc32", test_crc32},
+    {"OrderedMapFile", test_ordered_map_file},
+    {"os_get_time", test_os_get_time},
     {NULL, NULL},
 };
 
@@ -283,6 +296,8 @@ static void exec_test(struct Test *test) {
 }
 
 int main(int argc, char *argv[]) {
+    os_init();
+
     const char *match = nullptr;
 
     if (argc == 2)

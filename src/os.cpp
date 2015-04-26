@@ -11,14 +11,11 @@
 #include <pwd.h>
 #include <stdlib.h>
 #include <errno.h>
-
-ByteBuffer os_dir_path;
-ByteBuffer os_sample_path;
-ByteBuffer os_home_dir;
+#include <time.h>
 
 static RandomState random_state;
 
-static const char *get_home_dir() {
+ByteBuffer os_get_home_dir(void) {
     const char *env_home_dir = getenv("HOME");
     if (env_home_dir)
         return env_home_dir;
@@ -46,15 +43,12 @@ uint32_t os_random_uint32(void) {
 }
 
 void os_init() {
-    os_home_dir = ByteBuffer(get_home_dir());
-    os_dir_path = path_join(os_home_dir, "genesis");
-    os_sample_path = path_join(os_dir_path, "samples");
-
     uint32_t seed;
     int err = get_random_seed(&seed);
     if (err)
         panic("Unable to get random seed: %s", genesis_error_string(err));
     init_random_state(&random_state, seed);
+
 }
 
 void os_spawn_process(const char *exe, const List<ByteBuffer> &args, bool detached) {
@@ -86,11 +80,21 @@ void os_open_in_browser(const String &url) {
 }
 
 double os_get_time(void) {
-    return glfwGetTime();
+    struct timespec tms;
+    clock_gettime(CLOCK_MONOTONIC, &tms);
+    double seconds = (double)tms.tv_sec;
+    seconds += ((double)tms.tv_nsec) / 1000000000.0;
+    return seconds;
 }
 
 String os_get_user_name(void) {
     uid_t uid = geteuid();
     struct passwd *pw = getpwuid(uid);
     return pw ? pw->pw_name : "Unknown User";
+}
+
+int os_delete(const char *path) {
+    if (unlink(path))
+        return GenesisErrorFileAccess;
+    return 0;
 }

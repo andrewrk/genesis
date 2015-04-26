@@ -29,7 +29,7 @@ FindFileWidget::FindFileWidget(GuiWindow *gui_window) :
     _filter_widget->set_on_key_event(on_filter_key);
     _filter_widget->set_on_text_change_event(on_filter_text_change);
 
-    change_current_path(os_home_dir);
+    change_current_path(os_get_home_dir());
     update_model();
 }
 
