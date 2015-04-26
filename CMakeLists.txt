@@ -71,6 +71,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
     "${CMAKE_SOURCE_DIR}/src/project.cpp"
     "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
+    "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -89,6 +90,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
     "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
+    "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
 )
 
 find_package(Threads)
