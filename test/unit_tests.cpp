@@ -10,6 +10,7 @@
 #include "sort_key.hpp"
 #include "debug.hpp"
 #include "locked_queue.hpp"
+#include "crc32.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -221,6 +222,38 @@ static void test_locked_queue(void) {
     }
 }
 
+static void test_crc32(void) {
+    static const unsigned char crc_test_1[] = {125, 129, 239, 175, 71, 13, 235, 208, 227, 34, 211, 180, 156, 52, 192, 149, 243};
+    assert(crc32(0, crc_test_1, array_length(crc_test_1)) == 0x799cf6e7);
+
+    static const unsigned char crc_test_2[] = {181, 96, 10, 51, 76, 133, 42, 132, 181, 182, 69, 220, 225};
+    assert(crc32(0, crc_test_2, array_length(crc_test_2)) == 0x5d0ffa5b);
+
+    static const unsigned char crc_test_3[] = {246, 43};
+    assert(crc32(0, crc_test_3, array_length(crc_test_3)) == 0xaf83ad84);
+
+    static const unsigned char crc_test_4[] = {126, 165, 180, 1, 62, 171, 17, 125, 80, 79, 41, 50, 190, 97, 224, 238, 229, 125, 220, 196, 118, 200, 236, 135, 92, 9};
+    assert(crc32(0, crc_test_4, array_length(crc_test_4)) == 0x84d61652);
+
+    static const unsigned char crc_test_5[] = {191, 239, 195, 252, 50, 87, 50, 173, 86, 162, 46, 47, 199, 41, 14, 66, 120, 220, 188, 153, 170, 171, 25, 4, 46, 66, 221, 32, 170};
+    assert(crc32(0, crc_test_5, array_length(crc_test_5)) == 0x16fcee02);
+
+    static const unsigned char crc_test_6[] = {195, 176, 131, 131, 51, 9, 152, 168, 31};
+    assert(crc32(0, crc_test_6, array_length(crc_test_6)) == 0x1330341d);
+
+    static const unsigned char crc_test_7[] = {112, 15, 27, 164, 9, 154, 136, 166, 246, 67};
+    assert(crc32(0, crc_test_7, array_length(crc_test_7)) == 0xbcdd7f51);
+
+    static const unsigned char crc_test_8[] = {239, 182, 45, 7, 215, 9, 233, 77, 59, 117, 183, 226};
+    assert(crc32(0, crc_test_8, array_length(crc_test_8)) == 0xb0d089cb);
+
+    static const unsigned char crc_test_9[] = {228};
+    assert(crc32(0, crc_test_9, array_length(crc_test_9)) == 0x7565c9ec);
+
+    static const unsigned char crc_test_10[] = {34, 42, 179, 109, 162, 93, 93, 246, 163, 71, 245, 250, 208, 162, 131, 184, 80, 165, 198, 68, 96, 229};
+    assert(crc32(0, crc_test_10, array_length(crc_test_10)) == 0x479f16e);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -239,6 +272,7 @@ static struct Test tests[] = {
     {"sort keys basic", test_sort_keys_basic},
     {"sort keys count", test_sort_keys_count},
     {"LockedQueue", test_locked_queue},
+    {"crc32", test_crc32},
     {NULL, NULL},
 };
 
