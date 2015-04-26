@@ -249,6 +249,61 @@ be easier to save it open source than to save it privately.
    - Undo/redo. Make sure it works correctly with multiplayer.
    - Support for N audio channels instead of hardcoded stereo.
 
+### Project File Format
+
+The first 16 bytes of every Genesis project file are:
+
+```
+ca2f 5ef5 00d8 ef0b 8074 18d0 e40b 7a4f
+```
+
+This uniquely identifies the file as a Genesis project file. The default file
+extension is `.gdaw`.
+
+After this contains an ordered list of transactions. A transaction is a set of
+edits. There are 2 types of edits: put and delete.
+
+A put contains a key and a value, each of which is a variable number of bytes.
+A delete contains only a key, which is a variable number of bytes.
+
+A transaction looks like this:
+
+```
+Offset | Description
+-------+------------
+     0 | uint32be length of transaction in bytes including this field
+     4 | uint32be crc32 of this transaction
+     8 | uint32be number of put edits in this transaction
+    12 | uint32be number of delete edits in this transaction
+    16 | the put edits in this transaction
+     - | the delete edits in this transaction
+```
+
+A put edit looks like:
+
+```
+Offset | Description
+-------+------------
+     0 | uint32be key length in bytes
+     4 | uint32be value length in bytes
+     8 | key bytes
+     - | value bytes
+```
+
+A delete edit looks like:
+
+```
+Offset | Description
+-------+------------
+     0 | uint32be key length in bytes
+     4 | key bytes
+```
+
+That's it. To read the file, apply the transactions in order. To update a file,
+append a transaction. Periodically "garbage collect" by creating a new project
+file with a single transaction with all the data, and then atomically rename
+the new project file over the old one.
+
 ## License
 
 Genesis is licensed with the Lesser General Public License. A full copy of the
