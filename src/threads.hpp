@@ -1,6 +1,8 @@
 #ifndef THREADS_HPP
 #define THREADS_HPP
 
+#include "util.hpp"
+
 #include <unistd.h>
 #include <pthread.h>
 

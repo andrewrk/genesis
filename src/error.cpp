@@ -21,6 +21,9 @@ const char *genesis_error_string(int error) {
         case GenesisErrorNoAudioFound: return "no audio found";
         case GenesisErrorUnimplemented: return "unimplemented (patch welcome!)";
         case GenesisErrorAborted: return "aborted";
+        case GenesisErrorFileAccess: return "file access";
+        case GenesisErrorInvalidFormat: return "invalid format";
+        case GenesisErrorEmptyFile: return "empty file";
     }
     panic("invalid error enum value");
 }

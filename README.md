@@ -271,8 +271,8 @@ A transaction looks like this:
 ```
 Offset | Description
 -------+------------
-     0 | uint32be length of transaction in bytes including this field
-     4 | uint32be crc32 of this transaction
+     0 | uint32be crc32 of this transaction, everything excluding this field
+     4 | uint32be length of transaction in bytes including this and crc32
      8 | uint32be number of put edits in this transaction
     12 | uint32be number of delete edits in this transaction
     16 | the put edits in this transaction

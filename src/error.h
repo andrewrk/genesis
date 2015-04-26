@@ -25,6 +25,9 @@ enum GenesisError {
     GenesisErrorNoAudioFound,
     GenesisErrorUnimplemented,
     GenesisErrorAborted,
+    GenesisErrorFileAccess,
+    GenesisErrorInvalidFormat,
+    GenesisErrorEmptyFile,
 };
 
 const char *genesis_error_string(int error);

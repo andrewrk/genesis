@@ -54,6 +54,12 @@ __attribute__((malloc)) static inline T *allocate_zero(size_t count) {
     return ptr;
 }
 
+// allocate memory and return NULL instead of panicking. do not run constructors.
+template<typename T>
+__attribute__((malloc)) static inline T *allocate_safe(size_t count) {
+    return reinterpret_cast<T*>(malloc(count * sizeof(T)));
+}
+
 // Pass in a pointer to an array of old_count items.
 // You will get a pointer to an array of new_count items
 // where the first old_count items will have the same bits as the array you
