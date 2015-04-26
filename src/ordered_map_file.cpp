@@ -90,7 +90,18 @@ static void run_write(void *userdata) {
         size_t amt_written = fwrite(transaction_ptr, 1, transaction_size, omf->file);
         if (amt_written != (size_t)transaction_size)
             panic("write to disk failed");
+
+        omf->mutex.lock();
+        omf->cond.signal();
+        omf->mutex.unlock();
     }
+}
+
+static int write_header(OrderedMapFile *omf) {
+    size_t amt_written = fwrite(UUID, 1, UUID_SIZE, omf->file);
+    if (amt_written != UUID_SIZE)
+        return GenesisErrorFileAccess;
+    return 0;
 }
 
 static int read_header(OrderedMapFile *omf) {
@@ -136,9 +147,9 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         ordered_map_file_close(omf);
         return GenesisErrorNoMem;
     }
-    if (omf->queue.error()) {
+    if (omf->queue.error() || omf->cond.error() || omf->mutex.error()) {
         ordered_map_file_close(omf);
-        return omf->queue.error();
+        return omf->queue.error() || omf->cond.error() || omf->mutex.error();
     }
     omf->list = create_zero<List<OrderedMapFileEntry *>>();
     if (!omf->list) {
@@ -171,6 +182,11 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         if (!omf->file) {
             ordered_map_file_close(omf);
             return GenesisErrorFileAccess;
+        }
+        int err = write_header(omf);
+        if (err) {
+            ordered_map_file_close(omf);
+            return err;
         }
     }
 
@@ -271,12 +287,15 @@ static void destroy_list(OrderedMapFile *omf) {
 
 void ordered_map_file_close(OrderedMapFile *omf) {
     if (omf) {
-        omf->running = false;
-        omf->queue.wakeup_all();
+        if (!omf->mutex.error() && !omf->cond.error() && !omf->queue.error() && omf->file) {
+            ordered_map_file_flush(omf);
+            fclose(omf->file);
+            omf->running = false;
+            omf->queue.wakeup_all();
+        }
         omf->write_thread.join();
         destroy_list(omf);
         destroy_map(omf);
-        fclose(omf->file);
         destroy(omf, 1);
     }
 }
@@ -400,4 +419,15 @@ int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer **out_key, B
 
 int ordered_map_file_count(OrderedMapFile *omf) {
     return omf->list->length();
+}
+
+void ordered_map_file_flush(OrderedMapFile *omf) {
+    {
+        MutexLocker locker(&omf->mutex);
+        while (omf->queue.length())
+            omf->cond.wait(&omf->mutex);
+    }
+
+    if (fsync(fileno(omf->file)))
+        panic("fsync fail");
 }

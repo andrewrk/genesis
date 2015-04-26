@@ -63,6 +63,11 @@ public:
         _cond.signal();
     }
 
+    int length() {
+        MutexLocker locker(&_mutex);
+        return _length;
+    }
+
 private:
     T * _items;
     int _start;

@@ -41,6 +41,8 @@ struct OrderedMapFileBatch {
 
 struct OrderedMapFile {
     Thread write_thread;
+    Mutex mutex;
+    MutexCond cond;
     ByteBuffer write_buffer;
     atomic_bool running;
     LockedQueue<OrderedMapFileBatch *> queue;
@@ -70,6 +72,11 @@ int ordered_map_file_batch_del(OrderedMapFileBatch *batch, OrderedMapFileBuffer 
 int ordered_map_file_count(OrderedMapFile *omf);
 int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key);
 int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer &out_key, ByteBuffer &out_value);
+
+
+// blocks until all queued writes finish
+// automatically called by ordered_map_file_close
+void ordered_map_file_flush(OrderedMapFile *omf);
 
 
 #endif
