@@ -401,13 +401,13 @@ int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key) {
     while (start < end) {
         int middle = (start + end) / 2;
         OrderedMapFileEntry *entry = omf->list->at(middle);
-        if (ByteBuffer::compare(entry->key, key) == -1)
+        if (ByteBuffer::compare(entry->key, key) < 0)
             start = middle + 1;
         else
             end = middle;
     }
 
-    if (start != end)
+    if (start != end || start == omf->list->length())
         return -1;
 
     OrderedMapFileEntry *entry = omf->list->at(start);

@@ -51,6 +51,7 @@ static void test_simple_data(void) {
             ordered_map_file_batch_put(batch, key, value);
 
             err = ordered_map_file_batch_exec(batch);
+            assert(err == 0);
         }
 
         ordered_map_file_close(omf);
@@ -79,9 +80,62 @@ static void test_simple_data(void) {
     delete_tmp_file();
 }
 
+void test_many_data(void) {
+    OrderedMapFile *omf;
+    int err = ordered_map_file_open(tmp_file_path, &omf);
+    assert(err == 0);
+    assert(omf);
+    ordered_map_file_done_reading(omf);
+
+    for (int i = 0; i < 400; i += 1) {
+        OrderedMapFileBatch *batch = ordered_map_file_batch_create(omf);
+
+        OrderedMapFileBuffer *key = ordered_map_file_buffer_create(4);
+        OrderedMapFileBuffer *value = ordered_map_file_buffer_create(4);
+
+        sprintf(key->data, "%03d", i);
+        sprintf(value->data, "%03d", i);
+
+        ordered_map_file_batch_put(batch, key, value);
+
+        int err = ordered_map_file_batch_exec(batch);
+        assert(err == 0);
+    }
+
+    ordered_map_file_close(omf);
+
+    omf = nullptr;
+    err = ordered_map_file_open(tmp_file_path, &omf);
+    assert(err == 0);
+    assert(omf);
+
+    assert(ordered_map_file_count(omf) == 400);
+
+    assert(ordered_map_file_find_key(omf, ByteBuffer::format("%03d", 400)) == -1);
+
+    for (int i = 0; i < 400; i += 1) {
+        ByteBuffer expected_key = ByteBuffer::format("%03d", i);
+        expected_key.resize(4);
+        int index = ordered_map_file_find_key(omf, expected_key);
+        assert(index == i);
+
+        ByteBuffer *key;
+        ByteBuffer value;
+        err = ordered_map_file_get(omf, i, &key, value);
+        assert(err == 0);
+        assert(ByteBuffer::compare(*key, expected_key) == 0);
+        assert(ByteBuffer::compare(value, expected_key) == 0);
+    }
+
+    ordered_map_file_done_reading(omf);
+    ordered_map_file_close(omf);
+    delete_tmp_file();
+}
+
 void test_ordered_map_file(void) {
     delete_tmp_file();
     test_open_close();
     test_bogus_file();
     test_simple_data();
+    test_many_data();
 }
