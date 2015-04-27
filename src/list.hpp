@@ -148,7 +148,7 @@ public:
         return _capacity;
     }
 
-    int ensure_capacity(int new_capacity) {
+    int __attribute__((warn_unused_result)) ensure_capacity(int new_capacity) {
         int better_capacity = max(_capacity, 16);
         while (better_capacity < new_capacity)
             better_capacity = better_capacity * 2;

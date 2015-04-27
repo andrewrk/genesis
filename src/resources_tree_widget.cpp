@@ -177,7 +177,7 @@ void ResourcesTreeWidget::update_model() {
                             glm::vec3(icon_scale_width, icon_scale_height, 1.0f));
         }
     }
-    draw_stack.ensure_capacity(update_model_stack.capacity());
+    ok_or_panic(draw_stack.ensure_capacity(update_model_stack.capacity()));
 }
 
 ResourcesTreeWidget::Node *ResourcesTreeWidget::create_playback_node() {

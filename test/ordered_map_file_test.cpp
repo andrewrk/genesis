@@ -32,30 +32,47 @@ static void test_bogus_file(void) {
 }
 
 static void test_simple_data(void) {
-    OrderedMapFile *omf;
+    {
+        OrderedMapFile *omf;
+        int err = ordered_map_file_open(tmp_file_path, &omf);
+        assert(err == 0);
+        assert(omf);
+        ordered_map_file_done_reading(omf);
+
+        {
+            OrderedMapFileBatch *batch = ordered_map_file_batch_create(omf);
+
+            OrderedMapFileBuffer *key = ordered_map_file_buffer_create(1);
+            OrderedMapFileBuffer *value = ordered_map_file_buffer_create(8);
+
+            key->data[0] = "H"[0];
+            memcpy(value->data, "aoeuasdf", 8);
+
+            ordered_map_file_batch_put(batch, key, value);
+
+            err = ordered_map_file_batch_exec(batch);
+        }
+
+        ordered_map_file_close(omf);
+    }
+    OrderedMapFile *omf = nullptr;
     int err = ordered_map_file_open(tmp_file_path, &omf);
     assert(err == 0);
     assert(omf);
-    ordered_map_file_done_reading(omf);
 
-    OrderedMapFileBatch *batch = ordered_map_file_batch_create(omf);
+    assert(ordered_map_file_count(omf) == 1);
 
-    OrderedMapFileBuffer *key = ordered_map_file_buffer_create(1);
-    OrderedMapFileBuffer *value = ordered_map_file_buffer_create(9);
+    int index = ordered_map_file_find_key(omf, "bogus key");
+    assert(index == -1);
 
-    key->data[0] = 91;
-    strcpy(value->data, "aoeuasdf");
-
-    err = ordered_map_file_batch_exec(batch);
-
-    ordered_map_file_close(omf);
-    omf = nullptr;
-
-    err = ordered_map_file_open(tmp_file_path, &omf);
+    index = ordered_map_file_find_key(omf, "H");
+    assert(index == 0);
+    ByteBuffer *key;
+    ByteBuffer value;
+    err = ordered_map_file_get(omf, index, &key, value);
     assert(err == 0);
-    assert(omf);
-
-    // TODO read the key and make sure the data is intact
+    assert(ByteBuffer::compare(*key, "H") == 0);
+    assert(ByteBuffer::compare(value, "aoeuasdf") == 0);
 
     ordered_map_file_done_reading(omf);
     ordered_map_file_close(omf);

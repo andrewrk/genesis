@@ -157,6 +157,12 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         return GenesisErrorNoMem;
     }
 
+    omf->map = create_zero<HashMap<ByteBuffer, OrderedMapFileEntry *, ByteBuffer::hash>>();
+    if (!omf->map) {
+        ordered_map_file_close(omf);
+        return GenesisErrorNoMem;
+    }
+
     omf->running = true;
     int err = omf->write_thread.start(run_write, omf);
     if (err) {
@@ -190,12 +196,6 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         }
     }
 
-    omf->map = create_zero<HashMap<ByteBuffer, OrderedMapFileEntry *, ByteBuffer::hash>>();
-    if (!omf->map) {
-        ordered_map_file_close(omf);
-        return GenesisErrorNoMem;
-    }
-
     // read everything into list
     omf->write_buffer.resize(TRANSACTION_METADATA_SIZE);
     omf->transaction_offset = UUID_SIZE;
@@ -224,8 +224,6 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
             break;
         }
 
-        omf->transaction_offset += transaction_size;
-
         int put_count = read_uint32be(&transaction_ptr[8]);
         int del_count = read_uint32be(&transaction_ptr[12]);
 
@@ -241,7 +239,7 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
             }
 
             entry->key = ByteBuffer((char*)&transaction_ptr[offset], key_size); offset += key_size;
-            entry->offset = offset;
+            entry->offset = omf->transaction_offset + offset;
             entry->size = val_size;
             offset += val_size;
 
@@ -258,20 +256,25 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
                 destroy(entry, 1);
             }
         }
+
+        omf->transaction_offset += transaction_size;
+
     }
 
     // transfer map to list and sort
     auto it = omf->map->entry_iterator();
+    if (omf->list->ensure_capacity(omf->map->size())) {
+        ordered_map_file_close(omf);
+        return GenesisErrorNoMem;
+    }
     for (;;) {
         auto *map_entry = it.next();
         if (!map_entry)
             break;
 
-        if (omf->list->append(map_entry->value)) {
-            ordered_map_file_close(omf);
-            return GenesisErrorNoMem;
-        }
+        ok_or_panic(omf->list->append(map_entry->value));
     }
+    omf->map->clear();
     destroy_map(omf);
 
     insertion_sort<OrderedMapFileEntry *, compare_entries>(omf->list->raw(), omf->list->length());
@@ -281,8 +284,14 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
 }
 
 static void destroy_list(OrderedMapFile *omf) {
-    destroy(omf->list, 1);
-    omf->list = nullptr;
+    if (omf->list) {
+        for (int i = 0; i < omf->list->length(); i += 1) {
+            OrderedMapFileEntry *entry = omf->list->at(i);
+            destroy(entry, 1);
+        }
+        destroy(omf->list, 1);
+        omf->list = nullptr;
+    }
 }
 
 void ordered_map_file_close(OrderedMapFile *omf) {
@@ -383,6 +392,9 @@ void ordered_map_file_done_reading(OrderedMapFile *omf) {
 }
 
 int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key) {
+    if (omf->list->length() == 0)
+        return -1;
+
     // binary search
     int start = 0;
     int end = omf->list->length();

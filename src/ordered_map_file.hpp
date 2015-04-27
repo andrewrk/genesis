@@ -71,7 +71,7 @@ int ordered_map_file_batch_del(OrderedMapFileBatch *batch, OrderedMapFileBuffer 
 // ordered_map_file_done_reading. then only write functions can be called.
 int ordered_map_file_count(OrderedMapFile *omf);
 int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key);
-int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer &out_key, ByteBuffer &out_value);
+int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer **out_key, ByteBuffer &out_value);
 
 
 // blocks until all queued writes finish
