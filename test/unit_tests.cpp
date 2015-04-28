@@ -13,6 +13,7 @@
 #include "crc32.hpp"
 #include "ordered_map_file_test.hpp"
 #include "os.hpp"
+#include "settings_file.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -265,6 +266,33 @@ static void test_os_get_time(void) {
     }
 }
 
+static void test_settings_file(void) {
+    static const char *str_value = "this is a super\"robust\ntest, I promise\n";
+    static const char *tmp_file_path = "/tmp/test_genesis_config";
+    os_delete(tmp_file_path);
+
+    SettingsFile *sf = settings_file_open(tmp_file_path);
+    assert(ByteBuffer::compare(sf->open_project_file, "") == 0);
+    sf->open_project_file = str_value;
+
+    settings_file_commit(sf);
+    settings_file_close(sf);
+
+    sf = settings_file_open(tmp_file_path);
+
+    assert(ByteBuffer::compare(sf->open_project_file, str_value) == 0);
+
+    settings_file_close(sf);
+
+    os_delete(tmp_file_path);
+}
+
+SettingsFile *settings_file_open(const ByteBuffer &path);
+void settings_file_close(SettingsFile *sf);
+
+// atomically update settings file on disk
+int settings_file_commit(SettingsFile *sf);
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -286,6 +314,7 @@ static struct Test tests[] = {
     {"crc32", test_crc32},
     {"OrderedMapFile", test_ordered_map_file},
     {"os_get_time", test_os_get_time},
+    {"SettingsFile", test_settings_file},
     {NULL, NULL},
 };
 

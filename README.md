@@ -60,7 +60,7 @@ sudo apt-get update
 sudo apt-get install libglfw3-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
     libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack cmake \
-    libasound2-dev
+    libasound2-dev liblaxjson-dev
 mkdir build
 cd build
 cmake ..

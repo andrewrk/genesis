@@ -73,6 +73,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
     "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
     "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -96,6 +97,8 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/os.cpp"
     "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/path.cpp"
+    "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
 )
 
 find_package(Threads)
@@ -142,6 +145,13 @@ if(RUCKSACK_FOUND)
     set(STATUS_RUCKSACK "OK")
 else()
     set(STATUS_RUCKSACK "not found")
+endif()
+
+find_package(LaxJson)
+if(LAXJSON_FOUND)
+  set(STATUS_LAXJSON "OK")
+else()
+  set(STATUS_LAXJSON "not found")
 endif()
 
 find_package(PulseAudio)
@@ -316,6 +326,7 @@ include_directories(
     ${RUCKSACK_INCLUDE_DIR}
     ${GLFW_INCLUDE_DIR}
     ${EPOXY_INCLUDE_DIR}
+    ${LAXJSON_INCLUDE_DIR}
 )
 target_link_libraries(genesis libgenesis_shared
     ${FREETYPE_LIBRARY}
@@ -323,6 +334,7 @@ target_link_libraries(genesis libgenesis_shared
     ${RUCKSACK_LIBRARY}
     ${GLFW_LIBRARY}
     ${EPOXY_LIBRARY}
+    ${LAXJSON_LIBRARY}
 )
 install(TARGETS genesis DESTINATION bin)
 
@@ -331,6 +343,7 @@ enable_testing()
 add_executable(unit_tests ${TEST_SOURCES} ${UNICODE_HPP})
 target_link_libraries(unit_tests LINK_PUBLIC
     ${CMAKE_THREAD_LIBS_INIT}
+    ${LAXJSON_LIBRARY}
     m
 )
 set_target_properties(unit_tests PROPERTIES
@@ -338,7 +351,7 @@ set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS ${TEST_CFLAGS}
     LINK_FLAGS ${TEST_LDFLAGS}
 )
-include_directories(${TEST_INCLUDES})
+include_directories(${TEST_INCLUDES} ${LAXJSON_INCLUDE_DIR})
 add_test(UnitTests unit_tests)
 
 
@@ -371,6 +384,7 @@ message(
     "* freetype                     : ${STATUS_FREETYPE}\n"
     "* libpng                       : ${STATUS_PNG}\n"
     "* rucksack                     : ${STATUS_RUCKSACK}\n"
+    "* liblaxjson                   : ${STATUS_LAXJSON}\n"
     "* pulseaudio                   : ${STATUS_PULSEAUDIO}\n"
     "* GLFW                         : ${STATUS_GLFW}\n"
     "* libepoxy                     : ${STATUS_EPOXY}\n"
