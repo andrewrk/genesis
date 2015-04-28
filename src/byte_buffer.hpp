@@ -66,9 +66,9 @@ public:
     }
 
     inline void append_uint32be(uint32_t value) {
-        char *ptr = _buffer.raw();
         if (_buffer.resize(_buffer.length() + 4))
             panic("out of memory");
+        char *ptr = _buffer.raw() + _buffer.length() - 5;
         write_uint32be(ptr, value);
         _buffer.at(_buffer.length() - 1) = 0;
     }
@@ -102,11 +102,15 @@ public:
 
     ByteBuffer substring(int start, int end) const;
 
-    bool starts_with(char *str, int len) const {
-        if (len > _buffer.length())
-            return false;
+    inline int cmp_prefix(const ByteBuffer &other) const {
+        return cmp_prefix(other.raw(), other.length());
+    }
 
-        return memcmp(_buffer.raw(), str, len) == 0;
+    int cmp_prefix(const char *str, int len) const {
+        if (len > _buffer.length())
+            return -1;
+
+        return memcmp(_buffer.raw(), str, len);
     }
 
     char *raw() {
@@ -132,6 +136,8 @@ public:
         }
         return h;
     }
+
+    ByteBuffer to_string() const;
 
     int allocated_size() const {
         return _buffer.allocated_size();

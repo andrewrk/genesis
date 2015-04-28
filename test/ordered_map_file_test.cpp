@@ -113,6 +113,10 @@ void test_many_data(void) {
 
     assert(ordered_map_file_find_key(omf, ByteBuffer::format("%03d", 400)) == -1);
 
+    assert(ordered_map_file_find_prefix(omf, "10") == 100);
+    assert(ordered_map_file_find_prefix(omf, "20") == 200);
+    assert(ordered_map_file_find_prefix(omf, "30") == 300);
+
     for (int i = 0; i < 400; i += 1) {
         ByteBuffer expected_key = ByteBuffer::format("%03d", i);
         expected_key.resize(4);

@@ -299,11 +299,11 @@ static void test_settings_file(void) {
     os_delete(tmp_file_path);
 }
 
-SettingsFile *settings_file_open(const ByteBuffer &path);
-void settings_file_close(SettingsFile *sf);
+static void test_byte_buffer_to_string(void) {
+    ByteBuffer buf("\x13\x17\x18\x21");
+    assert(ByteBuffer::compare(buf.to_string(), "13171821") == 0);
+}
 
-// atomically update settings file on disk
-int settings_file_commit(SettingsFile *sf);
 
 struct Test {
     const char *name;
@@ -328,6 +328,7 @@ static struct Test tests[] = {
     {"os_get_time", test_os_get_time},
     {"uint256", test_uint256},
     {"SettingsFile", test_settings_file},
+    {"ByteBuffer::to_string", test_byte_buffer_to_string},
     {NULL, NULL},
 };
 

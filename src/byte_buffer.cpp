@@ -124,3 +124,12 @@ void ByteBuffer::split(const char *split_by, List<ByteBuffer> &out) const {
         current->append(buf_ptr, 1);
     }
 }
+
+ByteBuffer ByteBuffer::to_string() const {
+    ByteBuffer result;
+    result.resize(_buffer.length() * 2);
+    for (int i = 0; i < _buffer.length() - 1; i += 1) {
+        sprintf(result.raw() + i * 2, "%02x", *((uint8_t*)(_buffer.raw() + i)));
+    }
+    return result;
+}

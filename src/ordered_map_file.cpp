@@ -364,6 +364,32 @@ void ordered_map_file_done_reading(OrderedMapFile *omf) {
         panic("unable to seek in file");
 }
 
+int ordered_map_file_find_prefix(OrderedMapFile *omf, const ByteBuffer &prefix) {
+    if (omf->list->length() == 0)
+        return -1;
+
+    // binary search
+    int start = 0;
+    int end = omf->list->length();
+    while (start < end) {
+        int middle = (start + end) / 2;
+        OrderedMapFileEntry *entry = omf->list->at(middle);
+        if (entry->key.cmp_prefix(prefix) < 0)
+            start = middle + 1;
+        else
+            end = middle;
+    }
+
+    if (start != end || start == omf->list->length())
+        return -1;
+
+    OrderedMapFileEntry *entry = omf->list->at(start);
+    if (entry->key.cmp_prefix(prefix) == 0)
+        return start;
+
+    return -1;
+}
+
 int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key) {
     if (omf->list->length() == 0)
         return -1;

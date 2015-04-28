@@ -149,10 +149,10 @@ static void put_uint256(OrderedMapFileBatch *batch, OrderedMapFileBuffer *key, c
 static int iterate_thing(Project *project, PropKey prop_key,
         int (*got_one)(Project *, const uint256 &, const ByteBuffer &))
 {
-    char key_buf[PROP_KEY_SIZE + PROP_KEY_SIZE];
-    write_uint32be(&key_buf[0], PropKeyTrack);
-    write_uint32be(&key_buf[4], PropKeyDelimiter);
-    int index = ordered_map_file_find_key(project->omf, key_buf);
+    ByteBuffer key_buf;
+    key_buf.append_uint32be(PropKeyTrack);
+    key_buf.append_uint32be(PropKeyDelimiter);
+    int index = ordered_map_file_find_prefix(project->omf, key_buf);
     int key_count = ordered_map_file_count(project->omf);
 
     ByteBuffer *key;
@@ -162,7 +162,7 @@ static int iterate_thing(Project *project, PropKey prop_key,
         if (err)
             return err;
 
-        if (!key->starts_with(key_buf, sizeof(key_buf)))
+        if (key->cmp_prefix(key_buf) != 0)
             break;
 
         if (key->length() != PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE)
@@ -328,9 +328,7 @@ void AddTrackCommand::redo(Project *project, OrderedMapFileBatch *batch) {
     project->tracks.put(track->id, track);
     project->track_list_dirty = true;
 
-    OrderedMapFileBuffer *key = create_track_key(track->id);
-    OrderedMapFileBuffer *value = serialize_track(track);
-    ordered_map_file_batch_put(batch, key, value);
+    ordered_map_file_batch_put(batch, create_track_key(track_id), serialize_track(track));
 }
 
 User *user_create(const String &name) {
