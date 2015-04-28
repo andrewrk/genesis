@@ -21,16 +21,28 @@ static int on_string(struct LaxJsonContext *json,
     switch (sf->state) {
         case SettingsFileStateReadyForProp:
             {
-                if (ByteBuffer::compare(value, "open_project_file") == 0) {
+                if (ByteBuffer::compare(value, "open_project_id") == 0) {
                     sf->state = SettingsFileStateOpenProjectFile;
+                } else if (ByteBuffer::compare(value, "user_name") == 0) {
+                    sf->state = SettingsFileStateUserName;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
                 break;
             }
         case SettingsFileStateOpenProjectFile:
-            sf->open_project_file = value;
+            sf->open_project_id = uint256::parse(value);
+            sf->state = SettingsFileStateReadyForProp;
             break;
+        case SettingsFileStateUserName:
+            {
+                bool ok;
+                sf->user_name = String(value, &ok);
+                if (!ok)
+                    return parse_error(sf, "invalid UTF-8");
+                sf->state = SettingsFileStateReadyForProp;
+                break;
+            }
         default:
             return parse_error(sf, (type == LaxJsonTypeProperty) ? "unexpected property" : "unexpected string");
     }
@@ -109,6 +121,12 @@ static void json_line_str(FILE *f, int indent, const char *key, const ByteBuffer
     fprintf(f, "\",\n");
 }
 
+static void json_line_uint256(FILE *f, int indent, const char *key, const uint256 &value) {
+    for (int i = 0; i < indent; i += 1)
+        fprintf(f, " ");
+    fprintf(f, "%s: \"%s\",\n", key, value.to_string().raw());
+}
+
 SettingsFile *settings_file_open(const ByteBuffer &path) {
     SettingsFile *sf = create_zero<SettingsFile>();
     if (!sf)
@@ -117,7 +135,8 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
     sf->path = path;
 
     // default settings
-    sf->open_project_file = "";
+    sf->open_project_id = uint256::zero();
+    sf->user_name = "";
 
     FILE *f = fopen(path.raw(), "rb");
     if (!f) {
@@ -180,8 +199,10 @@ int settings_file_commit(SettingsFile *sf) {
 
     fprintf(f, "// Genesis DAW configuration file\n");
     fprintf(f, "{\n");
-    fprintf(f, "  // which file to load on startup\n");
-    json_line_str(f, 2, "open_project_file", sf->open_project_file);
+    fprintf(f, "  // your display name\n");
+    json_line_str(f, 2, "user_name", sf->user_name.encode());
+    fprintf(f, "  // which project to load on startup\n");
+    json_line_uint256(f, 2, "open_project_id", sf->open_project_id);
     fprintf(f, "}\n");
 
     if (fclose(f))

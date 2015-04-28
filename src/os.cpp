@@ -23,6 +23,22 @@ ByteBuffer os_get_home_dir(void) {
     return pw->pw_dir;
 }
 
+ByteBuffer os_get_app_dir(void) {
+    return path_join(os_get_home_dir(), ".genesis");
+}
+
+ByteBuffer os_get_projects_dir(void) {
+    return path_join(os_get_app_dir(), "projects");
+}
+
+ByteBuffer os_get_app_config_dir(void) {
+    return os_get_app_dir();
+}
+
+ByteBuffer os_get_app_config_path(void) {
+    return path_join(os_get_app_config_dir(), "config");
+}
+
 static int get_random_seed(uint32_t *seed) {
     int fd = open("/dev/random", O_RDONLY|O_NONBLOCK);
     if (fd == -1)
@@ -96,5 +112,22 @@ String os_get_user_name(void) {
 int os_delete(const char *path) {
     if (unlink(path))
         return GenesisErrorFileAccess;
+    return 0;
+}
+
+int os_rename_clobber(const char *source, const char *dest) {
+    return rename(source, dest) ? GenesisErrorFileAccess : 0;
+}
+
+int os_create_temp_file(const char *dir, OsTempFile *out_tmp_file) {
+    out_tmp_file->path = path_join(dir, "XXXXXX");
+    int fd = mkstemp(out_tmp_file->path.raw());
+    if (fd == -1)
+        return GenesisErrorFileAccess;
+    out_tmp_file->file = fdopen(fd, "w+");
+    if (!out_tmp_file->file) {
+        close(fd);
+        return GenesisErrorNoMem;
+    }
     return 0;
 }

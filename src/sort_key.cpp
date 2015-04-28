@@ -1,5 +1,6 @@
 #include "sort_key.hpp"
 #include "debug.hpp"
+#include "error.h"
 
 #include <string.h>
 
@@ -187,4 +188,33 @@ void SortKey::normalize() {
     }
     magnitude = 0;
     ok_or_panic(digits.resize(0));
+}
+
+void SortKey::serialize(ByteBuffer &buf) {
+    buf.append_uint32be(magnitude);
+    buf.append_uint32be(digits.length());
+    for (int i = 0; i < digits.length(); i += 1) {
+        buf.append_uint8(digits.at(i));
+    }
+}
+
+int SortKey::deserialize(const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 8)
+        return GenesisErrorInvalidFormat;
+
+    magnitude = read_uint32be(buffer.raw() + *offset);
+    *offset += 4;
+    int len = read_uint32be(buffer.raw() + *offset);
+    *offset += 4;
+
+    if (digits.resize(len))
+        return GenesisErrorNoMem;
+
+    if (buffer.length() - *offset < len)
+        return GenesisErrorInvalidFormat;
+
+    memcpy(digits.raw(), buffer.raw() + *offset, len);
+    *offset += len;
+
+    return 0;
 }

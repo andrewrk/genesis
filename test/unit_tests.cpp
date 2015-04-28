@@ -266,21 +266,33 @@ static void test_os_get_time(void) {
     }
 }
 
+static void test_uint256(void) {
+    uint256 id = uint256::random();
+    uint256 same_thing = uint256::parse(id.to_string());
+    assert(id == same_thing);
+
+    ByteBuffer buf;
+    buf.resize(32);
+    id.write_be(buf.raw());
+    same_thing = uint256::read_be(buf.raw());
+    assert(id == same_thing);
+}
+
 static void test_settings_file(void) {
     static const char *str_value = "this is a super\"robust\ntest, I promise\n";
     static const char *tmp_file_path = "/tmp/test_genesis_config";
     os_delete(tmp_file_path);
 
     SettingsFile *sf = settings_file_open(tmp_file_path);
-    assert(ByteBuffer::compare(sf->open_project_file, "") == 0);
-    sf->open_project_file = str_value;
+    assert(ByteBuffer::compare(sf->user_name.encode(), "") == 0);
+    sf->user_name = str_value;
 
     settings_file_commit(sf);
     settings_file_close(sf);
 
     sf = settings_file_open(tmp_file_path);
 
-    assert(ByteBuffer::compare(sf->open_project_file, str_value) == 0);
+    assert(ByteBuffer::compare(sf->user_name.encode(), str_value) == 0);
 
     settings_file_close(sf);
 
@@ -314,6 +326,7 @@ static struct Test tests[] = {
     {"crc32", test_crc32},
     {"OrderedMapFile", test_ordered_map_file},
     {"os_get_time", test_os_get_time},
+    {"uint256", test_uint256},
     {"SettingsFile", test_settings_file},
     {NULL, NULL},
 };

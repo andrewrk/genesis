@@ -2,6 +2,7 @@
 #define SORT_KEY_HPP
 
 #include "list.hpp"
+#include "byte_buffer.hpp"
 
 class SortKey {
 public:
@@ -16,6 +17,9 @@ public:
     int allocated_size() const {
         return digits.allocated_size();
     }
+
+    void serialize(ByteBuffer &buf);
+    int deserialize(const ByteBuffer &buf, int *offset);
 
     // don't use these
     SortKey();

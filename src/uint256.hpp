@@ -43,12 +43,50 @@ public:
         return result;
     }
 
-    ByteBuffer to_string() {
+    ByteBuffer to_string() const {
         ByteBuffer result;
         for (int i = 0; i < Size64; i += 1) {
-            result.append(ByteBuffer::format("%" PRIx64, values[i]));
+            result.append(ByteBuffer::format("%016" PRIx64, values[i]));
         }
         return result;
+    }
+
+    static inline UIntOversized<Size64> parse(const ByteBuffer &str) {
+        UIntOversized<Size64> result;
+        if (str.length() != Size64 * 16)
+            return zero();
+        for (int i = 0; i < Size64; i += 1) {
+            sscanf(str.raw() + i * 16, "%016" SCNx64, &result.values[i]);
+        }
+        return result;
+    }
+
+    static inline UIntOversized<Size64> read_be(const char *buffer) {
+        const uint8_t *buf = (const uint8_t*) buffer;
+        UIntOversized<Size64> result;
+
+        for (int i = Size64 - 1; i >= 0; i -= 1) {
+            result.values[i] = 0;
+            for (int byte = 0; byte < 8; byte += 1) {
+                result.values[i] <<= 8;
+                result.values[i] |= *buf;
+                buf += 1;
+            }
+        }
+        return result;
+    }
+
+    inline void write_be(char *buffer) const {
+        uint8_t *buf = ((uint8_t*) buffer) + Size64 * 8;
+
+        for (int i = 0; i < Size64; i += 1) {
+            uint64_t x = values[i];
+            for (int byte = 0; byte < 8; byte += 1) {
+                buf -= 1;
+                *buf = x & 0xff;
+                x >>= 8;
+            }
+        }
     }
 };
 

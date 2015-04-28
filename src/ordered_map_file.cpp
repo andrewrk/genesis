@@ -6,34 +6,6 @@ static const char *UUID = "\xca\x2f\x5e\xf5\x00\xd8\xef\x0b\x80\x74\x18\xd0\xe4\
 
 static const int TRANSACTION_METADATA_SIZE = 16;
 
-static void write_uint32be(uint8_t *buf, uint32_t x) {
-    buf[3] = x & 0xff;
-
-    x >>= 8;
-    buf[2] = x & 0xff;
-
-    x >>= 8;
-    buf[1] = x & 0xff;
-
-    x >>= 8;
-    buf[0] = x & 0xff;
-}
-
-static uint32_t read_uint32be(const uint8_t *buf) {
-    uint32_t result = buf[0];
-
-    result <<= 8;
-    result |= buf[1];
-
-    result <<= 8;
-    result |= buf[2];
-
-    result <<= 8;
-    result |= buf[3];
-
-    return result;
-}
-
 static int get_transaction_size(OrderedMapFileBatch *batch) {
     int total = TRANSACTION_METADATA_SIZE;
     for (int i = 0; i < batch->puts.length(); i += 1) {
@@ -419,7 +391,8 @@ int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key) {
 
 int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer **out_key, ByteBuffer &out_value) {
     OrderedMapFileEntry *entry = omf->list->at(index);
-    *out_key = &entry->key;
+    if (out_key)
+        *out_key = &entry->key;
     out_value.resize(entry->size);
     if (fseek(omf->file, entry->offset, SEEK_SET))
         return GenesisErrorFileAccess;

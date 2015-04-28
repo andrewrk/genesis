@@ -2,17 +2,21 @@
 #define SETTINGS_FILE_HPP
 
 #include "byte_buffer.hpp"
+#include "string.hpp"
+#include "uint256.hpp"
 struct LaxJsonContext;
 
 enum SettingsFileState {
     SettingsFileStateStart,
     SettingsFileStateReadyForProp,
     SettingsFileStateOpenProjectFile,
+    SettingsFileStateUserName,
 };
 
 struct SettingsFile {
     // settings you can directly manipulate
-    ByteBuffer open_project_file;
+    uint256 open_project_id;
+    String user_name;
 
     // private state
     ByteBuffer path;

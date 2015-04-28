@@ -64,6 +64,15 @@ public:
         if (_buffer.append(0))
             panic("out of memory");
     }
+
+    inline void append_uint32be(uint32_t value) {
+        char *ptr = _buffer.raw();
+        if (_buffer.resize(_buffer.length() + 4))
+            panic("out of memory");
+        write_uint32be(ptr, value);
+        _buffer.at(_buffer.length() - 1) = 0;
+    }
+
     uint32_t read_uint32le(int index) const {
         if (index < 0 || index + 4 > length())
             panic("bounds check");

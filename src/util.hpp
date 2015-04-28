@@ -2,6 +2,7 @@
 #define UTIL_HPP
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <math.h>
 #include <new>
 
@@ -195,6 +196,37 @@ void insertion_sort(T * in_place_list, int size) {
             in_place_list[falling_index] = where_do_i_go;
         }
     }
+}
+
+static inline void write_uint32be(void *buffer, uint32_t x) {
+    uint8_t *buf = (uint8_t*) buffer;
+
+    buf[3] = x & 0xff;
+
+    x >>= 8;
+    buf[2] = x & 0xff;
+
+    x >>= 8;
+    buf[1] = x & 0xff;
+
+    x >>= 8;
+    buf[0] = x & 0xff;
+}
+
+static inline uint32_t read_uint32be(const void *buffer) {
+    uint8_t *buf = (uint8_t*) buffer;
+    uint32_t result = buf[0];
+
+    result <<= 8;
+    result |= buf[1];
+
+    result <<= 8;
+    result |= buf[2];
+
+    result <<= 8;
+    result |= buf[3];
+
+    return result;
 }
 
 char * create_formatted_str(const char *format, ...) __attribute__ ((format (printf, 1, 2)));

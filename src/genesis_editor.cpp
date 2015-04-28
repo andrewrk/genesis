@@ -7,6 +7,9 @@
 #include "resources_tree_widget.hpp"
 #include "track_editor_widget.hpp"
 #include "project.hpp"
+#include "settings_file.hpp"
+#include "resource_bundle.hpp"
+#include "path.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -23,17 +26,45 @@ static void report_bug_handler(void *userdata) {
 }
 
 GenesisEditor::GenesisEditor() :
-    _resource_bundle("resources.bundle"),
     project(nullptr)
 {
-    int err = genesis_create_context(&_genesis_context);
+    ByteBuffer config_dir = os_get_app_config_dir();
+    int err = path_mkdirp(config_dir);
+    if (err)
+        panic("unable to make genesis path: %s", genesis_error_string(err));
+    ByteBuffer config_path = os_get_app_config_path();
+    settings_file = settings_file_open(config_path);
+
+    resource_bundle = create<ResourceBundle>("resources.bundle");
+
+    err = genesis_create_context(&_genesis_context);
     if (err)
         panic("unable to create genesis context: %s", genesis_error_string(err));
 
-    _gui = create<Gui>(_genesis_context, &_resource_bundle);
+    _gui = create<Gui>(_genesis_context, resource_bundle);
 
-    User *user = user_create(os_get_user_name());
-    project = project_create(user);
+    bool settings_dirty = false;
+    if (settings_file->user_name.length() == 0) {
+        settings_file->user_name = os_get_user_name();
+        settings_dirty = true;
+    }
+    User *user = user_create(settings_file->user_name);
+
+    if (settings_file->open_project_id == uint256::zero()) {
+        uint256 id = uint256::random();
+        ByteBuffer proj_path = path_join(os_get_projects_dir(), id.to_string());
+        ok_or_panic(project_create(proj_path.raw(), id, user, &project));
+
+        settings_file->open_project_id = id;
+        settings_dirty = true;
+    } else {
+        ByteBuffer proj_path = path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
+        ok_or_panic(project_open(proj_path.raw(), user, &project));
+    }
+
+    if (settings_dirty)
+        settings_file_commit(settings_file);
+
     create_window();
 }
 
@@ -92,13 +123,10 @@ void GenesisEditor::create_window() {
 }
 
 GenesisEditor::~GenesisEditor() {
+    project_close(project);
     genesis_destroy_context(_genesis_context);
 }
 
 void GenesisEditor::exec() {
     _gui->exec();
-}
-
-void GenesisEditor::edit_file(const char *filename) {
-    fprintf(stderr, "edit file %s\n", filename);
 }

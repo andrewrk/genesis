@@ -18,7 +18,7 @@ int path_mkdirp(ByteBuffer path) {
     if (!err)
         return 0;
     if (errno != ENOENT)
-        return errno;
+        return GenesisErrorFileAccess;
 
     ByteBuffer dirname = path_dirname(path);
     err = path_mkdirp(dirname);
