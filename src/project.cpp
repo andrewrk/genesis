@@ -147,7 +147,7 @@ static void put_uint256(OrderedMapFileBatch *batch, OrderedMapFileBuffer *key, c
 }
 
 static int iterate_thing(Project *project, PropKey prop_key,
-        int (*got_one)(Project *project, const uint256 &key, const ByteBuffer &value))
+        int (*got_one)(Project *, const uint256 &, const ByteBuffer &))
 {
     char key_buf[PROP_KEY_SIZE + PROP_KEY_SIZE];
     write_uint32be(&key_buf[0], PropKeyTrack);
@@ -162,6 +162,9 @@ static int iterate_thing(Project *project, PropKey prop_key,
         if (err)
             return err;
 
+        if (!key->starts_with(key_buf, sizeof(key_buf)))
+            break;
+
         if (key->length() != PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE)
             return GenesisErrorInvalidFormat;
 
@@ -169,6 +172,8 @@ static int iterate_thing(Project *project, PropKey prop_key,
         err = got_one(project, id, value);
         if (err)
             return err;
+
+        index += 1;
     }
 
     return 0;

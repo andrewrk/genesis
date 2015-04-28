@@ -102,6 +102,13 @@ public:
 
     ByteBuffer substring(int start, int end) const;
 
+    bool starts_with(char *str, int len) const {
+        if (len > _buffer.length())
+            return false;
+
+        return memcmp(_buffer.raw(), str, len) == 0;
+    }
+
     char *raw() {
         return _buffer.raw();
     }
