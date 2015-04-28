@@ -50,16 +50,27 @@ GenesisEditor::GenesisEditor() :
     }
     User *user = user_create(settings_file->user_name);
 
-    if (settings_file->open_project_id == uint256::zero()) {
+    bool create_new = true;
+    if (settings_file->open_project_id != uint256::zero()) {
+        ByteBuffer proj_dir = path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
+        ByteBuffer proj_path = path_join(proj_dir, "project.gdaw");
+        int err = project_open(proj_path.raw(), user, &project);
+        if (err) {
+            fprintf(stderr, "Unable to load project: %s\n", genesis_error_string(err));
+        } else {
+            create_new = false;
+        }
+    }
+
+    if (create_new) {
         uint256 id = uint256::random();
-        ByteBuffer proj_path = path_join(os_get_projects_dir(), id.to_string());
+        ByteBuffer proj_dir = path_join(os_get_projects_dir(), id.to_string());
+        ByteBuffer proj_path = path_join(proj_dir, "project.gdaw");
+        ok_or_panic(path_mkdirp(proj_dir));
         ok_or_panic(project_create(proj_path.raw(), id, user, &project));
 
         settings_file->open_project_id = id;
         settings_dirty = true;
-    } else {
-        ByteBuffer proj_path = path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
-        ok_or_panic(project_open(proj_path.raw(), user, &project));
     }
 
     if (settings_dirty)

@@ -268,13 +268,14 @@ static void destroy_list(OrderedMapFile *omf) {
 
 void ordered_map_file_close(OrderedMapFile *omf) {
     if (omf) {
-        if (!omf->mutex.error() && !omf->cond.error() && !omf->queue.error() && omf->file) {
+        if (!omf->mutex.error() && !omf->cond.error() && !omf->queue.error()) {
             ordered_map_file_flush(omf);
-            fclose(omf->file);
             omf->running = false;
             omf->queue.wakeup_all();
         }
         omf->write_thread.join();
+        if (omf->file)
+            fclose(omf->file);
         destroy_list(omf);
         destroy_map(omf);
         destroy(omf, 1);
@@ -413,6 +414,8 @@ void ordered_map_file_flush(OrderedMapFile *omf) {
             omf->cond.wait(&omf->mutex);
     }
 
-    if (fsync(fileno(omf->file)))
-        panic("fsync fail");
+    if (omf->file) {
+        if (fsync(fileno(omf->file)))
+            panic("fsync fail");
+    }
 }
