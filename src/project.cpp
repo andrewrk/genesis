@@ -65,7 +65,7 @@ static const SerializableField<Track> *get_serializable_fields(Track *) {
         },
         {
             SerializableFieldKeySortKey,
-            SerializableFieldTypeString,
+            SerializableFieldTypeSortKey,
             [](Track *track) -> void * {
                 return &track->sort_key;
             },
@@ -783,7 +783,7 @@ static int iterate_thing(Project *project, PropKey prop_key,
         int (*got_one)(Project *, const uint256 &, const ByteBuffer &))
 {
     ByteBuffer key_buf;
-    key_buf.append_uint32be(PropKeyTrack);
+    key_buf.append_uint32be(prop_key);
     key_buf.append_uint32be(PropKeyDelimiter);
     int index = ordered_map_file_find_prefix(project->omf, key_buf);
     int key_count = ordered_map_file_count(project->omf);
@@ -910,6 +910,7 @@ static void project_push_command(Project *project, Command *command) {
 void project_perform_command(Project *project, Command *command) {
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     project_perform_command_batch(project, batch, command);
+    ordered_map_file_batch_put(batch, create_command_key(command), obj_to_omf_buf(command));
     ok_or_panic(ordered_map_file_batch_exec(batch));
 
     project_push_command(project, command);
@@ -925,7 +926,6 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
     if (next_revision != command->revision)
         panic("unimplemented: multi-user editing merge conflict");
 
-    ordered_map_file_batch_put(batch, create_command_key(command), obj_to_omf_buf(command));
     command->redo(batch);
 }
 

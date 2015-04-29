@@ -99,6 +99,8 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
     "${CMAKE_SOURCE_DIR}/src/path.cpp"
     "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/project.cpp"
+    "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
 )
 
 find_package(Threads)
@@ -335,6 +337,7 @@ target_link_libraries(genesis libgenesis_shared
     ${GLFW_LIBRARY}
     ${EPOXY_LIBRARY}
     ${LAXJSON_LIBRARY}
+    -lstdc++
 )
 install(TARGETS genesis DESTINATION bin)
 
@@ -345,6 +348,7 @@ target_link_libraries(unit_tests LINK_PUBLIC
     ${CMAKE_THREAD_LIBS_INIT}
     ${LAXJSON_LIBRARY}
     m
+    -lstdc++
 )
 set_target_properties(unit_tests PROPERTIES
     LINKER_LANGUAGE C

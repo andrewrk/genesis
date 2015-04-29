@@ -14,6 +14,7 @@
 #include "ordered_map_file_test.hpp"
 #include "os.hpp"
 #include "settings_file.hpp"
+#include "project.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -326,6 +327,29 @@ static void test_list_sort(void) {
     }
 }
 
+static void test_basic_project_editing(void) {
+    static const char *tmp_proj_path = "/tmp/test_genesis_project.gdaw";
+    os_delete(tmp_proj_path);
+
+    uint256 user_id = uint256::random();
+    User *user = user_create(user_id, os_get_user_name());
+
+    uint256 project_id = uint256::random();
+    Project *project;
+    ok_or_panic(project_create(tmp_proj_path, project_id, user, &project));
+
+    project_close(project);
+    project = nullptr;
+
+    int err = project_open(tmp_proj_path, user, &project);
+    assert(err == 0);
+
+    assert(project->id == project_id);
+
+    project_close(project);
+    os_delete(tmp_proj_path);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -351,6 +375,7 @@ static struct Test tests[] = {
     {"SettingsFile", test_settings_file},
     {"ByteBuffer::to_string", test_byte_buffer_to_string},
     {"List::sort", test_list_sort},
+    {"basic project editing", test_basic_project_editing},
     {NULL, NULL},
 };
 
