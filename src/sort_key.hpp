@@ -18,7 +18,7 @@ public:
         return digits.allocated_size();
     }
 
-    void serialize(ByteBuffer &buf);
+    void serialize(ByteBuffer &buf) const;
     int deserialize(const ByteBuffer &buf, int *offset);
 
     // don't use these

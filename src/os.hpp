@@ -6,7 +6,12 @@
 
 #include <stdio.h>
 
-void os_init();
+enum OsRandomQuality {
+    OsRandomQualityRobust,
+    OsRandomQualityPseudo,
+};
+
+void os_init(OsRandomQuality random_quality);
 
 ByteBuffer os_get_home_dir(void);
 ByteBuffer os_get_app_dir(void);
@@ -14,7 +19,9 @@ ByteBuffer os_get_projects_dir(void);
 ByteBuffer os_get_app_config_dir(void);
 ByteBuffer os_get_app_config_path(void);
 
-uint32_t os_random_uint32(void);
+uint32_t os_random_uint32(void); // 32 bits of entropy
+uint64_t os_random_uint64(void); // 64 bits of entropy
+double os_random_double(void); // 32 bits of entropy in range [0.0, 1.0)
 void os_open_in_browser(const String &url);
 double os_get_time(void);
 String os_get_user_name(void);

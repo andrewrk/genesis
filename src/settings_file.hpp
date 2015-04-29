@@ -11,12 +11,14 @@ enum SettingsFileState {
     SettingsFileStateReadyForProp,
     SettingsFileStateOpenProjectFile,
     SettingsFileStateUserName,
+    SettingsFileStateUserId,
 };
 
 struct SettingsFile {
     // settings you can directly manipulate
     uint256 open_project_id;
     String user_name;
+    uint256 user_id;
 
     // private state
     ByteBuffer path;

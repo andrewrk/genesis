@@ -185,17 +185,13 @@ static inline T sign(T x) {
 }
 
 template<typename T, int(*Comparator)(T, T)>
-void insertion_sort(T * in_place_list, int size) {
-    for (int top = 1; top < size; top++) {
-        T where_do_i_go = in_place_list[top];
-        for (int falling_index = top - 1; falling_index >= 0; falling_index--){
-            T do_you_want_my_spot = in_place_list[falling_index];
-            if (Comparator(do_you_want_my_spot, where_do_i_go) <= 0)
-                break;
-            in_place_list[falling_index + 1] = do_you_want_my_spot;
-            in_place_list[falling_index] = where_do_i_go;
-        }
-    }
+void quick_sort(T *in_place_list, int size) {
+    auto qsort_comparator = [](const void *void_a, const void *void_b) -> int {
+        T *a = (T *)void_a;
+        T *b = (T *)void_b;
+        return Comparator(*a, *b);
+    };
+    qsort(in_place_list, size, sizeof(T), qsort_comparator);
 }
 
 static inline void write_uint32be(void *buffer, uint32_t x) {

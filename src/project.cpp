@@ -7,36 +7,56 @@ enum PropKey {
     PropKeyDelimiter,
     PropKeyProjectId,
     PropKeyTrack,
+    PropKeyCommand,
+    PropKeyUser,
+    PropKeyUndoCommand,
 };
 
 static const int PROP_KEY_SIZE = 4;
 static const int UINT256_SIZE = 32;
-
-static int get_next_revision(Project *project) {
-    if (project->command_stack.length() == 0)
-        return 0;
-
-    Command *last_command = project->command_stack.at(project->command_stack.length() - 1);
-    return last_command->revision + 1;
-}
 
 static int compare_tracks(Track *a, Track *b) {
     int sort_key_cmp = SortKey::compare(a->sort_key, b->sort_key);
     return (sort_key_cmp == 0) ? uint256::compare(a->id, b->id) : sort_key_cmp;
 }
 
-static void project_sort_tracks(Project *project) {
-    project->track_list.clear();
-    auto it = project->tracks.entry_iterator();
+static int compare_users(User *a, User *b) {
+    return uint256::compare(a->id, b->id);
+}
+
+static int compare_commands(Command *a, Command *b) {
+    if (a->revision > b->revision)
+        return 1;
+    else if (a->revision < b->revision)
+        return -1;
+    else
+        return uint256::compare(a->id, b->id);
+}
+
+template<typename T, int (*compare)(T, T)>
+static void project_sort_item(List<T> &list, IdMap<T> &id_map) {
+    list.clear();
+    auto it = id_map.entry_iterator();
     for (;;) {
         auto *entry = it.next();
         if (!entry)
             break;
 
-        Track *track = entry->value;
-        ok_or_panic(project->track_list.append(track));
+        ok_or_panic(list.append(entry->value));
     }
-    insertion_sort<Track *, compare_tracks>(project->track_list.raw(), project->track_list.length());
+    quick_sort<T, compare>(list.raw(), list.length());
+}
+
+static void project_sort_tracks(Project *project) {
+    project_sort_item<Track *, compare_tracks>(project->track_list, project->tracks);
+}
+
+static void project_sort_users(Project *project) {
+    project_sort_item<User *, compare_users>(project->user_list, project->users);
+}
+
+static void project_sort_commands(Project *project) {
+    project_sort_item<Command *, compare_commands>(project->command_list, project->commands);
 }
 
 static void project_compute_indexes(Project *project) {
@@ -44,15 +64,51 @@ static void project_compute_indexes(Project *project) {
         project->track_list_dirty = false;
         project_sort_tracks(project);
     }
+    if (project->user_list_dirty) {
+        project->user_list_dirty = false;
+        project_sort_users(project);
+    }
+    if (project->command_list_dirty) {
+        project->command_list_dirty = false;
+        project_sort_commands(project);
+    }
 }
 
-static OrderedMapFileBuffer *create_track_key(uint256 id) {
+int project_get_next_revision(Project *project) {
+    project_compute_indexes(project);
+
+    if (project->command_list.length() == 0)
+        return 0;
+
+    Command *last_command = project->command_list.at(project->command_list.length() - 1);
+    return last_command->revision + 1;
+}
+
+static OrderedMapFileBuffer *create_id_key(PropKey prop_key, const uint256 &id) {
     OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE);
     if (!buf)
         panic("out of memory");
-    write_uint32be(&buf->data[0], PropKeyTrack);
+    write_uint32be(&buf->data[0], prop_key);
     write_uint32be(&buf->data[4], PropKeyDelimiter);
     id.write_be(&buf->data[8]);
+    return buf;
+}
+
+static OrderedMapFileBuffer *create_user_key(const uint256 &id) {
+    return create_id_key(PropKeyUser, id);
+}
+
+static OrderedMapFileBuffer *create_track_key(const uint256 &id) {
+    return create_id_key(PropKeyTrack, id);
+}
+
+static OrderedMapFileBuffer *create_command_key(Command *command) {
+    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + 4);
+    if (!buf)
+        panic("out of memory");
+    write_uint32be(&buf->data[0], PropKeyCommand);
+    write_uint32be(&buf->data[4], PropKeyDelimiter);
+    write_uint32be(&buf->data[8], command->revision);
     return buf;
 }
 
@@ -76,7 +132,12 @@ static void serialize_string(ByteBuffer &buf, const String &str) {
     buf.append(encoded_str);
 }
 
-static int deserialize_string(String &out, const ByteBuffer &buffer, int *offset) {
+static void serialize_uint256(ByteBuffer &buf, const uint256 &val) {
+    buf.resize(buf.length() + UINT256_SIZE);
+    val.write_be(buf.raw() + buf.length() - UINT256_SIZE);
+}
+
+static int deserialize_byte_buffer(ByteBuffer &out, const ByteBuffer &buffer, int *offset) {
     if (buffer.length() - *offset < 4)
         return GenesisErrorInvalidFormat;
 
@@ -85,13 +146,51 @@ static int deserialize_string(String &out, const ByteBuffer &buffer, int *offset
     if (buffer.length() - *offset < len)
         return GenesisErrorInvalidFormat;
 
-    bool ok;
-    out = String(ByteBuffer(buffer.raw() + *offset, len), &ok);
+    out.clear();
+    out.append(buffer.raw() + *offset, len);
     *offset += len;
+
+    return 0;
+}
+
+static int deserialize_string(String &out, const ByteBuffer &buffer, int *offset) {
+    ByteBuffer encoded;
+    int err;
+    if ((err = deserialize_byte_buffer(encoded, buffer, offset))) return err;
+
+    bool ok;
+    out = String(encoded, &ok);
     if (!ok)
         return GenesisErrorInvalidFormat;
 
     return 0;
+}
+
+static int deserialize_uint32be(uint32_t *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 4)
+        return GenesisErrorInvalidFormat;
+
+    *x = read_uint32be(buffer.raw() + *offset);
+    *offset += 4;
+    return 0;
+}
+
+static int deserialize_uint256(uint256 *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < UINT256_SIZE)
+        return GenesisErrorInvalidFormat;
+
+    *x = uint256::read_be(buffer.raw() + *offset);
+    *offset += UINT256_SIZE;
+    return 0;
+}
+
+static OrderedMapFileBuffer *serialize_command(Command *command) {
+    ByteBuffer result;
+    result.append_uint32be(command->command_type());
+    serialize_uint256(result, command->user->id);
+    result.append_uint32be(command->revision);
+    command->serialize(result);
+    return byte_buffer_to_omf_buffer(result);
 }
 
 static void serialize_track_to_byte_buffer(Track *track, ByteBuffer &buf) {
@@ -113,11 +212,93 @@ static int deserialize_track(Project *project, const uint256 &id, const ByteBuff
     int err;
     int offset = 0;
     track->id = id;
-    if ((err = deserialize_string(track->name, value, &offset))) return err;
-    if ((err = track->sort_key.deserialize(value, &offset))) return err;
+    if ((err = deserialize_string(track->name, value, &offset))) goto cleanup;
+    if ((err = track->sort_key.deserialize(value, &offset))) goto cleanup;
 
     project->tracks.put(track->id, track);
     project->track_list_dirty = true;
+
+    return 0;
+
+cleanup:
+    destroy(track, 1);
+    return err;
+}
+
+static void serialize_user_to_byte_buffer(User *user, ByteBuffer &buf) {
+    serialize_string(buf, user->name);
+}
+
+static OrderedMapFileBuffer *serialize_user(User *user) {
+    ByteBuffer result;
+    serialize_user_to_byte_buffer(user, result);
+    return byte_buffer_to_omf_buffer(result);
+}
+
+static int deserialize_user(Project *project, const uint256 &id, const ByteBuffer &value) {
+    User *user = create_zero<User>();
+    if (!user)
+        return GenesisErrorNoMem;
+
+    int err;
+    int offset = 0;
+    user->id = id;
+    if ((err = deserialize_string(user->name, value, &offset))) goto cleanup;
+
+    project->users.put(user->id, user);
+    project->user_list_dirty = true;
+
+    return 0;
+
+cleanup:
+    destroy(user, 1);
+    return err;
+}
+
+static int deserialize_command(Project *project, const uint256 &id, const ByteBuffer &buffer) {
+    int offset = 0;
+    int err;
+    uint32_t command_type;
+    if ((err = deserialize_uint32be(&command_type, buffer, &offset))) return err;
+
+    Command *command = nullptr;
+    switch ((CommandType)command_type) {
+        case CommandTypeInvalid:
+            return GenesisErrorInvalidFormat;
+        case CommandTypeAddTrack:
+            command = create_zero<AddTrackCommand>();
+            break;
+        case CommandTypeDeleteTrack:
+            command = create_zero<DeleteTrackCommand>();
+            break;
+        case CommandTypeUndo:
+            command = create_zero<UndoCommand>();
+            break;
+        case CommandTypeRedo:
+            command = create_zero<RedoCommand>();
+            break;
+    }
+    if (!command)
+        return GenesisErrorNoMem;
+
+    command->project = project;
+    command->id = id;
+
+    uint256 user_id;
+    if ((err = deserialize_uint256(&user_id, buffer, &offset))) { destroy(command, 1); return err; }
+    auto entry = project->users.maybe_get(user_id);
+    if (!entry)
+        return GenesisErrorInvalidFormat;
+    command->user = entry->value;
+
+    uint32_t revision;
+    if ((err = deserialize_uint32be(&revision, buffer, &offset))) { destroy(command, 1); return err; }
+    command->revision = revision;
+
+    if ((err = command->deserialize(buffer, &offset))) { destroy(command, 1); return err; }
+
+    project->commands.put(command->id, command);
+    project->command_list_dirty = true;
 
     return 0;
 }
@@ -169,6 +350,7 @@ static int iterate_thing(Project *project, PropKey prop_key,
             return GenesisErrorInvalidFormat;
 
         uint256 id = uint256::read_be(key->raw() + 8);
+
         err = got_one(project, id, value);
         if (err)
             return err;
@@ -206,9 +388,24 @@ int project_open(const char *path, User *user, Project **out_project) {
         project_close(project);
         return err;
     }
-    project_compute_indexes(project);
 
+    // read users
+    err = iterate_thing(project, PropKeyUser, deserialize_user);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+
+    // read command history (depends on users)
+    err = iterate_thing(project, PropKeyCommand, deserialize_command);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+
+    project_compute_indexes(project);
     ordered_map_file_done_reading(project->omf);
+
     *out_project = project;
     return 0;
 }
@@ -233,6 +430,7 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
 
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     put_uint256(batch, create_basic_key(PropKeyProjectId), project->id);
+    ordered_map_file_batch_put(batch, create_user_key(user->id), serialize_user(user));
     project_insert_track_batch(project, batch, nullptr, nullptr);
     err = ordered_map_file_batch_exec(batch);
     if (err) {
@@ -252,11 +450,17 @@ void project_close(Project *project) {
     }
 }
 
+static void project_push_command(Project *project, Command *command) {
+    ok_or_panic(project->command_list.append(command));
+    project->commands.put(command->id, command);
+}
 
 void project_perform_command(Project *project, Command *command) {
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     project_perform_command_batch(project, batch, command);
     ok_or_panic(ordered_map_file_batch_exec(batch));
+
+    project_push_command(project, command);
     project_compute_indexes(project);
 }
 
@@ -265,49 +469,65 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
     assert(batch);
     assert(command);
 
-    int next_revision = get_next_revision(project);
+    int next_revision = project_get_next_revision(project);
     if (next_revision != command->revision)
         panic("unimplemented: multi-user editing merge conflict");
 
-    ok_or_panic(project->command_stack.append(command));
-    command->redo(project, batch);
+    ordered_map_file_batch_put(batch, create_command_key(command), serialize_command(command));
+    command->redo(batch);
 }
 
 void project_insert_track(Project *project, const Track *before, const Track *after) {
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
-    project_insert_track_batch(project, batch, before, after);
+    AddTrackCommand *command = project_insert_track_batch(project, batch, before, after);
     ok_or_panic(ordered_map_file_batch_exec(batch));
+
+    project_push_command(project, command);
     project_compute_indexes(project);
 }
 
-void project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
+AddTrackCommand *project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
         const Track *before, const Track *after)
 {
     const SortKey *low_sort_key = before ? &before->sort_key : nullptr;
     const SortKey *high_sort_key = after ? &after->sort_key : nullptr;
     SortKey sort_key = SortKey::single(low_sort_key, high_sort_key);
 
-    AddTrackCommand *add_track = create<AddTrackCommand>(
-        project->active_user, get_next_revision(project), "Untitled Track", sort_key);
+    AddTrackCommand *add_track = create<AddTrackCommand>(project, "Untitled Track", sort_key);
     project_perform_command_batch(project, batch, add_track);
+
+    return add_track;
 }
 
 void project_delete_track(Project *project, Track *track) {
-    DeleteTrackCommand *delete_track = create<DeleteTrackCommand>(
-            project->active_user, get_next_revision(project), track);
+    DeleteTrackCommand *delete_track = create<DeleteTrackCommand>(project, track);
     project_perform_command(project, delete_track);
 }
 
-AddTrackCommand::AddTrackCommand(User *user, int revision,
-        String name, const SortKey &sort_key) :
-    Command(user, revision),
+User *user_create(const uint256 &id, const String &name) {
+    User *user = create_zero<User>();
+    if (!user)
+        panic("out of memory");
+
+    user->id = id;
+    user->name = name;
+
+    return user;
+}
+
+void user_destroy(User *user) {
+    destroy(user, 1);
+}
+
+AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :
+    Command(project),
     name(name),
     sort_key(sort_key)
 {
     track_id = uint256::random();
 }
 
-void AddTrackCommand::undo(Project *project, OrderedMapFileBatch *batch) {
+void AddTrackCommand::undo(OrderedMapFileBatch *batch) {
     Track *track = project->tracks.get(track_id);
 
     assert(track->audio_clip_segments.length() == 0);
@@ -320,7 +540,7 @@ void AddTrackCommand::undo(Project *project, OrderedMapFileBatch *batch) {
     destroy(track, 1);
 }
 
-void AddTrackCommand::redo(Project *project, OrderedMapFileBatch *batch) {
+void AddTrackCommand::redo(OrderedMapFileBatch *batch) {
     Track *track = create<Track>();
     track->id = track_id;
     track->name = name;
@@ -331,30 +551,33 @@ void AddTrackCommand::redo(Project *project, OrderedMapFileBatch *batch) {
     ordered_map_file_batch_put(batch, create_track_key(track_id), serialize_track(track));
 }
 
-User *user_create(const String &name) {
-    User *user = create_zero<User>();
-    if (!user)
-        panic("out of memory");
-
-    user->id = uint256::random();
-    user->name = name;
-
-    return user;
+void AddTrackCommand::serialize(ByteBuffer &buf) const {
+    serialize_uint256(buf, track_id);
+    serialize_string(buf, name);
+    sort_key.serialize(buf);
 }
 
-DeleteTrackCommand::DeleteTrackCommand(User *user, int revision, Track *track) :
-    Command(user, revision),
+int AddTrackCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    int err;
+    if ((err = deserialize_uint256(&track_id, buffer, offset))) return err;
+    if ((err = deserialize_string(name, buffer, offset))) return err;
+    if ((err = sort_key.deserialize(buffer, offset))) return err;
+    return 0;
+}
+
+DeleteTrackCommand::DeleteTrackCommand(Project *project, Track *track) :
+    Command(project),
     track_id(track->id)
 {
     serialize_track_to_byte_buffer(track, payload);
 }
 
-void DeleteTrackCommand::undo(Project *project, OrderedMapFileBatch *batch) {
+void DeleteTrackCommand::undo(OrderedMapFileBatch *batch) {
     ok_or_panic(deserialize_track(project, track_id, payload));
     ordered_map_file_batch_put(batch, create_track_key(track_id), byte_buffer_to_omf_buffer(payload));
 }
 
-void DeleteTrackCommand::redo(Project *project, OrderedMapFileBatch *batch) {
+void DeleteTrackCommand::redo(OrderedMapFileBatch *batch) {
     Track *track = project->tracks.get(track_id);
 
     assert(track->audio_clip_segments.length() == 0);
@@ -364,4 +587,82 @@ void DeleteTrackCommand::redo(Project *project, OrderedMapFileBatch *batch) {
 
     ordered_map_file_batch_del(batch, create_track_key(track_id));
     destroy(track, 1);
+}
+
+void DeleteTrackCommand::serialize(ByteBuffer &buf) const {
+    serialize_uint256(buf, track_id);
+    buf.append_uint32be(payload.length());
+    buf.append(payload);
+}
+
+int DeleteTrackCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    int err;
+    if ((err = deserialize_uint256(&track_id, buffer, offset))) return err;
+    if ((err = deserialize_byte_buffer(payload, buffer, offset))) return err;
+    return 0;
+}
+
+UndoCommand::UndoCommand(Project *project, Command *other_command) :
+    Command(project),
+    other_command(other_command)
+{
+}
+
+void UndoCommand::undo(OrderedMapFileBatch *batch) {
+    other_command->redo(batch);
+}
+
+void UndoCommand::redo(OrderedMapFileBatch *batch) {
+    other_command->undo(batch);
+}
+
+void UndoCommand::serialize(ByteBuffer &buf) const {
+    serialize_uint256(buf, other_command->id);
+}
+
+int UndoCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    int err;
+    uint256 other_command_id;
+    if ((err = deserialize_uint256(&other_command_id, buffer, offset))) return err;
+
+    auto entry = project->commands.maybe_get(other_command_id);
+    if (!entry)
+        return GenesisErrorInvalidFormat;
+
+    other_command = entry->value;
+
+    return 0;
+}
+
+
+RedoCommand::RedoCommand(Project *project, Command *other_command) :
+    Command(project),
+    other_command(other_command)
+{
+}
+
+void RedoCommand::undo(OrderedMapFileBatch *batch) {
+    other_command->undo(batch);
+}
+
+void RedoCommand::redo(OrderedMapFileBatch *batch) {
+    other_command->redo(batch);
+}
+
+void RedoCommand::serialize(ByteBuffer &buf) const {
+    serialize_uint256(buf, other_command->id);
+}
+
+int RedoCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    int err;
+    uint256 other_command_id;
+    if ((err = deserialize_uint256(&other_command_id, buffer, offset))) return err;
+
+    auto entry = project->commands.maybe_get(other_command_id);
+    if (!entry)
+        return GenesisErrorInvalidFormat;
+
+    other_command = entry->value;
+
+    return 0;
 }

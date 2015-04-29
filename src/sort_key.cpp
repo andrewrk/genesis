@@ -30,15 +30,21 @@ SortKey& SortKey::operator= (const SortKey& other) {
 }
 
 int SortKey::compare(const SortKey &a, const SortKey &b) {
-    int mag_cmp = a.magnitude - b.magnitude;
-    if (mag_cmp != 0)
-        return mag_cmp;
+    if (a.magnitude > b.magnitude)
+        return 1;
+    else if (a.magnitude < b.magnitude)
+        return -1;
 
     int cmp = memcmp(a.digits.raw(), b.digits.raw(), min(a.digits.length(), b.digits.length()));
     if (cmp != 0)
         return cmp;
 
-    return a.digits.length() - b.digits.length();
+    if (a.digits.length() > b.digits.length())
+        return 1;
+    else if (a.digits.length() < b.digits.length())
+        return -1;
+    else
+        return 0;
 }
 
 SortKey SortKey::single(const SortKey *low, const SortKey *high) {
@@ -190,7 +196,7 @@ void SortKey::normalize() {
     ok_or_panic(digits.resize(0));
 }
 
-void SortKey::serialize(ByteBuffer &buf) {
+void SortKey::serialize(ByteBuffer &buf) const {
     buf.append_uint32be(magnitude);
     buf.append_uint32be(digits.length());
     for (int i = 0; i < digits.length(); i += 1) {

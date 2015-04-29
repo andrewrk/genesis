@@ -25,6 +25,8 @@ static int on_string(struct LaxJsonContext *json,
                     sf->state = SettingsFileStateOpenProjectFile;
                 } else if (ByteBuffer::compare(value, "user_name") == 0) {
                     sf->state = SettingsFileStateUserName;
+                } else if (ByteBuffer::compare(value, "user_id") == 0) {
+                    sf->state = SettingsFileStateUserId;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
@@ -32,6 +34,10 @@ static int on_string(struct LaxJsonContext *json,
             }
         case SettingsFileStateOpenProjectFile:
             sf->open_project_id = uint256::parse(value);
+            sf->state = SettingsFileStateReadyForProp;
+            break;
+        case SettingsFileStateUserId:
+            sf->user_id = uint256::parse(value);
             sf->state = SettingsFileStateReadyForProp;
             break;
         case SettingsFileStateUserName:
@@ -137,6 +143,7 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
     // default settings
     sf->open_project_id = uint256::zero();
     sf->user_name = "";
+    sf->user_id = uint256::zero();
 
     FILE *f = fopen(path.raw(), "rb");
     if (!f) {
@@ -198,11 +205,18 @@ int settings_file_commit(SettingsFile *sf) {
     FILE *f = tmp_file.file;
 
     fprintf(f, "// Genesis DAW configuration file\n");
+    fprintf(f, "// This config file format is a superset of JSON. See\n");
+    fprintf(f, "// https://github.com/andrewrk/liblaxjson for more details.\n");
     fprintf(f, "{\n");
     fprintf(f, "  // your display name\n");
     json_line_str(f, 2, "user_name", sf->user_name.encode());
+    fprintf(f, "\n");
+    fprintf(f, "  // your user id\n");
+    json_line_uint256(f, 2, "user_id", sf->user_id);
+    fprintf(f, "\n");
     fprintf(f, "  // which project to load on startup\n");
     json_line_uint256(f, 2, "open_project_id", sf->open_project_id);
+    fprintf(f, "\n");
     fprintf(f, "}\n");
 
     if (fclose(f))

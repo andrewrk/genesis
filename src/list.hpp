@@ -117,7 +117,7 @@ public:
 
     template<int(*Comparator)(T, T)>
     void sort() {
-        insertion_sort<T, Comparator>(_items, _length);
+        quick_sort<T, Comparator>(_items, _length);
     }
 
     template<bool(*filter_fn)(void *, T)>

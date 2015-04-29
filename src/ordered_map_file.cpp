@@ -249,7 +249,7 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
     omf->map->clear();
     destroy_map(omf);
 
-    insertion_sort<OrderedMapFileEntry *, compare_entries>(omf->list->raw(), omf->list->length());
+    omf->list->sort<compare_entries>();
 
     *out_omf = omf;
     return 0;

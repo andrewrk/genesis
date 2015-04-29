@@ -304,6 +304,27 @@ static void test_byte_buffer_to_string(void) {
     assert(ByteBuffer::compare(buf.to_string(), "13171821") == 0);
 }
 
+static int compare_ints(int a, int b) {
+    if (a > b)
+        return 1;
+    else if (a < b)
+        return -1;
+    else
+        return 0;
+}
+
+static void test_list_sort(void) {
+    List<int> list;
+    for (int i = 0; i < 100; i += 1) {
+        int x = os_random_double() * 100000;
+        ok_or_panic(list.append(x));
+    }
+    list.sort<compare_ints>();
+
+    for (int i = 0; i < list.length() - 1; i += 1) {
+        assert(list.at(i) <= list.at(i + 1));
+    }
+}
 
 struct Test {
     const char *name;
@@ -329,6 +350,7 @@ static struct Test tests[] = {
     {"uint256", test_uint256},
     {"SettingsFile", test_settings_file},
     {"ByteBuffer::to_string", test_byte_buffer_to_string},
+    {"List::sort", test_list_sort},
     {NULL, NULL},
 };
 
@@ -339,7 +361,7 @@ static void exec_test(struct Test *test) {
 }
 
 int main(int argc, char *argv[]) {
-    os_init();
+    os_init(OsRandomQualityPseudo);
 
     const char *match = nullptr;
 

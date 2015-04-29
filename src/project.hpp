@@ -46,49 +46,85 @@ struct AudioClipSegment {
 struct User {
     uint256 id;
     String name;
-    int undo_top;
 };
 
 struct Project {
-    // canonical data
+    /////////// canonical data, shared among all users
     uint256 id;
     IdMap<AudioClipSegment *> audio_clip_segments;
     IdMap<AudioClip *> audio_clips;
     IdMap<AudioAsset *> audio_assets;
     IdMap<Track *> tracks;
     IdMap<User *> users;
-
     // this represents the true history of the project. you can create the
     // entire project data structure just from this data
     // this grows forever and never shrinks
-    List<Command *> command_stack;
+    IdMap<Command *> commands;
 
-    // prepared view of the data
+    ///////////// state which is specific to this file, not shared among users
+    // this is a subset of command_stack. it points to commands that are in
+    // active_user's undo stack
+    List<Command *> undo_stack;
+    int undo_stack_index;
+
+    /////////////// prepared view of the data
     // before you use any of this state, you must call project_compute_indexes
     List<Track *> track_list;
     bool track_list_dirty;
 
-    // transient state
+    List<User *> user_list;
+    bool user_list_dirty;
+
+    List<Command *> command_list;
+    bool command_list_dirty;
+
+
+    ////////// transient state
     User *active_user; // the user that is running this instance of genesis
     OrderedMapFile *omf;
 };
 
+int project_get_next_revision(Project *project);
+
+enum CommandType {
+    CommandTypeInvalid,
+    CommandTypeUndo,
+    CommandTypeRedo,
+    CommandTypeAddTrack,
+    CommandTypeDeleteTrack,
+};
+
 class Command {
 public:
-    Command(User *user, int revision) : user(user), revision(revision) {}
+    Command() {}
+    Command(Project *p) {
+        project = p;
+        user = project->active_user;
+        revision = project_get_next_revision(project);
+        id = uint256::random();
+    }
     virtual ~Command() {}
-    virtual void undo(Project *project, OrderedMapFileBatch *batch) = 0;
-    virtual void redo(Project *project, OrderedMapFileBatch *batch) = 0;
+    virtual void undo(OrderedMapFileBatch *batch) = 0;
+    virtual void redo(OrderedMapFileBatch *batch) = 0;
     virtual String description() const = 0;
     virtual int allocated_size() const = 0;
+    virtual void serialize(ByteBuffer &buf) const = 0;
+    virtual int deserialize(const ByteBuffer &buf, int *offset) = 0;
+    virtual CommandType command_type() const = 0;
 
+    uint256 id;
     User *user;
     int revision;
+
+
+    // transient state
+    Project *project;
 };
 
 class AddTrackCommand : public Command {
 public:
-    AddTrackCommand(User *user, int revision, String name, const SortKey &sort_key);
+    AddTrackCommand(Project *project, String name, const SortKey &sort_key);
+    AddTrackCommand() {}
     ~AddTrackCommand() override {}
 
     String description() const override {
@@ -98,8 +134,11 @@ public:
         return sizeof(AddTrackCommand) + name.allocated_size() + sort_key.allocated_size();
     }
 
-    void undo(Project *project, OrderedMapFileBatch *batch) override;
-    void redo(Project *project, OrderedMapFileBatch *batch) override;
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) const override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeAddTrack; }
 
     uint256 track_id;
     String name;
@@ -108,7 +147,8 @@ public:
 
 class DeleteTrackCommand : public Command {
 public:
-    DeleteTrackCommand(User *user, int revision, Track *track);
+    DeleteTrackCommand(Project *project, Track *track);
+    DeleteTrackCommand() {}
     ~DeleteTrackCommand() override {}
 
     String description() const override {
@@ -118,15 +158,62 @@ public:
         return sizeof(DeleteTrackCommand) + payload.allocated_size();
     }
 
-    void undo(Project *project, OrderedMapFileBatch *batch) override;
-    void redo(Project *project, OrderedMapFileBatch *batch) override;
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) const override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeDeleteTrack; }
 
     uint256 track_id;
     ByteBuffer payload;
 };
 
+class UndoCommand : public Command {
+public:
+    UndoCommand(Project *project, Command *other_command);
+    UndoCommand() {}
+    ~UndoCommand() override {}
 
-User *user_create(const String &name);
+    String description() const override {
+        return "Undo";
+    }
+    int allocated_size() const override {
+        return sizeof(UndoCommand);
+    }
+
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) const override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeUndo; }
+
+    Command *other_command;
+};
+
+class RedoCommand : public Command {
+public:
+    RedoCommand(Project *project, Command *other_command);
+    RedoCommand() {}
+    ~RedoCommand() override {}
+
+    String description() const override {
+        return "Redo";
+    }
+    int allocated_size() const override {
+        return sizeof(RedoCommand);
+    }
+
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) const override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeRedo; }
+
+    Command *other_command;
+};
+
+User *user_create(const uint256 &id, const String &name);
+void user_destroy(User *user);
 
 int project_open(const char *path, User *user, Project **out_project);
 int project_create(const char *path, const uint256 &id, User *user, Project **out_project);
@@ -136,7 +223,7 @@ void project_perform_command(Project *project, Command *command);
 void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch, Command *command);
 
 void project_insert_track(Project *project, const Track *before, const Track *after);
-void project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
+AddTrackCommand * project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
         const Track *before, const Track *after);
 
 void project_delete_track(Project *project, Track *track);

@@ -58,13 +58,34 @@ uint32_t os_random_uint32(void) {
     return get_random(&random_state);
 }
 
-void os_init() {
-    uint32_t seed;
-    int err = get_random_seed(&seed);
-    if (err)
-        panic("Unable to get random seed: %s", genesis_error_string(err));
-    init_random_state(&random_state, seed);
+uint64_t os_random_uint64(void) {
+    uint32_t buf[2];
+    buf[0] = os_random_uint32();
+    buf[1] = os_random_uint32();
+    uint64_t *ptr = reinterpret_cast<uint64_t *>(buf);
+    return *ptr;
+}
 
+double os_random_double(void) {
+    uint32_t x = os_random_uint32();
+    return ((double)x) / (((double)(UINT32_MAX))+1);
+}
+
+void os_init(OsRandomQuality random_quality) {
+    uint32_t seed;
+    switch (random_quality) {
+    case OsRandomQualityRobust:
+        {
+            int err = get_random_seed(&seed);
+            if (err)
+                panic("Unable to get random seed: %s", genesis_error_string(err));
+            break;
+        }
+    case OsRandomQualityPseudo:
+        seed = time(nullptr) + getpid();
+        break;
+    }
+    init_random_state(&random_state, seed);
 }
 
 void os_spawn_process(const char *exe, const List<ByteBuffer> &args, bool detached) {

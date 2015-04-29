@@ -48,7 +48,11 @@ GenesisEditor::GenesisEditor() :
         settings_file->user_name = os_get_user_name();
         settings_dirty = true;
     }
-    User *user = user_create(settings_file->user_name);
+    if (settings_file->user_id == uint256::zero()) {
+        settings_file->user_id = uint256::random();
+        settings_dirty = true;
+    }
+    user = user_create(settings_file->user_id, settings_file->user_name);
 
     bool create_new = true;
     if (settings_file->open_project_id != uint256::zero()) {
@@ -135,6 +139,7 @@ void GenesisEditor::create_window() {
 
 GenesisEditor::~GenesisEditor() {
     project_close(project);
+    user_destroy(user);
     genesis_destroy_context(_genesis_context);
 }
 

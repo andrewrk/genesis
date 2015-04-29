@@ -227,11 +227,12 @@ int String::compare(const String &a, const String &b) {
         } else if (b_end) {
             return 1;
         } else {
-            int diff = a.at(i) - b.at(i);
-            if (diff == 0)
-                continue;
+            if (a.at(i) > b.at(i))
+                return 1;
+            else if (a.at(i) < b.at(i))
+                return -1;
             else
-                return diff;
+                return 0;
         }
     }
 }
@@ -247,11 +248,14 @@ int String::compare_insensitive(const String &a, const String &b) {
         } else if (b_end) {
             return 1;
         } else {
-            int diff = char_to_lower(a.at(i)) - char_to_lower(b.at(i));
-            if (diff == 0)
-                continue;
+            uint32_t a_lower = char_to_lower(a.at(i));
+            uint32_t b_lower = char_to_lower(b.at(i));
+            if (a_lower > b_lower)
+                return 1;
+            else if (a_lower < b_lower)
+                return -1;
             else
-                return diff;
+                return 0;
         }
     }
 }

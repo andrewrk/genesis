@@ -6,8 +6,9 @@
 
 class GuiWindow;
 struct GenesisContext;
-class Project;
+struct Project;
 struct SettingsFile;
+struct User;
 
 class GenesisEditor {
 public:
@@ -24,6 +25,7 @@ public:
 
     List<GuiWindow *> windows;
     Project *project;
+    User *user;
     SettingsFile *settings_file;
 
     bool on_key_event(GuiWindow *window, const KeyEvent *event);
