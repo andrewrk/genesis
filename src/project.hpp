@@ -108,17 +108,18 @@ public:
     virtual void redo(OrderedMapFileBatch *batch) = 0;
     virtual String description() const = 0;
     virtual int allocated_size() const = 0;
-    virtual void serialize(ByteBuffer &buf) const = 0;
+    virtual void serialize(ByteBuffer &buf) = 0;
     virtual int deserialize(const ByteBuffer &buf, int *offset) = 0;
     virtual CommandType command_type() const = 0;
 
+    // serialized
     uint256 id;
-    User *user;
+    uint256 user_id;
     int revision;
-
 
     // transient state
     Project *project;
+    User *user;
 };
 
 class AddTrackCommand : public Command {
@@ -136,7 +137,7 @@ public:
 
     void undo(OrderedMapFileBatch *batch) override;
     void redo(OrderedMapFileBatch *batch) override;
-    void serialize(ByteBuffer &buf) const override;
+    void serialize(ByteBuffer &buf) override;
     int deserialize(const ByteBuffer &buf, int *offset) override;
     CommandType command_type() const override { return CommandTypeAddTrack; }
 
@@ -160,7 +161,7 @@ public:
 
     void undo(OrderedMapFileBatch *batch) override;
     void redo(OrderedMapFileBatch *batch) override;
-    void serialize(ByteBuffer &buf) const override;
+    void serialize(ByteBuffer &buf) override;
     int deserialize(const ByteBuffer &buf, int *offset) override;
     CommandType command_type() const override { return CommandTypeDeleteTrack; }
 
@@ -183,10 +184,14 @@ public:
 
     void undo(OrderedMapFileBatch *batch) override;
     void redo(OrderedMapFileBatch *batch) override;
-    void serialize(ByteBuffer &buf) const override;
+    void serialize(ByteBuffer &buf) override;
     int deserialize(const ByteBuffer &buf, int *offset) override;
     CommandType command_type() const override { return CommandTypeUndo; }
 
+    // serialized state
+    uint256 other_command_id;
+
+    // transient state
     Command *other_command;
 };
 
@@ -205,10 +210,14 @@ public:
 
     void undo(OrderedMapFileBatch *batch) override;
     void redo(OrderedMapFileBatch *batch) override;
-    void serialize(ByteBuffer &buf) const override;
+    void serialize(ByteBuffer &buf) override;
     int deserialize(const ByteBuffer &buf, int *offset) override;
     CommandType command_type() const override { return CommandTypeRedo; }
 
+    // serialized state
+    uint256 other_command_id;
+
+    // transient state
     Command *other_command;
 };
 

@@ -1,6 +1,8 @@
 #include "project.hpp"
 #include "debug.hpp"
 
+#include <limits.h>
+
 // modifying this structure affects project file backward compatibility
 enum PropKey {
     PropKeyInvalid,
@@ -14,6 +16,527 @@ enum PropKey {
 
 static const int PROP_KEY_SIZE = 4;
 static const int UINT256_SIZE = 32;
+
+enum SerializableFieldKey {
+    SerializableFieldKeyInvalid,
+    SerializableFieldKeyId,
+    SerializableFieldKeyUserId,
+    SerializableFieldKeyRevision,
+    SerializableFieldKeyName,
+    SerializableFieldKeySortKey,
+    SerializableFieldKeyTrackId,
+    SerializableFieldKeyPayload,
+    SerializableFieldKeyOtherCommandId,
+    SerializableFieldKeyCmdType,
+    SerializableFieldKeyCommandChild,
+};
+
+enum SerializableFieldType {
+    SerializableFieldTypeInvalid,
+    SerializableFieldTypeUInt32,
+    SerializableFieldTypeUInt32AsInt,
+    SerializableFieldTypeString,
+    SerializableFieldTypeByteBuffer,
+    SerializableFieldTypeUInt256,
+    SerializableFieldTypeSortKey,
+    SerializableFieldTypeCmdType,
+    SerializableFieldTypeCommandChild,
+};
+
+template <typename T>
+struct SerializableField {
+    SerializableFieldKey key;
+    SerializableFieldType type;
+    void *(*get_field_ptr)(T *);
+    void (*set_default_value)(T *);
+};
+
+static int deserialize_from_enum(void *ptr, SerializableFieldType type, const ByteBuffer &buffer, int *offset);
+
+static const SerializableField<Track> *get_serializable_fields(Track *) {
+    static const SerializableField<Track> fields[] = {
+        {
+            SerializableFieldKeyName,
+            SerializableFieldTypeString,
+            [](Track *track) -> void * {
+                return &track->name;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeySortKey,
+            SerializableFieldTypeString,
+            [](Track *track) -> void * {
+                return &track->sort_key;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<User> *get_serializable_fields(User *) {
+    static const SerializableField<User> fields[] = {
+        {
+            SerializableFieldKeyName,
+            SerializableFieldTypeString,
+            [](User *user) -> void * {
+                return &user->name;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<Command> *get_serializable_fields(Command *) {
+    static const SerializableField<Command> fields[] = {
+        {
+            SerializableFieldKeyCmdType,
+            SerializableFieldTypeCmdType,
+            [](Command *cmd) -> void * {
+                return cmd;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyId,
+            SerializableFieldTypeUInt256,
+            [](Command *cmd) -> void * {
+                return &cmd->id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyUserId,
+            SerializableFieldTypeUInt256,
+            [](Command *cmd) -> void * {
+                return &cmd->user_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyRevision,
+            SerializableFieldTypeUInt32AsInt,
+            [](Command *cmd) -> void * {
+                return &cmd->revision;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyCommandChild,
+            SerializableFieldTypeCommandChild,
+            [](Command *cmd) -> void * {
+                return cmd;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<AddTrackCommand> *get_serializable_fields(AddTrackCommand *) {
+    static const SerializableField<AddTrackCommand> fields[] = {
+        {
+            SerializableFieldKeyTrackId,
+            SerializableFieldTypeUInt256,
+            [](AddTrackCommand *cmd) -> void * {
+                return &cmd->track_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyName,
+            SerializableFieldTypeString,
+            [](AddTrackCommand *cmd) -> void * {
+                return &cmd->name;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeySortKey,
+            SerializableFieldTypeSortKey,
+            [](AddTrackCommand *cmd) -> void * {
+                return &cmd->sort_key;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<DeleteTrackCommand> *get_serializable_fields(DeleteTrackCommand *) {
+    static const SerializableField<DeleteTrackCommand> fields[] = {
+        {
+            SerializableFieldKeyTrackId,
+            SerializableFieldTypeUInt256,
+            [](DeleteTrackCommand *cmd) -> void * {
+                return &cmd->track_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyPayload,
+            SerializableFieldTypeByteBuffer,
+            [](DeleteTrackCommand *cmd) -> void * {
+                return &cmd->payload;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<UndoCommand> *get_serializable_fields(UndoCommand *) {
+    static const SerializableField<UndoCommand> fields[] = {
+        {
+            SerializableFieldKeyOtherCommandId,
+            SerializableFieldTypeUInt256,
+            [](UndoCommand *cmd) -> void * {
+                return &cmd->other_command_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<RedoCommand> *get_serializable_fields(RedoCommand *) {
+    static const SerializableField<RedoCommand> fields[] = {
+        {
+            SerializableFieldKeyOtherCommandId,
+            SerializableFieldTypeUInt256,
+            [](RedoCommand *cmd) -> void * {
+                return &cmd->other_command_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static void serialize_uint256(ByteBuffer &buf, const uint256 &val) {
+    buf.resize(buf.length() + UINT256_SIZE);
+    val.write_be(buf.raw() + buf.length() - UINT256_SIZE);
+}
+
+static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffer &buffer) {
+    switch (type) {
+    case SerializableFieldTypeInvalid:
+        panic("invalid serialize field type");
+    case SerializableFieldTypeUInt32:
+        {
+            uint32_t *value = static_cast<uint32_t *>(ptr);
+            buffer.append_uint32be(*value);
+            break;
+        }
+    case SerializableFieldTypeUInt32AsInt:
+        {
+            int *value = static_cast<int *>(ptr);
+            buffer.append_uint32be(*value);
+            break;
+        }
+    case SerializableFieldTypeUInt256:
+        {
+            uint256 *value = static_cast<uint256 *>(ptr);
+            serialize_uint256(buffer, *value);
+            break;
+        }
+    case SerializableFieldTypeByteBuffer:
+        {
+            ByteBuffer *value = static_cast<ByteBuffer *>(ptr);
+            buffer.append_uint32be(value->length());
+            buffer.append(*value);
+            break;
+        }
+    case SerializableFieldTypeString:
+        {
+            String *value = static_cast<String *>(ptr);
+            ByteBuffer encoded = value->encode();
+            buffer.append_uint32be(encoded.length());
+            buffer.append(encoded);
+            break;
+        }
+    case SerializableFieldTypeSortKey:
+        {
+            SortKey *value = static_cast<SortKey *>(ptr);
+            value->serialize(buffer);
+            break;
+        }
+    case SerializableFieldTypeCommandChild:
+        {
+            Command *value = static_cast<Command *>(ptr);
+            value->serialize(buffer);
+            break;
+        }
+    case SerializableFieldTypeCmdType:
+        {
+            Command *value = static_cast<Command *>(ptr);
+            buffer.append_uint32be(value->command_type());
+            break;
+        }
+    }
+}
+
+template<typename T>
+static void serialize_object(T *obj, ByteBuffer &buffer) {
+    const SerializableField<T> *serializable_fields = get_serializable_fields(obj);
+
+    // iterate once to count the fields
+    int field_count = 0;
+    const SerializableField<T> *it = serializable_fields;
+    while (it->key != SerializableFieldKeyInvalid) {
+        assert(it->get_field_ptr);
+        field_count += 1;
+        it += 1;
+    }
+
+    int start_offset = buffer.length();
+    buffer.append_uint32be(field_count);
+
+    // iterate again and serialize everything
+    it = serializable_fields;
+    while (it->key != SerializableFieldKeyInvalid) {
+        int field_length_offset = buffer.length();
+        buffer.resize(buffer.length() + 4);
+
+        buffer.append_uint32be(it->key);
+        serialize_from_enum(it->get_field_ptr(obj), it->type, buffer);
+
+        int field_size = buffer.length() - start_offset;
+        write_uint32be(buffer.raw() + field_length_offset, field_size);
+
+        it += 1;
+    }
+}
+
+static int deserialize_uint32be(uint32_t *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 4)
+        return GenesisErrorInvalidFormat;
+
+    *x = read_uint32be(buffer.raw() + *offset);
+    *offset += 4;
+    return 0;
+}
+
+static int deserialize_uint32be_as_int(int *x, const ByteBuffer &buffer, int *offset) {
+    uint32_t unsigned_x;
+    int err;
+    if ((err = deserialize_uint32be(&unsigned_x, buffer, offset))) return err;
+    if (unsigned_x > (uint32_t)INT_MAX) return GenesisErrorInvalidFormat;
+    *x = unsigned_x;
+    return 0;
+}
+
+static int deserialize_byte_buffer(ByteBuffer &out, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 4)
+        return GenesisErrorInvalidFormat;
+
+    int len = read_uint32be(buffer.raw() + *offset);
+    *offset += 4;
+    if (buffer.length() - *offset < len)
+        return GenesisErrorInvalidFormat;
+
+    out.clear();
+    out.append(buffer.raw() + *offset, len);
+    *offset += len;
+
+    return 0;
+}
+
+static int deserialize_string(String &out, const ByteBuffer &buffer, int *offset) {
+    ByteBuffer encoded;
+    int err;
+    if ((err = deserialize_byte_buffer(encoded, buffer, offset))) return err;
+
+    bool ok;
+    out = String(encoded, &ok);
+    if (!ok)
+        return GenesisErrorInvalidFormat;
+
+    return 0;
+}
+
+static int deserialize_uint256(uint256 *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < UINT256_SIZE)
+        return GenesisErrorInvalidFormat;
+
+    *x = uint256::read_be(buffer.raw() + *offset);
+    *offset += UINT256_SIZE;
+    return 0;
+}
+
+template<typename T>
+static int deserialize_object(T *obj, const ByteBuffer &buffer, int *offset) {
+    const SerializableField<T> *serializable_fields = get_serializable_fields(obj);
+
+    int err;
+    struct Item {
+        bool found;
+        const SerializableField<T> *field;
+    };
+    List<Item> items;
+    const SerializableField<T> *it = serializable_fields;
+    while (it->key != SerializableFieldKeyInvalid) {
+        if (items.append({false, it}))
+            return GenesisErrorNoMem;
+        it += 1;
+    }
+
+    int field_count;
+    if ((err = deserialize_uint32be_as_int(&field_count, buffer, offset))) return err;
+    for (int field_i = 0; field_i < field_count; field_i += 1) {
+        int field_offset = *offset;
+
+        int field_size;
+        if ((err = deserialize_uint32be_as_int(&field_size, buffer, offset))) return err;
+
+        int field_key;
+        if ((err = deserialize_uint32be_as_int(&field_key, buffer, offset))) return err;
+
+        bool found_this_field = false;
+        for (int item_i = 0; item_i < items.length(); item_i += 1) {
+            Item *item = &items.at(item_i);
+            if (item->field->key == field_key) {
+                found_this_field = true;
+                item->found = true;
+                if ((err = deserialize_from_enum(item->field->get_field_ptr(obj), item->field->type, buffer, offset)))
+                    return err;
+                break;
+            }
+        }
+        if (!found_this_field) {
+            // skip this field
+            *offset = field_offset + field_size;
+        }
+    }
+
+    // call default callbacks on unfound fields
+    for (int item_i = 0; item_i < items.length(); item_i += 1) {
+        Item *item = &items.at(item_i);
+        if (!item->found) {
+            if (!item->field->set_default_value)
+                return GenesisErrorInvalidFormat;
+            item->field->set_default_value(obj);
+        }
+    }
+
+    return 0;
+}
+
+static int deserialize_from_enum(void *ptr, SerializableFieldType type, const ByteBuffer &buffer, int *offset) {
+    switch (type) {
+    case SerializableFieldTypeInvalid:
+        panic("invalid serialize field type");
+    case SerializableFieldTypeUInt32:
+        {
+            uint32_t *value = static_cast<uint32_t *>(ptr);
+            return deserialize_uint32be(value, buffer, offset);
+        }
+    case SerializableFieldTypeUInt32AsInt:
+        {
+            int *value = static_cast<int *>(ptr);
+            return deserialize_uint32be_as_int(value, buffer, offset);
+        }
+    case SerializableFieldTypeUInt256:
+        {
+            uint256 *value = static_cast<uint256 *>(ptr);
+            return deserialize_uint256(value, buffer, offset);
+        }
+    case SerializableFieldTypeByteBuffer:
+        {
+            ByteBuffer *value = static_cast<ByteBuffer *>(ptr);
+            return deserialize_byte_buffer(*value, buffer, offset);
+        }
+    case SerializableFieldTypeString:
+        {
+            String *value = static_cast<String *>(ptr);
+            return deserialize_string(*value, buffer, offset);
+        }
+    case SerializableFieldTypeSortKey:
+        {
+            SortKey *value = static_cast<SortKey *>(ptr);
+            return value->deserialize(buffer, offset);
+        }
+    case SerializableFieldTypeCommandChild:
+        {
+            Command *cmd = static_cast<Command *>(ptr);
+            switch (cmd->command_type()) {
+                case CommandTypeInvalid:
+                    panic("invalid command type");
+                case CommandTypeUndo:
+                    return deserialize_object(reinterpret_cast<UndoCommand*>(cmd), buffer, offset);
+                case CommandTypeRedo:
+                    return deserialize_object(reinterpret_cast<RedoCommand*>(cmd), buffer, offset);
+                case CommandTypeAddTrack:
+                    return deserialize_object(reinterpret_cast<AddTrackCommand*>(cmd), buffer, offset);
+                case CommandTypeDeleteTrack:
+                    return deserialize_object(reinterpret_cast<DeleteTrackCommand*>(cmd), buffer, offset);
+            }
+            panic("unreachable");
+        }
+    case SerializableFieldTypeCmdType:
+        // ignore
+        return 0;
+    }
+    panic("unreachable");
+}
+
+
+static OrderedMapFileBuffer *byte_buffer_to_omf_buffer(const ByteBuffer &byte_buffer) {
+    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(byte_buffer.length());
+    memcpy(buf->data, byte_buffer.raw(), byte_buffer.length());
+    return buf;
+}
+
+template<typename T>
+static OrderedMapFileBuffer *obj_to_omf_buf(T *obj) {
+    ByteBuffer buffer;
+    serialize_object(obj, buffer);
+    return byte_buffer_to_omf_buffer(buffer);
+}
 
 static int compare_tracks(Track *a, Track *b) {
     int sort_key_cmp = SortKey::compare(a->sort_key, b->sort_key);
@@ -120,119 +643,25 @@ static OrderedMapFileBuffer *create_basic_key(PropKey prop_key) {
     return buf;
 }
 
-static OrderedMapFileBuffer *byte_buffer_to_omf_buffer(const ByteBuffer &byte_buffer) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(byte_buffer.length());
-    memcpy(buf->data, byte_buffer.raw(), byte_buffer.length());
-    return buf;
-}
-
-static void serialize_string(ByteBuffer &buf, const String &str) {
-    ByteBuffer encoded_str = str.encode();
-    buf.append_uint32be(encoded_str.length());
-    buf.append(encoded_str);
-}
-
-static void serialize_uint256(ByteBuffer &buf, const uint256 &val) {
-    buf.resize(buf.length() + UINT256_SIZE);
-    val.write_be(buf.raw() + buf.length() - UINT256_SIZE);
-}
-
-static int deserialize_byte_buffer(ByteBuffer &out, const ByteBuffer &buffer, int *offset) {
-    if (buffer.length() - *offset < 4)
-        return GenesisErrorInvalidFormat;
-
-    int len = read_uint32be(buffer.raw() + *offset);
-    *offset += 4;
-    if (buffer.length() - *offset < len)
-        return GenesisErrorInvalidFormat;
-
-    out.clear();
-    out.append(buffer.raw() + *offset, len);
-    *offset += len;
-
-    return 0;
-}
-
-static int deserialize_string(String &out, const ByteBuffer &buffer, int *offset) {
-    ByteBuffer encoded;
-    int err;
-    if ((err = deserialize_byte_buffer(encoded, buffer, offset))) return err;
-
-    bool ok;
-    out = String(encoded, &ok);
-    if (!ok)
-        return GenesisErrorInvalidFormat;
-
-    return 0;
-}
-
-static int deserialize_uint32be(uint32_t *x, const ByteBuffer &buffer, int *offset) {
-    if (buffer.length() - *offset < 4)
-        return GenesisErrorInvalidFormat;
-
-    *x = read_uint32be(buffer.raw() + *offset);
-    *offset += 4;
-    return 0;
-}
-
-static int deserialize_uint256(uint256 *x, const ByteBuffer &buffer, int *offset) {
-    if (buffer.length() - *offset < UINT256_SIZE)
-        return GenesisErrorInvalidFormat;
-
-    *x = uint256::read_be(buffer.raw() + *offset);
-    *offset += UINT256_SIZE;
-    return 0;
-}
-
-static OrderedMapFileBuffer *serialize_command(Command *command) {
-    ByteBuffer result;
-    result.append_uint32be(command->command_type());
-    serialize_uint256(result, command->user->id);
-    result.append_uint32be(command->revision);
-    command->serialize(result);
-    return byte_buffer_to_omf_buffer(result);
-}
-
-static void serialize_track_to_byte_buffer(Track *track, ByteBuffer &buf) {
-    serialize_string(buf, track->name);
-    track->sort_key.serialize(buf);
-}
-
-static OrderedMapFileBuffer *serialize_track(Track *track) {
-    ByteBuffer result;
-    serialize_track_to_byte_buffer(track, result);
-    return byte_buffer_to_omf_buffer(result);
-}
-
 static int deserialize_track(Project *project, const uint256 &id, const ByteBuffer &value) {
     Track *track = create_zero<Track>();
     if (!track)
         return GenesisErrorNoMem;
 
+    track->id = id;
+
     int err;
     int offset = 0;
-    track->id = id;
-    if ((err = deserialize_string(track->name, value, &offset))) goto cleanup;
-    if ((err = track->sort_key.deserialize(value, &offset))) goto cleanup;
+    if ((err = deserialize_object(track, value, &offset))) {
+        destroy(track, 1);
+        return err;
+    }
 
     project->tracks.put(track->id, track);
     project->track_list_dirty = true;
 
     return 0;
 
-cleanup:
-    destroy(track, 1);
-    return err;
-}
-
-static void serialize_user_to_byte_buffer(User *user, ByteBuffer &buf) {
-    serialize_string(buf, user->name);
-}
-
-static OrderedMapFileBuffer *serialize_user(User *user) {
-    ByteBuffer result;
-    serialize_user_to_byte_buffer(user, result);
-    return byte_buffer_to_omf_buffer(result);
 }
 
 static int deserialize_user(Project *project, const uint256 &id, const ByteBuffer &value) {
@@ -240,29 +669,55 @@ static int deserialize_user(Project *project, const uint256 &id, const ByteBuffe
     if (!user)
         return GenesisErrorNoMem;
 
+    user->id = id;
+
     int err;
     int offset = 0;
-    user->id = id;
-    if ((err = deserialize_string(user->name, value, &offset))) goto cleanup;
+    if ((err = deserialize_object(user, value, &offset))) {
+        destroy(user, 1);
+        return err;
+    }
 
     project->users.put(user->id, user);
     project->user_list_dirty = true;
 
     return 0;
-
-cleanup:
-    destroy(user, 1);
-    return err;
 }
 
 static int deserialize_command(Project *project, const uint256 &id, const ByteBuffer &buffer) {
-    int offset = 0;
+    int offset_data = 0;
+    int *offset = &offset_data;
     int err;
-    uint32_t command_type;
-    if ((err = deserialize_uint32be(&command_type, buffer, &offset))) return err;
+
+    // look for the command type field first
+    int field_count;
+    if ((err = deserialize_uint32be_as_int(&field_count, buffer, offset))) return err;
+
+    int fields_start_offset = *offset;
+    int cmd_type = -1;
+    for (int field_i = 0; field_i < field_count; field_i += 1) {
+        int field_offset = *offset;
+
+        int field_size;
+        if ((err = deserialize_uint32be_as_int(&field_size, buffer, offset))) return err;
+
+        int field_key;
+        if ((err = deserialize_uint32be_as_int(&field_key, buffer, offset))) return err;
+
+        if (field_key == SerializableFieldKeyCmdType) {
+            if ((err = deserialize_uint32be_as_int(&cmd_type, buffer, offset))) return err;
+            break;
+        } else {
+            *offset = field_offset + field_size;
+        }
+    }
+    if (cmd_type == -1)
+        return GenesisErrorInvalidFormat;
+
+    *offset = fields_start_offset;
 
     Command *command = nullptr;
-    switch ((CommandType)command_type) {
+    switch ((CommandType)cmd_type) {
         case CommandTypeInvalid:
             return GenesisErrorInvalidFormat;
         case CommandTypeAddTrack:
@@ -284,18 +739,15 @@ static int deserialize_command(Project *project, const uint256 &id, const ByteBu
     command->project = project;
     command->id = id;
 
-    uint256 user_id;
-    if ((err = deserialize_uint256(&user_id, buffer, &offset))) { destroy(command, 1); return err; }
-    auto entry = project->users.maybe_get(user_id);
+    if ((err = deserialize_object(command, buffer, offset))) {
+        destroy(command, 1);
+        return err;
+    }
+
+    auto entry = project->users.maybe_get(command->user_id);
     if (!entry)
         return GenesisErrorInvalidFormat;
     command->user = entry->value;
-
-    uint32_t revision;
-    if ((err = deserialize_uint32be(&revision, buffer, &offset))) { destroy(command, 1); return err; }
-    command->revision = revision;
-
-    if ((err = command->deserialize(buffer, &offset))) { destroy(command, 1); return err; }
 
     project->commands.put(command->id, command);
     project->command_list_dirty = true;
@@ -430,7 +882,7 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
 
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     put_uint256(batch, create_basic_key(PropKeyProjectId), project->id);
-    ordered_map_file_batch_put(batch, create_user_key(user->id), serialize_user(user));
+    ordered_map_file_batch_put(batch, create_user_key(user->id), obj_to_omf_buf(user));
     project_insert_track_batch(project, batch, nullptr, nullptr);
     err = ordered_map_file_batch_exec(batch);
     if (err) {
@@ -473,7 +925,7 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
     if (next_revision != command->revision)
         panic("unimplemented: multi-user editing merge conflict");
 
-    ordered_map_file_batch_put(batch, create_command_key(command), serialize_command(command));
+    ordered_map_file_batch_put(batch, create_command_key(command), obj_to_omf_buf(command));
     command->redo(batch);
 }
 
@@ -548,28 +1000,22 @@ void AddTrackCommand::redo(OrderedMapFileBatch *batch) {
     project->tracks.put(track->id, track);
     project->track_list_dirty = true;
 
-    ordered_map_file_batch_put(batch, create_track_key(track_id), serialize_track(track));
+    ordered_map_file_batch_put(batch, create_track_key(track_id), obj_to_omf_buf(track));
 }
 
-void AddTrackCommand::serialize(ByteBuffer &buf) const {
-    serialize_uint256(buf, track_id);
-    serialize_string(buf, name);
-    sort_key.serialize(buf);
+void AddTrackCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
 }
 
 int AddTrackCommand::deserialize(const ByteBuffer &buffer, int *offset) {
-    int err;
-    if ((err = deserialize_uint256(&track_id, buffer, offset))) return err;
-    if ((err = deserialize_string(name, buffer, offset))) return err;
-    if ((err = sort_key.deserialize(buffer, offset))) return err;
-    return 0;
+    return deserialize_object(this, buffer, offset);
 }
 
 DeleteTrackCommand::DeleteTrackCommand(Project *project, Track *track) :
     Command(project),
     track_id(track->id)
 {
-    serialize_track_to_byte_buffer(track, payload);
+    serialize_object(track, payload);
 }
 
 void DeleteTrackCommand::undo(OrderedMapFileBatch *batch) {
@@ -589,17 +1035,12 @@ void DeleteTrackCommand::redo(OrderedMapFileBatch *batch) {
     destroy(track, 1);
 }
 
-void DeleteTrackCommand::serialize(ByteBuffer &buf) const {
-    serialize_uint256(buf, track_id);
-    buf.append_uint32be(payload.length());
-    buf.append(payload);
+void DeleteTrackCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
 }
 
 int DeleteTrackCommand::deserialize(const ByteBuffer &buffer, int *offset) {
-    int err;
-    if ((err = deserialize_uint256(&track_id, buffer, offset))) return err;
-    if ((err = deserialize_byte_buffer(payload, buffer, offset))) return err;
-    return 0;
+    return deserialize_object(this, buffer, offset);
 }
 
 UndoCommand::UndoCommand(Project *project, Command *other_command) :
@@ -616,14 +1057,13 @@ void UndoCommand::redo(OrderedMapFileBatch *batch) {
     other_command->undo(batch);
 }
 
-void UndoCommand::serialize(ByteBuffer &buf) const {
-    serialize_uint256(buf, other_command->id);
+void UndoCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
 }
 
 int UndoCommand::deserialize(const ByteBuffer &buffer, int *offset) {
     int err;
-    uint256 other_command_id;
-    if ((err = deserialize_uint256(&other_command_id, buffer, offset))) return err;
+    if ((err = deserialize_object(this, buffer, offset))) return err;
 
     auto entry = project->commands.maybe_get(other_command_id);
     if (!entry)
@@ -649,14 +1089,13 @@ void RedoCommand::redo(OrderedMapFileBatch *batch) {
     other_command->redo(batch);
 }
 
-void RedoCommand::serialize(ByteBuffer &buf) const {
-    serialize_uint256(buf, other_command->id);
+void RedoCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
 }
 
 int RedoCommand::deserialize(const ByteBuffer &buffer, int *offset) {
     int err;
-    uint256 other_command_id;
-    if ((err = deserialize_uint256(&other_command_id, buffer, offset))) return err;
+    if ((err = deserialize_object(this, buffer, offset))) return err;
 
     auto entry = project->commands.maybe_get(other_command_id);
     if (!entry)
