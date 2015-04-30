@@ -15,33 +15,18 @@ bool null_key_sequence(const KeySequence &seq);
 String key_sequence_to_string(const KeySequence &seq);
 bool key_sequence_match(const KeySequence &seq, const KeyEvent *event);
 
-static inline KeySequence no_shortcut() {
+static inline KeySequence make_shortcut(int modifiers, VirtKey key) {
     return {
-        .modifiers = -1,
-        .key = VirtKeyUnknown,
-    };
-}
-
-static inline KeySequence alt_shortcut(VirtKey key) {
-    return {
-        .modifiers = KeyModAlt,
+        .modifiers = modifiers,
         .key = key,
     };
 }
 
-static inline KeySequence ctrl_shortcut(VirtKey key) {
-    return {
-        .modifiers = KeyModControl,
-        .key = key,
-    };
-}
-
-static inline KeySequence shortcut(VirtKey key) {
-    return {
-        .modifiers = 0,
-        .key = key,
-    };
-}
+static inline KeySequence no_shortcut() { return make_shortcut(-1, VirtKeyUnknown); }
+static inline KeySequence alt_shortcut(VirtKey key) { return make_shortcut(KeyModAlt, key); }
+static inline KeySequence ctrl_shortcut(VirtKey key) { return make_shortcut(KeyModControl, key); }
+static inline KeySequence ctrl_shift_shortcut(VirtKey key) { return make_shortcut(KeyModControl|KeyModShift, key); }
+static inline KeySequence shortcut(VirtKey key) { return make_shortcut(0, key); }
 
 class GuiWindow;
 class MenuWidgetItem {
@@ -127,7 +112,8 @@ public:
     MenuWidget(GuiWindow *gui_window);
     ~MenuWidget() override;
 
-    MenuWidgetItem *add_menu(String name, int mnemonic_index);
+    MenuWidgetItem *add_menu(const String &name);
+    MenuWidgetItem *add_menu(const String &name, int mnemonic_index);
 
     void draw(const glm::mat4 &projection) override;
 

@@ -25,6 +25,14 @@ static void report_bug_handler(void *userdata) {
     os_open_in_browser("https://github.com/andrewrk/genesis/issues");
 }
 
+static void undo_handler(void *userdata) {
+    panic("TODO");
+}
+
+static void redo_handler(void *userdata) {
+    panic("TODO");
+}
+
 GenesisEditor::GenesisEditor() :
     project(nullptr)
 {
@@ -107,15 +115,20 @@ void GenesisEditor::create_window() {
         panic("out of memory");
 
     MenuWidget *menu_widget = create<MenuWidget>(new_window);
-    MenuWidgetItem *project_menu = menu_widget->add_menu("Project", 0);
-    MenuWidgetItem *window_menu = menu_widget->add_menu("Window", 0);
-    MenuWidgetItem *help_menu = menu_widget->add_menu("Help", 0);
+    MenuWidgetItem *project_menu = menu_widget->add_menu("&Project");
+    MenuWidgetItem *edit_menu = menu_widget->add_menu("&Edit");
+    MenuWidgetItem *window_menu = menu_widget->add_menu("&Window");
+    MenuWidgetItem *help_menu = menu_widget->add_menu("&Help");
 
-    MenuWidgetItem *exit_menu = project_menu->add_menu("Exit", 1, alt_shortcut(VirtKeyF4));
-    MenuWidgetItem *new_window_menu = window_menu->add_menu("New Window", 0, no_shortcut());
-    MenuWidgetItem *report_bug_menu = help_menu->add_menu("Report a Bug", 0, shortcut(VirtKeyF1));
+    MenuWidgetItem *exit_menu = project_menu->add_menu("E&xit", alt_shortcut(VirtKeyF4));
+    MenuWidgetItem *undo_menu = edit_menu->add_menu("&Undo", ctrl_shortcut(VirtKeyZ));
+    MenuWidgetItem *redo_menu = edit_menu->add_menu("&Redo", ctrl_shift_shortcut(VirtKeyZ));
+    MenuWidgetItem *new_window_menu = window_menu->add_menu("&New Window", no_shortcut());
+    MenuWidgetItem *report_bug_menu = help_menu->add_menu("&Report a Bug", shortcut(VirtKeyF1));
 
     exit_menu->set_activate_handler(exit_handler, this);
+    undo_menu->set_activate_handler(undo_handler, this);
+    redo_menu->set_activate_handler(redo_handler, this);
     new_window_menu->set_activate_handler(new_window_handler, this);
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
