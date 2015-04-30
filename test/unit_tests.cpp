@@ -402,6 +402,8 @@ static void test_basic_project_editing(void) {
     assert(project->track_list.length() == 2);
 
     project_close(project);
+
+    user_destroy(user);
     os_delete(tmp_proj_path);
 }
 

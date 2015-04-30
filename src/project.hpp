@@ -82,7 +82,6 @@ struct Project {
     int undo_stack_index;
 
     /////////////// prepared view of the data
-    // before you use any of this state, you must call project_compute_indexes
     List<Track *> track_list;
     bool track_list_dirty;
 

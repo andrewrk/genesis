@@ -215,6 +215,12 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
             entry->size = val_size;
             offset += val_size;
 
+            auto old_hash_entry = omf->map->maybe_get(entry->key);
+            if (old_hash_entry) {
+                OrderedMapFileEntry *old_entry = old_hash_entry->value;
+                destroy(old_entry, 1);
+            }
+
             omf->map->put(entry->key, entry);
         }
         for (int i = 0; i < del_count; i += 1) {

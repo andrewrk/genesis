@@ -104,7 +104,6 @@ make
 ## Roadmap
 
  0. fix the menu crash discovered by right clicking track editor
- 0. valgrind the unit tests
  0. dockable pane widget
  0. implement perspectives
  0. piano roll widget

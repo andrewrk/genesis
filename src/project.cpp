@@ -924,6 +924,11 @@ static int iterate_prefix(Project *project, PropKey prop_key,
     return 0;
 }
 
+static void project_push_command(Project *project, Command *command) {
+    ok_or_panic(project->command_list.append(command));
+    project->commands.put(command->id, command);
+}
+
 int project_open(const char *path, User *user, Project **out_project) {
     *out_project = nullptr;
 
@@ -1020,7 +1025,8 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
             omf_buf_uint32(project->undo_stack_index));
 
     ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user));
-    project_insert_track_batch(project, batch, nullptr, nullptr);
+    AddTrackCommand *add_track_cmd = project_insert_track_batch(project, batch, nullptr, nullptr);
+    project_push_command(project, add_track_cmd);
 
     err = ordered_map_file_batch_exec(batch);
     if (err) {
@@ -1036,13 +1042,21 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
 void project_close(Project *project) {
     if (project) {
         ordered_map_file_close(project->omf);
+        for (int i = 0; i < project->command_list.length(); i += 1) {
+            Command *cmd = project->command_list.at(i);
+            destroy(cmd, 1);
+        }
+        for (int i = 0; i < project->track_list.length(); i += 1) {
+            Track *track = project->track_list.at(i);
+            destroy(track, 1);
+        }
+        for (int i = 0; i < project->user_list.length(); i += 1) {
+            User *user = project->user_list.at(i);
+            if (user != project->active_user)
+                destroy(user, 1);
+        }
         destroy(project, 1);
     }
-}
-
-static void project_push_command(Project *project, Command *command) {
-    ok_or_panic(project->command_list.append(command));
-    project->commands.put(command->id, command);
 }
 
 static void trigger_undo_changed(Project *project) {
