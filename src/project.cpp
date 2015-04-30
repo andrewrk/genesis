@@ -334,7 +334,6 @@ static void serialize_object(T *obj, ByteBuffer &buffer) {
         it += 1;
     }
 
-    int start_offset = buffer.length();
     buffer.append_uint32be(field_count);
 
     // iterate again and serialize everything
@@ -346,7 +345,7 @@ static void serialize_object(T *obj, ByteBuffer &buffer) {
         buffer.append_uint32be(it->key);
         serialize_from_enum(it->get_field_ptr(obj), it->type, buffer);
 
-        int field_size = buffer.length() - start_offset;
+        int field_size = buffer.length() - field_length_offset;
         write_uint32be(buffer.raw() + field_length_offset, field_size);
 
         it += 1;
@@ -452,6 +451,7 @@ static int deserialize_object(T *obj, const ByteBuffer &buffer, int *offset) {
             // skip this field
             *offset = field_offset + field_size;
         }
+        assert(*offset == field_offset + field_size);
     }
 
     // call default callbacks on unfound fields
@@ -520,6 +520,7 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
         }
     case SerializableFieldTypeCmdType:
         // ignore
+        *offset += 4;
         return 0;
     }
     panic("unreachable");
@@ -653,14 +654,8 @@ static OrderedMapFileBuffer *create_track_key(const uint256 &id) {
     return create_id_key(PropKeyTrack, id);
 }
 
-static OrderedMapFileBuffer *create_command_key(Command *command) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + 4);
-    if (!buf)
-        panic("out of memory");
-    write_uint32be(&buf->data[0], PropKeyCommand);
-    write_uint32be(&buf->data[4], PropKeyDelimiter);
-    write_uint32be(&buf->data[8], command->revision);
-    return buf;
+static OrderedMapFileBuffer *create_command_key(const uint256 &id) {
+    return create_id_key(PropKeyCommand, id);
 }
 
 static OrderedMapFileBuffer *create_basic_key(PropKey prop_key) {
@@ -671,7 +666,30 @@ static OrderedMapFileBuffer *create_basic_key(PropKey prop_key) {
     return buf;
 }
 
-static int deserialize_track(Project *project, const uint256 &id, const ByteBuffer &value) {
+static int object_key_to_id(const ByteBuffer &key, uint256 *out_id) {
+    if (key.length() != PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE)
+        return GenesisErrorInvalidFormat;
+
+    *out_id = uint256::read_be(key.raw() + 8);
+
+    return 0;
+}
+
+static int list_key_to_index(const ByteBuffer &key, int *out_index) {
+    if (key.length() != PROP_KEY_SIZE + PROP_KEY_SIZE + 4)
+        return GenesisErrorInvalidFormat;
+
+    uint32_t x = read_uint32be(key.raw() + 8);
+
+    if (x > (uint32_t)INT_MAX)
+        return GenesisErrorInvalidFormat;
+
+    *out_index = x;
+
+    return 0;
+}
+
+static int deserialize_track_decoded_key(Project *project, const uint256 &id, const ByteBuffer &value) {
     Track *track = create_zero<Track>();
     if (!track)
         return GenesisErrorNoMem;
@@ -692,14 +710,25 @@ static int deserialize_track(Project *project, const uint256 &id, const ByteBuff
 
 }
 
-static int deserialize_user(Project *project, const uint256 &id, const ByteBuffer &value) {
+static int deserialize_track(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
+    uint256 track_id;
+    int err = object_key_to_id(key, &track_id);
+    if (err)
+        return err;
+    return deserialize_track_decoded_key(project, track_id, value);
+}
+
+static int deserialize_user(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
     User *user = create_zero<User>();
     if (!user)
         return GenesisErrorNoMem;
 
-    user->id = id;
-
     int err;
+    if ((err = object_key_to_id(key, &user->id))) {
+        destroy(user, 1);
+        return err;
+    }
+
     int offset = 0;
     if ((err = deserialize_object(user, value, &offset))) {
         destroy(user, 1);
@@ -712,16 +741,17 @@ static int deserialize_user(Project *project, const uint256 &id, const ByteBuffe
     return 0;
 }
 
-static int deserialize_command(Project *project, const uint256 &id, const ByteBuffer &buffer) {
+static int deserialize_command(Project *project, const ByteBuffer &key, const ByteBuffer &buffer) {
     int offset_data = 0;
     int *offset = &offset_data;
     int err;
+
+    int fields_start_offset = *offset;
 
     // look for the command type field first
     int field_count;
     if ((err = deserialize_uint32be_as_int(&field_count, buffer, offset))) return err;
 
-    int fields_start_offset = *offset;
     int cmd_type = -1;
     for (int field_i = 0; field_i < field_count; field_i += 1) {
         int field_offset = *offset;
@@ -765,7 +795,11 @@ static int deserialize_command(Project *project, const uint256 &id, const ByteBu
         return GenesisErrorNoMem;
 
     command->project = project;
-    command->id = id;
+
+    if ((err = object_key_to_id(key, &command->id))) {
+        destroy(command, 1);
+        return err;
+    }
 
     if ((err = deserialize_object(command, buffer, offset))) {
         destroy(command, 1);
@@ -783,14 +817,42 @@ static int deserialize_command(Project *project, const uint256 &id, const ByteBu
     return 0;
 }
 
-static int read_scalar_uint256(Project *project, PropKey prop_key, uint256 *out_value) {
-    ByteBuffer buf;
-    buf.resize(4);
-    write_uint32be((uint8_t*)buf.raw(), prop_key);
-    int key_index = ordered_map_file_find_key(project->omf, buf);
+static int deserialize_undo_stack_item(Project *project, const ByteBuffer &key, const ByteBuffer &buffer) {
+    int index;
+    int err;
+    if ((err = list_key_to_index(key, &index))) return err;
+
+    int offset = 0;
+
+    uint256 cmd_id;
+    if ((err = deserialize_uint256(&cmd_id, buffer, &offset))) return err;
+
+    auto entry = project->commands.maybe_get(cmd_id);
+    if (!entry)
+        return GenesisErrorInvalidFormat;
+
+    Command *command = entry->value;
+
+    if (project->undo_stack.resize(project->undo_stack.length() + 1))
+        return GenesisErrorNoMem;
+
+    project->undo_stack.at(project->undo_stack.length() - 1) = command;
+
+    return 0;
+}
+
+static int read_scalar_byte_buffer(Project *project, PropKey prop_key, ByteBuffer &buffer) {
+    buffer.resize(4);
+    write_uint32be(buffer.raw(), prop_key);
+    int key_index = ordered_map_file_find_key(project->omf, buffer);
     if (key_index == -1)
         return GenesisErrorKeyNotFound;
-    int err = ordered_map_file_get(project->omf, key_index, nullptr, buf);
+    return ordered_map_file_get(project->omf, key_index, nullptr, buffer);
+}
+
+static int read_scalar_uint256(Project *project, PropKey prop_key, uint256 *out_value) {
+    ByteBuffer buf;
+    int err = read_scalar_byte_buffer(project, prop_key, buf);
     if (err)
         return err;
     if (buf.length() != UINT256_SIZE)
@@ -799,8 +861,30 @@ static int read_scalar_uint256(Project *project, PropKey prop_key, uint256 *out_
     return 0;
 }
 
-static int iterate_thing(Project *project, PropKey prop_key,
-        int (*got_one)(Project *, const uint256 &, const ByteBuffer &))
+static int read_scalar_uint32be(Project *project, PropKey prop_key, uint32_t *out_value) {
+    ByteBuffer buf;
+    int err = read_scalar_byte_buffer(project, prop_key, buf);
+    if (err)
+        return err;
+    if (buf.length() != 4)
+        return GenesisErrorInvalidFormat;
+    *out_value = read_uint32be(buf.raw());
+    return 0;
+}
+
+static int read_scalar_uint32be_as_int(Project *project, PropKey prop_key, int *out_value) {
+    uint32_t x;
+    int err = read_scalar_uint32be(project, prop_key, &x);
+    if (err)
+        return err;
+    if (x > (uint32_t)INT_MAX)
+        return GenesisErrorInvalidFormat;
+    *out_value = x;
+    return 0;
+}
+
+static int iterate_prefix(Project *project, PropKey prop_key,
+        int (*got_one)(Project *, const ByteBuffer &, const ByteBuffer &))
 {
     ByteBuffer key_buf;
     key_buf.append_uint32be(prop_key);
@@ -818,12 +902,7 @@ static int iterate_thing(Project *project, PropKey prop_key,
         if (key->cmp_prefix(key_buf) != 0)
             break;
 
-        if (key->length() != PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE)
-            return GenesisErrorInvalidFormat;
-
-        uint256 id = uint256::read_be(key->raw() + 8);
-
-        err = got_one(project, id, value);
+        err = got_one(project, *key, value);
         if (err)
             return err;
 
@@ -855,22 +934,40 @@ int project_open(const char *path, User *user, Project **out_project) {
     }
 
     // read tracks
-    err = iterate_thing(project, PropKeyTrack, deserialize_track);
+    err = iterate_prefix(project, PropKeyTrack, deserialize_track);
     if (err) {
         project_close(project);
         return err;
     }
 
     // read users
-    err = iterate_thing(project, PropKeyUser, deserialize_user);
+    err = iterate_prefix(project, PropKeyUser, deserialize_user);
     if (err) {
         project_close(project);
         return err;
     }
 
     // read command history (depends on users)
-    err = iterate_thing(project, PropKeyCommand, deserialize_command);
+    err = iterate_prefix(project, PropKeyCommand, deserialize_command);
     if (err) {
+        project_close(project);
+        return err;
+    }
+
+    // read undo stack (depends on command history)
+    err = iterate_prefix(project, PropKeyUndoStack, deserialize_undo_stack_item);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+
+    // read undo stack index (depends on undo stack)
+    err = read_scalar_uint32be_as_int(project, PropKeyUndoStackIndex, &project->undo_stack_index);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+    if (project->undo_stack_index < 0 || project->undo_stack_index > project->undo_stack.length()) {
         project_close(project);
         return err;
     }
@@ -902,8 +999,12 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
 
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     ordered_map_file_batch_put(batch, create_basic_key(PropKeyProjectId), omf_buf_uint256(project->id));
+    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index));
+
     ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user));
     project_insert_track_batch(project, batch, nullptr, nullptr);
+
     err = ordered_map_file_batch_exec(batch);
     if (err) {
         project_close(project);
@@ -938,8 +1039,6 @@ static void add_undo_for_command(Project *project, OrderedMapFileBatch *batch, C
     ordered_map_file_batch_put(batch, create_undo_stack_key(this_undo_index), omf_buf_uint256(command->id));
     ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
             omf_buf_uint32(project->undo_stack_index));
-
-    ordered_map_file_batch_put(batch, create_command_key(command), omf_buf_obj(command));
 }
 
 void project_perform_command(Project *project, Command *command) {
@@ -949,7 +1048,7 @@ void project_perform_command(Project *project, Command *command) {
 
     project_perform_command_batch(project, batch, command);
     project_push_command(project, command);
-    ordered_map_file_batch_put(batch, create_command_key(command), omf_buf_obj(command));
+    ordered_map_file_batch_put(batch, create_command_key(command->id), omf_buf_obj(command));
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
@@ -969,11 +1068,12 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
 
 void project_insert_track(Project *project, const Track *before, const Track *after) {
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
-    AddTrackCommand *command = project_insert_track_batch(project, batch, before, after);
-    add_undo_for_command(project, batch, command);
+    AddTrackCommand *add_track_cmd = project_insert_track_batch(project, batch, before, after);
+    add_undo_for_command(project, batch, add_track_cmd);
 
-    project_push_command(project, command);
-    ordered_map_file_batch_put(batch, create_command_key(command), omf_buf_obj(command));
+    project_push_command(project, add_track_cmd);
+
+    ordered_map_file_batch_put(batch, create_command_key(add_track_cmd->id), omf_buf_obj((Command *)add_track_cmd));
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
@@ -1023,7 +1123,7 @@ void project_undo(Project *project) {
     project_perform_command_batch(project, batch, undo);
 
     project_push_command(project, undo);
-    ordered_map_file_batch_put(batch, create_command_key(undo), omf_buf_obj(undo));
+    ordered_map_file_batch_put(batch, create_command_key(undo->id), omf_buf_obj((Command *)undo));
 
     project->undo_stack_index -= 1;
     ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
@@ -1044,7 +1144,7 @@ void project_redo(Project *project) {
     project_perform_command_batch(project, batch, redo);
 
     project_push_command(project, redo);
-    ordered_map_file_batch_put(batch, create_command_key(redo), omf_buf_obj(redo));
+    ordered_map_file_batch_put(batch, create_command_key(redo->id), omf_buf_obj((Command *)redo));
 
     project->undo_stack_index += 1;
     ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
@@ -1102,7 +1202,7 @@ DeleteTrackCommand::DeleteTrackCommand(Project *project, Track *track) :
 }
 
 void DeleteTrackCommand::undo(OrderedMapFileBatch *batch) {
-    ok_or_panic(deserialize_track(project, track_id, payload));
+    ok_or_panic(deserialize_track_decoded_key(project, track_id, payload));
     ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_byte_buffer(payload));
 }
 

@@ -355,11 +355,24 @@ static void test_basic_project_editing(void) {
     assert(project->undo_stack.length() == 1);
 
     project_undo(project);
-
     assert(project->track_list.length() == 1);
 
     project_redo(project);
+    assert(project->track_list.length() == 2);
 
+    project_undo(project);
+    assert(project->track_list.length() == 1);
+
+    project_close(project);
+    project = nullptr;
+
+    err = project_open(tmp_proj_path, user, &project);
+    assert(err == 0);
+
+    assert(project->id == project_id);
+    assert(project->track_list.length() == 1);
+
+    project_redo(project);
     assert(project->track_list.length() == 2);
 
     project_close(project);
