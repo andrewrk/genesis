@@ -368,7 +368,8 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
             }
             Widget *old_mouse_over_widget = _mouse_over_widget;
             _mouse_over_widget = NULL;
-            old_mouse_over_widget->on_mouse_out(&mouse_event);
+            if (old_mouse_over_widget)
+                old_mouse_over_widget->on_mouse_out(&mouse_event);
         }
     }
 
