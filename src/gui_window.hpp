@@ -49,6 +49,7 @@ public:
     void set_main_widget(Widget *widget);
     // coords are the rectangle that originated the menu. you might only need left and top.
     ContextMenuWidget * pop_context_menu(MenuWidgetItem *menu_widget_item, int left, int top, int width, int height);
+    void refresh_context_menu();
 
 
     void *_userdata;

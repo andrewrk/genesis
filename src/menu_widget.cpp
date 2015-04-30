@@ -2,6 +2,19 @@
 #include "color.hpp"
 #include "gui_window.hpp"
 
+static void parse_mnemonic(String &out_str, int *out_mnemonic_index) {
+    *out_mnemonic_index = -1;
+    for (int i = 0; i < out_str.length() - 1; i += 1) {
+        uint32_t codepoint = out_str.at(i);
+        uint32_t next_codepoint = out_str.at(i + 1);
+        if (codepoint == (uint32_t)'&' && next_codepoint != (uint32_t)'&') {
+            *out_mnemonic_index = i;
+            out_str.remove_range(i, i + 1);
+            break;
+        }
+    }
+}
+
 bool null_key_sequence(const KeySequence &seq) {
     return seq.modifiers == -1;
 }
@@ -29,7 +42,8 @@ MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_
     label(gui_window->_gui),
     shortcut_label(gui_window->_gui),
     mnemonic_index(mnemonic_index),
-    shortcut(shortcut)
+    shortcut(shortcut),
+    enabled(true)
 {
     label.set_text(name);
     if (!null_key_sequence(shortcut))
@@ -56,19 +70,23 @@ MenuWidgetItem *MenuWidgetItem::add_menu(const String &name, int mnemonic_index,
 }
 
 MenuWidgetItem *MenuWidgetItem::add_menu(const String &name_orig, const KeySequence &shortcut) {
-    // parse for mnemonic_index
-    int mnemonic_index = -1;
     String name = name_orig;
-    for (int i = 0; i < name.length() - 1; i += 1) {
-        uint32_t codepoint = name.at(i);
-        uint32_t next_codepoint = name.at(i + 1);
-        if (codepoint == (uint32_t)'&' && next_codepoint != (uint32_t)'&') {
-            mnemonic_index = i;
-            name.remove_range(i, i + 1);
-            break;
-        }
-    }
+    int mnemonic_index = -1;
+    parse_mnemonic(name, &mnemonic_index);
     return add_menu(name, mnemonic_index, shortcut);
+}
+
+void MenuWidgetItem::set_caption(const String &orig_caption) {
+    String caption = orig_caption;
+    int mnemonic_index = -1;
+    parse_mnemonic(caption, &mnemonic_index);
+    return set_caption(caption, mnemonic_index);
+}
+
+void MenuWidgetItem::set_caption(const String &caption, int new_mnemonic_index) {
+    label.set_text(caption);
+    label.update();
+    mnemonic_index = new_mnemonic_index;
 }
 
 VirtKey MenuWidgetItem::get_mnemonic_key() {
@@ -131,6 +149,7 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     bg_color(parse_color("#FCFCFC")),
     activated_color(parse_color("#2B71BC")),
     text_color(parse_color("#353535")),
+    text_disabled_color(color_light_disabled_text()),
     activated_text_color(parse_color("#f0f0f0")),
     userdata(nullptr),
     on_destroy(nullptr),
@@ -206,8 +225,15 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
 
     for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
         MenuWidgetItem *child = menu_widget_item->children.at(i);
-        glm::vec4 this_text_color = (child == activated_item) ? activated_text_color : text_color;
-        if (child == activated_item) {
+        glm::vec4 this_text_color;
+        if (!child->enabled) {
+            this_text_color = text_disabled_color;
+        } else if (child == activated_item) {
+            this_text_color = activated_text_color;
+        } else {
+            this_text_color = text_color;
+        }
+        if (child == activated_item && child->enabled) {
             gui_window->fill_rect(activated_color,
                 left, top + child->top,
                 calculated_width, child->bottom - child->top);
@@ -253,10 +279,12 @@ void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
             activated_item = hover_item;
             break;
         case MouseActionUp:
-            if (hover_item)
-                hover_item->activate();
-            else
+            if (hover_item) {
+                if (hover_item->enabled)
+                    hover_item->activate();
+            } else {
                 gui_window->destroy_context_menu();
+            }
             break;
         default:
             return;
@@ -282,13 +310,17 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
     if (event->virt_key == VirtKeyUp || event->virt_key == VirtKeyDown) {
         int dir = (event->virt_key == VirtKeyUp) ? -1 : 1;
         int new_index;
-        if (activated_item) {
-            int activated_index = get_menu_widget_index(activated_item);
-            new_index = (activated_index + dir) % menu_widget_item->children.length();
-        } else {
-            new_index = (dir == 1) ? 0 : (menu_widget_item->children.length() - 1);
+        int children_count = menu_widget_item->children.length();
+        int it_count = 0;
+        while ((!activated_item || !activated_item->enabled) && (it_count++ < children_count)) {
+            if (activated_item) {
+                int activated_index = get_menu_widget_index(activated_item);
+                new_index = (activated_index + dir) % children_count;
+            } else {
+                new_index = (dir == 1) ? 0 : (children_count - 1);
+            }
+            activated_item = menu_widget_item->children.at(new_index);
         }
-        activated_item = menu_widget_item->children.at(new_index);
         return true;
     }
 
@@ -301,7 +333,9 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
         return true;
     }
 
-    if (activated_item && (event->virt_key == VirtKeyEnter || event->virt_key == VirtKeySpace)) {
+    if (activated_item && activated_item->enabled &&
+        (event->virt_key == VirtKeyEnter || event->virt_key == VirtKeySpace))
+    {
         activated_item->activate();
         return true;
     }
@@ -314,7 +348,7 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
     for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
         MenuWidgetItem *child = menu_widget_item->children.at(i);
         VirtKey target_key = child->get_mnemonic_key();
-        if (target_key == event->virt_key) {
+        if (child->enabled && target_key == event->virt_key) {
             child->activate();
             return true;
         }
@@ -353,18 +387,9 @@ MenuWidget::~MenuWidget() {
 }
 
 MenuWidgetItem *MenuWidget::add_menu(const String &name_orig) {
-    // parse for mnemonic_index
     int mnemonic_index = -1;
     String name = name_orig;
-    for (int i = 0; i < name.length() - 1; i += 1) {
-        uint32_t codepoint = name.at(i);
-        uint32_t next_codepoint = name.at(i + 1);
-        if (codepoint == (uint32_t)'&' && next_codepoint != (uint32_t)'&') {
-            mnemonic_index = i;
-            name.remove_range(i, i + 1);
-            break;
-        }
-    }
+    parse_mnemonic(name, &mnemonic_index);
     return add_menu(name, mnemonic_index);
 }
 
@@ -525,7 +550,7 @@ bool MenuWidget::dispatch_shortcut(MenuWidgetItem *parent, const KeyEvent *event
         if (child->children.length() > 0) {
             if (dispatch_shortcut(child, event))
                 return true;
-        } else if (key_sequence_match(child->shortcut, event)) {
+        } else if (child->enabled && key_sequence_match(child->shortcut, event)) {
             child->activate();
             return true;
         }

@@ -519,6 +519,11 @@ ContextMenuWidget * GuiWindow::pop_context_menu(MenuWidgetItem *menu_widget_item
     return context_menu;
 }
 
+void GuiWindow::refresh_context_menu() {
+    if (context_menu)
+        context_menu->on_resize();
+}
+
 void GuiWindow::destroy_context_menu() {
     if (context_menu) {
         destroy(context_menu, 1);

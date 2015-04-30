@@ -26,11 +26,18 @@ static void report_bug_handler(void *userdata) {
 }
 
 static void undo_handler(void *userdata) {
-    panic("TODO");
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->do_undo();
 }
 
 static void redo_handler(void *userdata) {
-    panic("TODO");
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->do_redo();
+}
+
+static void on_undo_changed(Project *, ProjectEvent, void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->refresh_menu_state();
 }
 
 GenesisEditor::GenesisEditor() :
@@ -88,30 +95,40 @@ GenesisEditor::GenesisEditor() :
     if (settings_dirty)
         settings_file_commit(settings_file);
 
+    project_attach_event_handler(project, ProjectEventUndoChanged, on_undo_changed, this);
+
     create_window();
 }
 
-static int window_index(GenesisEditor *genesis_editor, GuiWindow *window) {
-    for (int i = 0; i < genesis_editor->windows.length(); i += 1) {
-        if (window == genesis_editor->windows.at(i))
+int GenesisEditor::window_index(GuiWindow *window) {
+    for (int i = 0; i < windows.length(); i += 1) {
+        EditorWindow *editor_window = windows.at(i);
+        if (window == editor_window->window)
             return i;
     }
     panic("window not found");
 }
 
-static void on_close_event(GuiWindow *window) {
+void GenesisEditor::on_close_event(GuiWindow *window) {
+    int index = window_index(window);
+    windows.swap_remove(index);
+    _gui->destroy_window(window);
+}
+
+static void static_on_close_event(GuiWindow *window) {
     GenesisEditor *genesis_editor = (GenesisEditor *)window->_userdata;
-    int index = window_index(genesis_editor, window);
-    genesis_editor->windows.swap_remove(index);
-    genesis_editor->_gui->destroy_window(window);
+    return genesis_editor->on_close_event(window);
 }
 
 void GenesisEditor::create_window() {
     GuiWindow *new_window = _gui->create_window(true);
     new_window->_userdata = this;
-    new_window->set_on_close_event(on_close_event);
+    new_window->set_on_close_event(static_on_close_event);
 
-    if (windows.append(new_window))
+    EditorWindow *new_editor_window = create<EditorWindow>();
+    new_editor_window->window = new_window;
+
+    if (windows.append(new_editor_window))
         panic("out of memory");
 
     MenuWidget *menu_widget = create<MenuWidget>(new_window);
@@ -132,6 +149,9 @@ void GenesisEditor::create_window() {
     new_window_menu->set_activate_handler(new_window_handler, this);
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
+    new_editor_window->undo_menu = undo_menu;
+    new_editor_window->redo_menu = redo_menu;
+
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
@@ -148,6 +168,8 @@ void GenesisEditor::create_window() {
     main_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
     main_grid_layout->add_widget(grid_layout, 1, 0, HAlignLeft, VAlignTop);
     new_window->set_main_widget(main_grid_layout);
+
+    refresh_menu_state();
 }
 
 GenesisEditor::~GenesisEditor() {
@@ -158,4 +180,44 @@ GenesisEditor::~GenesisEditor() {
 
 void GenesisEditor::exec() {
     _gui->exec();
+}
+
+void GenesisEditor::refresh_menu_state() {
+    bool undo_enabled = (project->undo_stack_index > 0);
+    bool redo_enabled = (project->undo_stack_index < project->undo_stack.length());
+    String undo_caption;
+    String redo_caption;
+    if (undo_enabled) {
+        Command *cmd = project->undo_stack.at(project->undo_stack_index - 1);
+        undo_caption = "&Undo ";
+        undo_caption.append(cmd->description());
+    } else {
+        undo_caption = "&Undo";
+    }
+    if (redo_enabled) {
+        Command *cmd = project->undo_stack.at(project->undo_stack_index);
+        redo_caption = "&Redo ";
+        redo_caption.append(cmd->description());
+    } else {
+        redo_caption = "&Redo";
+    }
+
+    for (int i = 0; i < windows.length(); i += 1) {
+        EditorWindow *editor_window = windows.at(i);
+        editor_window->undo_menu->set_enabled(undo_enabled);
+        editor_window->undo_menu->set_caption(undo_caption);
+
+        editor_window->redo_menu->set_enabled(redo_enabled);
+        editor_window->redo_menu->set_caption(redo_caption);
+
+        editor_window->window->refresh_context_menu();
+    }
+}
+
+void GenesisEditor::do_undo() {
+    project_undo(project);
+}
+
+void GenesisEditor::do_redo() {
+    project_redo(project);
 }

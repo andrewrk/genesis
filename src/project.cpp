@@ -601,18 +601,30 @@ static void project_sort_commands(Project *project) {
     project_sort_item<Command *, compare_commands>(project->command_list, project->commands);
 }
 
+static void trigger_event(Project *project, ProjectEvent event) {
+    for (int i = 0; i < project->event_handlers.length(); i += 1) {
+        ProjectEventHandler *handler = &project->event_handlers.at(i);
+        if (handler->event == event)
+            handler->fn(project, event, handler->userdata);
+    }
+}
+
 static void project_compute_indexes(Project *project) {
+    if (project->track_list_dirty) project_sort_tracks(project);
+    if (project->user_list_dirty) project_sort_users(project);
+    if (project->command_list_dirty) project_sort_commands(project);
+
     if (project->track_list_dirty) {
         project->track_list_dirty = false;
-        project_sort_tracks(project);
+        trigger_event(project, ProjectEventTracksChanged);
     }
     if (project->user_list_dirty) {
         project->user_list_dirty = false;
-        project_sort_users(project);
+        trigger_event(project, ProjectEventUsersChanged);
     }
     if (project->command_list_dirty) {
         project->command_list_dirty = false;
-        project_sort_commands(project);
+        trigger_event(project, ProjectEventCommandsChanged);
     }
 }
 
@@ -971,7 +983,7 @@ int project_open(const char *path, User *user, Project **out_project) {
     }
     if (project->undo_stack_index < 0 || project->undo_stack_index > project->undo_stack.length()) {
         project_close(project);
-        return err;
+        return GenesisErrorInvalidFormat;
     }
 
     project_compute_indexes(project);
@@ -1033,6 +1045,10 @@ static void project_push_command(Project *project, Command *command) {
     project->commands.put(command->id, command);
 }
 
+static void trigger_undo_changed(Project *project) {
+    return trigger_event(project, ProjectEventUndoChanged);
+}
+
 static void add_undo_for_command(Project *project, OrderedMapFileBatch *batch, Command *command) {
     for (int i = project->undo_stack_index; i < project->undo_stack.length(); i += 1) {
         ordered_map_file_batch_del(batch, create_undo_stack_key(i));
@@ -1057,6 +1073,7 @@ void project_perform_command(Project *project, Command *command) {
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
+    trigger_undo_changed(project);
 }
 
 void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch, Command *command) {
@@ -1082,6 +1099,7 @@ void project_insert_track(Project *project, const Track *before, const Track *af
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
+    trigger_undo_changed(project);
 }
 
 AddTrackCommand *project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
@@ -1136,6 +1154,7 @@ void project_undo(Project *project) {
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
+    trigger_undo_changed(project);
 }
 
 void project_redo(Project *project) {
@@ -1157,6 +1176,30 @@ void project_redo(Project *project) {
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
+    trigger_undo_changed(project);
+}
+
+void project_attach_event_handler(Project *project, ProjectEvent event,
+        void (*fn)(Project *, ProjectEvent, void *), void *userdata)
+{
+    ok_or_panic(project->event_handlers.resize(project->event_handlers.length() + 1));
+    ProjectEventHandler *event_handler = &project->event_handlers.at(project->event_handlers.length() - 1);
+    event_handler->event = event;
+    event_handler->fn = fn;
+    event_handler->userdata = userdata;
+}
+
+void project_detach_event_handler(Project *project, ProjectEvent event,
+        void (*fn)(Project *, ProjectEvent, void *))
+{
+    for (int i = 0; i < project->event_handlers.length(); i += 1) {
+        ProjectEventHandler *event_handler = &project->event_handlers.at(i);
+        if (event_handler->event == event && event_handler->fn == fn) {
+            project->event_handlers.swap_remove(i);
+            break;
+        }
+    }
+    panic("event handler not attached");
 }
 
 AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :

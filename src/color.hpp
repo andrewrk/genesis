@@ -33,6 +33,10 @@ static inline glm::vec4 color_fg_text(void) {
     return parse_color("#DCDCDC");
 }
 
+static inline glm::vec4 color_light_disabled_text(void) {
+    return parse_color("#C7C7C7");
+}
+
 static inline glm::vec4 color_light_bg(void) {
     return parse_color("#949494");
 }

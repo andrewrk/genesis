@@ -43,6 +43,13 @@ public:
         this->userdata = userdata;
     }
 
+    void set_enabled(bool enabled) {
+        this->enabled = enabled;
+    }
+
+    void set_caption(const String &caption);
+    void set_caption(const String &caption, int mnemonic_index);
+
     GuiWindow *gui_window;
 
     Label label;
@@ -59,6 +66,7 @@ public:
     List<MenuWidgetItem *> children;
     void (*activate_handler)(void *);
     void *userdata;
+    bool enabled;
 
     void activate();
     VirtKey get_mnemonic_key();
@@ -96,6 +104,7 @@ public:
     glm::vec4 bg_color;
     glm::vec4 activated_color;
     glm::vec4 text_color;
+    glm::vec4 text_disabled_color;
     glm::vec4 activated_text_color;
     glm::mat4 bg_model;
     void *userdata;
