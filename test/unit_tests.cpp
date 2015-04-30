@@ -268,15 +268,32 @@ static void test_os_get_time(void) {
 }
 
 static void test_uint256(void) {
-    uint256 id = uint256::random();
-    uint256 same_thing = uint256::parse(id.to_string());
-    assert(id == same_thing);
+    {
+        uint256 id = uint256::random();
+        uint256 same_thing = uint256::parse(id.to_string());
+        assert(id == same_thing);
+    }
 
-    ByteBuffer buf;
-    buf.resize(32);
-    id.write_be(buf.raw());
-    same_thing = uint256::read_be(buf.raw());
-    assert(id == same_thing);
+    {
+        ByteBuffer buf;
+        buf.resize(sizeof(uint256));
+
+        uint256 id = uint256::random();
+        id.write_be(buf.raw());
+
+        uint256 same_thing = uint256::read_be(buf.raw());
+        assert(id == same_thing);
+    }
+
+    {
+        uint256 id = uint256::random();
+        ByteBuffer str_rep_1 = id.to_string();
+        ByteBuffer buf;
+        buf.resize(sizeof(uint256));
+        id.write_be(buf.raw());
+        ByteBuffer str_rep_2 = buf.to_string();
+        assert(ByteBuffer::compare(str_rep_1, str_rep_2) == 0);
+    }
 }
 
 static void test_settings_file(void) {
