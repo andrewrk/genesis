@@ -355,6 +355,9 @@ static void test_basic_project_editing(void) {
     Project *project;
     ok_or_panic(project_create(tmp_proj_path, project_id, user, &project));
 
+    assert(project->user_list.length() == 1);
+    assert(project->user_list.at(0)->id == user_id);
+
     project_close(project);
     project = nullptr;
 
@@ -363,6 +366,9 @@ static void test_basic_project_editing(void) {
 
     assert(project->id == project_id);
     assert(project->track_list.length() == 1);
+
+    assert(project->user_list.length() == 1);
+    assert(project->user_list.at(0)->id == user_id);
 
     assert(project->undo_stack.length() == 0);
     Track *last_track = project->track_list.at(project->track_list.length() - 1);
@@ -385,6 +391,9 @@ static void test_basic_project_editing(void) {
 
     err = project_open(tmp_proj_path, user, &project);
     assert(err == 0);
+
+    assert(project->user_list.length() == 1);
+    assert(project->user_list.at(0)->id == user_id);
 
     assert(project->id == project_id);
     assert(project->track_list.length() == 1);

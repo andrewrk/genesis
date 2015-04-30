@@ -100,6 +100,7 @@ public:
     Command(Project *p) {
         project = p;
         user = project->active_user;
+        user_id = user->id;
         revision = project_get_next_revision(project);
         id = uint256::random();
     }

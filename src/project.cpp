@@ -921,6 +921,8 @@ int project_open(const char *path, User *user, Project **out_project) {
         return GenesisErrorNoMem;
     }
 
+    project->active_user = user;
+
     int err = ordered_map_file_open(path, &project->omf);
     if (err) {
         project_close(project);
@@ -996,6 +998,9 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
 
     project->id = id;
     project->active_user = user;
+
+    project->users.put(user->id, user);
+    project->user_list_dirty = true;
 
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     ordered_map_file_batch_put(batch, create_basic_key(PropKeyProjectId), omf_buf_uint256(project->id));
@@ -1230,6 +1235,7 @@ UndoCommand::UndoCommand(Project *project, Command *other_command) :
     Command(project),
     other_command(other_command)
 {
+    other_command_id = other_command->id;
 }
 
 void UndoCommand::undo(OrderedMapFileBatch *batch) {
@@ -1262,6 +1268,7 @@ RedoCommand::RedoCommand(Project *project, Command *other_command) :
     Command(project),
     other_command(other_command)
 {
+    other_command_id = other_command->id;
 }
 
 void RedoCommand::undo(OrderedMapFileBatch *batch) {
