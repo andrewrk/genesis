@@ -228,6 +228,9 @@ int project_open(const char *path, User *user, Project **out_project);
 int project_create(const char *path, const uint256 &id, User *user, Project **out_project);
 void project_close(Project *project);
 
+void project_undo(Project *project);
+void project_redo(Project *project);
+
 void project_perform_command(Project *project, Command *command);
 void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch, Command *command);
 

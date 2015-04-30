@@ -103,7 +103,7 @@ make
 
 ## Roadmap
 
- 0. fix saving/loading bugs and more robust serialization/deserialization
+ 0. undo/redo
  0. dockable pane widget
  0. implement perspectives
  0. piano roll widget

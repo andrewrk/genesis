@@ -11,7 +11,8 @@ enum PropKey {
     PropKeyTrack,
     PropKeyCommand,
     PropKeyUser,
-    PropKeyUndoCommand,
+    PropKeyUndoStack,
+    PropKeyUndoStackIndex,
 };
 
 static const int PROP_KEY_SIZE = 4;
@@ -524,18 +525,35 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
     panic("unreachable");
 }
 
+static OrderedMapFileBuffer *omf_buf_uint256(const uint256 &value) {
+    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(UINT256_SIZE);
+    if (!buf)
+        panic("out of memory");
+    value.write_be(buf->data);
+    return buf;
+}
 
-static OrderedMapFileBuffer *byte_buffer_to_omf_buffer(const ByteBuffer &byte_buffer) {
+static OrderedMapFileBuffer *omf_buf_uint32(uint32_t x) {
+    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(4);
+    if (!buf)
+        panic("out of memory");
+    write_uint32be(buf->data, x);
+    return buf;
+}
+
+static OrderedMapFileBuffer *omf_buf_byte_buffer(const ByteBuffer &byte_buffer) {
     OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(byte_buffer.length());
+    if (!buf)
+        panic("out of memory");
     memcpy(buf->data, byte_buffer.raw(), byte_buffer.length());
     return buf;
 }
 
 template<typename T>
-static OrderedMapFileBuffer *obj_to_omf_buf(T *obj) {
+static OrderedMapFileBuffer *omf_buf_obj(T *obj) {
     ByteBuffer buffer;
     serialize_object(obj, buffer);
-    return byte_buffer_to_omf_buffer(buffer);
+    return omf_buf_byte_buffer(buffer);
 }
 
 static int compare_tracks(Track *a, Track *b) {
@@ -605,6 +623,16 @@ int project_get_next_revision(Project *project) {
 
     Command *last_command = project->command_list.at(project->command_list.length() - 1);
     return last_command->revision + 1;
+}
+
+static OrderedMapFileBuffer *create_undo_stack_key(int index) {
+    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + 4);
+    if (!buf)
+        panic("out of memory");
+    write_uint32be(&buf->data[0], PropKeyUndoStack);
+    write_uint32be(&buf->data[4], PropKeyDelimiter);
+    write_uint32be(&buf->data[8], index);
+    return buf;
 }
 
 static OrderedMapFileBuffer *create_id_key(PropKey prop_key, const uint256 &id) {
@@ -771,14 +799,6 @@ static int read_scalar_uint256(Project *project, PropKey prop_key, uint256 *out_
     return 0;
 }
 
-static void put_uint256(OrderedMapFileBatch *batch, OrderedMapFileBuffer *key, const uint256 &x) {
-    OrderedMapFileBuffer *value = ordered_map_file_buffer_create(UINT256_SIZE);
-    if (!value)
-        panic("out of memory");
-    x.write_be(value->data);
-    ordered_map_file_batch_put(batch, key, value);
-}
-
 static int iterate_thing(Project *project, PropKey prop_key,
         int (*got_one)(Project *, const uint256 &, const ByteBuffer &))
 {
@@ -881,8 +901,8 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
     project->active_user = user;
 
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
-    put_uint256(batch, create_basic_key(PropKeyProjectId), project->id);
-    ordered_map_file_batch_put(batch, create_user_key(user->id), obj_to_omf_buf(user));
+    ordered_map_file_batch_put(batch, create_basic_key(PropKeyProjectId), omf_buf_uint256(project->id));
+    ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user));
     project_insert_track_batch(project, batch, nullptr, nullptr);
     err = ordered_map_file_batch_exec(batch);
     if (err) {
@@ -907,13 +927,31 @@ static void project_push_command(Project *project, Command *command) {
     project->commands.put(command->id, command);
 }
 
+static void add_undo_for_command(Project *project, OrderedMapFileBatch *batch, Command *command) {
+    for (int i = project->undo_stack_index; i < project->undo_stack.length(); i += 1) {
+        ordered_map_file_batch_del(batch, create_undo_stack_key(i));
+    }
+    int this_undo_index = project->undo_stack_index;
+    project->undo_stack_index += 1;
+    ok_or_panic(project->undo_stack.resize(project->undo_stack_index));
+    project->undo_stack.at(this_undo_index) = command;
+    ordered_map_file_batch_put(batch, create_undo_stack_key(this_undo_index), omf_buf_uint256(command->id));
+    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index));
+
+    ordered_map_file_batch_put(batch, create_command_key(command), omf_buf_obj(command));
+}
+
 void project_perform_command(Project *project, Command *command) {
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
-    project_perform_command_batch(project, batch, command);
-    ordered_map_file_batch_put(batch, create_command_key(command), obj_to_omf_buf(command));
-    ok_or_panic(ordered_map_file_batch_exec(batch));
 
+    add_undo_for_command(project, batch, command);
+
+    project_perform_command_batch(project, batch, command);
     project_push_command(project, command);
+    ordered_map_file_batch_put(batch, create_command_key(command), omf_buf_obj(command));
+
+    ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
 }
 
@@ -932,9 +970,12 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
 void project_insert_track(Project *project, const Track *before, const Track *after) {
     OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
     AddTrackCommand *command = project_insert_track_batch(project, batch, before, after);
-    ok_or_panic(ordered_map_file_batch_exec(batch));
+    add_undo_for_command(project, batch, command);
 
     project_push_command(project, command);
+    ordered_map_file_batch_put(batch, create_command_key(command), omf_buf_obj(command));
+
+    ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
 }
 
@@ -971,6 +1012,48 @@ void user_destroy(User *user) {
     destroy(user, 1);
 }
 
+void project_undo(Project *project) {
+    assert(project->undo_stack_index > 0);
+    int this_cmd_index = project->undo_stack_index - 1;
+
+    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
+
+    Command *other_command = project->undo_stack.at(this_cmd_index);
+    UndoCommand *undo = create<UndoCommand>(project, other_command);
+    project_perform_command_batch(project, batch, undo);
+
+    project_push_command(project, undo);
+    ordered_map_file_batch_put(batch, create_command_key(undo), omf_buf_obj(undo));
+
+    project->undo_stack_index -= 1;
+    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index));
+
+    ok_or_panic(ordered_map_file_batch_exec(batch));
+    project_compute_indexes(project);
+}
+
+void project_redo(Project *project) {
+    assert(project->undo_stack_index < project->undo_stack.length());
+    int this_cmd_index = project->undo_stack_index;
+
+    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
+
+    Command *other_command = project->undo_stack.at(this_cmd_index);
+    RedoCommand *redo = create<RedoCommand>(project, other_command);
+    project_perform_command_batch(project, batch, redo);
+
+    project_push_command(project, redo);
+    ordered_map_file_batch_put(batch, create_command_key(redo), omf_buf_obj(redo));
+
+    project->undo_stack_index += 1;
+    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index));
+
+    ok_or_panic(ordered_map_file_batch_exec(batch));
+    project_compute_indexes(project);
+}
+
 AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :
     Command(project),
     name(name),
@@ -1000,7 +1083,7 @@ void AddTrackCommand::redo(OrderedMapFileBatch *batch) {
     project->tracks.put(track->id, track);
     project->track_list_dirty = true;
 
-    ordered_map_file_batch_put(batch, create_track_key(track_id), obj_to_omf_buf(track));
+    ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_obj(track));
 }
 
 void AddTrackCommand::serialize(ByteBuffer &buf) {
@@ -1020,7 +1103,7 @@ DeleteTrackCommand::DeleteTrackCommand(Project *project, Track *track) :
 
 void DeleteTrackCommand::undo(OrderedMapFileBatch *batch) {
     ok_or_panic(deserialize_track(project, track_id, payload));
-    ordered_map_file_batch_put(batch, create_track_key(track_id), byte_buffer_to_omf_buffer(payload));
+    ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_byte_buffer(payload));
 }
 
 void DeleteTrackCommand::redo(OrderedMapFileBatch *batch) {

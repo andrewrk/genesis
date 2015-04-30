@@ -345,6 +345,22 @@ static void test_basic_project_editing(void) {
     assert(err == 0);
 
     assert(project->id == project_id);
+    assert(project->track_list.length() == 1);
+
+    assert(project->undo_stack.length() == 0);
+    Track *last_track = project->track_list.at(project->track_list.length() - 1);
+    project_insert_track(project, last_track, nullptr);
+
+    assert(project->track_list.length() == 2);
+    assert(project->undo_stack.length() == 1);
+
+    project_undo(project);
+
+    assert(project->track_list.length() == 1);
+
+    project_redo(project);
+
+    assert(project->track_list.length() == 2);
 
     project_close(project);
     os_delete(tmp_proj_path);
