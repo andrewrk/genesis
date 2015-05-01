@@ -10,6 +10,14 @@ struct Project;
 struct SettingsFile;
 struct User;
 class MenuWidgetItem;
+class GenesisEditor;
+
+struct EditorWindow {
+    GenesisEditor *genesis_editor;
+    GuiWindow *window;
+    MenuWidgetItem *undo_menu;
+    MenuWidgetItem *redo_menu;
+};
 
 class GenesisEditor {
 public:
@@ -24,11 +32,6 @@ public:
     ResourceBundle *resource_bundle;
     Gui *_gui;
 
-    struct EditorWindow {
-        GuiWindow *window;
-        MenuWidgetItem *undo_menu;
-        MenuWidgetItem *redo_menu;
-    };
     List<EditorWindow *> windows;
     Project *project;
     User *user;
@@ -41,8 +44,9 @@ public:
     void destroy_audio_edit_widget();
 
     void refresh_menu_state();
-    int window_index(GuiWindow *window);
-    void on_close_event(GuiWindow *window);
+    int window_index(EditorWindow *window);
+    void close_window(EditorWindow *window);
+    void close_others(EditorWindow *window);
 
     void do_undo();
     void do_redo();

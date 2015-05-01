@@ -21,6 +21,16 @@ static void new_window_handler(void *userdata) {
     genesis_editor->create_window();
 }
 
+static void close_window_handler(void *userdata) {
+    EditorWindow *editor_window = (EditorWindow *)userdata;
+    editor_window->genesis_editor->close_window(editor_window);
+}
+
+static void close_others_handler(void *userdata) {
+    EditorWindow *editor_window = (EditorWindow *)userdata;
+    editor_window->genesis_editor->close_others(editor_window);
+}
+
 static void report_bug_handler(void *userdata) {
     os_open_in_browser("https://github.com/andrewrk/genesis/issues");
 }
@@ -100,33 +110,45 @@ GenesisEditor::GenesisEditor() :
     create_window();
 }
 
-int GenesisEditor::window_index(GuiWindow *window) {
+int GenesisEditor::window_index(EditorWindow *window) {
     for (int i = 0; i < windows.length(); i += 1) {
         EditorWindow *editor_window = windows.at(i);
-        if (window == editor_window->window)
+        if (window == editor_window)
             return i;
     }
     panic("window not found");
 }
 
-void GenesisEditor::on_close_event(GuiWindow *window) {
-    int index = window_index(window);
+void GenesisEditor::close_window(EditorWindow *editor_window) {
+    int index = window_index(editor_window);
     windows.swap_remove(index);
-    _gui->destroy_window(window);
+    _gui->destroy_window(editor_window->window);
+}
+
+void GenesisEditor::close_others(EditorWindow *window) {
+    while (windows.length() > 1) {
+        EditorWindow *target_window = windows.at(windows.length() - 1);
+        if (target_window == window)
+            target_window = windows.at(windows.length() - 2);
+        close_window(target_window);
+    }
 }
 
 static void static_on_close_event(GuiWindow *window) {
-    GenesisEditor *genesis_editor = (GenesisEditor *)window->_userdata;
-    return genesis_editor->on_close_event(window);
+    EditorWindow *editor_window = (EditorWindow *)window->_userdata;
+    editor_window->genesis_editor->close_window(editor_window);
 }
 
 void GenesisEditor::create_window() {
+    EditorWindow *new_editor_window = create<EditorWindow>();
+
     GuiWindow *new_window = _gui->create_window(true);
-    new_window->_userdata = this;
+    new_window->_userdata = new_editor_window;
     new_window->set_on_close_event(static_on_close_event);
 
-    EditorWindow *new_editor_window = create<EditorWindow>();
+    new_editor_window->genesis_editor = this;
     new_editor_window->window = new_window;
+
 
     if (windows.append(new_editor_window))
         panic("out of memory");
@@ -137,16 +159,26 @@ void GenesisEditor::create_window() {
     MenuWidgetItem *window_menu = menu_widget->add_menu("&Window");
     MenuWidgetItem *help_menu = menu_widget->add_menu("&Help");
 
-    MenuWidgetItem *exit_menu = project_menu->add_menu("E&xit", alt_shortcut(VirtKeyF4));
+    MenuWidgetItem *exit_menu = project_menu->add_menu("E&xit", ctrl_shortcut(VirtKeyQ));
+
     MenuWidgetItem *undo_menu = edit_menu->add_menu("&Undo", ctrl_shortcut(VirtKeyZ));
     MenuWidgetItem *redo_menu = edit_menu->add_menu("&Redo", ctrl_shift_shortcut(VirtKeyZ));
+
     MenuWidgetItem *new_window_menu = window_menu->add_menu("&New Window", no_shortcut());
+    MenuWidgetItem *close_window_menu = window_menu->add_menu("&Close", alt_shortcut(VirtKeyF4));
+    MenuWidgetItem *close_others_menu = window_menu->add_menu("Close &Others", no_shortcut());
+
     MenuWidgetItem *report_bug_menu = help_menu->add_menu("&Report a Bug", shortcut(VirtKeyF1));
 
     exit_menu->set_activate_handler(exit_handler, this);
+
     undo_menu->set_activate_handler(undo_handler, this);
     redo_menu->set_activate_handler(redo_handler, this);
+
     new_window_menu->set_activate_handler(new_window_handler, this);
+    close_window_menu->set_activate_handler(close_window_handler, new_editor_window);
+    close_others_menu->set_activate_handler(close_others_handler, new_editor_window);
+
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
     new_editor_window->undo_menu = undo_menu;
