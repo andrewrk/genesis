@@ -179,6 +179,7 @@ void GuiWindow::framebuffer_size_callback(int width, int height) {
 void GuiWindow::set_main_widget(Widget *widget) {
     main_widget = widget;
     layout_main_widget();
+    set_focus_widget(main_widget);
 }
 
 void GuiWindow::window_size_callback(int width, int height) {
@@ -205,9 +206,11 @@ void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
         mods,
     };
 
-    if (_focus_widget) {
-        if (_focus_widget->on_key_event(&key_event))
+    Widget *event_target = _focus_widget;
+    while (event_target) {
+        if (event_target->on_key_event(&key_event))
             return;
+        event_target = event_target->parent_widget;
     }
 
     if (menu_widget) {
@@ -382,8 +385,10 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
 void GuiWindow::remove_widget(Widget *widget) {
     if (widget == _mouse_over_widget)
         _mouse_over_widget = nullptr;
-    if (widget == _focus_widget)
+    if (widget == _focus_widget) {
         _focus_widget = nullptr;
+        set_focus_widget(main_widget);
+    }
 }
 
 bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {

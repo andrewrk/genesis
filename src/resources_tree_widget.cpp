@@ -59,7 +59,7 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
             continue;
 
         glm::mat4 label_mvp = projection * child->label_model;
-        child->label->draw(gui_window, label_mvp, text_color);
+        child->label->draw(label_mvp, text_color);
         if (should_draw_icon(child)) {
             glm::mat4 icon_mvp = projection * child->icon_model;
             gui->draw_image_color(gui_window, child->icon_img, icon_mvp, text_color);

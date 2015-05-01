@@ -35,7 +35,7 @@ public:
         return _height;
     }
 
-    void draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color);
+    void draw(const glm::mat4 &mvp, const glm::vec4 &color);
 
     int cursor_at_pos(int x, int y) const;
     void pos_at_cursor(int index, int &x, int &y) const;

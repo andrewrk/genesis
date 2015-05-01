@@ -10,6 +10,7 @@
 #include "settings_file.hpp"
 #include "resource_bundle.hpp"
 #include "path.hpp"
+#include "tab_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -150,8 +151,7 @@ void GenesisEditor::create_window() {
     new_editor_window->window = new_window;
 
 
-    if (windows.append(new_editor_window))
-        panic("out of memory");
+    ok_or_panic(windows.append(new_editor_window));
 
     MenuWidget *menu_widget = create<MenuWidget>(new_window);
     MenuWidgetItem *project_menu = menu_widget->add_menu("&Project");
@@ -188,17 +188,15 @@ void GenesisEditor::create_window() {
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
 
-    GridLayoutWidget *grid_layout = create<GridLayoutWidget>(new_window);
-    grid_layout->padding = 0;
-    grid_layout->spacing = 0;
-    grid_layout->add_widget(resources_tree, 0, 0, HAlignLeft, VAlignTop);
-    grid_layout->add_widget(track_editor, 0, 1, HAlignLeft, VAlignTop);
+    TabWidget *tab_widget = create<TabWidget>(new_window);
+    tab_widget->add_widget(resources_tree, "Resources");
+    tab_widget->add_widget(track_editor, "Track Editor");
 
     GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
     main_grid_layout->padding = 0;
     main_grid_layout->spacing = 0;
     main_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
-    main_grid_layout->add_widget(grid_layout, 1, 0, HAlignLeft, VAlignTop);
+    main_grid_layout->add_widget(tab_widget, 1, 0, HAlignLeft, VAlignTop);
     new_window->set_main_widget(main_grid_layout);
 
     refresh_menu_state();

@@ -77,7 +77,7 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
         gui_window->fill_rect(track_head_bg_color, projection * gui_track->head_model);
         gui_window->fill_rect(track_main_bg_color, projection * gui_track->body_model);
         gui_track->track_name_label->draw(
-                gui_window, projection * gui_track->track_name_label_model, track_name_color);
+                projection * gui_track->track_name_label_model, track_name_color);
 
         gui_window->fill_rect(light_border_color, projection * gui_track->border_top_model);
         gui_window->fill_rect(dark_border_color, projection * gui_track->border_bottom_model);

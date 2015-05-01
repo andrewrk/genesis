@@ -15,28 +15,6 @@ static void parse_mnemonic(String &out_str, int *out_mnemonic_index) {
     }
 }
 
-bool null_key_sequence(const KeySequence &seq) {
-    return seq.modifiers == -1;
-}
-
-String key_sequence_to_string(const KeySequence &seq) {
-    String result;
-    if (key_mod_ctrl(seq.modifiers))
-        result.append("Ctrl+");
-    if (key_mod_shift(seq.modifiers))
-        result.append("Shift+");
-    if (key_mod_alt(seq.modifiers))
-        result.append("Alt+");
-    if (key_mod_super(seq.modifiers))
-        result.append("Super+");
-    result.append(virt_key_to_string(seq.key));
-    return result;
-}
-
-bool key_sequence_match(const KeySequence &seq, const KeyEvent *event) {
-    return (seq.modifiers == event->modifiers) && (seq.key == event->virt_key);
-}
-
 MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_index, KeySequence shortcut) :
     gui_window(gui_window),
     label(gui_window->_gui),
@@ -240,10 +218,10 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
         }
 
         glm::mat4 label_mvp = projection * child->label_model;
-        child->label.draw(gui_window, label_mvp, this_text_color);
+        child->label.draw(label_mvp, this_text_color);
         if (!null_key_sequence(child->shortcut)) {
             glm::mat4 shortcut_label_mvp = projection * child->shortcut_label_model;
-            child->shortcut_label.draw(gui_window, shortcut_label_mvp, this_text_color);
+            child->shortcut_label.draw(shortcut_label_mvp, this_text_color);
         }
 
         if (child->mnemonic_index >= 0) {
@@ -418,7 +396,7 @@ void MenuWidget::draw(const glm::mat4 &projection) {
                     left + child->left, top,
                     child->right - child->left, calculated_height);
         }
-        child->item->label.draw(gui_window, label_mvp, this_text_color);
+        child->item->label.draw(label_mvp, this_text_color);
         if (child->item->mnemonic_index >= 0) {
             glm::mat4 mnemonic_mvp = projection * child->item->mnemonic_model;
             gui_window->fill_rect(this_text_color, mnemonic_mvp);

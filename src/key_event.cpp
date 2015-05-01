@@ -126,3 +126,25 @@ String virt_key_to_string(VirtKey key) {
     }
     return "Unknown";
 }
+
+bool null_key_sequence(const KeySequence &seq) {
+    return seq.modifiers == -1;
+}
+
+String key_sequence_to_string(const KeySequence &seq) {
+    String result;
+    if (key_mod_ctrl(seq.modifiers))
+        result.append("Ctrl+");
+    if (key_mod_shift(seq.modifiers))
+        result.append("Shift+");
+    if (key_mod_alt(seq.modifiers))
+        result.append("Alt+");
+    if (key_mod_super(seq.modifiers))
+        result.append("Super+");
+    result.append(virt_key_to_string(seq.key));
+    return result;
+}
+
+bool key_sequence_match(const KeySequence &seq, const KeyEvent *event) {
+    return (seq.modifiers == event->modifiers) && (seq.key == event->virt_key);
+}

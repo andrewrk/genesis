@@ -6,28 +6,6 @@
 #include "string.hpp"
 #include "label.hpp"
 
-struct KeySequence {
-    int modifiers;
-    VirtKey key;
-};
-
-bool null_key_sequence(const KeySequence &seq);
-String key_sequence_to_string(const KeySequence &seq);
-bool key_sequence_match(const KeySequence &seq, const KeyEvent *event);
-
-static inline KeySequence make_shortcut(int modifiers, VirtKey key) {
-    return {
-        .modifiers = modifiers,
-        .key = key,
-    };
-}
-
-static inline KeySequence no_shortcut() { return make_shortcut(-1, VirtKeyUnknown); }
-static inline KeySequence alt_shortcut(VirtKey key) { return make_shortcut(KeyModAlt, key); }
-static inline KeySequence ctrl_shortcut(VirtKey key) { return make_shortcut(KeyModControl, key); }
-static inline KeySequence ctrl_shift_shortcut(VirtKey key) { return make_shortcut(KeyModControl|KeyModShift, key); }
-static inline KeySequence shortcut(VirtKey key) { return make_shortcut(0, key); }
-
 class GuiWindow;
 class MenuWidgetItem {
 public:

@@ -70,7 +70,7 @@ void TextWidget::draw(const glm::mat4 &projection) {
     glm::mat4 label_mvp = projection * _label_model;
     if (_text_interaction_on) {
         if (_placeholder_label.text().length() > 0 && _label.text().length() == 0)
-            _placeholder_label.draw(gui_window, label_mvp, _placeholder_color);
+            _placeholder_label.draw(label_mvp, _placeholder_color);
     }
 
     glEnable(GL_STENCIL_TEST);
@@ -89,7 +89,7 @@ void TextWidget::draw(const glm::mat4 &projection) {
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-    _label.draw(gui_window, label_mvp, _text_color);
+    _label.draw(label_mvp, _text_color);
 
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
@@ -111,7 +111,7 @@ void TextWidget::draw(const glm::mat4 &projection) {
             glStencilFunc(GL_EQUAL, 1, 0xFF);
             glStencilMask(0x00);
 
-            _label.draw(gui_window, label_mvp, _sel_text_color);
+            _label.draw(label_mvp, _sel_text_color);
         }
     }
 

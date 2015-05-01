@@ -44,7 +44,7 @@ Label::~Label() {
     glDeleteTextures(1, &_texture_id);
 }
 
-void Label::draw(const GuiWindow *window, const glm::mat4 &mvp, const glm::vec4 &color) {
+void Label::draw(const glm::mat4 &mvp, const glm::vec4 &color) {
     if (_text.length() == 0)
         return;
 

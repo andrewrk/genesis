@@ -61,4 +61,8 @@ static inline glm::vec4 color_light_border(void) {
     return parse_color("#DADADA");
 };
 
+static inline glm::vec4 color_dark_bg_inactive(void) {
+    return parse_color("#777777");
+}
+
 #endif

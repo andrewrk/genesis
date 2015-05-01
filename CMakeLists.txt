@@ -74,6 +74,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
     "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tab_widget.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
