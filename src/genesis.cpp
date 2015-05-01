@@ -97,6 +97,10 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
+    for (int i = 0; i < context->thread_pool.length(); i += 1) {
+        Thread *thread = &context->thread_pool.at(i);
+        thread->set_high_priority();
+    }
 
     int err = create_midi_hardware(context, "genesis", midi_events_signal, on_midi_devices_change,
             context, &context->midi_hardware);
