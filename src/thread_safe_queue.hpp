@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/errno.h>
+#include <assert.h>
 
 #include <atomic>
 using std::atomic_int;
@@ -76,10 +77,9 @@ public:
         int in_bounds_index = my_write_index % _size;
         _items[in_bounds_index] = item;
         int my_queue_count = _queue_count.fetch_add(1);
-        if (my_queue_count >= _size)
-            panic("queue is full");
+        assert(my_queue_count < _size);
         if (my_queue_count <= 0)
-            futex_wake(reinterpret_cast<int*>(&_queue_count), 1);
+            futex_wake(reinterpret_cast<int*>(&_queue_count), _size);
     }
 
     // get an item from the queue. blocks if the queue is empty. thread-safe.
@@ -92,16 +92,16 @@ public:
                 break;
 
             // need to block because there are no items in the queue
-            int err = futex_wait(reinterpret_cast<int*>(&_queue_count), my_queue_count - 1);
-            if (err == EACCES || err == EINVAL || err == ENOSYS)
-                panic("futex wait error");
+            _queue_count += 1;
+            int err = futex_wait(reinterpret_cast<int*>(&_queue_count), my_queue_count);
+            assert(err != EACCES);
+            assert(err != EINVAL);
+            assert(err != ENOSYS);
 
             // one of these things happened:
             //  * waiting failed because _queue_count changed.
             //  * spurious wakeup
             //  * normal wakeup
-            // in any case, release the changed state and then try again
-            _queue_count += 1;
         }
 
         int my_read_index = _read_index.fetch_add(1);
@@ -117,13 +117,10 @@ public:
 
     // wakes up all blocking dequeue() operations. thread-safe.
     // after you call wakeup_all, the queue is in an invalid state and you
-    // must call resize() to fix it. consumer_count is the total number of
-    // threads that might call dequeue().
-    void wakeup_all(int consumer_count) {
-        int my_queue_count = _queue_count.fetch_add(consumer_count);
-        int amount_to_wake = -my_queue_count;
-        if (amount_to_wake > 0)
-            futex_wake(reinterpret_cast<int*>(&_queue_count), amount_to_wake);
+    // must call resize() to fix it.
+    void wakeup_all() {
+        _queue_count += _size;
+        futex_wake(reinterpret_cast<int*>(&_queue_count), _size);
     }
 
 private:

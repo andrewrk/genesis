@@ -55,7 +55,7 @@ void test_thread_safe_queue(void) {
     Thread thread3;
     assert_no_err(thread3.start(dequeue_no_assert, nullptr));
 
-    queue->wakeup_all(1);
+    queue->wakeup_all();
 
     thread1.join();
     thread2.join();
@@ -80,7 +80,7 @@ void test_thread_safe_queue(void) {
     Mutex mutex;
     MutexCond cond;
     cond.timed_wait(&mutex, 0.001);
-    queue->wakeup_all(1);
+    queue->wakeup_all();
     thread1.join();
 
 
