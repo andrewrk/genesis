@@ -47,6 +47,9 @@ public:
     glm::mat4 split_border_end_model;
     glm::vec4 light_border_color;
     glm::vec4 dark_border_color;
+    bool resize_down;
+    int resize_down_pos;
+    float resize_down_ratio;
 
     DockAreaWidget * transfer_state_to_new_child();
     void add_tab_widget(DockablePaneWidget *pane);

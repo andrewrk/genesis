@@ -14,6 +14,8 @@ DockAreaWidget::DockAreaWidget(GuiWindow *window) :
     split_area_size = 4;
     light_border_color = color_light_border();
     dark_border_color = color_dark_border();
+    resize_down = false;
+    resize_down_pos = 0;
 }
 
 void DockAreaWidget::draw(const glm::mat4 &projection) {
@@ -154,6 +156,24 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
     mouse_event.x += left;
     mouse_event.y += top;
 
+    if (resize_down) {
+        if (event->action == MouseActionUp && event->button == MouseButtonLeft) {
+            resize_down = false;
+            return;
+        }
+        if (layout == DockAreaLayoutHoriz) {
+            int delta = event->x - resize_down_pos;
+            int available_width = width - split_area_size;
+            split_ratio = clamp(0.0f, (resize_down_ratio * available_width + delta) / (float)available_width, 1.0f);
+            update_model();
+        } else if (layout == DockAreaLayoutVert) {
+            int delta = event->y - resize_down_pos;
+            int available_height = height - split_area_size;
+            split_ratio = clamp(0.0f, (resize_down_ratio * available_height + delta) / (float)available_height, 1.0f);
+            update_model();
+        }
+    }
+
     bool mouse_over_resize = false;
     if (layout == DockAreaLayoutHoriz) {
         int start = width * split_ratio - split_area_size / 2;
@@ -161,6 +181,11 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
         if (event->x >= start && event->x < end) {
             gui_window->set_cursor_hresize();
             mouse_over_resize = true;
+            if (event->action == MouseActionDown && event->button == MouseButtonLeft) {
+                resize_down = true;
+                resize_down_pos = event->x;
+                resize_down_ratio = split_ratio;
+            }
         }
     } else if (layout == DockAreaLayoutVert) {
         int start = height * split_ratio - split_area_size / 2;
@@ -168,10 +193,14 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
         if (event->y >= start && event->y < end) {
             gui_window->set_cursor_vresize();
             mouse_over_resize = true;
+            if (event->action == MouseActionDown && event->button == MouseButtonLeft) {
+                resize_down = true;
+                resize_down_pos = event->y;
+                resize_down_ratio = split_ratio;
+            }
         }
     }
     if (mouse_over_resize) {
-        // TODO
         return;
     } else {
         gui_window->set_cursor_default();
