@@ -2,11 +2,11 @@
 #define DOCKABLE_PANE_WIDGET
 
 #include "widget.hpp"
-#include "tab_widget.hpp"
 
 #include <assert.h>
 
 class DockablePaneWidget;
+class TabWidget;
 
 struct DockablePaneTab {
     DockablePaneWidget *pane;
@@ -20,13 +20,7 @@ enum DockAreaLayout {
 
 class DockAreaWidget : public Widget {
 public:
-    DockAreaWidget(GuiWindow *window) : Widget(window) {
-        layout = DockAreaLayoutTabs;
-        child_a = nullptr;
-        child_b = nullptr;
-        tab_widget = nullptr;
-        split_ratio = 0.50f;
-    }
+    DockAreaWidget(GuiWindow *window);
     ~DockAreaWidget() override { }
 
     void draw(const glm::mat4 &projection) override;
@@ -48,6 +42,11 @@ public:
     DockAreaWidget *child_b; // right/bottom
     TabWidget *tab_widget; // if layout == DockAreaLayoutTabs
     float split_ratio;
+    int split_area_size; // width/height of the split ui
+    glm::mat4 split_border_start_model;
+    glm::mat4 split_border_end_model;
+    glm::vec4 light_border_color;
+    glm::vec4 dark_border_color;
 
     DockAreaWidget * transfer_state_to_new_child();
     void add_tab_widget(DockablePaneWidget *pane);

@@ -1,5 +1,20 @@
 #include "dockable_pane_widget.hpp"
 #include "gui_window.hpp"
+#include "color.hpp"
+#include "tab_widget.hpp"
+
+DockAreaWidget::DockAreaWidget(GuiWindow *window) :
+    Widget(window)
+{
+    layout = DockAreaLayoutTabs;
+    child_a = nullptr;
+    child_b = nullptr;
+    tab_widget = nullptr;
+    split_ratio = 0.50f;
+    split_area_size = 4;
+    light_border_color = color_light_border();
+    dark_border_color = color_dark_border();
+}
 
 void DockAreaWidget::draw(const glm::mat4 &projection) {
     switch (layout) {
@@ -13,6 +28,8 @@ void DockAreaWidget::draw(const glm::mat4 &projection) {
             assert(child_b);
             child_a->draw(projection);
             child_b->draw(projection);
+            gui_window->fill_rect(light_border_color, projection * split_border_start_model);
+            gui_window->fill_rect(dark_border_color, projection * split_border_end_model);
             break;
     }
 }
@@ -159,39 +176,50 @@ void DockAreaWidget::update_model() {
             }
             break;
         case DockAreaLayoutHoriz:
-            assert(child_a);
-            assert(child_b);
+            {
+                assert(child_a);
+                assert(child_b);
 
-            child_a->left = left;
-            child_a->top = top;
-            child_a->width = width * split_ratio;
-            child_a->height = height;
+                int available_width = width - split_area_size;
 
-            child_b->left = child_a->left + child_a->width;
-            child_b->top = top;
-            child_b->width = width - child_a->width;
-            child_b->height = height;
+                child_a->left = left;
+                child_a->top = top;
+                child_a->width = available_width * split_ratio;
+                child_a->height = height;
 
-            child_a->on_resize();
-            child_b->on_resize();
-            break;
+                child_b->left = child_a->left + child_a->width + split_area_size;
+                child_b->top = top;
+                child_b->width = available_width - child_a->width;
+                child_b->height = height;
+
+                child_a->on_resize();
+                child_b->on_resize();
+
+                split_border_start_model = transform2d(child_a->width, 0, 1, height);
+                split_border_end_model = transform2d(child_b->left - 1, 0, 1, height);
+                break;
+            }
         case DockAreaLayoutVert:
-            assert(child_a);
-            assert(child_b);
+            {
+                assert(child_a);
+                assert(child_b);
 
-            child_a->left = left;
-            child_a->top = top;
-            child_a->width = width;
-            child_a->height = height * split_ratio;
+                int available_height = height - split_area_size;
 
-            child_b->left = left;
-            child_b->top = child_a->top + child_a->height;
-            child_b->width = width;
-            child_b->height = height - child_a->height;
+                child_a->left = left;
+                child_a->top = top;
+                child_a->width = width;
+                child_a->height = available_height * split_ratio;
 
-            child_a->on_resize();
-            child_b->on_resize();
-            break;
+                child_b->left = left;
+                child_b->top = child_a->top + child_a->height + split_area_size;
+                child_b->width = width;
+                child_b->height = available_height - child_a->height;
+
+                child_a->on_resize();
+                child_b->on_resize();
+                break;
+            }
     }
 }
 
