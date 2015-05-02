@@ -62,8 +62,10 @@ public:
     ShaderProgramManager _shader_program_manager;
     StaticGeometry _static_geometry;
 
-    GLFWcursor* _cursor_ibeam;
-    GLFWcursor* _cursor_default;
+    GLFWcursor* cursor_ibeam;
+    GLFWcursor* cursor_default;
+    GLFWcursor* cursor_hresize;
+    GLFWcursor* cursor_vresize;
 
     FT_Library _ft_library;
     FT_Face _default_font_face;

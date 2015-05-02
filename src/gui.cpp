@@ -66,8 +66,10 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     ft_ok(FT_New_Memory_Face(_ft_library, (FT_Byte*)_default_font_buffer.raw(),
                 _default_font_buffer.length(), 0, &_default_font_face));
 
-    _cursor_default = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
-    _cursor_ibeam = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    cursor_default = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+    cursor_ibeam = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+    cursor_hresize = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+    cursor_vresize = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
     genesis_set_audio_device_callback(_genesis_context, audio_device_callback, this);
     genesis_set_midi_device_callback(_genesis_context, midi_device_callback, this);
@@ -81,8 +83,8 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
 Gui::~Gui() {
     gui_mutex.unlock();
 
-    glfwDestroyCursor(_cursor_default);
-    glfwDestroyCursor(_cursor_ibeam);
+    glfwDestroyCursor(cursor_default);
+    glfwDestroyCursor(cursor_ibeam);
 
     auto it = _font_size_cache.entry_iterator();
     for (;;) {

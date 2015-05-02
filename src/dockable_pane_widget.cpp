@@ -154,6 +154,29 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
     mouse_event.x += left;
     mouse_event.y += top;
 
+    bool mouse_over_resize = false;
+    if (layout == DockAreaLayoutHoriz) {
+        int start = width * split_ratio - split_area_size / 2;
+        int end = start + split_area_size;
+        if (event->x >= start && event->x < end) {
+            gui_window->set_cursor_hresize();
+            mouse_over_resize = true;
+        }
+    } else if (layout == DockAreaLayoutVert) {
+        int start = height * split_ratio - split_area_size / 2;
+        int end = start + split_area_size;
+        if (event->y >= start && event->y < end) {
+            gui_window->set_cursor_vresize();
+            mouse_over_resize = true;
+        }
+    }
+    if (mouse_over_resize) {
+        // TODO
+        return;
+    } else {
+        gui_window->set_cursor_default();
+    }
+
     if (tab_widget && gui_window->try_mouse_move_event_on_widget(tab_widget, &mouse_event))
         return;
 
@@ -218,6 +241,9 @@ void DockAreaWidget::update_model() {
 
                 child_a->on_resize();
                 child_b->on_resize();
+
+                split_border_start_model = transform2d(0, child_a->height, width, 1);
+                split_border_end_model = transform2d(0, child_b->top - 1, width, 1);
                 break;
             }
     }

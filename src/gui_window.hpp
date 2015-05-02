@@ -35,6 +35,8 @@ public:
 
     void set_cursor_beam();
     void set_cursor_default();
+    void set_cursor_hresize();
+    void set_cursor_vresize();
 
     bool try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event);
 

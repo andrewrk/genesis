@@ -372,6 +372,7 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
             }
             Widget *old_mouse_over_widget = _mouse_over_widget;
             _mouse_over_widget = NULL;
+            set_cursor_default();
             if (old_mouse_over_widget)
                 old_mouse_over_widget->on_mouse_out(&mouse_event);
         }
@@ -473,11 +474,19 @@ void GuiWindow::draw_image(const SpritesheetImage *img, int x, int y, int w, int
 }
 
 void GuiWindow::set_cursor_beam() {
-    glfwSetCursor(window, _gui->_cursor_ibeam);
+    glfwSetCursor(window, _gui->cursor_ibeam);
 }
 
 void GuiWindow::set_cursor_default() {
-    glfwSetCursor(window, _gui->_cursor_default);
+    glfwSetCursor(window, _gui->cursor_default);
+}
+
+void GuiWindow::set_cursor_hresize() {
+    glfwSetCursor(window, _gui->cursor_hresize);
+}
+
+void GuiWindow::set_cursor_vresize() {
+    glfwSetCursor(window, _gui->cursor_vresize);
 }
 
 void GuiWindow::set_clipboard_string(const String &str) {

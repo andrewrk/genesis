@@ -149,7 +149,6 @@ void TextWidget::on_mouse_over(const MouseEvent *event) {
 }
 
 void TextWidget::on_mouse_out(const MouseEvent *event) {
-    gui_window->set_cursor_default();
     _hovering = false;
 }
 
