@@ -178,6 +178,7 @@ void GuiWindow::framebuffer_size_callback(int width, int height) {
 
 void GuiWindow::set_main_widget(Widget *widget) {
     main_widget = widget;
+    widget->parent_widget = nullptr;
     layout_main_widget();
     set_focus_widget(main_widget);
 }

@@ -47,8 +47,6 @@ public:
     int width;
     int height;
 
-    // index into gui_window's set of widgets
-    int set_index;
     // index into grid layout widget parent, if any
     int layout_row;
     int layout_col;

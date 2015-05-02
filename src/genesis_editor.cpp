@@ -10,7 +10,7 @@
 #include "settings_file.hpp"
 #include "resource_bundle.hpp"
 #include "path.hpp"
-#include "tab_widget.hpp"
+#include "dockable_pane_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -185,18 +185,20 @@ void GenesisEditor::create_window() {
     new_editor_window->redo_menu = redo_menu;
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
+    DockablePaneWidget *resources_tree_dock = create<DockablePaneWidget>(resources_tree, "Resources");
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
+    DockablePaneWidget *track_editor_dock = create<DockablePaneWidget>(track_editor, "Track Editor");
 
-    TabWidget *tab_widget = create<TabWidget>(new_window);
-    tab_widget->add_widget(resources_tree, "Resources");
-    tab_widget->add_widget(track_editor, "Track Editor");
+    DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
+    dock_area->add_left_pane(resources_tree_dock);
+    dock_area->add_right_pane(track_editor_dock);
 
     GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
     main_grid_layout->padding = 0;
     main_grid_layout->spacing = 0;
     main_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
-    main_grid_layout->add_widget(tab_widget, 1, 0, HAlignLeft, VAlignTop);
+    main_grid_layout->add_widget(dock_area, 1, 0, HAlignLeft, VAlignTop);
     new_window->set_main_widget(main_grid_layout);
 
     refresh_menu_state();

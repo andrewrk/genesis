@@ -14,7 +14,6 @@ void GridLayoutWidget::draw(const glm::mat4 &projection) {
 
 void GridLayoutWidget::add_widget(Widget *widget, int row, int col, HAlign h_align, VAlign v_align) {
     assert(!widget->parent_widget); // widget already has parent
-    assert(widget->set_index == -1); // widget already attached to window
     ensure_size(row + 1, col + 1);
     widget->parent_widget = this;
     widget->layout_row = row;

@@ -111,7 +111,6 @@ bool TabWidget::on_key_event(const KeyEvent *event) {
 
 void TabWidget::add_widget(Widget *widget, const String &title) {
     assert(!widget->parent_widget); // widget already has parent
-    assert(widget->set_index == -1); // widget already attached to window
     widget->parent_widget = this;
     TabWidgetTab *tab = create<TabWidgetTab>();
     tab->widget = widget;

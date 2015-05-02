@@ -10,7 +10,6 @@ Widget::Widget(GuiWindow *gui_window) :
     top(0),
     width(100),
     height(100),
-    set_index(-1),
     is_visible(true)
 {
 }
