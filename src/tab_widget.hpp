@@ -30,6 +30,12 @@ public:
         update_model();
     }
 
+    // if true, hide the tab bar when there are less than 2 tabs
+    void set_auto_hide(bool value) {
+        auto_hide = value;
+        update_model();
+    }
+
     void on_mouse_move(const MouseEvent *event) override;
     bool on_key_event(const KeyEvent *event) override;
 
@@ -54,6 +60,8 @@ public:
     int title_padding_left;
     int title_padding_right;
     int widget_top;
+    bool auto_hide;
+    bool show_tab_bar;
 
     void update_model();
     TabWidgetTab *get_tab_at(int x, int y);

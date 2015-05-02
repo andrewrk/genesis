@@ -42,6 +42,7 @@ void DockAreaWidget::add_tab_widget(DockablePaneWidget *pane) {
     tab_widget = create<TabWidget>(gui_window);
     tab_widget->parent_widget = this;
     tab_widget->add_widget(pane, pane->title);
+    tab_widget->set_auto_hide(true);
 }
 
 DockAreaWidget *DockAreaWidget::create_dock_area_for_pane(DockablePaneWidget *pane) {
