@@ -6,6 +6,8 @@
 #include "string.hpp"
 #include "label.hpp"
 
+struct SpritesheetImage;
+
 class GuiWindow;
 class MenuWidgetItem {
 public:
@@ -28,6 +30,10 @@ public:
     void set_caption(const String &caption);
     void set_caption(const String &caption, int mnemonic_index);
 
+    void set_icon(const SpritesheetImage *icon) {
+        this->icon = icon;
+    }
+
     GuiWindow *gui_window;
 
     Label label;
@@ -45,6 +51,8 @@ public:
     void (*activate_handler)(void *);
     void *userdata;
     bool enabled;
+    const SpritesheetImage *icon;
+    glm::mat4 icon_model;
 
     void activate();
     VirtKey get_mnemonic_key();
@@ -79,6 +87,9 @@ public:
     int spacing;
     int item_padding_top;
     int item_padding_bottom;
+    int icon_width;
+    int icon_height;
+    int icon_spacing;
     glm::vec4 bg_color;
     glm::vec4 activated_color;
     glm::vec4 text_color;

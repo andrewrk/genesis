@@ -14,7 +14,7 @@
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
-    genesis_editor->_gui->_running = false;
+    genesis_editor->gui->_running = false;
 }
 
 static void new_window_handler(void *userdata) {
@@ -51,6 +51,14 @@ static void on_undo_changed(Project *, ProjectEvent, void *userdata) {
     genesis_editor->refresh_menu_state();
 }
 
+static void always_show_tabs_handler(void *userdata) {
+    EditorWindow *editor_window = (EditorWindow *)userdata;
+    GenesisEditor *genesis_editor = editor_window->genesis_editor;
+    editor_window->always_show_tabs = !editor_window->always_show_tabs;
+    genesis_editor->refresh_menu_state();
+    editor_window->dock_area->set_auto_hide_tabs(!editor_window->always_show_tabs);
+}
+
 GenesisEditor::GenesisEditor() :
     project(nullptr)
 {
@@ -67,7 +75,7 @@ GenesisEditor::GenesisEditor() :
     if (err)
         panic("unable to create genesis context: %s", genesis_error_string(err));
 
-    _gui = create<Gui>(_genesis_context, resource_bundle);
+    gui = create<Gui>(_genesis_context, resource_bundle);
 
     bool settings_dirty = false;
     if (settings_file->user_name.length() == 0) {
@@ -123,7 +131,7 @@ int GenesisEditor::window_index(EditorWindow *window) {
 void GenesisEditor::close_window(EditorWindow *editor_window) {
     int index = window_index(editor_window);
     windows.swap_remove(index);
-    _gui->destroy_window(editor_window->window);
+    gui->destroy_window(editor_window->window);
 }
 
 void GenesisEditor::close_others(EditorWindow *window) {
@@ -143,12 +151,13 @@ static void static_on_close_event(GuiWindow *window) {
 void GenesisEditor::create_window() {
     EditorWindow *new_editor_window = create<EditorWindow>();
 
-    GuiWindow *new_window = _gui->create_window(true);
+    GuiWindow *new_window = gui->create_window(true);
     new_window->_userdata = new_editor_window;
     new_window->set_on_close_event(static_on_close_event);
 
     new_editor_window->genesis_editor = this;
     new_editor_window->window = new_window;
+    new_editor_window->always_show_tabs = true;
 
 
     ok_or_panic(windows.append(new_editor_window));
@@ -167,6 +176,7 @@ void GenesisEditor::create_window() {
     MenuWidgetItem *new_window_menu = window_menu->add_menu("&New Window", no_shortcut());
     MenuWidgetItem *close_window_menu = window_menu->add_menu("&Close", alt_shortcut(VirtKeyF4));
     MenuWidgetItem *close_others_menu = window_menu->add_menu("Close &Others", no_shortcut());
+    MenuWidgetItem *always_show_tabs_menu = window_menu->add_menu("Always Show Tabs", no_shortcut());
 
     MenuWidgetItem *report_bug_menu = help_menu->add_menu("&Report a Bug", shortcut(VirtKeyF1));
 
@@ -178,11 +188,13 @@ void GenesisEditor::create_window() {
     new_window_menu->set_activate_handler(new_window_handler, this);
     close_window_menu->set_activate_handler(close_window_handler, new_editor_window);
     close_others_menu->set_activate_handler(close_others_handler, new_editor_window);
+    always_show_tabs_menu->set_activate_handler(always_show_tabs_handler, new_editor_window);
 
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
     new_editor_window->undo_menu = undo_menu;
     new_editor_window->redo_menu = redo_menu;
+    new_editor_window->always_show_tabs_menu = always_show_tabs_menu;
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
     DockablePaneWidget *resources_tree_dock = create<DockablePaneWidget>(resources_tree, "Resources");
@@ -191,6 +203,7 @@ void GenesisEditor::create_window() {
     DockablePaneWidget *track_editor_dock = create<DockablePaneWidget>(track_editor, "Track Editor");
 
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
+    new_editor_window->dock_area = dock_area;
     dock_area->add_left_pane(resources_tree_dock);
     dock_area->add_right_pane(track_editor_dock);
 
@@ -211,7 +224,7 @@ GenesisEditor::~GenesisEditor() {
 }
 
 void GenesisEditor::exec() {
-    _gui->exec();
+    gui->exec();
 }
 
 void GenesisEditor::refresh_menu_state() {
@@ -241,6 +254,9 @@ void GenesisEditor::refresh_menu_state() {
 
         editor_window->redo_menu->set_enabled(redo_enabled);
         editor_window->redo_menu->set_caption(redo_caption);
+
+        editor_window->always_show_tabs_menu->set_icon(
+                editor_window->always_show_tabs ? gui->img_check : nullptr);
 
         editor_window->window->refresh_context_menu();
     }

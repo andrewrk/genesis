@@ -11,12 +11,16 @@ struct SettingsFile;
 struct User;
 class MenuWidgetItem;
 class GenesisEditor;
+class DockAreaWidget;
 
 struct EditorWindow {
     GenesisEditor *genesis_editor;
     GuiWindow *window;
     MenuWidgetItem *undo_menu;
     MenuWidgetItem *redo_menu;
+    MenuWidgetItem *always_show_tabs_menu;
+    bool always_show_tabs;
+    DockAreaWidget* dock_area;
 };
 
 class GenesisEditor {
@@ -30,7 +34,7 @@ public:
 
     GenesisContext *_genesis_context;
     ResourceBundle *resource_bundle;
-    Gui *_gui;
+    Gui *gui;
 
     List<EditorWindow *> windows;
     Project *project;

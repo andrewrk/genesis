@@ -1,6 +1,7 @@
 #include "menu_widget.hpp"
 #include "color.hpp"
 #include "gui_window.hpp"
+#include "gui.hpp"
 
 static void parse_mnemonic(String &out_str, int *out_mnemonic_index) {
     *out_mnemonic_index = -1;
@@ -21,7 +22,8 @@ MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_
     shortcut_label(gui_window->_gui),
     mnemonic_index(mnemonic_index),
     shortcut(shortcut),
-    enabled(true)
+    enabled(true),
+    icon(nullptr)
 {
     label.set_text(name);
     if (!null_key_sequence(shortcut))
@@ -119,11 +121,14 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     menu_widget_item(menu_widget_item),
     padding_top(2),
     padding_bottom(2),
-    padding_left(12),
+    padding_left(2),
     padding_right(2),
     spacing(12),
     item_padding_top(4),
     item_padding_bottom(4),
+    icon_width(12),
+    icon_height(12),
+    icon_spacing(4),
     bg_color(parse_color("#FCFCFC")),
     activated_color(parse_color("#2B71BC")),
     text_color(parse_color("#353535")),
@@ -150,11 +155,11 @@ void ContextMenuWidget::update_model() {
         child->shortcut_label.update();
         child->top = next_top;
         next_top += item_padding_top +
-            max(child->label.height(), child->shortcut_label.height()) +
+            max(max(child->label.height(), child->shortcut_label.height()), icon_height) +
             item_padding_bottom;
         child->bottom = next_top;
 
-        int this_width = padding_left + child->label.width() +
+        int this_width = padding_left + icon_spacing + icon_width + icon_spacing + child->label.width() +
             spacing + child->shortcut_label.width() + padding_right;
         calculated_width = max(calculated_width, this_width);
     }
@@ -162,44 +167,39 @@ void ContextMenuWidget::update_model() {
 
     for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
         MenuWidgetItem *child = menu_widget_item->children.at(i);
-        int label_left = left + padding_left;
-        int label_top = top + child->top + item_padding_top;
-        child->label_model = glm::translate(
-                                glm::mat4(1.0f),
-                                glm::vec3(label_left, label_top, 0.0f));
+        int icon_left = padding_left + icon_spacing;
+        int icon_top = child->top + (child->bottom - child->top) / 2 - icon_height / 2;
+        if (child->icon) {
+            float icon_scale_width = icon_width / (float)child->icon->width;
+            float icon_scale_height = icon_height / (float)child->icon->height;
+            child->icon_model = transform2d(icon_left, icon_top, icon_scale_width, icon_scale_height);
+        }
+
+        int label_left = icon_left + icon_width + icon_spacing;
+        int label_top = child->top + (child->bottom - child->top) / 2 - child->label.height() / 2;
+        child->label_model = transform2d(label_left, label_top);
 
         if (child->mnemonic_index >= 0) {
             int start_x, end_x;
             int start_y, end_y;
             child->label.pos_at_cursor(child->mnemonic_index, start_x, start_y);
             child->label.pos_at_cursor(child->mnemonic_index + 1, end_x, end_y);
-            child->mnemonic_model = glm::scale(
-                            glm::translate(
-                                glm::mat4(1.0f),
-                                glm::vec3(label_left + start_x, label_top + start_y + 1, 0.0f)),
-                            glm::vec3(end_x - start_x, 1.0f, 1.0f));
+            child->mnemonic_model = transform2d(label_left + start_x, label_top + start_y + 1, end_x - start_x, 1);
         }
 
         if (!null_key_sequence(child->shortcut)) {
-            int shortcut_label_left = left + calculated_width - padding_right - child->shortcut_label.width();
+            int shortcut_label_left = calculated_width - padding_right - child->shortcut_label.width();
             int shortcut_label_top = label_top;
-            child->shortcut_label_model = glm::translate(
-                                    glm::mat4(1.0f),
-                                    glm::vec3(shortcut_label_left, shortcut_label_top, 0.0f));
+            child->shortcut_label_model = transform2d(shortcut_label_left, shortcut_label_top);
         }
     }
 
-    bg_model = glm::scale(
-                    glm::translate(
-                        glm::mat4(1.0f),
-                        glm::vec3(left, top, 0.0f)),
-                    glm::vec3(calculated_width, calculated_height, 1.0f));
+    bg_model = transform2d(0, 0, calculated_width, calculated_height);
 }
 
 void ContextMenuWidget::draw(const glm::mat4 &projection) {
     // background
-    glm::mat4 bg_mvp = projection * bg_model;
-    gui_window->fill_rect(bg_color, bg_mvp);
+    gui_window->fill_rect(bg_color, projection * bg_model);
 
     for (int i = 0; i < menu_widget_item->children.length(); i += 1) {
         MenuWidgetItem *child = menu_widget_item->children.at(i);
@@ -217,8 +217,10 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
                 calculated_width, child->bottom - child->top);
         }
 
-        glm::mat4 label_mvp = projection * child->label_model;
-        child->label.draw(label_mvp, this_text_color);
+        if (child->icon)
+            gui->draw_image_color(gui_window, child->icon, projection * child->icon_model, text_color);
+
+        child->label.draw(projection * child->label_model, this_text_color);
         if (!null_key_sequence(child->shortcut)) {
             glm::mat4 shortcut_label_mvp = projection * child->shortcut_label_model;
             child->shortcut_label.draw(shortcut_label_mvp, this_text_color);

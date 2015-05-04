@@ -16,6 +16,7 @@ DockAreaWidget::DockAreaWidget(GuiWindow *window) :
     dark_border_color = color_dark_border();
     resize_down = false;
     resize_down_pos = 0;
+    auto_hide_tabs = false;
 }
 
 void DockAreaWidget::draw(const glm::mat4 &projection) {
@@ -61,7 +62,7 @@ void DockAreaWidget::add_tab_widget(DockablePaneWidget *pane) {
     tab_widget = create<TabWidget>(gui_window);
     tab_widget->parent_widget = this;
     tab_widget->add_widget(pane, pane->title);
-    tab_widget->set_auto_hide(true);
+    tab_widget->set_auto_hide(auto_hide_tabs);
 }
 
 DockAreaWidget *DockAreaWidget::create_dock_area_for_pane(DockablePaneWidget *pane) {
@@ -275,6 +276,23 @@ void DockAreaWidget::update_model() {
                 split_border_end_model = transform2d(0, child_b->top - 1, width, 1);
                 break;
             }
+    }
+}
+
+void DockAreaWidget::set_auto_hide_tabs(bool value) {
+    switch (layout) {
+    case DockAreaLayoutTabs:
+        if (tab_widget)
+            tab_widget->set_auto_hide(value);
+        break;
+    case DockAreaLayoutHoriz:
+    case DockAreaLayoutVert:
+        assert(child_a);
+        assert(child_b);
+
+        child_a->set_auto_hide_tabs(value);
+        child_b->set_auto_hide_tabs(value);
+        break;
     }
 }
 

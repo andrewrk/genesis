@@ -37,6 +37,8 @@ public:
     void add_top_dock_area(DockAreaWidget *dock_area);
     void add_bottom_dock_area(DockAreaWidget *dock_area);
 
+    void set_auto_hide_tabs(bool value);
+
     DockAreaLayout layout;
     DockAreaWidget *child_a; // left/top
     DockAreaWidget *child_b; // right/bottom
@@ -50,6 +52,7 @@ public:
     bool resize_down;
     int resize_down_pos;
     float resize_down_ratio;
+    bool auto_hide_tabs;
 
     DockAreaWidget * transfer_state_to_new_child();
     void add_tab_widget(DockablePaneWidget *pane);

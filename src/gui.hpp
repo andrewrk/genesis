@@ -86,6 +86,7 @@ public:
     const SpritesheetImage *img_minus;
     const SpritesheetImage *img_microphone;
     const SpritesheetImage *img_volume_up;
+    const SpritesheetImage *img_check;
     const SpritesheetImage *img_null;
 
     GenesisContext *_genesis_context;

@@ -57,6 +57,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_minus(_spritesheet.get_image_info("font-awesome/minus-square.png")),
     img_microphone(_spritesheet.get_image_info("font-awesome/microphone.png")),
     img_volume_up(_spritesheet.get_image_info("font-awesome/volume-up.png")),
+    img_check(_spritesheet.get_image_info("font-awesome/check.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
     _genesis_context(context)
 {
