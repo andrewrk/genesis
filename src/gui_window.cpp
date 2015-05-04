@@ -4,6 +4,7 @@
 #include "widget.hpp"
 #include "debug_gl.hpp"
 #include "menu_widget.hpp"
+#include "os.hpp"
 
 static void default_on_close_event(GuiWindow *) {
     fprintf(stderr, "no window close handler attached\n");
@@ -35,7 +36,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     _on_close_event(default_on_close_event),
     _is_iconified(false),
     is_visible(true),
-    _last_click_time(glfwGetTime()),
+    _last_click_time(os_get_time()),
     _last_click_button(MouseButtonLeft),
     _double_click_timeout(0.3),
     running(true),
@@ -294,7 +295,7 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
     MouseAction mouse_action = (action == GLFW_PRESS) ? MouseActionDown : MouseActionUp;
     bool is_double_click = false;
     if (mouse_action == MouseActionDown) {
-        double this_click_time = glfwGetTime();
+        double this_click_time = os_get_time();
         if (_last_click_button == btn) {
             if (this_click_time - _last_click_time < _double_click_timeout)
                 is_double_click = true;

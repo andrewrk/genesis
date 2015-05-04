@@ -55,6 +55,19 @@ bool GridLayoutWidget::expanding_x() const {
     return false;
 }
 
+int GridLayoutWidget::max_width() const {
+    // if any widget has max_width -1, then return -1
+    // otherwise, return the max max row width
+    int max_max_row_width = 0;
+    for (int row = 0; row < rows(); row += 1) {
+        int row_width = get_row_max_width(row);
+        if (row_width == -1)
+            return -1;
+        max_max_row_width = max(max_max_row_width, row_width);
+    }
+    return max_max_row_width;
+}
+
 int GridLayoutWidget::min_height() const {
     int max_min_col_height = 0;
     for (int col = 0; col < cols(); col += 1) {
@@ -71,6 +84,19 @@ bool GridLayoutWidget::expanding_y() const {
             return true;
     }
     return false;
+}
+
+int GridLayoutWidget::max_height() const {
+    // if any widget has max_height -1, then return -1.
+    // otherwise, return the max max col height
+    int max_max_col_height = 0;
+    for (int col = 0; col < cols(); col += 1) {
+        int col_height = get_col_max_height(col);
+        if (col_height == -1)
+            return -1;
+        max_max_col_height = max(max_max_col_height, col_height);
+    }
+    return max_max_col_height;
 }
 
 void GridLayoutWidget::on_resize() {

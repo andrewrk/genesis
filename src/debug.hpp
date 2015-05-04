@@ -19,4 +19,6 @@ static const bool GENESIS_DEBUG_MODE = false;
 static const bool GENESIS_DEBUG_MODE = true;
 #endif
 
+#define BREAKPOINT __asm("int $0x03")
+
 #endif

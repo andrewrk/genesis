@@ -1,5 +1,6 @@
 #include "gui.hpp"
 #include "debug.hpp"
+#include "os.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -59,7 +60,9 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_volume_up(_spritesheet.get_image_info("font-awesome/volume-up.png")),
     img_check(_spritesheet.get_image_info("font-awesome/check.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
-    _genesis_context(context)
+    _genesis_context(context),
+    fps_callback(nullptr),
+    fps_callback_userdata(nullptr)
 {
 
     ft_ok(FT_Init_FreeType(&_ft_library));
@@ -102,10 +105,20 @@ Gui::~Gui() {
 
 void Gui::exec() {
     gui_mutex.unlock();
+    fps = 60.0;
+    double last_time = os_get_time();
     while (_running) {
         genesis_flush_events(_genesis_context);
         glfwPollEvents();
         _utility_window->draw();
+
+        double this_time = os_get_time();
+        double delta = this_time - last_time;
+        last_time = this_time;
+        double this_fps = 1.0 / delta;
+        fps = fps * 0.90 + this_fps * 0.10;
+        if (fps_callback)
+            fps_callback(fps_callback_userdata);
     }
     gui_mutex.lock();
 }
@@ -196,4 +209,9 @@ void Gui::dispatch_handlers(const List<Handler> &list) {
         const Handler *handler = &list.at(i);
         handler->fn(handler->userdata);
     }
+}
+
+void Gui::set_fps_callback(void (*fn)(void *), void *userdata) {
+    fps_callback_userdata = userdata;
+    fps_callback = fn;
 }

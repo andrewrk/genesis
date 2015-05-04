@@ -407,6 +407,15 @@ static void test_basic_project_editing(void) {
     os_delete(tmp_proj_path);
 }
 
+static void test_string_compare(void) {
+    String a("67 fps");
+    String b("69 fps");
+    assert(String::compare(a, b) == -1);
+    assert(String::compare(b, a) == 1);
+    assert(String::compare_insensitive(a, b) == -1);
+    assert(String::compare_insensitive(b, a) == 1);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -433,6 +442,7 @@ static struct Test tests[] = {
     {"ByteBuffer::to_string", test_byte_buffer_to_string},
     {"List::sort", test_list_sort},
     {"basic project editing", test_basic_project_editing},
+    {"String::compare", test_string_compare},
     {NULL, NULL},
 };
 

@@ -275,9 +275,11 @@ void TextWidget::update_selection_model() {
 }
 
 void TextWidget::set_selection(int start, int end) {
-    _cursor_start = clamp(0, start, (int)_label.text().length());
-    _cursor_end = clamp(0, end, (int)_label.text().length());
-    scroll_cursor_into_view();
+    if (_text_interaction_on) {
+        _cursor_start = clamp(0, start, (int)_label.text().length());
+        _cursor_end = clamp(0, end, (int)_label.text().length());
+        scroll_cursor_into_view();
+    }
 }
 
 void TextWidget::on_gain_focus() {
@@ -565,10 +567,13 @@ void TextWidget::set_placeholder_text(const String &text) {
 }
 
 void TextWidget::set_text(const String &text) {
-    _label.set_text(text);
-    _label.update();
-    set_selection(_cursor_start, _cursor_end);
-    on_size_hints_changed();
+    if (String::compare(text, _label.text()) != 0) {
+        _label.set_text(text);
+        _label.update();
+        set_selection(_cursor_start, _cursor_end);
+        if (_auto_size)
+            on_size_hints_changed();
+    }
 }
 
 void TextWidget::set_icon(const SpritesheetImage *icon) {

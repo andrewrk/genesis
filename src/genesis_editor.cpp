@@ -11,6 +11,7 @@
 #include "resource_bundle.hpp"
 #include "path.hpp"
 #include "dockable_pane_widget.hpp"
+#include "text_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -59,6 +60,15 @@ static void always_show_tabs_handler(void *userdata) {
     editor_window->dock_area->set_auto_hide_tabs(!editor_window->always_show_tabs);
 }
 
+static void on_fps_change(void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    ByteBuffer fps_text = ByteBuffer::format("%.0f fps", genesis_editor->gui->fps);
+    for (int i = 0; i < genesis_editor->windows.length(); i += 1) {
+        EditorWindow *editor_window = genesis_editor->windows.at(i);
+        editor_window->fps_widget->set_text(fps_text);
+    }
+}
+
 GenesisEditor::GenesisEditor() :
     project(nullptr)
 {
@@ -76,6 +86,8 @@ GenesisEditor::GenesisEditor() :
         panic("unable to create genesis context: %s", genesis_error_string(err));
 
     gui = create<Gui>(_genesis_context, resource_bundle);
+
+    gui->set_fps_callback(on_fps_change, this);
 
     bool settings_dirty = false;
     if (settings_file->user_name.length() == 0) {
@@ -196,6 +208,19 @@ void GenesisEditor::create_window() {
     new_editor_window->redo_menu = redo_menu;
     new_editor_window->always_show_tabs_menu = always_show_tabs_menu;
 
+    TextWidget *fps_widget = create<TextWidget>(new_window);
+    fps_widget->set_text_interaction(false);
+    fps_widget->set_background_color(menu_widget->bg_color);
+    fps_widget->set_min_width(50);
+    fps_widget->set_max_width(50);
+    new_editor_window->fps_widget = fps_widget;
+
+    GridLayoutWidget *top_bar_grid_layout = create<GridLayoutWidget>(new_window);
+    top_bar_grid_layout->padding = 0;
+    top_bar_grid_layout->spacing = 0;
+    top_bar_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
+    top_bar_grid_layout->add_widget(fps_widget, 0, 1, HAlignRight, VAlignTop);
+
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
     DockablePaneWidget *resources_tree_dock = create<DockablePaneWidget>(resources_tree, "Resources");
 
@@ -210,7 +235,7 @@ void GenesisEditor::create_window() {
     GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
     main_grid_layout->padding = 0;
     main_grid_layout->spacing = 0;
-    main_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
+    main_grid_layout->add_widget(top_bar_grid_layout, 0, 0, HAlignLeft, VAlignTop);
     main_grid_layout->add_widget(dock_area, 1, 0, HAlignLeft, VAlignTop);
     new_window->set_main_widget(main_grid_layout);
 

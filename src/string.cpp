@@ -220,10 +220,11 @@ int String::compare(const String &a, const String &b) {
     for (int i = 0;; i += 1) {
         bool a_end = (i >= a.length());
         bool b_end = (i >= b.length());
-        if (a_end && b_end) {
-            return 0;
-        } else if (a_end) {
-            return -1;
+        if (a_end) {
+            if (b_end)
+                return 0;
+            else
+                return -1;
         } else if (b_end) {
             return 1;
         } else {
@@ -232,7 +233,7 @@ int String::compare(const String &a, const String &b) {
             else if (a.at(i) < b.at(i))
                 return -1;
             else
-                return 0;
+                continue;
         }
     }
 }
@@ -241,10 +242,12 @@ int String::compare_insensitive(const String &a, const String &b) {
     for (int i = 0;; i += 1) {
         bool a_end = (i >= a.length());
         bool b_end = (i >= b.length());
-        if (a_end && b_end) {
-            return 0;
-        } else if (a_end) {
-            return -1;
+        if (a_end) {
+            if (b_end) {
+                return 0;
+            } else {
+                return -1;
+            }
         } else if (b_end) {
             return 1;
         } else {
@@ -255,7 +258,7 @@ int String::compare_insensitive(const String &a, const String &b) {
             else if (a_lower < b_lower)
                 return -1;
             else
-                return 0;
+                continue;
         }
     }
 }

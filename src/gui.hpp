@@ -47,6 +47,8 @@ public:
     void attach_midi_device_callback(void (*fn)(void *), void *userdata);
     void detach_midi_device_callback(void (*fn)(void *));
 
+    void set_fps_callback(void (*fn)(void *), void *userdata);
+
     Mutex gui_mutex;
 
 
@@ -97,6 +99,10 @@ public:
     };
     List<Handler> audio_device_handlers;
     List<Handler> midi_device_handlers;
+
+    double fps;
+    void (*fps_callback)(void *userdata);
+    void *fps_callback_userdata;
 
     void dispatch_handlers(const List<Handler> &list);
 

@@ -12,6 +12,7 @@ struct User;
 class MenuWidgetItem;
 class GenesisEditor;
 class DockAreaWidget;
+class TextWidget;
 
 struct EditorWindow {
     GenesisEditor *genesis_editor;
@@ -21,6 +22,7 @@ struct EditorWindow {
     MenuWidgetItem *always_show_tabs_menu;
     bool always_show_tabs;
     DockAreaWidget* dock_area;
+    TextWidget *fps_widget;
 };
 
 class GenesisEditor {
