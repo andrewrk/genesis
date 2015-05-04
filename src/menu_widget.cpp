@@ -292,15 +292,15 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
         int new_index;
         int children_count = menu_widget_item->children.length();
         int it_count = 0;
-        while ((!activated_item || !activated_item->enabled) && (it_count++ < children_count)) {
+        do {
             if (activated_item) {
                 int activated_index = get_menu_widget_index(activated_item);
-                new_index = (activated_index + dir) % children_count;
+                new_index = euclidean_mod(activated_index + dir, children_count);
             } else {
                 new_index = (dir == 1) ? 0 : (children_count - 1);
             }
             activated_item = menu_widget_item->children.at(new_index);
-        }
+        } while ((!activated_item || !activated_item->enabled) && (it_count++ < children_count));
         return true;
     }
 
@@ -308,7 +308,7 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
         int dir = (event->virt_key == VirtKeyLeft) ? -1 : 1;
         MenuWidget *menu_widget = gui_window->menu_widget;
         int current_index = menu_widget->get_item_index(menu_widget->activated_item);
-        int new_index = (current_index + dir) % menu_widget->children.length();
+        int new_index = euclidean_mod(current_index + dir, menu_widget->children.length());
         menu_widget->pop_top_level(&menu_widget->children.at(new_index), true);
         return true;
     }
