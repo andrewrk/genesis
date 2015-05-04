@@ -176,7 +176,7 @@ void GenesisEditor::create_window() {
     MenuWidgetItem *new_window_menu = window_menu->add_menu("&New Window", no_shortcut());
     MenuWidgetItem *close_window_menu = window_menu->add_menu("&Close", alt_shortcut(VirtKeyF4));
     MenuWidgetItem *close_others_menu = window_menu->add_menu("Close &Others", no_shortcut());
-    MenuWidgetItem *always_show_tabs_menu = window_menu->add_menu("Always Show Tabs", no_shortcut());
+    MenuWidgetItem *always_show_tabs_menu = window_menu->add_menu("Always Show &Tabs", no_shortcut());
 
     MenuWidgetItem *report_bug_menu = help_menu->add_menu("&Report a Bug", shortcut(VirtKeyF1));
 
