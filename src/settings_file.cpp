@@ -56,8 +56,6 @@ static int on_string(struct LaxJsonContext *json,
         case SettingsFileStatePerspectivesItemProp:
             if (ByteBuffer::compare(value, "name") == 0) {
                 sf->state = SettingsFileStatePerspectivesItemPropName;
-            } else if (ByteBuffer::compare(value, "always_show_tabs") == 0) {
-                sf->state = SettingsFileStatePerspectivesItemPropAlwaysShowTabs;
             } else if (ByteBuffer::compare(value, "dock") == 0) {
                 sf->state = SettingsFileStatePerspectivesItemPropDock;
                 sf->current_dock = &sf->current_perspective->dock;
@@ -123,6 +121,8 @@ static int on_string(struct LaxJsonContext *json,
                 sf->state = SettingsFileStateOpenWindowHeight;
             } else if (ByteBuffer::compare(value, "maximized") == 0) {
                 sf->state = SettingsFileStateOpenWindowMaximized;
+            } else if (ByteBuffer::compare(value, "always_show_tabs") == 0) {
+                sf->state = SettingsFileStateOpenWindowAlwaysShowTabs;
             } else {
                 return parse_error(sf, "invalid open window property name");
             }
@@ -169,11 +169,11 @@ static int on_number(struct LaxJsonContext *json, double x) {
 static int on_primitive(struct LaxJsonContext *json, enum LaxJsonType type) {
     SettingsFile *sf = (SettingsFile *) json->userdata;
     switch (sf->state) {
-        case SettingsFileStatePerspectivesItemPropAlwaysShowTabs:
+        case SettingsFileStateOpenWindowAlwaysShowTabs:
             if (type != LaxJsonTypeTrue && type != LaxJsonTypeFalse)
                 return parse_error(sf, "expected boolean");
-            sf->current_perspective->always_show_tabs = (type == LaxJsonTypeTrue);
-            sf->state = SettingsFileStatePerspectivesItemProp;
+            sf->current_open_window->always_show_tabs = (type == LaxJsonTypeTrue);
+            sf->state = SettingsFileStateOpenWindowItemProp;
             break;
         case SettingsFileStateOpenWindowMaximized:
             if (type != LaxJsonTypeTrue && type != LaxJsonTypeFalse)
@@ -446,6 +446,10 @@ static void json_line_open_windows(FILE *f, int indent, const char *key,
         json_line_bool(f, indent, "maximized", open_window->maximized);
         fprintf(f, "\n");
 
+        json_line_comment(f, indent, "whether to show dockable pane tabs when there is only one");
+        json_line_bool(f, indent, "always_show_tabs", open_window->always_show_tabs);
+        fprintf(f, "\n");
+
         json_line_outdent(f, &indent, "},");
     }
     json_line_outdent(f, &indent, "],");
@@ -465,7 +469,6 @@ static void json_line_perspectives(FILE *f, int indent, const char *key,
         json_line_indent(f, &indent, "{");
 
         json_line_str(f, indent, "name", perspective->name.encode());
-        json_line_bool(f, indent, "always_show_tabs", perspective->always_show_tabs);
         json_line_dock(f, indent, "dock", &perspective->dock);
 
         json_line_outdent(f, &indent, "},");

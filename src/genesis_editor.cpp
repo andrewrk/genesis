@@ -58,6 +58,7 @@ static void always_show_tabs_handler(void *userdata) {
     editor_window->always_show_tabs = !editor_window->always_show_tabs;
     genesis_editor->refresh_menu_state();
     editor_window->dock_area->set_auto_hide_tabs(!editor_window->always_show_tabs);
+    genesis_editor->save_window_config();
 }
 
 static void on_fps_change(Event, void *userdata) {
@@ -131,7 +132,6 @@ GenesisEditor::GenesisEditor() :
         ok_or_panic(settings_file->perspectives.add_one());
         SettingsFilePerspective *perspective = &settings_file->perspectives.last();
         perspective->name = "Default";
-        perspective->always_show_tabs = true;
         perspective->dock.split_ratio = 0.30f;
         perspective->dock.dock_type = SettingsFileDockTypeHoriz;
         perspective->dock.child_a = create_zero<SettingsFileDock>();
@@ -207,6 +207,7 @@ SettingsFileOpenWindow *GenesisEditor::create_sf_open_window() {
     sf_open_window->width = 1366;
     sf_open_window->height = 768;
     sf_open_window->maximized = false;
+    sf_open_window->always_show_tabs = true;
     return sf_open_window;
 }
 
@@ -223,6 +224,9 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     if (sf_open_window->maximized)
         new_window->maximize();
+
+    new_editor_window->always_show_tabs = sf_open_window->always_show_tabs;
+
 
     new_editor_window->genesis_editor = this;
     new_editor_window->window = new_window;
@@ -352,8 +356,6 @@ void GenesisEditor::do_redo() {
 }
 
 void GenesisEditor::load_perspective(EditorWindow *editor_window, SettingsFilePerspective *perspective) {
-    editor_window->always_show_tabs = perspective->always_show_tabs;
-
     editor_window->dock_area->reset_state();
 
     load_dock(editor_window, editor_window->dock_area, &perspective->dock);
@@ -409,6 +411,7 @@ void GenesisEditor::save_window_config() {
         sf_open_window->width = window->_client_width;
         sf_open_window->height = window->_client_height;
         sf_open_window->maximized = window->is_maximized;
+        sf_open_window->always_show_tabs = editor_window->always_show_tabs;
     }
     settings_file_commit(settings_file);
 }

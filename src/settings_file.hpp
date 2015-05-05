@@ -18,7 +18,6 @@ enum SettingsFileState {
     SettingsFileStatePerspectivesItem,
     SettingsFileStatePerspectivesItemProp,
     SettingsFileStatePerspectivesItemPropName,
-    SettingsFileStatePerspectivesItemPropAlwaysShowTabs,
     SettingsFileStatePerspectivesItemPropDock,
     SettingsFileStateDockItemProp,
     SettingsFileStateDockItemPropType,
@@ -36,6 +35,7 @@ enum SettingsFileState {
     SettingsFileStateOpenWindowWidth,
     SettingsFileStateOpenWindowHeight,
     SettingsFileStateOpenWindowMaximized,
+    SettingsFileStateOpenWindowAlwaysShowTabs,
 };
 
 enum SettingsFileDockType {
@@ -55,7 +55,6 @@ struct SettingsFileDock {
 struct SettingsFilePerspective {
     String name;
     SettingsFileDock dock;
-    bool always_show_tabs;
 };
 
 struct SettingsFileOpenWindow {
@@ -65,6 +64,7 @@ struct SettingsFileOpenWindow {
     int width;
     int height;
     bool maximized;
+    bool always_show_tabs;
 };
 
 struct SettingsFile {
