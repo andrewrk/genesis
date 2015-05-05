@@ -20,7 +20,7 @@ static void delete_track_handler(void *userdata) {
     project_delete_track(track_editor_widget->project, track_editor_widget->menu_track->track);
 }
 
-static void on_tracks_changed(Project *, ProjectEvent, void *userdata) {
+static void on_tracks_changed(Event, void *userdata) {
     TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
     track_editor_widget->update_model();
 }
@@ -57,11 +57,11 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     insert_track_after_menu->set_activate_handler(insert_track_after_handler, this);
     delete_track_menu->set_activate_handler(delete_track_handler, this);
 
-    project_attach_event_handler(project, ProjectEventTracksChanged, on_tracks_changed, this);
+    project->events.attach_handler(EventProjectTracksChanged, on_tracks_changed, this);
 }
 
 TrackEditorWidget::~TrackEditorWidget() {
-    project_detach_event_handler(project, ProjectEventTracksChanged, on_tracks_changed);
+    project->events.detach_handler(EventProjectTracksChanged, on_tracks_changed);
 
     for (int i = 0; i < tracks.length(); i += 1) {
         destroy(tracks.at(i), 1);

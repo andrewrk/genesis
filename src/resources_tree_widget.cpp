@@ -5,7 +5,7 @@
 #include "debug.hpp"
 #include "spritesheet.hpp"
 
-static void device_change_callback(void *userdata) {
+static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
     resources_tree->update_model();
 }
@@ -26,8 +26,8 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window) :
     item_padding_top(4),
     item_padding_bottom(4)
 {
-    gui->attach_audio_device_callback(device_change_callback, this);
-    gui->attach_midi_device_callback(device_change_callback, this);
+    gui->events.attach_handler(EventAudioDeviceChange, device_change_callback, this);
+    gui->events.attach_handler(EventMidiDeviceChange, device_change_callback, this);
 
     root_node = create_parent_node(nullptr, "");
     root_node->indent_level = -1;
@@ -39,8 +39,8 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window) :
 }
 
 ResourcesTreeWidget::~ResourcesTreeWidget() {
-    gui->detach_audio_device_callback(device_change_callback);
-    gui->detach_midi_device_callback(device_change_callback);
+    gui->events.detach_handler(EventAudioDeviceChange, device_change_callback);
+    gui->events.detach_handler(EventMidiDeviceChange, device_change_callback);
 
     destroy_node(root_node);
 }

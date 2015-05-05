@@ -47,7 +47,7 @@ static void redo_handler(void *userdata) {
     genesis_editor->do_redo();
 }
 
-static void on_undo_changed(Project *, ProjectEvent, void *userdata) {
+static void on_undo_changed(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
     genesis_editor->refresh_menu_state();
 }
@@ -60,7 +60,7 @@ static void always_show_tabs_handler(void *userdata) {
     editor_window->dock_area->set_auto_hide_tabs(!editor_window->always_show_tabs);
 }
 
-static void on_fps_change(void *userdata) {
+static void on_fps_change(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
     ByteBuffer fps_text = ByteBuffer::format("%.0f fps", genesis_editor->gui->fps);
     for (int i = 0; i < genesis_editor->windows.length(); i += 1) {
@@ -87,7 +87,7 @@ GenesisEditor::GenesisEditor() :
 
     gui = create<Gui>(_genesis_context, resource_bundle);
 
-    gui->set_fps_callback(on_fps_change, this);
+    gui->events.attach_handler(EventFpsChange, on_fps_change, this);
 
     bool settings_dirty = false;
     if (settings_file->user_name.length() == 0) {
@@ -152,7 +152,7 @@ GenesisEditor::GenesisEditor() :
     if (settings_dirty)
         settings_file_commit(settings_file);
 
-    project_attach_event_handler(project, ProjectEventUndoChanged, on_undo_changed, this);
+    project->events.attach_handler(EventProjectUndoChanged, on_undo_changed, this);
 }
 
 void GenesisEditor::create_editor_window() {
@@ -188,8 +188,8 @@ void GenesisEditor::close_others(EditorWindow *window) {
     save_window_config();
 }
 
-static void static_on_close_event(GuiWindow *window) {
-    EditorWindow *editor_window = (EditorWindow *)window->_userdata;
+static void static_on_close_event(Event, void *userdata) {
+    EditorWindow *editor_window = (EditorWindow *)userdata;
     editor_window->genesis_editor->close_window(editor_window);
 }
 
@@ -212,7 +212,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
             sf_open_window->left, sf_open_window->top,
             sf_open_window->width, sf_open_window->height);
     new_window->_userdata = new_editor_window;
-    new_window->set_on_close_event(static_on_close_event);
+    new_window->events.attach_handler(EventWindowClose, static_on_close_event, new_editor_window);
 
     if (sf_open_window->maximized)
         new_window->maximize();

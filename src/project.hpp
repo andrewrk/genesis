@@ -6,6 +6,7 @@
 #include "id_map.hpp"
 #include "sort_key.hpp"
 #include "ordered_map_file.hpp"
+#include "event_dispatcher.hpp"
 
 struct Command;
 struct AudioClipSegment;
@@ -49,19 +50,6 @@ struct User {
     String name;
 };
 
-enum ProjectEvent {
-    ProjectEventUndoChanged,
-    ProjectEventUsersChanged,
-    ProjectEventTracksChanged,
-    ProjectEventCommandsChanged,
-};
-
-struct ProjectEventHandler {
-    ProjectEvent event;
-    void (*fn)(Project *, ProjectEvent, void *);
-    void *userdata;
-};
-
 struct Project {
     /////////// canonical data, shared among all users
     uint256 id;
@@ -95,7 +83,7 @@ struct Project {
     ////////// transient state
     User *active_user; // the user that is running this instance of genesis
     OrderedMapFile *omf;
-    List<ProjectEventHandler> event_handlers;
+    EventDispatcher events;
 };
 
 int project_get_next_revision(Project *project);
@@ -254,10 +242,5 @@ AddTrackCommand * project_insert_track_batch(Project *project, OrderedMapFileBat
         const Track *before, const Track *after);
 
 void project_delete_track(Project *project, Track *track);
-
-void project_attach_event_handler(Project *project, ProjectEvent event,
-        void (*fn)(Project *, ProjectEvent, void *), void *userdata);
-void project_detach_event_handler(Project *project, ProjectEvent event,
-        void (*fn)(Project *, ProjectEvent, void *));
 
 #endif

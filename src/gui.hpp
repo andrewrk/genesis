@@ -12,6 +12,7 @@
 #include "gui_window.hpp"
 #include "static_geometry.hpp"
 #include "glfw.hpp"
+#include "event_dispatcher.hpp"
 
 uint32_t hash_int(const int &x);
 
@@ -40,14 +41,6 @@ public:
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
     void draw_image_color(GuiWindow *window, const SpritesheetImage *img,
             const glm::mat4 &mvp, const glm::vec4 &color);
-
-    void attach_audio_device_callback(void (*fn)(void *), void *userdata);
-    void detach_audio_device_callback(void (*fn)(void *));
-
-    void attach_midi_device_callback(void (*fn)(void *), void *userdata);
-    void detach_midi_device_callback(void (*fn)(void *));
-
-    void set_fps_callback(void (*fn)(void *), void *userdata);
 
     Mutex gui_mutex;
 
@@ -93,18 +86,10 @@ public:
 
     GenesisContext *_genesis_context;
 
-    struct Handler {
-        void (*fn)(void *);
-        void *userdata;
-    };
-    List<Handler> audio_device_handlers;
-    List<Handler> midi_device_handlers;
+    EventDispatcher events;
 
     double fps;
-    void (*fps_callback)(void *userdata);
-    void *fps_callback_userdata;
 
-    void dispatch_handlers(const List<Handler> &list);
     GuiWindow *create_utility_window();
     GuiWindow *create_generic_window(bool is_utility, int left, int top, int width, int height);
 

@@ -8,6 +8,7 @@
 #include "string.hpp"
 #include "glfw.hpp"
 #include "threads.hpp"
+#include "event_dispatcher.hpp"
 
 #include <atomic>
 using std::atomic_bool;
@@ -28,10 +29,6 @@ public:
 
     void remove_widget(Widget *widget);
     void set_focus_widget(Widget *widget);
-
-    void set_on_close_event(void (*fn)(GuiWindow *)) {
-        _on_close_event = fn;
-    }
 
     void maximize();
 
@@ -79,7 +76,7 @@ public:
     Widget *_focus_widget;
     MenuWidget *menu_widget;
 
-    void (*_on_close_event)(GuiWindow *);
+    EventDispatcher events;
 
     bool _is_iconified;
     bool is_visible;

@@ -6,10 +6,6 @@
 #include "menu_widget.hpp"
 #include "os.hpp"
 
-static void default_on_close_event(GuiWindow *) {
-    fprintf(stderr, "no window close handler attached\n");
-}
-
 static void run(void *arg) {
     GuiWindow *gui_window = (GuiWindow *)arg;
     gui_window->setup_context();
@@ -37,7 +33,6 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
     _mouse_over_widget(nullptr),
     _focus_widget(nullptr),
     menu_widget(nullptr),
-    _on_close_event(default_on_close_event),
     _is_iconified(false),
     is_visible(true),
     _last_click_time(os_get_time()),
@@ -219,7 +214,7 @@ void GuiWindow::got_window_size(int width, int height) {
 
 void GuiWindow::window_close_callback() {
     MutexLocker locker(&_gui->gui_mutex);
-    _on_close_event(this);
+    events.trigger(EventWindowClose);
 }
 
 void GuiWindow::key_callback(int key, int scancode, int action, int mods) {

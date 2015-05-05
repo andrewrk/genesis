@@ -37,12 +37,12 @@ GlobalGlfwContext::~GlobalGlfwContext() {
 
 static void audio_device_callback(void *userdata) {
     Gui *gui = (Gui *)userdata;
-    gui->dispatch_handlers(gui->audio_device_handlers);
+    gui->events.trigger(EventAudioDeviceChange);
 }
 
 static void midi_device_callback(void *userdata) {
     Gui *gui = (Gui *)userdata;
-    gui->dispatch_handlers(gui->midi_device_handlers);
+    gui->events.trigger(EventMidiDeviceChange);
 }
 
 Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
@@ -60,9 +60,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_volume_up(_spritesheet.get_image_info("font-awesome/volume-up.png")),
     img_check(_spritesheet.get_image_info("font-awesome/check.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
-    _genesis_context(context),
-    fps_callback(nullptr),
-    fps_callback_userdata(nullptr)
+    _genesis_context(context)
 {
 
     ft_ok(FT_Init_FreeType(&_ft_library));
@@ -117,8 +115,7 @@ void Gui::exec() {
         last_time = this_time;
         double this_fps = 1.0 / delta;
         fps = fps * 0.90 + this_fps * 0.10;
-        if (fps_callback)
-            fps_callback(fps_callback_userdata);
+        events.trigger(EventFpsChange);
     }
     gui_mutex.lock();
 }
@@ -173,53 +170,4 @@ void Gui::destroy_window(GuiWindow *window) {
 
     if (_window_list.length() == 1)
         _running = false;
-}
-
-static void add_handler(List<Gui::Handler> &list, void (*fn)(void *), void *userdata) {
-    ok_or_panic(list.resize(list.length() + 1));
-    Gui::Handler *handler = &list.at(list.length() - 1);
-    handler->fn = fn;
-    handler->userdata = userdata;
-}
-
-static int get_handler_index(List<Gui::Handler> &list, void (*fn)(void *)) {
-    for (int i = 0; i < list.length(); i += 1) {
-        if (list.at(i).fn == fn)
-            return i;
-    }
-    panic("handler not found");
-}
-
-static void remove_handler(List<Gui::Handler> &list, void (*fn)(void *)) {
-    int index = get_handler_index(list, fn);
-    list.swap_remove(index);
-}
-
-void Gui::attach_audio_device_callback(void (*fn)(void *), void *userdata) {
-    add_handler(audio_device_handlers, fn, userdata);
-}
-
-void Gui::detach_audio_device_callback(void (*fn)(void *)) {
-    remove_handler(audio_device_handlers, fn);
-}
-
-void Gui::attach_midi_device_callback(void (*fn)(void *), void *userdata) {
-    add_handler(midi_device_handlers, fn, userdata);
-}
-
-void Gui::detach_midi_device_callback(void (*fn)(void *)) {
-    remove_handler(midi_device_handlers, fn);
-}
-
-void Gui::dispatch_handlers(const List<Handler> &list) {
-    MutexLocker locker(&gui_mutex);
-    for (int i = 0; i < list.length(); i += 1) {
-        const Handler *handler = &list.at(i);
-        handler->fn(handler->userdata);
-    }
-}
-
-void Gui::set_fps_callback(void (*fn)(void *), void *userdata) {
-    fps_callback_userdata = userdata;
-    fps_callback = fn;
 }
