@@ -103,9 +103,6 @@ make
 
 ## Roadmap
 
- 0. save config when these happen:
-    - split_ratio of any dock changes
-    - always show tabs option updated
  0. ability to drag view tabs
  0. piano roll widget
  0. mixer widget

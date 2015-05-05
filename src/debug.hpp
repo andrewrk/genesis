@@ -13,6 +13,13 @@ static inline void ok_or_panic(int err) {
         panic("%s", genesis_error_string(err));
 }
 
+template<typename T>
+static inline T *ok_mem(T *ptr) {
+    if (!ptr)
+        panic("out of memory");
+    return ptr;
+}
+
 #ifdef NDEBUG
 static const bool GENESIS_DEBUG_MODE = false;
 #else

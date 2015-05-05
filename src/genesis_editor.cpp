@@ -12,6 +12,7 @@
 #include "path.hpp"
 #include "dockable_pane_widget.hpp"
 #include "text_widget.hpp"
+#include "tab_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -134,8 +135,8 @@ GenesisEditor::GenesisEditor() :
         perspective->name = "Default";
         perspective->dock.split_ratio = 0.30f;
         perspective->dock.dock_type = SettingsFileDockTypeHoriz;
-        perspective->dock.child_a = create_zero<SettingsFileDock>();
-        perspective->dock.child_b = create_zero<SettingsFileDock>();
+        perspective->dock.child_a = ok_mem(create_zero<SettingsFileDock>());
+        perspective->dock.child_b = ok_mem(create_zero<SettingsFileDock>());
 
         perspective->dock.child_a->dock_type = SettingsFileDockTypeTabs;
         ok_or_panic(perspective->dock.child_a->tabs.append("Resources"));
@@ -198,6 +199,11 @@ static void save_window_config_handler(Event, void *userdata) {
     editor_window->genesis_editor->save_window_config();
 }
 
+static void save_perspective_config_handler(Event, void *userdata) {
+    EditorWindow *editor_window = (EditorWindow *)userdata;
+    editor_window->genesis_editor->save_perspective_config(editor_window);
+}
+
 SettingsFileOpenWindow *GenesisEditor::create_sf_open_window() {
     ok_or_panic(settings_file->open_windows.add_one());
     SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.last();
@@ -221,6 +227,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     new_window->events.attach_handler(EventWindowClose, static_on_close_event, new_editor_window);
     new_window->events.attach_handler(EventWindowPosChange, save_window_config_handler, new_editor_window);
     new_window->events.attach_handler(EventWindowSizeChange, save_window_config_handler, new_editor_window);
+    new_window->events.attach_handler(EventPerspectiveChange, save_perspective_config_handler, new_editor_window);
 
     if (sf_open_window->maximized)
         new_window->maximize();
@@ -379,8 +386,8 @@ void GenesisEditor::load_dock(EditorWindow *editor_window, DockAreaWidget *dock_
         case SettingsFileDockTypeVert:
             assert(sf_dock->child_a);
             assert(sf_dock->child_b);
-            dock_area->child_a = create_zero<DockAreaWidget>(editor_window->window);
-            dock_area->child_b = create_zero<DockAreaWidget>(editor_window->window);
+            dock_area->child_a = ok_mem(create_zero<DockAreaWidget>(editor_window->window));
+            dock_area->child_b = ok_mem(create_zero<DockAreaWidget>(editor_window->window));
             dock_area->split_ratio = sf_dock->split_ratio;
             load_dock(editor_window, dock_area->child_a, sf_dock->child_a);
             load_dock(editor_window, dock_area->child_b, sf_dock->child_b);
@@ -414,4 +421,35 @@ void GenesisEditor::save_window_config() {
         sf_open_window->always_show_tabs = editor_window->always_show_tabs;
     }
     settings_file_commit(settings_file);
+}
+
+void GenesisEditor::save_perspective_config(EditorWindow *editor_window) {
+    SettingsFilePerspective *perspective = &settings_file->perspectives.at(0);
+    save_dock(editor_window->dock_area, &perspective->dock);
+    settings_file_commit(settings_file);
+}
+
+void GenesisEditor::save_dock(DockAreaWidget *dock_area, SettingsFileDock *sf_dock) {
+    settings_file_clear_dock(sf_dock);
+    sf_dock->dock_type = (SettingsFileDockType)dock_area->layout;
+    switch (dock_area->layout) {
+        case DockAreaLayoutTabs:
+            if (dock_area->tab_widget) {
+                for (int i = 0; i < dock_area->tab_widget->tabs.length(); i += 1) {
+                    TabWidgetTab *tab = dock_area->tab_widget->tabs.at(i);
+                    DockablePaneWidget *pane = (DockablePaneWidget *)tab->widget;
+                    ok_or_panic(sf_dock->tabs.append(pane->title));
+                }
+            }
+            break;
+        case DockAreaLayoutHoriz:
+        case DockAreaLayoutVert:
+            sf_dock->split_ratio = dock_area->split_ratio;
+            sf_dock->child_a = ok_mem(create_zero<SettingsFileDock>());
+            sf_dock->child_b = ok_mem(create_zero<SettingsFileDock>());
+
+            save_dock(dock_area->child_a, sf_dock->child_a);
+            save_dock(dock_area->child_b, sf_dock->child_b);
+            break;
+    }
 }

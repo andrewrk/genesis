@@ -91,4 +91,6 @@ void settings_file_close(SettingsFile *sf);
 // atomically update settings file on disk
 int settings_file_commit(SettingsFile *sf);
 
+void settings_file_clear_dock(SettingsFileDock *dock);
+
 #endif

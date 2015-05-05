@@ -221,13 +221,13 @@ static int on_begin(struct LaxJsonContext *json, enum LaxJsonType type) {
             break;
         case SettingsFileStateDockItemPropChildA:
             ok_or_panic(sf->dock_stack.append(sf->current_dock));
-            sf->current_dock->child_a = create_zero<SettingsFileDock>();
+            sf->current_dock->child_a = ok_mem(create_zero<SettingsFileDock>());
             sf->current_dock = sf->current_dock->child_a;
             sf->state = SettingsFileStateDockItemProp;
             break;
         case SettingsFileStateDockItemPropChildB:
             ok_or_panic(sf->dock_stack.append(sf->current_dock));
-            sf->current_dock->child_b = create_zero<SettingsFileDock>();
+            sf->current_dock->child_b = ok_mem(create_zero<SettingsFileDock>());
             sf->current_dock = sf->current_dock->child_b;
             sf->state = SettingsFileStateDockItemProp;
             break;
@@ -501,9 +501,7 @@ static void handle_parse_error(SettingsFile *sf, LaxJsonError err) {
 }
 
 SettingsFile *settings_file_open(const ByteBuffer &path) {
-    SettingsFile *sf = create_zero<SettingsFile>();
-    if (!sf)
-        panic("out of memory");
+    SettingsFile *sf = ok_mem(create_zero<SettingsFile>());
 
     sf->path = path;
 
@@ -567,7 +565,33 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
 }
 
 void settings_file_close(SettingsFile *sf) {
+    for (int i = 0; i < sf->perspectives.length(); i += 1) {
+        SettingsFilePerspective *perspective = &sf->perspectives.at(i);
+        settings_file_clear_dock(&perspective->dock);
+    }
     destroy(sf, 1);
+}
+
+void settings_file_clear_dock(SettingsFileDock *dock) {
+    ok_or_panic(dock->tabs.resize(0));
+    switch (dock->dock_type) {
+        case SettingsFileDockTypeTabs:
+            break;
+        case SettingsFileDockTypeHoriz:
+        case SettingsFileDockTypeVert:
+            if (dock->child_a) {
+                settings_file_clear_dock(dock->child_a);
+                destroy(dock->child_a, 1);
+                dock->child_a = nullptr;
+            }
+            if (dock->child_b) {
+                settings_file_clear_dock(dock->child_b);
+                destroy(dock->child_b, 1);
+                dock->child_b = nullptr;
+            }
+            break;
+    }
+    dock->dock_type = SettingsFileDockTypeTabs;
 }
 
 int settings_file_commit(SettingsFile *sf) {

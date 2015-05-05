@@ -170,6 +170,7 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
     if (resize_down) {
         if (event->action == MouseActionUp && event->button == MouseButtonLeft) {
             resize_down = false;
+            gui_window->events.trigger(EventPerspectiveChange);
             return;
         }
         if (layout == DockAreaLayoutHoriz) {
