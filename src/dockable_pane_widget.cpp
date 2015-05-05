@@ -19,6 +19,10 @@ DockAreaWidget::DockAreaWidget(GuiWindow *window) :
     auto_hide_tabs = false;
 }
 
+DockAreaWidget::~DockAreaWidget() {
+    reset_state();
+}
+
 void DockAreaWidget::draw(const glm::mat4 &projection) {
     switch (layout) {
         case DockAreaLayoutTabs:
@@ -44,6 +48,7 @@ DockAreaWidget * DockAreaWidget::transfer_state_to_new_child() {
     child->layout = layout;
     child->child_a = child_a;
     child->child_b = child_b;
+    child->split_ratio = split_ratio;
     child->tab_widget = tab_widget;
     child->parent_widget = this;
     if (child->child_a)
@@ -150,6 +155,11 @@ void DockAreaWidget::add_bottom_pane(DockablePaneWidget *pane) {
         return;
     }
     add_bottom_dock_area(create_dock_area_for_pane(pane));
+}
+
+void DockAreaWidget::add_tab_pane(DockablePaneWidget *pane) {
+    assert(layout == DockAreaLayoutTabs);
+    add_tab_widget(pane);
 }
 
 void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
@@ -279,6 +289,29 @@ void DockAreaWidget::update_model() {
     }
 }
 
+void DockAreaWidget::reset_state() {
+    switch (layout) {
+    case DockAreaLayoutTabs:
+        if (tab_widget) {
+            destroy(tab_widget, 1);
+            tab_widget = nullptr;
+        }
+        assert(!child_a);
+        assert(!child_b);
+        break;
+    case DockAreaLayoutHoriz:
+    case DockAreaLayoutVert:
+        assert(!tab_widget);
+        destroy(child_a, 1);
+        destroy(child_b, 1);
+        child_a = nullptr;
+        child_b = nullptr;
+        break;
+    }
+    layout = DockAreaLayoutTabs;
+    split_ratio = 0.50f;
+}
+
 void DockAreaWidget::set_auto_hide_tabs(bool value) {
     switch (layout) {
     case DockAreaLayoutTabs:
@@ -324,3 +357,4 @@ void DockablePaneWidget::on_resize() {
     child->height = height;
     child->on_resize();
 }
+

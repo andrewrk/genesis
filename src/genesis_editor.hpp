@@ -13,6 +13,10 @@ class MenuWidgetItem;
 class GenesisEditor;
 class DockAreaWidget;
 class TextWidget;
+struct SettingsFilePerspective;
+struct SettingsFileOpenWindow;
+struct SettingsFileDock;
+class DockablePaneWidget;
 
 struct EditorWindow {
     GenesisEditor *genesis_editor;
@@ -23,6 +27,7 @@ struct EditorWindow {
     bool always_show_tabs;
     DockAreaWidget* dock_area;
     TextWidget *fps_widget;
+    List<DockablePaneWidget*> all_panes;
 };
 
 class GenesisEditor {
@@ -31,7 +36,7 @@ public:
     ~GenesisEditor();
 
     void exec();
-    void create_window();
+    void create_window(SettingsFileOpenWindow *sf_open_window);
 
 
     GenesisContext *_genesis_context;
@@ -56,6 +61,12 @@ public:
 
     void do_undo();
     void do_redo();
+
+    void load_perspective(EditorWindow *window, SettingsFilePerspective *perspective);
+    void load_dock(EditorWindow *editor_window, DockAreaWidget *dock_area, SettingsFileDock *sf_dock);
+    DockablePaneWidget *get_pane_widget(EditorWindow *editor_window, const String &title);
+    void create_editor_window();
+    SettingsFileOpenWindow *create_sf_open_window();
 
     GenesisEditor(const GenesisEditor &copy) = delete;
     GenesisEditor &operator=(const GenesisEditor &copy) = delete;

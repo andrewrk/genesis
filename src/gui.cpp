@@ -48,7 +48,7 @@ static void midi_device_callback(void *userdata) {
 Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _running(true),
     _focus_window(nullptr),
-    _utility_window(create_window(false)),
+    _utility_window(create_utility_window()),
     _resource_bundle(resource_bundle),
     _spritesheet(this, "spritesheet"),
     img_entry_dir(_spritesheet.get_image_info("font-awesome/folder.png")),
@@ -142,8 +142,16 @@ void Gui::draw_image_color(GuiWindow *window, const SpritesheetImage *img,
     _spritesheet.draw_color(window, img, mvp, color);
 }
 
-GuiWindow *Gui::create_window(bool with_borders) {
-    GuiWindow *window = create<GuiWindow>(this, with_borders);
+GuiWindow *Gui::create_window(int left, int top, int width, int height) {
+    return create_generic_window(true, left, top, width, height);
+}
+
+GuiWindow *Gui::create_utility_window() {
+    return create_generic_window(false, 0, 0, 100, 100);
+}
+
+GuiWindow *Gui::create_generic_window(bool with_borders, int left, int top, int width, int height) {
+    GuiWindow *window = create<GuiWindow>(this, with_borders, left, top, width, height);
     window->_gui_index = _window_list.length();
     if (_window_list.append(window))
         panic("out of memory");

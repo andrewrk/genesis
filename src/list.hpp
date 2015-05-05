@@ -61,6 +61,20 @@ public:
         return unchecked_pop();
     }
 
+    int __attribute__((warn_unused_result)) add_one() {
+        return resize(_length + 1);
+    }
+
+    const T & last() const {
+        assert(_length >= 1);
+        return _items[_length - 1];
+    }
+
+    T & last() {
+        assert(_length >= 1);
+        return _items[_length - 1];
+    }
+
     int __attribute__((warn_unused_result)) resize(int length) {
         assert(length >= 0);
         int err = ensure_capacity(length);

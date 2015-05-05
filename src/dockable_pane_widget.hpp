@@ -21,7 +21,7 @@ enum DockAreaLayout {
 class DockAreaWidget : public Widget {
 public:
     DockAreaWidget(GuiWindow *window);
-    ~DockAreaWidget() override { }
+    ~DockAreaWidget() override;
 
     void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *event) override;
@@ -31,6 +31,8 @@ public:
     void add_right_pane(DockablePaneWidget *pane);
     void add_top_pane(DockablePaneWidget *pane);
     void add_bottom_pane(DockablePaneWidget *pane);
+    void add_tab_pane(DockablePaneWidget *pane);
+
 
     void add_left_dock_area(DockAreaWidget *dock_area);
     void add_right_dock_area(DockAreaWidget *dock_area);
@@ -38,6 +40,9 @@ public:
     void add_bottom_dock_area(DockAreaWidget *dock_area);
 
     void set_auto_hide_tabs(bool value);
+
+    // destroys all children and resets state
+    void reset_state();
 
     DockAreaLayout layout;
     DockAreaWidget *child_a; // left/top

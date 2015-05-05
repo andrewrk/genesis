@@ -104,7 +104,6 @@ make
 ## Roadmap
 
  0. ability to drag view tabs
- 0. implement perspectives
  0. piano roll widget
  0. mixer widget
 

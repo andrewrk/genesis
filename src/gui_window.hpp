@@ -21,7 +21,7 @@ class ContextMenuWidget;
 
 class GuiWindow {
 public:
-    GuiWindow(Gui *gui, bool is_normal_window);
+    GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int width, int height);
     ~GuiWindow();
 
     void draw();
@@ -32,6 +32,8 @@ public:
     void set_on_close_event(void (*fn)(GuiWindow *)) {
         _on_close_event = fn;
     }
+
+    void maximize();
 
     void set_cursor_beam();
     void set_cursor_default();
@@ -69,6 +71,8 @@ public:
     // screen coordinates
     int _client_width;
     int _client_height;
+    int client_left;
+    int client_top;
 
     glm::mat4 _projection;
     Widget *_mouse_over_widget;
@@ -104,11 +108,13 @@ public:
     void cursor_pos_callback(double xpos, double ypos);
     void mouse_button_callback(int button, int action, int mods);
     void scroll_callback(double xoffset, double yoffset);
+    void window_pos_callback(int left, int top);
 
     void setup_context();
     void teardown_context();
     void destroy_context_menu();
     void got_window_size(int width, int height);
+    void got_window_pos(int left, int top);
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);

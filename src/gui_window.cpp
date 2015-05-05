@@ -27,7 +27,11 @@ static void handle_new_size(GuiWindow *gui_window, int width, int height) {
     gui_window->_projection = glm::ortho(0.0f, (float)width, (float)height, 0.0f);
 }
 
-GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
+static void static_window_pos_callback(GLFWwindow* window, int left, int top) {
+    return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_pos_callback(left, top);
+}
+
+GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int width, int height) :
     _userdata(nullptr),
     _gui(gui),
     _mouse_over_widget(nullptr),
@@ -48,18 +52,20 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
         glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
         glfwWindowHint(GLFW_DECORATED, GL_TRUE);
         glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
-        window = glfwCreateWindow(1366, 768, "genesis", NULL, _gui->_utility_window->window);
+        window = glfwCreateWindow(width, height, "genesis", NULL, _gui->_utility_window->window);
     } else {
         glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
         glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
         glfwWindowHint(GLFW_DECORATED, GL_FALSE);
         glfwWindowHint(GLFW_FOCUSED, GL_FALSE);
-        window = glfwCreateWindow(100, 100, "genesis", NULL, NULL);
+        window = glfwCreateWindow(width, height, "genesis", NULL, NULL);
         is_visible = false;
     }
     if (!window)
         panic("unable to create window");
     glfwSetWindowUserPointer(window, this);
+
+    glfwSetWindowPos(window, left, top);
 
     int window_size_width, window_size_height;
     glfwGetWindowSize(window, &window_size_width, &window_size_height);
@@ -69,6 +75,12 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window) :
     glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
     handle_new_size(this, framebuffer_width, framebuffer_height);
 
+    int new_left, new_top;
+    glfwGetWindowPos(window, &new_left, &new_top);
+    got_window_pos(new_left, new_top);
+
+
+    glfwSetWindowPosCallback(window, static_window_pos_callback);
     glfwSetWindowIconifyCallback(window, static_window_iconify_callback);
     glfwSetFramebufferSizeCallback(window, static_framebuffer_size_callback);
     glfwSetWindowSizeCallback(window, static_window_size_callback);
@@ -187,6 +199,16 @@ void GuiWindow::set_main_widget(Widget *widget) {
 void GuiWindow::window_size_callback(int width, int height) {
     MutexLocker locker(&_gui->gui_mutex);
     got_window_size(width, height);
+}
+
+void GuiWindow::window_pos_callback(int left, int top) {
+    MutexLocker locker(&_gui->gui_mutex);
+    got_window_pos(left, top);
+}
+
+void GuiWindow::got_window_pos(int left, int top) {
+    client_left = left;
+    client_top = top;
 }
 
 void GuiWindow::got_window_size(int width, int height) {
@@ -546,4 +568,9 @@ void GuiWindow::destroy_context_menu() {
         destroy(context_menu, 1);
         context_menu = nullptr;
     }
+}
+
+void GuiWindow::maximize() {
+    // waiting for GLFW to support this feature
+    // https://github.com/andrewrk/genesis/issues/18
 }

@@ -20,7 +20,7 @@ static void exit_handler(void *userdata) {
 
 static void new_window_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
-    genesis_editor->create_window();
+    genesis_editor->create_editor_window();
 }
 
 static void close_window_handler(void *userdata) {
@@ -123,12 +123,41 @@ GenesisEditor::GenesisEditor() :
         settings_dirty = true;
     }
 
+    if (settings_file->open_windows.length() == 0) {
+        create_sf_open_window();
+        settings_dirty = true;
+    }
+    if (settings_file->perspectives.length() == 0) {
+        ok_or_panic(settings_file->perspectives.add_one());
+        SettingsFilePerspective *perspective = &settings_file->perspectives.last();
+        perspective->name = "Default";
+        perspective->always_show_tabs = true;
+        perspective->dock.split_ratio = 0.30f;
+        perspective->dock.dock_type = SettingsFileDockTypeHoriz;
+        perspective->dock.child_a = create_zero<SettingsFileDock>();
+        perspective->dock.child_b = create_zero<SettingsFileDock>();
+
+        perspective->dock.child_a->dock_type = SettingsFileDockTypeTabs;
+        ok_or_panic(perspective->dock.child_a->tabs.append("Resources"));
+
+        perspective->dock.child_b->dock_type = SettingsFileDockTypeTabs;
+        ok_or_panic(perspective->dock.child_b->tabs.append("Track Editor"));
+        settings_dirty = true;
+    }
+    for (int i = 0; i < settings_file->open_windows.length(); i += 1) {
+        SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.at(i);
+        create_window(sf_open_window);
+    }
+
     if (settings_dirty)
         settings_file_commit(settings_file);
 
     project_attach_event_handler(project, ProjectEventUndoChanged, on_undo_changed, this);
+}
 
-    create_window();
+void GenesisEditor::create_editor_window() {
+    create_window(create_sf_open_window());
+    settings_file_commit(settings_file);
 }
 
 int GenesisEditor::window_index(EditorWindow *window) {
@@ -160,17 +189,32 @@ static void static_on_close_event(GuiWindow *window) {
     editor_window->genesis_editor->close_window(editor_window);
 }
 
-void GenesisEditor::create_window() {
+SettingsFileOpenWindow *GenesisEditor::create_sf_open_window() {
+    ok_or_panic(settings_file->open_windows.add_one());
+    SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.last();
+    sf_open_window->perspective_index = 0;
+    sf_open_window->left = 0;
+    sf_open_window->top = 0;
+    sf_open_window->width = 1366;
+    sf_open_window->height = 768;
+    sf_open_window->maximized = false;
+    return sf_open_window;
+}
+
+void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     EditorWindow *new_editor_window = create<EditorWindow>();
 
-    GuiWindow *new_window = gui->create_window(true);
+    GuiWindow *new_window = gui->create_window(
+            sf_open_window->left, sf_open_window->top,
+            sf_open_window->width, sf_open_window->height);
     new_window->_userdata = new_editor_window;
     new_window->set_on_close_event(static_on_close_event);
 
+    if (sf_open_window->maximized)
+        new_window->maximize();
+
     new_editor_window->genesis_editor = this;
     new_editor_window->window = new_window;
-    new_editor_window->always_show_tabs = true;
-
 
     ok_or_panic(windows.append(new_editor_window));
 
@@ -223,14 +267,14 @@ void GenesisEditor::create_window() {
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
     DockablePaneWidget *resources_tree_dock = create<DockablePaneWidget>(resources_tree, "Resources");
+    ok_or_panic(new_editor_window->all_panes.append(resources_tree_dock));
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
     DockablePaneWidget *track_editor_dock = create<DockablePaneWidget>(track_editor, "Track Editor");
+    ok_or_panic(new_editor_window->all_panes.append(track_editor_dock));
 
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
     new_editor_window->dock_area = dock_area;
-    dock_area->add_left_pane(resources_tree_dock);
-    dock_area->add_right_pane(track_editor_dock);
 
     GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
     main_grid_layout->padding = 0;
@@ -239,7 +283,8 @@ void GenesisEditor::create_window() {
     main_grid_layout->add_widget(dock_area, 1, 0, HAlignLeft, VAlignTop);
     new_window->set_main_widget(main_grid_layout);
 
-    refresh_menu_state();
+    SettingsFilePerspective *perspective = &settings_file->perspectives.at(sf_open_window->perspective_index);
+    load_perspective(new_editor_window, perspective);
 }
 
 GenesisEditor::~GenesisEditor() {
@@ -293,4 +338,48 @@ void GenesisEditor::do_undo() {
 
 void GenesisEditor::do_redo() {
     project_redo(project);
+}
+
+void GenesisEditor::load_perspective(EditorWindow *editor_window, SettingsFilePerspective *perspective) {
+    editor_window->always_show_tabs = perspective->always_show_tabs;
+
+    editor_window->dock_area->reset_state();
+
+    load_dock(editor_window, editor_window->dock_area, &perspective->dock);
+
+
+    editor_window->dock_area->set_auto_hide_tabs(!editor_window->always_show_tabs);
+    refresh_menu_state();
+    editor_window->window->main_widget->on_resize();
+}
+
+void GenesisEditor::load_dock(EditorWindow *editor_window, DockAreaWidget *dock_area, SettingsFileDock *sf_dock) {
+    dock_area->layout = (DockAreaLayout)sf_dock->dock_type;
+    switch (sf_dock->dock_type) {
+        case SettingsFileDockTypeTabs:
+            for (int i = 0; i < sf_dock->tabs.length(); i += 1) {
+                String name = sf_dock->tabs.at(i);
+                dock_area->add_tab_pane(get_pane_widget(editor_window, name));
+            }
+            break;
+        case SettingsFileDockTypeHoriz:
+        case SettingsFileDockTypeVert:
+            dock_area->child_a = create_zero<DockAreaWidget>(editor_window->window);
+            dock_area->child_b = create_zero<DockAreaWidget>(editor_window->window);
+            dock_area->split_ratio = sf_dock->split_ratio;
+            load_dock(editor_window, dock_area->child_a, sf_dock->child_a);
+            load_dock(editor_window, dock_area->child_b, sf_dock->child_b);
+            dock_area->child_a->parent_widget = dock_area;
+            dock_area->child_b->parent_widget = dock_area;
+            break;
+    }
+}
+
+DockablePaneWidget *GenesisEditor::get_pane_widget(EditorWindow *editor_window, const String &title) {
+    for (int i = 0; i < editor_window->all_panes.length(); i += 1) {
+        DockablePaneWidget *pane = editor_window->all_panes.at(i);
+        if (String::compare(pane->title, title) == 0)
+            return pane;
+    }
+    panic("pane not found: %s", title.encode().raw());
 }

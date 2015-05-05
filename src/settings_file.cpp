@@ -91,10 +91,25 @@ static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
     return 0;
 }
 
-static void json_line_str(FILE *f, int indent, const char *key, const ByteBuffer &value) {
+static const char *dock_type_to_str(SettingsFileDockType dock_type) {
+    switch (dock_type) {
+        case SettingsFileDockTypeTabs:
+            return "Tabs";
+        case SettingsFileDockTypeVert:
+            return "Vert";
+        case SettingsFileDockTypeHoriz:
+            return "Horiz";
+    }
+    panic("bad dock type");
+}
+
+static void do_indent(FILE *f, int indent) {
     for (int i = 0; i < indent; i += 1)
         fprintf(f, " ");
-    fprintf(f, "%s: \"", key);
+}
+
+static void json_inline_str(FILE *f, const ByteBuffer &value) {
+    fprintf(f, "\"");
     for (int i = 0; i < value.length(); i += 1) {
         char c = value.at(i);
         switch (c) {
@@ -124,13 +139,133 @@ static void json_line_str(FILE *f, int indent, const char *key, const ByteBuffer
                 break;
         }
     }
-    fprintf(f, "\",\n");
+    fprintf(f, "\"");
+}
+
+static void json_line_str(FILE *f, int indent, const char *key, const ByteBuffer &value) {
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_inline_str(f, value);
+    fprintf(f, ",\n");
 }
 
 static void json_line_uint256(FILE *f, int indent, const char *key, const uint256 &value) {
-    for (int i = 0; i < indent; i += 1)
-        fprintf(f, " ");
+    do_indent(f, indent);
     fprintf(f, "%s: \"%s\",\n", key, value.to_string().raw());
+}
+
+static void json_line_int(FILE *f, int indent, const char *key, int value) {
+    do_indent(f, indent);
+    fprintf(f, "%s: %d,\n", key, value);
+}
+
+static void json_line_float(FILE *f, int indent, const char *key, float value) {
+    do_indent(f, indent);
+    fprintf(f, "%s: %f,\n", key, value);
+}
+
+static void json_line_bool(FILE *f, int indent, const char *key, bool value) {
+    do_indent(f, indent);
+    fprintf(f, "%s: %s,\n", key, value ? "true" : "false");
+}
+
+static void json_line_comment(FILE *f, int indent, const char *comment) {
+    do_indent(f, indent);
+    fprintf(f, "// %s\n", comment);
+}
+
+static void json_line_indent(FILE *f, int *indent, const char *brace) {
+    fprintf(f, "%s\n", brace);
+    *indent += 2;
+}
+
+static void json_line_outdent(FILE *f, int *indent, const char *brace) {
+    *indent -= 2;
+    do_indent(f, *indent);
+    fprintf(f, "%s\n", brace);
+}
+
+static void json_line_dock(FILE *f, int indent, const char *key, const SettingsFileDock *dock) {
+    assert(dock);
+
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_line_indent(f, &indent, "{");
+
+    json_line_str(f, indent, "dock_type", dock_type_to_str(dock->dock_type));
+
+    switch (dock->dock_type) {
+        case SettingsFileDockTypeTabs:
+            do_indent(f, indent);
+            fprintf(f, "tabs: [");
+            for (int i = 0; i < dock->tabs.length(); i += 1) {
+                json_inline_str(f, dock->tabs.at(i).encode());
+                if (i < dock->tabs.length() - 1)
+                    fprintf(f, ", ");
+            }
+            fprintf(f, "],\n");
+            break;
+        case SettingsFileDockTypeHoriz:
+        case SettingsFileDockTypeVert:
+            json_line_float(f, indent, "split_ratio", dock->split_ratio);
+            json_line_dock(f, indent, "child_a", dock->child_a);
+            json_line_dock(f, indent, "child_b", dock->child_b);
+            break;
+    }
+
+    json_line_outdent(f, &indent, "},");
+}
+
+static void json_line_open_windows(FILE *f, int indent, const char *key,
+        const List<SettingsFileOpenWindow> &open_windows)
+{
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_line_indent(f, &indent, "[");
+
+    for (int i = 0; i < open_windows.length(); i += 1) {
+        const SettingsFileOpenWindow *open_window = &open_windows.at(i);
+
+        do_indent(f, indent);
+        json_line_indent(f, &indent, "{");
+
+        json_line_comment(f, indent, "which perspective this window uses");
+        json_line_int(f, indent, "perspective", open_window->perspective_index);
+        fprintf(f, "\n");
+
+        json_line_comment(f, indent, "position of the window on the screen");
+        json_line_int(f, indent, "left", open_window->left);
+        json_line_int(f, indent, "top", open_window->top);
+        json_line_int(f, indent, "width", open_window->width);
+        json_line_int(f, indent, "height", open_window->height);
+        json_line_bool(f, indent, "maximized", open_window->maximized);
+        fprintf(f, "\n");
+
+        json_line_outdent(f, &indent, "},");
+    }
+    json_line_outdent(f, &indent, "],");
+}
+
+static void json_line_perspectives(FILE *f, int indent, const char *key,
+        const List<SettingsFilePerspective> &perspectives)
+{
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_line_indent(f, &indent, "[");
+
+    for (int i = 0; i < perspectives.length(); i += 1) {
+        const SettingsFilePerspective *perspective = &perspectives.at(i);
+
+        do_indent(f, indent);
+        json_line_indent(f, &indent, "{");
+
+        json_line_str(f, indent, "name", perspective->name.encode());
+        json_line_bool(f, indent, "always_show_tabs", perspective->always_show_tabs);
+        json_line_dock(f, indent, "dock", &perspective->dock);
+
+        json_line_outdent(f, &indent, "},");
+    }
+    json_line_outdent(f, &indent, "],");
 }
 
 SettingsFile *settings_file_open(const ByteBuffer &path) {
@@ -204,20 +339,34 @@ int settings_file_commit(SettingsFile *sf) {
 
     FILE *f = tmp_file.file;
 
-    fprintf(f, "// Genesis DAW configuration file\n");
-    fprintf(f, "// This config file format is a superset of JSON. See\n");
-    fprintf(f, "// https://github.com/andrewrk/liblaxjson for more details.\n");
-    fprintf(f, "{\n");
-    fprintf(f, "  // your display name\n");
-    json_line_str(f, 2, "user_name", sf->user_name.encode());
+    int indent = 0;
+    json_line_comment(f, indent, "Genesis DAW configuration file");
+    json_line_comment(f, indent, "This config file format is a superset of JSON. See");
+    json_line_comment(f, indent, "https://github.com/andrewrk/liblaxjson for more details.");
+    do_indent(f, indent);
+    json_line_indent(f, &indent, "{");
+
+    json_line_comment(f, indent, "your display name");
+    json_line_str(f, indent, "user_name", sf->user_name.encode());
     fprintf(f, "\n");
-    fprintf(f, "  // your user id\n");
-    json_line_uint256(f, 2, "user_id", sf->user_id);
+
+    json_line_comment(f, indent, "your user id");
+    json_line_uint256(f, indent, "user_id", sf->user_id);
     fprintf(f, "\n");
-    fprintf(f, "  // which project to load on startup\n");
-    json_line_uint256(f, 2, "open_project_id", sf->open_project_id);
+
+    json_line_comment(f, indent, "open this project on startup");
+    json_line_uint256(f, indent, "open_project_id", sf->open_project_id);
     fprintf(f, "\n");
-    fprintf(f, "}\n");
+
+    json_line_comment(f, indent, "these perspectives are available for the user to choose from");
+    json_line_perspectives(f, indent, "perspectives", sf->perspectives);
+    fprintf(f, "\n");
+
+    json_line_comment(f, indent, "open these windows on startup");
+    json_line_open_windows(f, indent, "open_windows", sf->open_windows);
+    fprintf(f, "\n");
+
+    json_line_outdent(f, &indent, "}");
 
     if (fclose(f))
         return GenesisErrorFileAccess;

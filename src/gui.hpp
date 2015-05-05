@@ -32,7 +32,7 @@ public:
 
     void exec();
 
-    GuiWindow *create_window(bool with_borders);
+    GuiWindow *create_window(int left, int top, int width, int height);
     void destroy_window(GuiWindow *window);
 
     FontSize *get_font_size(int font_size);
@@ -105,6 +105,8 @@ public:
     void *fps_callback_userdata;
 
     void dispatch_handlers(const List<Handler> &list);
+    GuiWindow *create_utility_window();
+    GuiWindow *create_generic_window(bool is_utility, int left, int top, int width, int height);
 
     Gui(const Gui &copy) = delete;
     Gui &operator=(const Gui &copy) = delete;
