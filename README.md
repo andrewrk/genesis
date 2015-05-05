@@ -104,7 +104,6 @@ make
 ## Roadmap
 
  0. save config when these happen:
-    - window changes position or size
     - split_ratio of any dock changes
     - always show tabs option updated
  0. move always show tabs option to window-specific settings

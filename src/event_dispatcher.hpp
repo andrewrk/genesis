@@ -9,6 +9,8 @@ enum Event {
     EventProjectTracksChanged,
     EventProjectCommandsChanged,
     EventWindowClose,
+    EventWindowPosChange,
+    EventWindowSizeChange,
     EventAudioDeviceChange,
     EventMidiDeviceChange,
     EventFpsChange,

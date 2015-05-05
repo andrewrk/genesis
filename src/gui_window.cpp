@@ -195,11 +195,13 @@ void GuiWindow::set_main_widget(Widget *widget) {
 void GuiWindow::window_size_callback(int width, int height) {
     MutexLocker locker(&_gui->gui_mutex);
     got_window_size(width, height);
+    events.trigger(EventWindowSizeChange);
 }
 
 void GuiWindow::window_pos_callback(int left, int top) {
     MutexLocker locker(&_gui->gui_mutex);
     got_window_pos(left, top);
+    events.trigger(EventWindowPosChange);
 }
 
 void GuiWindow::got_window_pos(int left, int top) {

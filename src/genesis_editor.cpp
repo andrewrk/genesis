@@ -193,6 +193,11 @@ static void static_on_close_event(Event, void *userdata) {
     editor_window->genesis_editor->close_window(editor_window);
 }
 
+static void save_window_config_handler(Event, void *userdata) {
+    EditorWindow *editor_window = (EditorWindow *)userdata;
+    editor_window->genesis_editor->save_window_config();
+}
+
 SettingsFileOpenWindow *GenesisEditor::create_sf_open_window() {
     ok_or_panic(settings_file->open_windows.add_one());
     SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.last();
@@ -213,6 +218,8 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
             sf_open_window->width, sf_open_window->height);
     new_window->_userdata = new_editor_window;
     new_window->events.attach_handler(EventWindowClose, static_on_close_event, new_editor_window);
+    new_window->events.attach_handler(EventWindowPosChange, save_window_config_handler, new_editor_window);
+    new_window->events.attach_handler(EventWindowSizeChange, save_window_config_handler, new_editor_window);
 
     if (sf_open_window->maximized)
         new_window->maximize();
