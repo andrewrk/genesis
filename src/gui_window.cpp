@@ -45,7 +45,8 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
     _double_click_timeout(0.3),
     running(true),
     main_widget(nullptr),
-    context_menu(nullptr)
+    context_menu(nullptr),
+    is_maximized(false)
 {
     if (is_normal_window) {
         glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);

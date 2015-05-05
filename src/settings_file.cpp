@@ -27,6 +27,10 @@ static int on_string(struct LaxJsonContext *json,
                     sf->state = SettingsFileStateUserName;
                 } else if (ByteBuffer::compare(value, "user_id") == 0) {
                     sf->state = SettingsFileStateUserId;
+                } else if (ByteBuffer::compare(value, "perspectives") == 0) {
+                    sf->state = SettingsFileStatePerspectives;
+                } else if (ByteBuffer::compare(value, "open_windows") == 0) {
+                    sf->state = SettingsFileStateOpenWindows;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
@@ -49,6 +53,80 @@ static int on_string(struct LaxJsonContext *json,
                 sf->state = SettingsFileStateReadyForProp;
                 break;
             }
+        case SettingsFileStatePerspectivesItemProp:
+            if (ByteBuffer::compare(value, "name") == 0) {
+                sf->state = SettingsFileStatePerspectivesItemPropName;
+            } else if (ByteBuffer::compare(value, "always_show_tabs") == 0) {
+                sf->state = SettingsFileStatePerspectivesItemPropAlwaysShowTabs;
+            } else if (ByteBuffer::compare(value, "dock") == 0) {
+                sf->state = SettingsFileStatePerspectivesItemPropDock;
+                sf->current_dock = &sf->current_perspective->dock;
+            } else {
+                return parse_error(sf, "invalid perspective property");
+            }
+            break;
+        case SettingsFileStatePerspectivesItemPropName:
+            {
+                bool ok;
+                sf->current_perspective->name = String(value, &ok);
+                if (!ok)
+                    return parse_error(sf, "invalid UTF-8");
+                sf->state = SettingsFileStatePerspectivesItemProp;
+                break;
+            }
+        case SettingsFileStateDockItemProp:
+            if (ByteBuffer::compare(value, "dock_type") == 0) {
+                sf->state = SettingsFileStateDockItemPropType;
+            } else if (ByteBuffer::compare(value, "split_ratio") == 0) {
+                sf->state = SettingsFileStateDockItemPropSplitRatio;
+            } else if (ByteBuffer::compare(value, "child_a") == 0) {
+                sf->state = SettingsFileStateDockItemPropChildA;
+            } else if (ByteBuffer::compare(value, "child_b") == 0) {
+                sf->state = SettingsFileStateDockItemPropChildB;
+            } else if (ByteBuffer::compare(value, "tabs") == 0) {
+                sf->state = SettingsFileStateDockItemPropTabs;
+            } else {
+                return parse_error(sf, "invalid dock item property name");
+            }
+            break;
+        case SettingsFileStateDockItemPropType:
+            if (ByteBuffer::compare(value, "Horiz") == 0) {
+                sf->current_dock->dock_type = SettingsFileDockTypeHoriz;
+            } else if (ByteBuffer::compare(value, "Vert") == 0) {
+                sf->current_dock->dock_type = SettingsFileDockTypeVert;
+            } else if (ByteBuffer::compare(value, "Tabs") == 0) {
+                sf->current_dock->dock_type = SettingsFileDockTypeTabs;
+            } else {
+                return parse_error(sf, "invalid dock_type value");
+            }
+            sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateTabName:
+            {
+                bool ok;
+                String title = String(value, &ok);
+                if (!ok)
+                    return parse_error(sf, "invalid UTF-8");
+                ok_or_panic(sf->current_dock->tabs.append(title));
+                break;
+            }
+        case SettingsFileStateOpenWindowItemProp:
+            if (ByteBuffer::compare(value, "perspective") == 0) {
+                sf->state = SettingsFileStateOpenWindowPerspectiveIndex;
+            } else if (ByteBuffer::compare(value, "left") == 0) {
+                sf->state = SettingsFileStateOpenWindowLeft;
+            } else if (ByteBuffer::compare(value, "top") == 0) {
+                sf->state = SettingsFileStateOpenWindowTop;
+            } else if (ByteBuffer::compare(value, "width") == 0) {
+                sf->state = SettingsFileStateOpenWindowWidth;
+            } else if (ByteBuffer::compare(value, "height") == 0) {
+                sf->state = SettingsFileStateOpenWindowHeight;
+            } else if (ByteBuffer::compare(value, "maximized") == 0) {
+                sf->state = SettingsFileStateOpenWindowMaximized;
+            } else {
+                return parse_error(sf, "invalid open window property name");
+            }
+            break;
         default:
             return parse_error(sf, (type == LaxJsonTypeProperty) ? "unexpected property" : "unexpected string");
     }
@@ -60,6 +138,30 @@ static int on_number(struct LaxJsonContext *json, double x) {
     switch (sf->state) {
         default:
             return parse_error(sf, "unexpected number");
+        case SettingsFileStateDockItemPropSplitRatio:
+            sf->current_dock->split_ratio = x;
+            sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateOpenWindowLeft:
+            sf->current_open_window->left = x;
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
+        case SettingsFileStateOpenWindowTop:
+            sf->current_open_window->top = x;
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
+        case SettingsFileStateOpenWindowWidth:
+            sf->current_open_window->width = x;
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
+        case SettingsFileStateOpenWindowHeight:
+            sf->current_open_window->height = x;
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
+        case SettingsFileStateOpenWindowPerspectiveIndex:
+            sf->current_open_window->perspective_index = (int)x;
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
     }
     return 0;
 }
@@ -67,6 +169,18 @@ static int on_number(struct LaxJsonContext *json, double x) {
 static int on_primitive(struct LaxJsonContext *json, enum LaxJsonType type) {
     SettingsFile *sf = (SettingsFile *) json->userdata;
     switch (sf->state) {
+        case SettingsFileStatePerspectivesItemPropAlwaysShowTabs:
+            if (type != LaxJsonTypeTrue && type != LaxJsonTypeFalse)
+                return parse_error(sf, "expected boolean");
+            sf->current_perspective->always_show_tabs = (type == LaxJsonTypeTrue);
+            sf->state = SettingsFileStatePerspectivesItemProp;
+            break;
+        case SettingsFileStateOpenWindowMaximized:
+            if (type != LaxJsonTypeTrue && type != LaxJsonTypeFalse)
+                return parse_error(sf, "expected boolean");
+            sf->current_open_window->maximized = (type == LaxJsonTypeTrue);
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
         default:
             return parse_error(sf, "unexpected primitive");
     }
@@ -83,11 +197,102 @@ static int on_begin(struct LaxJsonContext *json, enum LaxJsonType type) {
                 return parse_error(sf, "expected object");
             sf->state = SettingsFileStateReadyForProp;
             break;
+        case SettingsFileStatePerspectives:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected array");
+            sf->state = SettingsFileStatePerspectivesItem;
+            break;
+        case SettingsFileStatePerspectivesItem:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected object");
+            ok_or_panic(sf->perspectives.add_one());
+            sf->current_perspective = &sf->perspectives.last();
+            sf->state = SettingsFileStatePerspectivesItemProp;
+            break;
+        case SettingsFileStatePerspectivesItemPropDock:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected object");
+            sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateDockItemPropTabs:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected array");
+            sf->state = SettingsFileStateTabName;
+            break;
+        case SettingsFileStateDockItemPropChildA:
+            ok_or_panic(sf->dock_stack.append(sf->current_dock));
+            sf->current_dock->child_a = create_zero<SettingsFileDock>();
+            sf->current_dock = sf->current_dock->child_a;
+            sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateDockItemPropChildB:
+            ok_or_panic(sf->dock_stack.append(sf->current_dock));
+            sf->current_dock->child_b = create_zero<SettingsFileDock>();
+            sf->current_dock = sf->current_dock->child_b;
+            sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateOpenWindows:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected array");
+            sf->state = SettingsFileStateOpenWindowItem;
+            break;
+        case SettingsFileStateOpenWindowItem:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected object");
+            ok_or_panic(sf->open_windows.add_one());
+            sf->current_open_window = &sf->open_windows.last();
+            sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
     }
     return 0;
 }
 
 static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
+    SettingsFile *sf = (SettingsFile *) json->userdata;
+    switch (sf->state) {
+        default:
+            return parse_error(sf, "unexpected end");
+        case SettingsFileStateReadyForProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStateEnd;
+            break;
+        case SettingsFileStatePerspectivesItemProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStatePerspectivesItem;
+            break;
+        case SettingsFileStatePerspectivesItem:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected end array");
+            sf->state = SettingsFileStateReadyForProp;
+            break;
+        case SettingsFileStateTabName:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected end array");
+            sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateDockItemProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            if (sf->dock_stack.length() > 0) {
+                sf->current_dock = sf->dock_stack.pop();
+            } else {
+                sf->current_dock = nullptr;
+                sf->state = SettingsFileStatePerspectivesItemProp;
+            }
+            break;
+        case SettingsFileStateOpenWindowItem:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected array");
+            sf->state = SettingsFileStateReadyForProp;
+            break;
+        case SettingsFileStateOpenWindowItemProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStateOpenWindowItem;
+            break;
+    }
     return 0;
 }
 
@@ -268,6 +473,30 @@ static void json_line_perspectives(FILE *f, int indent, const char *key,
     json_line_outdent(f, &indent, "],");
 }
 
+static const char * json_str_err(LaxJsonError err) {
+    switch (err) {
+        case LaxJsonErrorNone: return "none";
+        case LaxJsonErrorUnexpectedChar: return "unexpected character";
+        case LaxJsonErrorExpectedEof: return "expected end of file";
+        case LaxJsonErrorExceededMaxStack: return "exceeded max stack";
+        case LaxJsonErrorNoMem: return "out of memory";
+        case LaxJsonErrorExceededMaxValueSize: return "exceeded maximum value size";
+        case LaxJsonErrorInvalidHexDigit: return "invalid hex digit";
+        case LaxJsonErrorInvalidUnicodePoint: return "invalid unicode point";
+        case LaxJsonErrorExpectedColon: return "expected colon";
+        case LaxJsonErrorUnexpectedEof: return "unexpected end of file";
+        case LaxJsonErrorAborted: return "aborted";
+    }
+    return "invalid error code";
+}
+
+static void handle_parse_error(SettingsFile *sf, LaxJsonError err) {
+    if (err) {
+        fprintf(stderr, "Error parsing config file: %s\n", sf->path.raw());
+        panic("Line %d, column %d: %s", sf->json->line, sf->json->column, json_str_err(err));
+    }
+}
+
 SettingsFile *settings_file_open(const ByteBuffer &path) {
     SettingsFile *sf = create_zero<SettingsFile>();
     if (!sf)
@@ -318,8 +547,15 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
     if (amt_read != buf.length())
         panic("error reading settings file");
 
-    lax_json_feed(json, amt_read, buf.raw());
-    lax_json_eof(json);
+    handle_parse_error(sf, lax_json_feed(json, amt_read, buf.raw()));
+    handle_parse_error(sf, lax_json_eof(json));
+
+    for (int i = 0; i < sf->open_windows.length(); i += 1) {
+        SettingsFileOpenWindow *open_window = &sf->open_windows.at(i);
+        if (open_window->perspective_index < 0 || open_window->perspective_index >= sf->perspectives.length()) {
+            panic("window %d perspective index out of bounds: %d", i + 1, open_window->perspective_index);
+        }
+    }
 
     sf->json = nullptr;
     lax_json_destroy(json);

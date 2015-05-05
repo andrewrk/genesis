@@ -171,8 +171,11 @@ int GenesisEditor::window_index(EditorWindow *window) {
 
 void GenesisEditor::close_window(EditorWindow *editor_window) {
     int index = window_index(editor_window);
+    bool last_one = (windows.length() == 1);
     windows.swap_remove(index);
     gui->destroy_window(editor_window->window);
+    if (!last_one)
+        save_window_config();
 }
 
 void GenesisEditor::close_others(EditorWindow *window) {
@@ -182,6 +185,7 @@ void GenesisEditor::close_others(EditorWindow *window) {
             target_window = windows.at(windows.length() - 2);
         close_window(target_window);
     }
+    save_window_config();
 }
 
 static void static_on_close_event(GuiWindow *window) {
@@ -364,6 +368,8 @@ void GenesisEditor::load_dock(EditorWindow *editor_window, DockAreaWidget *dock_
             break;
         case SettingsFileDockTypeHoriz:
         case SettingsFileDockTypeVert:
+            assert(sf_dock->child_a);
+            assert(sf_dock->child_b);
             dock_area->child_a = create_zero<DockAreaWidget>(editor_window->window);
             dock_area->child_b = create_zero<DockAreaWidget>(editor_window->window);
             dock_area->split_ratio = sf_dock->split_ratio;
@@ -382,4 +388,20 @@ DockablePaneWidget *GenesisEditor::get_pane_widget(EditorWindow *editor_window, 
             return pane;
     }
     panic("pane not found: %s", title.encode().raw());
+}
+
+void GenesisEditor::save_window_config() {
+    ok_or_panic(settings_file->open_windows.resize(windows.length()));
+    for (int i = 0; i < windows.length(); i += 1) {
+        EditorWindow *editor_window = windows.at(i);
+        GuiWindow *window = editor_window->window;
+        SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.at(i);
+        sf_open_window->perspective_index = 0;
+        sf_open_window->left = window->client_left;
+        sf_open_window->top = window->client_top;
+        sf_open_window->width = window->_client_width;
+        sf_open_window->height = window->_client_height;
+        sf_open_window->maximized = window->is_maximized;
+    }
+    settings_file_commit(settings_file);
 }

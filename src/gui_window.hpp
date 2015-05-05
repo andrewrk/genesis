@@ -99,6 +99,8 @@ public:
     int get_modifiers();
     void on_mouse_move(const MouseEvent *event);
 
+    bool is_maximized;
+
     void window_iconify_callback(int iconified);
     void framebuffer_size_callback(int width, int height);
     void window_size_callback(int width, int height);

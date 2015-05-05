@@ -305,12 +305,26 @@ static void test_settings_file(void) {
     assert(ByteBuffer::compare(sf->user_name.encode(), "") == 0);
     sf->user_name = str_value;
 
+    ok_or_panic(sf->perspectives.add_one());
+    SettingsFilePerspective *perspective = &sf->perspectives.last();
+    perspective->name = "Foo Perspective";
+    perspective->always_show_tabs = true;
+    perspective->dock.dock_type = SettingsFileDockTypeTabs;
+    ok_or_panic(perspective->dock.tabs.append("Fun Tab"));
+
     settings_file_commit(sf);
     settings_file_close(sf);
 
     sf = settings_file_open(tmp_file_path);
 
     assert(ByteBuffer::compare(sf->user_name.encode(), str_value) == 0);
+    assert(sf->perspectives.length() == 1);
+    perspective = &sf->perspectives.last();
+    assert(String::compare(perspective->name, "Foo Perspective") == 0);
+    assert(perspective->always_show_tabs == true);
+    assert(perspective->dock.dock_type == SettingsFileDockTypeTabs);
+    assert(perspective->dock.tabs.length() == 1);
+    assert(String::compare(perspective->dock.tabs.last(), "Fun Tab") == 0);
 
     settings_file_close(sf);
 

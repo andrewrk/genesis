@@ -67,6 +67,7 @@ public:
     DockablePaneWidget *get_pane_widget(EditorWindow *editor_window, const String &title);
     void create_editor_window();
     SettingsFileOpenWindow *create_sf_open_window();
+    void save_window_config();
 
     GenesisEditor(const GenesisEditor &copy) = delete;
     GenesisEditor &operator=(const GenesisEditor &copy) = delete;

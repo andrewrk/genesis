@@ -4,14 +4,38 @@
 #include "byte_buffer.hpp"
 #include "string.hpp"
 #include "uint256.hpp"
+
 struct LaxJsonContext;
 
 enum SettingsFileState {
     SettingsFileStateStart,
+    SettingsFileStateEnd,
     SettingsFileStateReadyForProp,
     SettingsFileStateOpenProjectFile,
     SettingsFileStateUserName,
     SettingsFileStateUserId,
+    SettingsFileStatePerspectives,
+    SettingsFileStatePerspectivesItem,
+    SettingsFileStatePerspectivesItemProp,
+    SettingsFileStatePerspectivesItemPropName,
+    SettingsFileStatePerspectivesItemPropAlwaysShowTabs,
+    SettingsFileStatePerspectivesItemPropDock,
+    SettingsFileStateDockItemProp,
+    SettingsFileStateDockItemPropType,
+    SettingsFileStateDockItemPropSplitRatio,
+    SettingsFileStateDockItemPropChildA,
+    SettingsFileStateDockItemPropChildB,
+    SettingsFileStateDockItemPropTabs,
+    SettingsFileStateTabName,
+    SettingsFileStateOpenWindows,
+    SettingsFileStateOpenWindowItem,
+    SettingsFileStateOpenWindowItemProp,
+    SettingsFileStateOpenWindowPerspectiveIndex,
+    SettingsFileStateOpenWindowLeft,
+    SettingsFileStateOpenWindowTop,
+    SettingsFileStateOpenWindowWidth,
+    SettingsFileStateOpenWindowHeight,
+    SettingsFileStateOpenWindowMaximized,
 };
 
 enum SettingsFileDockType {
@@ -55,6 +79,10 @@ struct SettingsFile {
     ByteBuffer path;
     SettingsFileState state;
     LaxJsonContext *json;
+    SettingsFilePerspective *current_perspective;
+    SettingsFileDock *current_dock;
+    List<SettingsFileDock *> dock_stack;
+    SettingsFileOpenWindow *current_open_window;
 };
 
 SettingsFile *settings_file_open(const ByteBuffer &path);
