@@ -129,6 +129,8 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     icon_width(12),
     icon_height(12),
     icon_spacing(4),
+    expand_arrow_width(12),
+    expand_arrow_height(12),
     bg_color(parse_color("#FCFCFC")),
     activated_color(parse_color("#2B71BC")),
     text_color(parse_color("#353535")),
@@ -187,7 +189,13 @@ void ContextMenuWidget::update_model() {
             child->mnemonic_model = transform2d(label_left + start_x, label_top + start_y + 1, end_x - start_x, 1);
         }
 
-        if (!null_key_sequence(child->shortcut)) {
+        if (child->children.length() > 0) {
+            int expand_arrow_left = calculated_width - padding_right - expand_arrow_width;
+            int expand_arrow_top = child->top + (child->bottom - child->top) / 2 - expand_arrow_height / 2;
+            float scale_width = expand_arrow_width / (float)gui->img_caret_right->width;
+            float scale_height = expand_arrow_width / (float)gui->img_caret_right->height;
+            child->expand_arrow_model = transform2d(expand_arrow_left, expand_arrow_top, scale_width, scale_height);
+        } else if (!null_key_sequence(child->shortcut)) {
             int shortcut_label_left = calculated_width - padding_right - child->shortcut_label.width();
             int shortcut_label_top = label_top;
             child->shortcut_label_model = transform2d(shortcut_label_left, shortcut_label_top);
@@ -221,7 +229,10 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
             gui->draw_image_color(gui_window, child->icon, projection * child->icon_model, text_color);
 
         child->label.draw(projection * child->label_model, this_text_color);
-        if (!null_key_sequence(child->shortcut)) {
+        if (child->children.length() > 0) {
+            gui->draw_image_color(gui_window, gui->img_caret_right,
+                    projection * child->expand_arrow_model, this_text_color);
+        } else if (!null_key_sequence(child->shortcut)) {
             glm::mat4 shortcut_label_mvp = projection * child->shortcut_label_model;
             child->shortcut_label.draw(shortcut_label_mvp, this_text_color);
         }
@@ -252,11 +263,22 @@ void MenuWidgetItem::activate() {
     gui_window_ref->destroy_context_menu();
 }
 
+void ContextMenuWidget::on_activated_item_change() {
+    if (!activated_item)
+        return;
+
+    if (activated_item->children.length() == 0)
+        return;
+
+    // TODO pop sub menu
+}
+
 void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
     MenuWidgetItem *hover_item = get_item_at(event->y);
     switch (event->action) {
         case MouseActionMove:
             activated_item = hover_item;
+            on_activated_item_change();
             break;
         case MouseActionUp:
             if (hover_item) {
@@ -301,6 +323,8 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
             }
             activated_item = menu_widget_item->children.at(new_index);
         } while ((!activated_item || !activated_item->enabled) && (it_count++ < children_count));
+
+        on_activated_item_change();
         return true;
     }
 

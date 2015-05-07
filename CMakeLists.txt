@@ -76,6 +76,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/tab_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/dockable_pane_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/mixer_widget.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")

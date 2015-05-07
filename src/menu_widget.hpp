@@ -41,6 +41,7 @@ public:
     glm::mat4 mnemonic_model;
     Label shortcut_label;
     glm::mat4 shortcut_label_model;
+    glm::mat4 expand_arrow_model;
 
     int top;
     int bottom;
@@ -90,6 +91,8 @@ public:
     int icon_width;
     int icon_height;
     int icon_spacing;
+    int expand_arrow_width;
+    int expand_arrow_height;
     glm::vec4 bg_color;
     glm::vec4 activated_color;
     glm::vec4 text_color;
@@ -103,6 +106,7 @@ public:
     void update_model();
     MenuWidgetItem *get_item_at(int y);
     int get_menu_widget_index(MenuWidgetItem *item);
+    void on_activated_item_change();
 };
 
 class MenuWidget : public Widget {

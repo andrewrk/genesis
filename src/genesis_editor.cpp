@@ -13,6 +13,7 @@
 #include "dockable_pane_widget.hpp"
 #include "text_widget.hpp"
 #include "tab_widget.hpp"
+#include "mixer_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -32,6 +33,10 @@ static void close_window_handler(void *userdata) {
 static void close_others_handler(void *userdata) {
     EditorWindow *editor_window = (EditorWindow *)userdata;
     editor_window->genesis_editor->close_others(editor_window);
+}
+
+static void open_wiki_handler(void *userdata) {
+    os_open_in_browser("https://github.com/andrewrk/genesis/wiki");
 }
 
 static void report_bug_handler(void *userdata) {
@@ -69,6 +74,10 @@ static void on_fps_change(Event, void *userdata) {
         EditorWindow *editor_window = genesis_editor->windows.at(i);
         editor_window->fps_widget->set_text(fps_text);
     }
+}
+
+static void show_dock_handler(void *userdata) {
+    fprintf(stderr, "show_dock_handler\n");
 }
 
 GenesisEditor::GenesisEditor() :
@@ -143,6 +152,8 @@ GenesisEditor::GenesisEditor() :
 
         perspective->dock.child_b->dock_type = SettingsFileDockTypeTabs;
         ok_or_panic(perspective->dock.child_b->tabs.append("Track Editor"));
+        ok_or_panic(perspective->dock.child_b->tabs.append("Mixer"));
+
         settings_dirty = true;
     }
     for (int i = 0; i < settings_file->open_windows.length(); i += 1) {
@@ -154,6 +165,12 @@ GenesisEditor::GenesisEditor() :
         settings_file_commit(settings_file);
 
     project->events.attach_handler(EventProjectUndoChanged, on_undo_changed, this);
+}
+
+GenesisEditor::~GenesisEditor() {
+    project_close(project);
+    user_destroy(user);
+    genesis_destroy_context(_genesis_context);
 }
 
 void GenesisEditor::create_editor_window() {
@@ -218,27 +235,27 @@ SettingsFileOpenWindow *GenesisEditor::create_sf_open_window() {
 }
 
 void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
-    EditorWindow *new_editor_window = create<EditorWindow>();
+    EditorWindow *editor_window = create<EditorWindow>();
 
     GuiWindow *new_window = gui->create_window(
             sf_open_window->left, sf_open_window->top,
             sf_open_window->width, sf_open_window->height);
-    new_window->_userdata = new_editor_window;
-    new_window->events.attach_handler(EventWindowClose, static_on_close_event, new_editor_window);
-    new_window->events.attach_handler(EventWindowPosChange, save_window_config_handler, new_editor_window);
-    new_window->events.attach_handler(EventWindowSizeChange, save_window_config_handler, new_editor_window);
-    new_window->events.attach_handler(EventPerspectiveChange, save_perspective_config_handler, new_editor_window);
+    new_window->_userdata = editor_window;
+    new_window->events.attach_handler(EventWindowClose, static_on_close_event, editor_window);
+    new_window->events.attach_handler(EventWindowPosChange, save_window_config_handler, editor_window);
+    new_window->events.attach_handler(EventWindowSizeChange, save_window_config_handler, editor_window);
+    new_window->events.attach_handler(EventPerspectiveChange, save_perspective_config_handler, editor_window);
 
     if (sf_open_window->maximized)
         new_window->maximize();
 
-    new_editor_window->always_show_tabs = sf_open_window->always_show_tabs;
+    editor_window->always_show_tabs = sf_open_window->always_show_tabs;
 
 
-    new_editor_window->genesis_editor = this;
-    new_editor_window->window = new_window;
+    editor_window->genesis_editor = this;
+    editor_window->window = new_window;
 
-    ok_or_panic(windows.append(new_editor_window));
+    ok_or_panic(windows.append(editor_window));
 
     MenuWidget *menu_widget = create<MenuWidget>(new_window);
     MenuWidgetItem *project_menu = menu_widget->add_menu("&Project");
@@ -255,8 +272,10 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     MenuWidgetItem *close_window_menu = window_menu->add_menu("&Close", alt_shortcut(VirtKeyF4));
     MenuWidgetItem *close_others_menu = window_menu->add_menu("Close &Others", no_shortcut());
     MenuWidgetItem *always_show_tabs_menu = window_menu->add_menu("Always Show &Tabs", no_shortcut());
+    MenuWidgetItem *show_view_menu = window_menu->add_menu("Show &View", no_shortcut());
 
-    MenuWidgetItem *report_bug_menu = help_menu->add_menu("&Report a Bug", shortcut(VirtKeyF1));
+    MenuWidgetItem *open_wiki_menu = help_menu->add_menu("Genesis &Wiki", shortcut(VirtKeyF1));
+    MenuWidgetItem *report_bug_menu = help_menu->add_menu("&Report a Bug", no_shortcut());
 
     exit_menu->set_activate_handler(exit_handler, this);
 
@@ -264,22 +283,23 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     redo_menu->set_activate_handler(redo_handler, this);
 
     new_window_menu->set_activate_handler(new_window_handler, this);
-    close_window_menu->set_activate_handler(close_window_handler, new_editor_window);
-    close_others_menu->set_activate_handler(close_others_handler, new_editor_window);
-    always_show_tabs_menu->set_activate_handler(always_show_tabs_handler, new_editor_window);
+    close_window_menu->set_activate_handler(close_window_handler, editor_window);
+    close_others_menu->set_activate_handler(close_others_handler, editor_window);
+    always_show_tabs_menu->set_activate_handler(always_show_tabs_handler, editor_window);
 
+    open_wiki_menu->set_activate_handler(open_wiki_handler, this);
     report_bug_menu->set_activate_handler(report_bug_handler, this);
 
-    new_editor_window->undo_menu = undo_menu;
-    new_editor_window->redo_menu = redo_menu;
-    new_editor_window->always_show_tabs_menu = always_show_tabs_menu;
+    editor_window->undo_menu = undo_menu;
+    editor_window->redo_menu = redo_menu;
+    editor_window->always_show_tabs_menu = always_show_tabs_menu;
 
     TextWidget *fps_widget = create<TextWidget>(new_window);
     fps_widget->set_text_interaction(false);
     fps_widget->set_background_color(menu_widget->bg_color);
     fps_widget->set_min_width(50);
     fps_widget->set_max_width(50);
-    new_editor_window->fps_widget = fps_widget;
+    editor_window->fps_widget = fps_widget;
 
     GridLayoutWidget *top_bar_grid_layout = create<GridLayoutWidget>(new_window);
     top_bar_grid_layout->padding = 0;
@@ -288,15 +308,23 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     top_bar_grid_layout->add_widget(fps_widget, 0, 1, HAlignRight, VAlignTop);
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
-    DockablePaneWidget *resources_tree_dock = create<DockablePaneWidget>(resources_tree, "Resources");
-    ok_or_panic(new_editor_window->all_panes.append(resources_tree_dock));
+    add_dock(editor_window, resources_tree, "Resources");
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
-    DockablePaneWidget *track_editor_dock = create<DockablePaneWidget>(track_editor, "Track Editor");
-    ok_or_panic(new_editor_window->all_panes.append(track_editor_dock));
+    add_dock(editor_window, track_editor, "Track Editor");
+
+    MixerWidget *mixer = create<MixerWidget>(new_window, project);
+    add_dock(editor_window, mixer, "Mixer");
 
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
-    new_editor_window->dock_area = dock_area;
+    editor_window->dock_area = dock_area;
+
+    // add "show view" menu entries for each dock
+    for (int i = 0; i < editor_window->all_panes.length(); i += 1) {
+        DockablePaneWidget *pane = editor_window->all_panes.at(i);
+        MenuWidgetItem *this_show_dock_menu = show_view_menu->add_menu(pane->title, -1, no_shortcut());
+        this_show_dock_menu->set_activate_handler(show_dock_handler, editor_window);
+    }
 
     GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
     main_grid_layout->padding = 0;
@@ -306,13 +334,12 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     new_window->set_main_widget(main_grid_layout);
 
     SettingsFilePerspective *perspective = &settings_file->perspectives.at(sf_open_window->perspective_index);
-    load_perspective(new_editor_window, perspective);
+    load_perspective(editor_window, perspective);
 }
 
-GenesisEditor::~GenesisEditor() {
-    project_close(project);
-    user_destroy(user);
-    genesis_destroy_context(_genesis_context);
+void GenesisEditor::add_dock(EditorWindow *editor_window, Widget *widget, const char *title) {
+    DockablePaneWidget *dock = create<DockablePaneWidget>(widget, title);
+    ok_or_panic(editor_window->all_panes.append(dock));
 }
 
 void GenesisEditor::exec() {
