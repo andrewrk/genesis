@@ -114,6 +114,7 @@ public:
     void destroy_context_menu();
     void got_window_size(int width, int height);
     void got_window_pos(int left, int top);
+    bool widget_is_menu(Widget *widget);
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);

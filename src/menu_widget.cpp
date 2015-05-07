@@ -138,7 +138,9 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
     activated_text_color(parse_color("#f0f0f0")),
     userdata(nullptr),
     on_destroy(nullptr),
-    activated_item(nullptr)
+    activated_item(nullptr),
+    sub_menu(nullptr),
+    parent_menu(nullptr)
 {
     update_model();
 }
@@ -146,6 +148,7 @@ ContextMenuWidget::ContextMenuWidget(MenuWidgetItem *menu_widget_item) :
 ContextMenuWidget::~ContextMenuWidget() {
     if (on_destroy)
         on_destroy(this);
+    destroy_sub_menu();
 }
 
 void ContextMenuWidget::update_model() {
@@ -242,6 +245,9 @@ void ContextMenuWidget::draw(const glm::mat4 &projection) {
             gui_window->fill_rect(this_text_color, mnemonic_mvp);
         }
     }
+
+    if (sub_menu)
+        sub_menu->draw(projection);
 }
 
 MenuWidgetItem *ContextMenuWidget::get_item_at(int y) {
@@ -264,25 +270,61 @@ void MenuWidgetItem::activate() {
 }
 
 void ContextMenuWidget::on_activated_item_change() {
-    if (!activated_item)
+    if (!activated_item || activated_item->children.length() == 0) {
+        destroy_sub_menu();
         return;
+    }
 
-    if (activated_item->children.length() == 0)
+    if (sub_menu && sub_menu->menu_widget_item == activated_item) {
+        if (sub_menu->activated_item) {
+            sub_menu->activated_item = nullptr;
+            sub_menu->on_activated_item_change();
+        }
         return;
+    }
 
-    // TODO pop sub menu
+    destroy_sub_menu();
+    sub_menu = create<ContextMenuWidget>(activated_item);
+    sub_menu->parent_menu = this;
+
+    sub_menu->left = left + calculated_width;
+    sub_menu->top = top + activated_item->top;
+
+    sub_menu->on_resize();
+
+    sub_menu->width = sub_menu->min_width();
+    sub_menu->height = sub_menu->min_height();
+
+    sub_menu->on_resize();
+}
+
+void ContextMenuWidget::destroy_sub_menu() {
+    if (sub_menu) {
+        gui_window->remove_widget(sub_menu);
+        destroy(sub_menu, 1);
+        sub_menu = nullptr;
+    }
 }
 
 void ContextMenuWidget::on_mouse_move(const MouseEvent *event) {
+    if (sub_menu) {
+        MouseEvent mouse_event = *event;
+        mouse_event.x += left;
+        mouse_event.y += top;
+        if (gui_window->try_mouse_move_event_on_widget(sub_menu, &mouse_event))
+            return;
+    }
+
     MenuWidgetItem *hover_item = get_item_at(event->y);
     switch (event->action) {
         case MouseActionMove:
             activated_item = hover_item;
             on_activated_item_change();
+            gui_window->set_focus_widget(this);
             break;
         case MouseActionUp:
             if (hover_item) {
-                if (hover_item->enabled)
+                if (hover_item->enabled && hover_item->children.length() == 0)
                     hover_item->activate();
             } else {
                 gui_window->destroy_context_menu();
@@ -330,14 +372,24 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
 
     if (event->virt_key == VirtKeyLeft || event->virt_key == VirtKeyRight) {
         int dir = (event->virt_key == VirtKeyLeft) ? -1 : 1;
-        MenuWidget *menu_widget = gui_window->menu_widget;
-        int current_index = menu_widget->get_item_index(menu_widget->activated_item);
-        int new_index = euclidean_mod(current_index + dir, menu_widget->children.length());
-        menu_widget->pop_top_level(&menu_widget->children.at(new_index), true);
+        if (parent_menu && dir == -1) {
+            activated_item = nullptr;
+            on_activated_item_change();
+            gui_window->set_focus_widget(parent_menu);
+        } else if (sub_menu && dir == 1) {
+            sub_menu->activated_item = sub_menu->menu_widget_item->children.at(0);
+            sub_menu->on_activated_item_change();
+            gui_window->set_focus_widget(sub_menu);
+        } else {
+            MenuWidget *menu_widget = gui_window->menu_widget;
+            int current_index = menu_widget->get_item_index(menu_widget->activated_item);
+            int new_index = euclidean_mod(current_index + dir, menu_widget->children.length());
+            menu_widget->pop_top_level(&menu_widget->children.at(new_index), true);
+        }
         return true;
     }
 
-    if (activated_item && activated_item->enabled &&
+    if (activated_item && activated_item->enabled && activated_item->children.length() == 0 &&
         (event->virt_key == VirtKeyEnter || event->virt_key == VirtKeySpace))
     {
         activated_item->activate();

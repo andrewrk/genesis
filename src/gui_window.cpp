@@ -357,9 +357,13 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
 
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
     if (context_menu && _mouse_over_widget != context_menu) {
-        if (try_mouse_move_event_on_widget(context_menu, event)) {
-            return;
-        } else if (event->action == MouseActionDown) {
+        ContextMenuWidget *target = context_menu;
+        while (target) {
+            if (try_mouse_move_event_on_widget(target, event))
+                return;
+            target = target->sub_menu;
+        }
+        if (event->action == MouseActionDown) {
             destroy_context_menu();
             return;
         }
@@ -439,6 +443,20 @@ bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent 
     return false;
 }
 
+bool GuiWindow::widget_is_menu(Widget *widget) {
+    if (widget == menu_widget)
+        return true;
+
+    Widget *target = context_menu;
+    while (target) {
+        if (target == widget)
+            return true;
+
+        target = context_menu->sub_menu;
+    }
+    return false;
+}
+
 void GuiWindow::set_focus_widget(Widget *widget) {
     if (_focus_widget == widget)
         return;
@@ -446,7 +464,7 @@ void GuiWindow::set_focus_widget(Widget *widget) {
         Widget *old_focus_widget = _focus_widget;
         _focus_widget = NULL;
         old_focus_widget->on_lose_focus();
-        if (old_focus_widget == context_menu && widget != menu_widget)
+        if (widget_is_menu(old_focus_widget) && !widget_is_menu(widget))
             destroy_context_menu();
     }
     if (!widget)

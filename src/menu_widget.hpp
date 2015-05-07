@@ -102,11 +102,14 @@ public:
     void *userdata;
     void (*on_destroy)(ContextMenuWidget *);
     MenuWidgetItem *activated_item;
+    ContextMenuWidget *sub_menu;
+    ContextMenuWidget *parent_menu;
 
     void update_model();
     MenuWidgetItem *get_item_at(int y);
     int get_menu_widget_index(MenuWidgetItem *item);
     void on_activated_item_change();
+    void destroy_sub_menu();
 };
 
 class MenuWidget : public Widget {
