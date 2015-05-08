@@ -62,7 +62,10 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_caret_right(_spritesheet.get_image_info("font-awesome/caret-right.png")),
     img_arrow_down(_spritesheet.get_image_info("font-awesome/arrow-down.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
-    _genesis_context(context)
+    _genesis_context(context),
+    dragging(false),
+    drag_data(nullptr),
+    drag_window(nullptr)
 {
 
     ft_ok(FT_Init_FreeType(&_ft_library));
@@ -174,10 +177,12 @@ void Gui::destroy_window(GuiWindow *window) {
         _running = false;
 }
 
-void Gui::start_drag(GuiWindow *gui_window, const MouseEvent *event, DragData *drag_data) {
+void Gui::start_drag(GuiWindow *gui_window, const MouseEvent *event, DragData *new_drag_data) {
+    if (drag_data)
+        end_drag();
     drag_window = gui_window;
     drag_orig_event = *event;
-    this->drag_data = drag_data;
+    drag_data = new_drag_data;
     dragging = false;
 }
 

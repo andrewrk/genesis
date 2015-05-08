@@ -141,12 +141,11 @@ void TabWidget::on_mouse_move(const MouseEvent *event) {
 void TabWidget::on_drag(const DragEvent *event) {
     assert(current_tab);
 
-    if (event->mouse_event.y >= widget_top) {
-        forward_drag_event(current_tab->widget, event);
-        return;
-    }
-    if (on_drag_event)
+    if (on_drag_event) {
         on_drag_event(this, event);
+    } else if (event->mouse_event.y >= widget_top) {
+        forward_drag_event(current_tab->widget, event);
+    }
 }
 
 void TabWidget::change_current_index(int direction) {
@@ -267,7 +266,6 @@ void TabWidget::insert_tab(Widget *widget, const String &title, int dest_index) 
 
     ok_or_panic(tabs.insert_space(dest_index, 1));
     tabs.at(dest_index) = tab;
-    current_index = dest_index;
     clamp_current_index();
 }
 

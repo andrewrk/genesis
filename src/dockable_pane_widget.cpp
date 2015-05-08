@@ -136,6 +136,7 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
             } else {
                 pane_parent->remove_tab(source_index);
                 tab_widget->insert_tab(pane, pane->title, insert_index);
+                tab_widget->select_index(insert_index);
             }
 
             gui_window->events.trigger(EventPerspectiveChange);

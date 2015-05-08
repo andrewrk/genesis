@@ -362,6 +362,11 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
     if (gui->drag_data) {
         bool end_drag = (event->action == MouseActionUp && gui->drag_orig_event.button == event->button);
+        DragEvent drag_event;
+        drag_event.orig_event = gui->drag_orig_event;
+        drag_event.mouse_event = *event;
+        drag_event.drag_data = gui->drag_data;
+        drag_event.action = end_drag ? DragActionDrop : DragActionMove;
         if (!gui->dragging &&
             (abs_diff(event->x, gui->drag_orig_event.x) > DRAG_DIST ||
              abs_diff(event->y, gui->drag_orig_event.y) > DRAG_DIST))
@@ -369,15 +374,14 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
             gui->dragging = true;
         }
         if (gui->dragging && main_widget) {
-            DragEvent drag_event;
-            drag_event.orig_event = gui->drag_orig_event;
-            drag_event.mouse_event = *event;
-            drag_event.drag_data = gui->drag_data;
-            drag_event.action = end_drag ? DragActionDrop : DragActionMove;
             forward_drag_event(main_widget, &drag_event);
         }
         if (end_drag) {
-            drag_widget = nullptr;
+            if (drag_widget) {
+                drag_event.action = DragActionOut;
+                drag_widget->on_drag(&drag_event);
+                drag_widget = nullptr;
+            }
             gui->end_drag();
         }
         return;
@@ -469,9 +473,11 @@ bool GuiWindow::forward_drag_event(Widget *widget, const DragEvent *event) {
                 old_drag_widget->on_drag(&drag_event);
                 drag_event.action = tmp_action;
             }
+
         }
 
         widget->on_drag(&drag_event);
+
         return true;
     }
 
