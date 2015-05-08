@@ -70,3 +70,12 @@ ContextMenuWidget *Widget::pop_context_menu(MenuWidgetItem *menu_widget_item,
 {
     return gui_window->pop_context_menu(menu_widget_item, left + rel_left, top + rel_top, box_width, box_height);
 }
+
+bool Widget::forward_drag_event(Widget *widget, const DragEvent *event) {
+    DragEvent drag_event = *event;
+    drag_event.orig_event.x += left;
+    drag_event.orig_event.y += top;
+    drag_event.mouse_event.x += left;
+    drag_event.mouse_event.y += top;
+    return gui_window->forward_drag_event(widget, &drag_event);
+}

@@ -10,6 +10,7 @@ enum DragType {
 enum DragAction {
     DragActionMove,
     DragActionDrop,
+    DragActionOut,
 };
 
 struct DragData {
@@ -20,7 +21,7 @@ struct DragData {
 
 struct DragEvent {
     DragAction action;
-    const MouseEvent *orig_event;
+    MouseEvent orig_event;
     MouseEvent mouse_event;
     const DragData *drag_data;
 };

@@ -141,6 +141,10 @@ void TabWidget::on_mouse_move(const MouseEvent *event) {
 void TabWidget::on_drag(const DragEvent *event) {
     assert(current_tab);
 
+    if (event->mouse_event.y >= widget_top) {
+        forward_drag_event(current_tab->widget, event);
+        return;
+    }
     if (on_drag_event)
         on_drag_event(this, event);
 }
@@ -163,17 +167,7 @@ bool TabWidget::on_key_event(const KeyEvent *event) {
 }
 
 void TabWidget::add_widget(Widget *widget, const String &title) {
-    assert(!widget->parent_widget); // widget already has parent
-    widget->parent_widget = this;
-    TabWidgetTab *tab = create<TabWidgetTab>();
-    tab->widget = widget;
-    tab->label = create<Label>(gui);
-    tab->label->set_text(title);
-    tab->label->update();
-    if (current_index < 0)
-        current_index = 0;
-    ok_or_panic(tabs.append(tab));
-    update_model();
+    insert_tab(widget, title, tabs.length());
 }
 
 void TabWidget::update_model() {
@@ -248,5 +242,36 @@ void TabWidget::move_tab(int source_index, int dest_index) {
 
     tabs.at(dest_index) = target_tab;
     current_index = dest_index;
+    clamp_current_index();
+}
+
+void TabWidget::remove_tab(int index) {
+    TabWidgetTab *tab = tabs.at(index);
+    tabs.remove_range(index, index + 1);
+    tab->widget->parent_widget = nullptr;
+    destroy(tab->label, 1);
+    destroy(tab, 1);
+    tab = nullptr;
+    clamp_current_index();
+}
+
+void TabWidget::insert_tab(Widget *widget, const String &title, int dest_index) {
+    assert(!widget->parent_widget); // widget already has parent
+    widget->parent_widget = this;
+
+    TabWidgetTab *tab = create<TabWidgetTab>();
+    tab->widget = widget;
+    tab->label = create<Label>(gui);
+    tab->label->set_text(title);
+    tab->label->update();
+
+    ok_or_panic(tabs.insert_space(dest_index, 1));
+    tabs.at(dest_index) = tab;
+    current_index = dest_index;
+    clamp_current_index();
+}
+
+void TabWidget::clamp_current_index() {
+    current_index = (tabs.length() == 0) ? -1 : clamp(0, current_index, tabs.length() - 1);
     update_model();
 }

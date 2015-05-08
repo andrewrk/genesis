@@ -87,13 +87,14 @@ static void on_tab_widget_drag_event(TabWidget *tab_widget, const DragEvent *eve
     dock_area->handle_tab_drag(event);
 }
 
-void DockAreaWidget::on_mouse_out(const MouseEvent *event) {
-    insert_tab_arrow = false;
-}
-
 void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
     static const int insert_arrow_width = 16;
     static const int insert_arrow_height = 16;
+
+    if (event->action == DragActionOut) {
+        insert_tab_arrow = false;
+        return;
+    }
 
     if (layout != DockAreaLayoutTabs)
         return;
@@ -109,6 +110,8 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
     }
 
     switch (event->action) {
+    case DragActionOut:
+        panic("unreachable");
     case DragActionMove:
         {
             insert_tab_arrow = true;
@@ -125,8 +128,17 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
         {
             DockablePaneWidget *pane = (DockablePaneWidget *)event->drag_data->ptr;
             insert_tab_arrow = false;
-            int source_index = tab_widget->get_widget_index(pane);
-            tab_widget->move_tab(source_index, insert_index);
+            TabWidget *pane_parent = (TabWidget *)pane->parent_widget;
+            int source_index = pane_parent->get_widget_index(pane);
+
+            if (pane_parent == tab_widget) {
+                tab_widget->move_tab(source_index, insert_index);
+            } else {
+                pane_parent->remove_tab(source_index);
+                tab_widget->insert_tab(pane, pane->title, insert_index);
+            }
+
+            gui_window->events.trigger(EventPerspectiveChange);
             break;
         }
     }
@@ -235,6 +247,22 @@ void DockAreaWidget::add_bottom_pane(DockablePaneWidget *pane) {
 void DockAreaWidget::add_tab_pane(DockablePaneWidget *pane) {
     assert(layout == DockAreaLayoutTabs);
     add_tab_widget(pane);
+}
+
+void DockAreaWidget::on_drag(const DragEvent *event) {
+    switch (layout) {
+        case DockAreaLayoutTabs:
+            if (tab_widget)
+                forward_drag_event(tab_widget, event);
+            return;
+        case DockAreaLayoutHoriz:
+        case DockAreaLayoutVert:
+            if (forward_drag_event(child_a, event))
+                return;
+            if (forward_drag_event(child_b, event))
+                return;
+            return;
+    }
 }
 
 void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
@@ -416,6 +444,10 @@ DockablePaneWidget::DockablePaneWidget(Widget *child, const String &title) :
 
 void DockablePaneWidget::draw(const glm::mat4 &projection) {
     child->draw(projection);
+}
+
+void DockablePaneWidget::on_drag(const DragEvent *event) {
+    forward_drag_event(child, event);
 }
 
 void DockablePaneWidget::on_mouse_move(const MouseEvent *event) {

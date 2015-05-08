@@ -467,6 +467,21 @@ outer:
     }
 }
 
+void GridLayoutWidget::on_drag(const DragEvent *event) {
+    for (int row = 0; row < rows(); row += 1) {
+        List<Cell> *r = &cells.at(row);
+        for (int col = 0; col < cols(); col += 1) {
+            Widget *widget = r->at(col).widget;
+            if (!widget)
+                continue;
+            if (!widget->is_visible)
+                continue;
+            if (forward_drag_event(widget, event))
+                return;
+        }
+    }
+}
+
 void GridLayoutWidget::on_mouse_move(const MouseEvent *event) {
     MouseEvent mouse_event = *event;
     mouse_event.x += left;

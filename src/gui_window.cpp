@@ -44,7 +44,8 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
     running(true),
     main_widget(nullptr),
     context_menu(nullptr),
-    is_maximized(false)
+    is_maximized(false),
+    drag_widget(nullptr)
 {
     if (is_normal_window) {
         glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
@@ -359,11 +360,27 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
 }
 
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
-    if (!gui->dragging && (gui->drag_data &&
-        event->action == MouseActionUp &&
-        gui->drag_orig_event.button == event->button))
-    {
-        gui->end_drag();
+    if (gui->drag_data) {
+        bool end_drag = (event->action == MouseActionUp && gui->drag_orig_event.button == event->button);
+        if (!gui->dragging &&
+            (abs_diff(event->x, gui->drag_orig_event.x) > DRAG_DIST ||
+             abs_diff(event->y, gui->drag_orig_event.y) > DRAG_DIST))
+        {
+            gui->dragging = true;
+        }
+        if (gui->dragging && main_widget) {
+            DragEvent drag_event;
+            drag_event.orig_event = gui->drag_orig_event;
+            drag_event.mouse_event = *event;
+            drag_event.drag_data = gui->drag_data;
+            drag_event.action = end_drag ? DragActionDrop : DragActionMove;
+            forward_drag_event(main_widget, &drag_event);
+        }
+        if (end_drag) {
+            drag_widget = nullptr;
+            gui->end_drag();
+        }
+        return;
     }
 
     if (context_menu && _mouse_over_widget != context_menu) {
@@ -397,13 +414,13 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
         if (in_bounds || pressing_any_btn) {
             if (event->action == MouseActionDown)
                 set_focus_widget(_mouse_over_widget);
-            move_or_drag(_mouse_over_widget, &mouse_event);
+            _mouse_over_widget->on_mouse_move(&mouse_event);
             return;
         } else {
             // not in bounds, not pressing any button
             if (event->action == MouseActionUp) {
                 // give them the mouse up event
-                move_or_drag(_mouse_over_widget, &mouse_event);
+                _mouse_over_widget->on_mouse_move(&mouse_event);
             }
             Widget *old_mouse_over_widget = _mouse_over_widget;
             _mouse_over_widget = NULL;
@@ -420,12 +437,45 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
 }
 
 void GuiWindow::remove_widget(Widget *widget) {
+    if (widget == drag_widget)
+        drag_widget = nullptr;
     if (widget == _mouse_over_widget)
         _mouse_over_widget = nullptr;
     if (widget == _focus_widget) {
         _focus_widget = nullptr;
         set_focus_widget(main_widget);
     }
+}
+
+bool GuiWindow::forward_drag_event(Widget *widget, const DragEvent *event) {
+    int right = widget->left + widget->width;
+    int bottom = widget->top + widget->height;
+    if (event->mouse_event.x >= widget->left && event->mouse_event.y >= widget->top &&
+        event->mouse_event.x < right && event->mouse_event.y < bottom)
+    {
+        DragEvent drag_event = *event;
+        drag_event.orig_event.x -= widget->left;
+        drag_event.orig_event.y -= widget->top;
+        drag_event.mouse_event.x -= widget->left;
+        drag_event.mouse_event.y -= widget->top;
+
+        if (event->action == DragActionMove) {
+            Widget *old_drag_widget = drag_widget;
+            drag_widget = widget;
+
+            if (old_drag_widget) {
+                DragAction tmp_action = drag_event.action;
+                drag_event.action = DragActionOut;
+                old_drag_widget->on_drag(&drag_event);
+                drag_event.action = tmp_action;
+            }
+        }
+
+        widget->on_drag(&drag_event);
+        return true;
+    }
+
+    return false;
 }
 
 bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {
@@ -447,40 +497,11 @@ bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent 
 
         if (first_over)
             widget->on_mouse_over(&mouse_event);
-        move_or_drag(widget, &mouse_event);
+
+        widget->on_mouse_move(&mouse_event);
         return true;
     }
     return false;
-}
-
-void GuiWindow::move_or_drag(Widget *widget, const MouseEvent *event) {
-    MouseEvent orig_adjusted = gui->drag_orig_event;
-    orig_adjusted.x -= widget->left;
-    orig_adjusted.y -= widget->top;
-
-    if (gui->drag_data && !gui->dragging) {
-        if (abs_diff(event->x, orig_adjusted.x) > DRAG_DIST ||
-            abs_diff(event->y, orig_adjusted.y) > DRAG_DIST)
-        {
-            gui->dragging = true;
-        }
-    }
-    if (gui->dragging) {
-        DragAction action = (event->action == MouseActionUp &&
-                orig_adjusted.button == event->button) ? DragActionDrop : DragActionMove;
-
-        DragEvent drag_event;
-        drag_event.orig_event = &orig_adjusted;
-        drag_event.mouse_event = *event;
-        drag_event.drag_data = gui->drag_data;
-        drag_event.action = action;
-        widget->on_drag(&drag_event);
-
-        if (action == DragActionDrop)
-            gui->end_drag();
-    } else {
-        widget->on_mouse_move(event);
-    }
 }
 
 bool GuiWindow::widget_is_menu(Widget *widget) {

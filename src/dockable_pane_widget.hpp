@@ -25,7 +25,7 @@ public:
 
     void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *event) override;
-    void on_mouse_out(const MouseEvent *event) override;
+    void on_drag(const DragEvent *event) override;
     void on_resize() override { update_model(); }
 
     void add_left_pane(DockablePaneWidget *pane);
@@ -77,6 +77,7 @@ public:
 
     void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *event) override;
+    void on_drag(const DragEvent *event) override;
     void on_resize() override;
 
     Widget *child;

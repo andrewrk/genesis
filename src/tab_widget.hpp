@@ -40,12 +40,14 @@ public:
     void select_widget(Widget *widget);
 
     void on_mouse_move(const MouseEvent *event) override;
-    bool on_key_event(const KeyEvent *event) override;
     void on_drag(const DragEvent *event) override;
+    bool on_key_event(const KeyEvent *event) override;
 
     void add_widget(Widget *widget, const String &title);
 
     void move_tab(int source_index, int dest_index);
+    void remove_tab(int index);
+    void insert_tab(Widget *widget, const String &title, int insert_index);
 
     List<TabWidgetTab *> tabs;
     int current_index;
@@ -77,6 +79,7 @@ public:
     void change_current_index(int direction);
     int get_widget_index(Widget *widget);
     void get_tab_pos(int index, int *x, int *y);
+    void clamp_current_index();
 };
 
 #endif

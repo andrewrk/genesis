@@ -99,6 +99,7 @@ public:
     void on_mouse_move(const MouseEvent *event);
 
     bool is_maximized;
+    Widget *drag_widget;
 
     void window_iconify_callback(int iconified);
     void framebuffer_size_callback(int width, int height);
@@ -118,7 +119,7 @@ public:
     void got_window_pos(int left, int top);
     bool widget_is_menu(Widget *widget);
 
-    void move_or_drag(Widget *widget, const MouseEvent *event);
+    bool forward_drag_event(Widget *widget, const DragEvent *event);
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);

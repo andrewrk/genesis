@@ -46,6 +46,7 @@ public:
     void on_resize() override;
 
     void on_mouse_move(const MouseEvent *) override;
+    void on_drag(const DragEvent *) override;
 
     struct Cell {
         Widget *widget;
