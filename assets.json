@@ -6,8 +6,8 @@
   },
   textures: {
     spritesheet: {
-      maxWidth: 128,
-      maxHeight: 128,
+      maxWidth: 256,
+      maxHeight: 256,
       globImages: [
         {
           path: "assets/img/",

@@ -103,8 +103,9 @@ make
 
 ## Roadmap
 
- 0. mixer widget
  0. ability to drag view tabs
+ 0. one perspective per window
+ 0. mixer widget
  0. piano roll widget
 
 ## Grand Plans

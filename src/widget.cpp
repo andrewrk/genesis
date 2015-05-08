@@ -5,7 +5,7 @@
 Widget::Widget(GuiWindow *gui_window) :
     gui_window(gui_window),
     parent_widget(nullptr),
-    gui(gui_window->_gui),
+    gui(gui_window->gui),
     left(0),
     top(0),
     width(100),

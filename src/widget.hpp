@@ -4,6 +4,7 @@
 #include "glm.hpp"
 #include "mouse_event.hpp"
 #include "key_event.hpp"
+#include "drag_event.hpp"
 
 class GuiWindow;
 class Gui;
@@ -29,6 +30,7 @@ public:
     virtual void on_mouse_move(const MouseEvent *) {}
     virtual void on_mouse_out(const MouseEvent *) {}
     virtual void on_mouse_over(const MouseEvent *) {}
+    virtual void on_drag(const DragEvent *) {}
     virtual void on_gain_focus() {}
     virtual void on_lose_focus() {}
     virtual void on_text_input(const TextInputEvent *event) {}

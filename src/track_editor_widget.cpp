@@ -135,7 +135,7 @@ void TrackEditorWidget::update_model() {
 
 TrackEditorWidget::GuiTrack * TrackEditorWidget::create_gui_track() {
     GuiTrack *gui_track = create<GuiTrack>();
-    gui_track->track_name_label = create<Label>(gui_window->_gui);
+    gui_track->track_name_label = create<Label>(gui_window->gui);
     return gui_track;
 }
 

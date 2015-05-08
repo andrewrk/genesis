@@ -65,4 +65,8 @@ static inline glm::vec4 color_dark_bg_inactive(void) {
     return parse_color("#777777");
 }
 
+static inline glm::vec4 color_attention_overlay(void) {
+    return parse_color("#D82B2B");
+}
+
 #endif

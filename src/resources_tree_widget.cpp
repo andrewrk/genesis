@@ -12,8 +12,8 @@ static void device_change_callback(Event, void *userdata) {
 
 ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window) :
     Widget(gui_window),
-    context(gui_window->_gui->_genesis_context),
-    gui(gui_window->_gui),
+    context(gui_window->gui->_genesis_context),
+    gui(gui_window->gui),
     bg_color(color_dark_bg()),
     text_color(color_fg_text()),
     padding_top(4),

@@ -6,6 +6,9 @@
 #include "menu_widget.hpp"
 #include "os.hpp"
 
+// how many pixels user must drag for drag to start
+static const int DRAG_DIST = 4;
+
 static void run(void *arg) {
     GuiWindow *gui_window = (GuiWindow *)arg;
     gui_window->setup_context();
@@ -29,7 +32,7 @@ static void static_window_pos_callback(GLFWwindow* window, int left, int top) {
 
 GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int width, int height) :
     _userdata(nullptr),
-    _gui(gui),
+    gui(gui),
     _mouse_over_widget(nullptr),
     _focus_widget(nullptr),
     menu_widget(nullptr),
@@ -48,7 +51,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
         glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
         glfwWindowHint(GLFW_DECORATED, GL_TRUE);
         glfwWindowHint(GLFW_FOCUSED, GL_TRUE);
-        window = glfwCreateWindow(width, height, "genesis", NULL, _gui->_utility_window->window);
+        window = glfwCreateWindow(width, height, "genesis", NULL, gui->_utility_window->window);
     } else {
         glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
         glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
@@ -99,14 +102,14 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
 GuiWindow::~GuiWindow() {
     destroy_context_menu();
 
-    if (_gui->_utility_window == this) {
+    if (gui->_utility_window == this) {
         teardown_context();
     } else {
         running = false;
 
-        _gui->gui_mutex.unlock();
+        gui->gui_mutex.unlock();
         thread.join();
-        _gui->gui_mutex.lock();
+        gui->gui_mutex.lock();
     }
 
     if (main_widget)
@@ -143,7 +146,7 @@ void GuiWindow::teardown_context() {
 }
 
 void GuiWindow::window_iconify_callback(int iconified) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
     _is_iconified = iconified;
 }
 
@@ -154,7 +157,7 @@ void GuiWindow::draw() {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
     {
-        MutexLocker locker(&_gui->gui_mutex);
+        MutexLocker locker(&gui->gui_mutex);
 
         if (main_widget && main_widget->is_visible)
             main_widget->draw(_projection);
@@ -176,7 +179,7 @@ void GuiWindow::layout_main_widget() {
 }
 
 void GuiWindow::framebuffer_size_callback(int width, int height) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
 
     handle_new_size(this, width, height);
 
@@ -193,13 +196,13 @@ void GuiWindow::set_main_widget(Widget *widget) {
 }
 
 void GuiWindow::window_size_callback(int width, int height) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
     got_window_size(width, height);
     events.trigger(EventWindowSizeChange);
 }
 
 void GuiWindow::window_pos_callback(int left, int top) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
     got_window_pos(left, top);
     events.trigger(EventWindowPosChange);
 }
@@ -215,12 +218,12 @@ void GuiWindow::got_window_size(int width, int height) {
 }
 
 void GuiWindow::window_close_callback() {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
     events.trigger(EventWindowClose);
 }
 
 void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
 
     KeyEvent key_event = {
         (action == GLFW_PRESS || action == GLFW_REPEAT) ? KeyActionDown : KeyActionUp,
@@ -242,7 +245,7 @@ void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
 }
 
 void GuiWindow::charmods_callback(unsigned int codepoint, int mods) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
 
 
     TextInputEvent text_event = {
@@ -267,7 +270,7 @@ int GuiWindow::get_modifiers() {
 }
 
 void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
 
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
@@ -288,7 +291,7 @@ void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
 }
 
 void GuiWindow::mouse_button_callback(int button, int action, int mods) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
 
     MouseButton btn;
     switch (button) {
@@ -335,7 +338,7 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
 }
 
 void GuiWindow::scroll_callback(double xoffset, double yoffset) {
-    MutexLocker locker(&_gui->gui_mutex);
+    MutexLocker locker(&gui->gui_mutex);
 
     if (!_focus_widget)
         return;
@@ -356,6 +359,13 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
 }
 
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
+    if (!gui->dragging && (gui->drag_data &&
+        event->action == MouseActionUp &&
+        gui->drag_orig_event.button == event->button))
+    {
+        gui->end_drag();
+    }
+
     if (context_menu && _mouse_over_widget != context_menu) {
         ContextMenuWidget *target = context_menu;
         while (target) {
@@ -387,13 +397,13 @@ void GuiWindow::on_mouse_move(const MouseEvent *event) {
         if (in_bounds || pressing_any_btn) {
             if (event->action == MouseActionDown)
                 set_focus_widget(_mouse_over_widget);
-            _mouse_over_widget->on_mouse_move(&mouse_event);
+            move_or_drag(_mouse_over_widget, &mouse_event);
             return;
         } else {
             // not in bounds, not pressing any button
             if (event->action == MouseActionUp) {
                 // give them the mouse up event
-                _mouse_over_widget->on_mouse_move(&mouse_event);
+                move_or_drag(_mouse_over_widget, &mouse_event);
             }
             Widget *old_mouse_over_widget = _mouse_over_widget;
             _mouse_over_widget = NULL;
@@ -437,10 +447,40 @@ bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent 
 
         if (first_over)
             widget->on_mouse_over(&mouse_event);
-        widget->on_mouse_move(&mouse_event);
+        move_or_drag(widget, &mouse_event);
         return true;
     }
     return false;
+}
+
+void GuiWindow::move_or_drag(Widget *widget, const MouseEvent *event) {
+    MouseEvent orig_adjusted = gui->drag_orig_event;
+    orig_adjusted.x -= widget->left;
+    orig_adjusted.y -= widget->top;
+
+    if (gui->drag_data && !gui->dragging) {
+        if (abs_diff(event->x, orig_adjusted.x) > DRAG_DIST ||
+            abs_diff(event->y, orig_adjusted.y) > DRAG_DIST)
+        {
+            gui->dragging = true;
+        }
+    }
+    if (gui->dragging) {
+        DragAction action = (event->action == MouseActionUp &&
+                orig_adjusted.button == event->button) ? DragActionDrop : DragActionMove;
+
+        DragEvent drag_event;
+        drag_event.orig_event = &orig_adjusted;
+        drag_event.mouse_event = *event;
+        drag_event.drag_data = gui->drag_data;
+        drag_event.action = action;
+        widget->on_drag(&drag_event);
+
+        if (action == DragActionDrop)
+            gui->end_drag();
+    } else {
+        widget->on_mouse_move(event);
+    }
 }
 
 bool GuiWindow::widget_is_menu(Widget *widget) {
@@ -474,17 +514,17 @@ void GuiWindow::set_focus_widget(Widget *widget) {
 }
 
 void GuiWindow::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
-    _gui->_shader_program_manager._primitive_shader_program.bind();
+    gui->_shader_program_manager._primitive_shader_program.bind();
 
-    _gui->_shader_program_manager._primitive_shader_program.set_uniform(
-            _gui->_shader_program_manager._primitive_uniform_color, color);
+    gui->_shader_program_manager._primitive_shader_program.set_uniform(
+            gui->_shader_program_manager._primitive_uniform_color, color);
 
-    _gui->_shader_program_manager._primitive_shader_program.set_uniform(
-            _gui->_shader_program_manager._primitive_uniform_mvp, mvp);
+    gui->_shader_program_manager._primitive_shader_program.set_uniform(
+            gui->_shader_program_manager._primitive_uniform_mvp, mvp);
 
-    glBindBuffer(GL_ARRAY_BUFFER, _gui->_static_geometry._rect_2d_vertex_buffer);
-    glEnableVertexAttribArray(_gui->_shader_program_manager._primitive_attrib_position);
-    glVertexAttribPointer(_gui->_shader_program_manager._primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glBindBuffer(GL_ARRAY_BUFFER, gui->_static_geometry._rect_2d_vertex_buffer);
+    glEnableVertexAttribArray(gui->_shader_program_manager._primitive_attrib_position);
+    glVertexAttribPointer(gui->_shader_program_manager._primitive_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
@@ -509,23 +549,23 @@ void GuiWindow::draw_image(const SpritesheetImage *img, int x, int y, int w, int
                             glm::vec3(x, y, 0.0f)),
                         glm::vec3(scale_x, scale_y, 0.0f));
     glm::mat4 mvp = _projection * model;
-    _gui->draw_image(this, img, mvp);
+    gui->draw_image(this, img, mvp);
 }
 
 void GuiWindow::set_cursor_beam() {
-    glfwSetCursor(window, _gui->cursor_ibeam);
+    glfwSetCursor(window, gui->cursor_ibeam);
 }
 
 void GuiWindow::set_cursor_default() {
-    glfwSetCursor(window, _gui->cursor_default);
+    glfwSetCursor(window, gui->cursor_default);
 }
 
 void GuiWindow::set_cursor_hresize() {
-    glfwSetCursor(window, _gui->cursor_hresize);
+    glfwSetCursor(window, gui->cursor_hresize);
 }
 
 void GuiWindow::set_cursor_vresize() {
-    glfwSetCursor(window, _gui->cursor_vresize);
+    glfwSetCursor(window, gui->cursor_vresize);
 }
 
 void GuiWindow::set_clipboard_string(const String &str) {
@@ -589,4 +629,8 @@ void GuiWindow::destroy_context_menu() {
 void GuiWindow::maximize() {
     // waiting for GLFW to support this feature
     // https://github.com/andrewrk/genesis/issues/18
+}
+
+void GuiWindow::start_drag(const MouseEvent *event, DragData *drag_data) {
+    gui->start_drag(this, event, drag_data);
 }

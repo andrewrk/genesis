@@ -13,6 +13,7 @@
 #include "static_geometry.hpp"
 #include "glfw.hpp"
 #include "event_dispatcher.hpp"
+#include "drag_event.hpp"
 
 uint32_t hash_int(const int &x);
 
@@ -41,6 +42,9 @@ public:
     void draw_image(GuiWindow *window, const SpritesheetImage *img, const glm::mat4 &mvp);
     void draw_image_color(GuiWindow *window, const SpritesheetImage *img,
             const glm::mat4 &mvp, const glm::vec4 &color);
+
+    void start_drag(GuiWindow *gui_window, const MouseEvent *event, DragData *drag_data);
+    void end_drag();
 
     Mutex gui_mutex;
 
@@ -83,6 +87,7 @@ public:
     const SpritesheetImage *img_volume_up;
     const SpritesheetImage *img_check;
     const SpritesheetImage *img_caret_right;
+    const SpritesheetImage *img_arrow_down;
     const SpritesheetImage *img_null;
 
     GenesisContext *_genesis_context;
@@ -90,6 +95,11 @@ public:
     EventDispatcher events;
 
     double fps;
+
+    bool dragging;
+    DragData *drag_data;
+    GuiWindow *drag_window;
+    MouseEvent drag_orig_event;
 
     GuiWindow *create_utility_window();
     GuiWindow *create_generic_window(bool is_utility, int left, int top, int width, int height);

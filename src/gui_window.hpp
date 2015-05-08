@@ -5,6 +5,7 @@
 #include "glm.hpp"
 #include "key_event.hpp"
 #include "mouse_event.hpp"
+#include "drag_event.hpp"
 #include "string.hpp"
 #include "glfw.hpp"
 #include "threads.hpp"
@@ -52,12 +53,13 @@ public:
     ContextMenuWidget * pop_context_menu(MenuWidgetItem *menu_widget_item, int left, int top, int width, int height);
     void refresh_context_menu();
 
+    void start_drag(const MouseEvent *event, DragData *drag_data);
 
     void *_userdata;
     // index into Gui's list of windows
     int _gui_index;
 
-    Gui *_gui;
+    Gui *gui;
     GLFWwindow *window;
     GLuint vertex_array_object;
 
@@ -115,6 +117,8 @@ public:
     void got_window_size(int width, int height);
     void got_window_pos(int left, int top);
     bool widget_is_menu(Widget *widget);
+
+    void move_or_drag(Widget *widget, const MouseEvent *event);
 
     static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
         return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);

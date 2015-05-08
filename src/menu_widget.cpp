@@ -18,8 +18,8 @@ static void parse_mnemonic(String &out_str, int *out_mnemonic_index) {
 
 MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window, String name, int mnemonic_index, KeySequence shortcut) :
     gui_window(gui_window),
-    label(gui_window->_gui),
-    shortcut_label(gui_window->_gui),
+    label(gui_window->gui),
+    shortcut_label(gui_window->gui),
     mnemonic_index(mnemonic_index),
     shortcut(shortcut),
     enabled(true),

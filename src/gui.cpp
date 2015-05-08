@@ -60,6 +60,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_volume_up(_spritesheet.get_image_info("font-awesome/volume-up.png")),
     img_check(_spritesheet.get_image_info("font-awesome/check.png")),
     img_caret_right(_spritesheet.get_image_info("font-awesome/caret-right.png")),
+    img_arrow_down(_spritesheet.get_image_info("font-awesome/arrow-down.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
     _genesis_context(context)
 {
@@ -171,4 +172,20 @@ void Gui::destroy_window(GuiWindow *window) {
 
     if (_window_list.length() == 1)
         _running = false;
+}
+
+void Gui::start_drag(GuiWindow *gui_window, const MouseEvent *event, DragData *drag_data) {
+    drag_window = gui_window;
+    drag_orig_event = *event;
+    this->drag_data = drag_data;
+    dragging = false;
+}
+
+void Gui::end_drag() {
+    if (drag_data->destruct)
+        drag_data->destruct(drag_data);
+    destroy(drag_data, 1);
+    drag_data = nullptr;
+    dragging = false;
+    drag_window = nullptr;
 }

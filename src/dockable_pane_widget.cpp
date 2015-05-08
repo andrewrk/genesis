@@ -2,6 +2,8 @@
 #include "gui_window.hpp"
 #include "color.hpp"
 #include "tab_widget.hpp"
+#include "drag_event.hpp"
+#include "gui.hpp"
 
 DockAreaWidget::DockAreaWidget(GuiWindow *window) :
     Widget(window)
@@ -17,6 +19,7 @@ DockAreaWidget::DockAreaWidget(GuiWindow *window) :
     resize_down = false;
     resize_down_pos = 0;
     auto_hide_tabs = false;
+    insert_tab_arrow_color = color_attention_overlay();
 }
 
 DockAreaWidget::~DockAreaWidget() {
@@ -26,8 +29,14 @@ DockAreaWidget::~DockAreaWidget() {
 void DockAreaWidget::draw(const glm::mat4 &projection) {
     switch (layout) {
         case DockAreaLayoutTabs:
-            if (tab_widget)
+            if (tab_widget) {
                 tab_widget->draw(projection);
+
+                if (insert_tab_arrow) {
+                    gui->draw_image_color(gui_window, gui->img_arrow_down,
+                            projection * insert_arrow_model, insert_tab_arrow_color);
+                }
+            }
             break;
         case DockAreaLayoutHoriz:
         case DockAreaLayoutVert:
@@ -61,6 +70,68 @@ DockAreaWidget * DockAreaWidget::transfer_state_to_new_child() {
     return child;
 }
 
+static void on_tab_widget_drag_tab(TabWidgetTab *tab,
+        TabWidget *tab_widget, const MouseEvent *event)
+{
+    DockAreaWidget *dock_area = (DockAreaWidget *) tab_widget->parent_widget;
+    DragData *drag_data = ok_mem(create_zero<DragData>());
+    drag_data->drag_type = DragTypeViewTab;
+    drag_data->ptr = tab->widget;
+    drag_data->destruct = nullptr;
+
+    dock_area->gui_window->start_drag(event, drag_data);
+}
+
+static void on_tab_widget_drag_event(TabWidget *tab_widget, const DragEvent *event) {
+    DockAreaWidget *dock_area = (DockAreaWidget *) tab_widget->parent_widget;
+    dock_area->handle_tab_drag(event);
+}
+
+void DockAreaWidget::on_mouse_out(const MouseEvent *event) {
+    insert_tab_arrow = false;
+}
+
+void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
+    static const int insert_arrow_width = 16;
+    static const int insert_arrow_height = 16;
+
+    if (layout != DockAreaLayoutTabs)
+        return;
+    if (event->drag_data->drag_type != DragTypeViewTab) 
+        return;
+    if (!tab_widget)
+        return;
+
+    int insert_index = tab_widget->get_insert_index_at(event->mouse_event.x, event->mouse_event.y);
+    if (insert_index == -1) {
+        insert_tab_arrow = false;
+        return;
+    }
+
+    switch (event->action) {
+    case DragActionMove:
+        {
+            insert_tab_arrow = true;
+            int tab_x, tab_y;
+            tab_widget->get_tab_pos(insert_index, &tab_x, &tab_y);
+            int arrow_icon_left = tab_x - insert_arrow_width / 2;
+            int arrow_icon_top = tab_y - insert_arrow_height;
+            float scale_x = insert_arrow_width / (float)gui->img_arrow_down->width;
+            float scale_y = insert_arrow_height / (float)gui->img_arrow_down->height;
+            insert_arrow_model = transform2d(arrow_icon_left, arrow_icon_top, scale_x, scale_y);
+            break;
+        }
+    case DragActionDrop:
+        {
+            DockablePaneWidget *pane = (DockablePaneWidget *)event->drag_data->ptr;
+            insert_tab_arrow = false;
+            int source_index = tab_widget->get_widget_index(pane);
+            tab_widget->move_tab(source_index, insert_index);
+            break;
+        }
+    }
+}
+
 void DockAreaWidget::add_tab_widget(DockablePaneWidget *pane) {
     assert(!pane->parent_widget);
     assert(layout == DockAreaLayoutTabs);
@@ -68,6 +139,8 @@ void DockAreaWidget::add_tab_widget(DockablePaneWidget *pane) {
         tab_widget = create<TabWidget>(gui_window);
         tab_widget->parent_widget = this;
         tab_widget->set_auto_hide(auto_hide_tabs);
+        tab_widget->on_drag_tab = on_tab_widget_drag_tab;
+        tab_widget->on_drag_event = on_tab_widget_drag_event;
     }
     tab_widget->add_widget(pane, pane->title);
 }

@@ -41,8 +41,11 @@ public:
 
     void on_mouse_move(const MouseEvent *event) override;
     bool on_key_event(const KeyEvent *event) override;
+    void on_drag(const DragEvent *event) override;
 
     void add_widget(Widget *widget, const String &title);
+
+    void move_tab(int source_index, int dest_index);
 
     List<TabWidgetTab *> tabs;
     int current_index;
@@ -65,11 +68,15 @@ public:
     int widget_top;
     bool auto_hide;
     bool show_tab_bar;
+    void (*on_drag_tab)(TabWidgetTab *tab, TabWidget *tab_widget, const MouseEvent *event);
+    void (*on_drag_event)(TabWidget *tab_widget, const DragEvent *event);
 
     void update_model();
     TabWidgetTab *get_tab_at(int x, int y);
+    int get_insert_index_at(int x, int y);
     void change_current_index(int direction);
     int get_widget_index(Widget *widget);
+    void get_tab_pos(int index, int *x, int *y);
 };
 
 #endif

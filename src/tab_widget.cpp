@@ -29,7 +29,8 @@ TabWidget::TabWidget(GuiWindow *window) :
     title_padding_right(6),
     widget_top(0),
     auto_hide(false),
-    show_tab_bar(true)
+    show_tab_bar(true),
+    on_drag_tab(nullptr)
 {
 }
 
@@ -62,6 +63,37 @@ void TabWidget::draw(const glm::mat4 &projection) {
     current_tab->widget->draw(projection);
 };
 
+void TabWidget::get_tab_pos(int index, int *x, int *y) {
+    if (index <= 0) {
+        TabWidgetTab *tab = tabs.at(0);
+        *x = tab->left;
+    } else if (index >= tabs.length()) {
+        TabWidgetTab *tab = tabs.last();
+        *x = tab->right;
+    } else {
+        TabWidgetTab *prev_tab = tabs.at(index - 1);
+        TabWidgetTab *tab = tabs.at(index);
+        *x = prev_tab->right + (tab->left - prev_tab->right) / 2;
+    }
+    *y = widget_top;
+}
+
+int TabWidget::get_insert_index_at(int x, int y) {
+    if (y < 0 || y >= widget_top)
+        return -1;
+
+    if (x < 0)
+        return 0;
+
+    for (int i = 0; i < tabs.length(); i += 1) {
+        TabWidgetTab *tab = tabs.at(i);
+        if (x < tab->left + (tab->right - tab->left) / 2)
+            return i;
+    }
+
+    return tabs.length();
+}
+
 TabWidgetTab *TabWidget::get_tab_at(int x, int y) {
     if (y < 0 || y >= widget_top)
         return nullptr;
@@ -83,13 +115,18 @@ void TabWidget::select_index(int index) {
 }
 
 void TabWidget::on_mouse_move(const MouseEvent *event) {
-    if (!current_tab)
-        return;
+    assert(current_tab);
 
     if (show_tab_bar && event->action == MouseActionDown && event->button == MouseButtonLeft) {
         TabWidgetTab *clicked_tab = get_tab_at(event->x, event->y);
         if (clicked_tab) {
             select_index(clicked_tab->index);
+            if (on_drag_tab) {
+                MouseEvent mouse_event = *event;
+                mouse_event.x += left;
+                mouse_event.y += top;
+                on_drag_tab(clicked_tab, this, &mouse_event);
+            }
             return;
         }
     }
@@ -99,6 +136,13 @@ void TabWidget::on_mouse_move(const MouseEvent *event) {
     mouse_event.y += top;
 
     gui_window->try_mouse_move_event_on_widget(current_tab->widget, &mouse_event);
+}
+
+void TabWidget::on_drag(const DragEvent *event) {
+    assert(current_tab);
+
+    if (on_drag_event)
+        on_drag_event(this, event);
 }
 
 void TabWidget::change_current_index(int direction) {
@@ -188,4 +232,21 @@ int TabWidget::get_widget_index(Widget *widget) {
             return i;
     }
     return -1;
+}
+
+void TabWidget::move_tab(int source_index, int dest_index) {
+    assert(dest_index >= 0);
+    assert(dest_index <= tabs.length());
+
+    TabWidgetTab *target_tab = tabs.at(source_index);
+
+    tabs.remove_range(source_index, source_index + 1);
+    if (source_index < dest_index)
+        dest_index -= 1;
+
+    ok_or_panic(tabs.insert_space(dest_index, 1));
+
+    tabs.at(dest_index) = target_tab;
+    current_index = dest_index;
+    update_model();
 }

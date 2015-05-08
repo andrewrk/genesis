@@ -25,6 +25,7 @@ public:
 
     void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *event) override;
+    void on_mouse_out(const MouseEvent *event) override;
     void on_resize() override { update_model(); }
 
     void add_left_pane(DockablePaneWidget *pane);
@@ -58,11 +59,15 @@ public:
     int resize_down_pos;
     float resize_down_ratio;
     bool auto_hide_tabs;
+    glm::mat4 insert_arrow_model;
+    bool insert_tab_arrow;
+    glm::vec4 insert_tab_arrow_color;
 
     DockAreaWidget * transfer_state_to_new_child();
     void add_tab_widget(DockablePaneWidget *pane);
     DockAreaWidget *create_dock_area_for_pane(DockablePaneWidget *pane);
     void update_model();
+    void handle_tab_drag(const DragEvent *event);
 };
 
 class DockablePaneWidget : public Widget {
