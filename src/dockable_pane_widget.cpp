@@ -465,6 +465,8 @@ void DockAreaWidget::remove_a() {
     DockAreaWidget *old_child_a = child_a;
     DockAreaWidget *old_child_b = child_b;
     transfer_state(child_b, this);
+    if (tab_widget)
+        tab_widget->parent_widget = this;
 
     old_child_a->parent_widget = nullptr;
     old_child_b->parent_widget = nullptr;
@@ -482,6 +484,8 @@ void DockAreaWidget::remove_b() {
     DockAreaWidget *old_child_a = child_a;
     DockAreaWidget *old_child_b = child_b;
     transfer_state(child_a, this);
+    if (tab_widget)
+        tab_widget->parent_widget = this;
 
     old_child_a->parent_widget = nullptr;
     old_child_b->parent_widget = nullptr;
