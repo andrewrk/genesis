@@ -45,10 +45,18 @@ public:
     }
 
     void trigger(Event event) {
+        List<EventHandler *> handlers;
         for (int i = 0; i < event_handlers.length(); i += 1) {
             EventHandler *handler = &event_handlers.at(i);
-            if (handler->event == event)
-                handler->fn(event, handler->userdata);
+            if (handler->event == event) {
+                ok_or_panic(handlers.append(handler));
+            }
+        }
+        // we use a deferred list like this in case any event handlers
+        // destroy this EventDispatcher
+        for (int i = 0; i < handlers.length(); i += 1) {
+            EventHandler *handler = handlers.at(i);
+            handler->fn(handler->event, handler->userdata);
         }
     }
 

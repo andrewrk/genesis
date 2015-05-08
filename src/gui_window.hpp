@@ -121,33 +121,6 @@ public:
 
     bool forward_drag_event(Widget *widget, const DragEvent *event);
 
-    static void static_window_iconify_callback(GLFWwindow* window, int iconified) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_iconify_callback(iconified);
-    }
-    static void static_framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->framebuffer_size_callback(width, height);
-    }
-    static void static_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->key_callback(key, scancode, action, mods);
-    }
-    static void static_charmods_callback(GLFWwindow* window, unsigned int codepoint, int mods) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->charmods_callback(codepoint, mods);
-    }
-    static void static_window_close_callback(GLFWwindow* window) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_close_callback();
-    }
-    static void static_cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->cursor_pos_callback(xpos, ypos);
-    }
-    static void static_window_size_callback(GLFWwindow* window, int width, int height) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->window_size_callback(width, height);
-    }
-    static void static_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->mouse_button_callback(button, action, mods);
-    }
-    static void static_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-        return static_cast<GuiWindow*>(glfwGetWindowUserPointer(window))->scroll_callback(xoffset, yoffset);
-    }
 };
 
 #endif
