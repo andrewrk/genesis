@@ -49,6 +49,10 @@ public:
     void remove_tab(int index);
     void insert_tab(Widget *widget, const String &title, int insert_index);
 
+    int tab_count() const {
+        return tabs.length();
+    }
+
     List<TabWidgetTab *> tabs;
     int current_index;
     TabWidgetTab *current_tab;

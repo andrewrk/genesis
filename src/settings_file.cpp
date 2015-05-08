@@ -270,6 +270,8 @@ static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
         case SettingsFileStateTabName:
             if (type != LaxJsonTypeArray)
                 return parse_error(sf, "expected end array");
+            if (sf->current_dock->tabs.length() == 0)
+                return parse_error(sf, "tabs array cannot be empty");
             sf->state = SettingsFileStateDockItemProp;
             break;
         case SettingsFileStateDockItemProp:

@@ -19,6 +19,7 @@ DockAreaWidget::DockAreaWidget(GuiWindow *window) :
     resize_down = false;
     resize_down_pos = 0;
     auto_hide_tabs = false;
+    insert_tab_arrow = false;
     insert_tab_arrow_color = color_attention_overlay();
 }
 
@@ -50,15 +51,19 @@ void DockAreaWidget::draw(const glm::mat4 &projection) {
     }
 }
 
+void DockAreaWidget::transfer_state(DockAreaWidget *source, DockAreaWidget *dest) {
+    dest->layout = source->layout;
+    dest->child_a = source->child_a; source->child_a = nullptr;
+    dest->child_b = source->child_b; source->child_b = nullptr;
+    dest->split_ratio = source->split_ratio;
+    dest->tab_widget = source->tab_widget; source->tab_widget = nullptr;
+}
+
 DockAreaWidget * DockAreaWidget::transfer_state_to_new_child() {
     assert((layout == DockAreaLayoutTabs && tab_widget) ||
             (layout != DockAreaLayoutTabs && child_a && child_b));
     DockAreaWidget *child = create<DockAreaWidget>(gui_window);
-    child->layout = layout;
-    child->child_a = child_a;
-    child->child_b = child_b;
-    child->split_ratio = split_ratio;
-    child->tab_widget = tab_widget;
+    transfer_state(this, child);
     child->parent_widget = this;
     if (child->child_a)
         child->child_a->parent_widget = child;
@@ -131,16 +136,20 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
             TabWidget *pane_parent = (TabWidget *)pane->parent_widget;
             int source_index = pane_parent->get_widget_index(pane);
 
+            GuiWindow *local_gui_window = gui_window;
             if (pane_parent == tab_widget) {
                 tab_widget->move_tab(source_index, insert_index);
             } else {
                 pane_parent->remove_tab(source_index);
                 tab_widget->insert_tab(pane, pane->title, insert_index);
                 tab_widget->select_index(insert_index);
+                if (pane_parent->tab_count() == 0) {
+                    DockAreaWidget *dock_area = (DockAreaWidget *)pane_parent->parent_widget;
+                    dock_area->collapse();
+                }
             }
-
-            gui_window->events.trigger(EventPerspectiveChange);
-            break;
+            local_gui_window->events.trigger(EventPerspectiveChange);
+            return; // function must return now since dock_area->collapse() might have destroyed us
         }
     }
 }
@@ -398,6 +407,7 @@ void DockAreaWidget::reset_state() {
     switch (layout) {
     case DockAreaLayoutTabs:
         if (tab_widget) {
+            tab_widget->parent_widget = nullptr;
             destroy(tab_widget, 1);
             tab_widget = nullptr;
         }
@@ -432,6 +442,55 @@ void DockAreaWidget::set_auto_hide_tabs(bool value) {
         child_b->set_auto_hide_tabs(value);
         break;
     }
+}
+
+void DockAreaWidget::collapse() {
+    reset_state();
+    DockAreaWidget *parent = (DockAreaWidget *)parent_widget;
+    assert(parent);
+    assert(parent->layout != DockAreaLayoutTabs);
+    if (parent->child_a == this) {
+        parent->remove_a();
+    } else {
+        assert(parent->child_b == this);
+        parent->remove_b();
+    }
+}
+
+void DockAreaWidget::remove_a() {
+    assert(child_a->layout == DockAreaLayoutTabs);
+    assert(child_a->tab_widget == nullptr);
+    assert(tab_widget == nullptr);
+
+    DockAreaWidget *old_child_a = child_a;
+    DockAreaWidget *old_child_b = child_b;
+    transfer_state(child_b, this);
+
+    old_child_a->parent_widget = nullptr;
+    old_child_b->parent_widget = nullptr;
+    destroy(old_child_a, 1);
+    destroy(old_child_b, 1);
+
+    update_model();
+}
+
+void DockAreaWidget::remove_b() {
+    assert(child_b->layout == DockAreaLayoutTabs);
+    assert(child_b->tab_widget == nullptr);
+    assert(tab_widget == nullptr);
+
+    DockAreaWidget *old_child_a = child_a;
+    DockAreaWidget *old_child_b = child_b;
+    transfer_state(child_a, this);
+
+    old_child_a->parent_widget = nullptr;
+    old_child_b->parent_widget = nullptr;
+
+    destroy(old_child_a, 1);
+    destroy(old_child_b, 1);
+
+
+    update_model();
 }
 
 DockablePaneWidget::DockablePaneWidget(Widget *child, const String &title) :

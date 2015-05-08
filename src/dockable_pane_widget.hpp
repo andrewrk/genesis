@@ -42,6 +42,10 @@ public:
 
     void set_auto_hide_tabs(bool value);
 
+    void collapse();
+    void remove_a();
+    void remove_b();
+
     // destroys all children and resets state
     void reset_state();
 
@@ -64,6 +68,7 @@ public:
     glm::vec4 insert_tab_arrow_color;
 
     DockAreaWidget * transfer_state_to_new_child();
+    void transfer_state(DockAreaWidget *source, DockAreaWidget *dest);
     void add_tab_widget(DockablePaneWidget *pane);
     DockAreaWidget *create_dock_area_for_pane(DockablePaneWidget *pane);
     void update_model();

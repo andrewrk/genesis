@@ -5,6 +5,8 @@
 
 static void destroy_tab(TabWidgetTab *tab) {
     if (tab) {
+        if (tab->widget)
+            tab->widget->parent_widget = nullptr;
         destroy(tab->label, 1);
         destroy(tab, 1);
     }
