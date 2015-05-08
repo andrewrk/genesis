@@ -476,27 +476,10 @@ static void json_line_perspectives(FILE *f, int indent, const char *key,
     json_line_outdent(f, &indent, "],");
 }
 
-static const char * json_str_err(LaxJsonError err) {
-    switch (err) {
-        case LaxJsonErrorNone: return "none";
-        case LaxJsonErrorUnexpectedChar: return "unexpected character";
-        case LaxJsonErrorExpectedEof: return "expected end of file";
-        case LaxJsonErrorExceededMaxStack: return "exceeded max stack";
-        case LaxJsonErrorNoMem: return "out of memory";
-        case LaxJsonErrorExceededMaxValueSize: return "exceeded maximum value size";
-        case LaxJsonErrorInvalidHexDigit: return "invalid hex digit";
-        case LaxJsonErrorInvalidUnicodePoint: return "invalid unicode point";
-        case LaxJsonErrorExpectedColon: return "expected colon";
-        case LaxJsonErrorUnexpectedEof: return "unexpected end of file";
-        case LaxJsonErrorAborted: return "aborted";
-    }
-    return "invalid error code";
-}
-
 static void handle_parse_error(SettingsFile *sf, LaxJsonError err) {
     if (err) {
         fprintf(stderr, "Error parsing config file: %s\n", sf->path.raw());
-        panic("Line %d, column %d: %s", sf->json->line, sf->json->column, json_str_err(err));
+        panic("Line %d, column %d: %s", sf->json->line, sf->json->column, lax_json_str_err(err));
     }
 }
 
