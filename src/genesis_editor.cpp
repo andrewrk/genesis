@@ -77,7 +77,10 @@ static void on_fps_change(Event, void *userdata) {
 }
 
 static void show_dock_handler(void *userdata) {
-    fprintf(stderr, "show_dock_handler\n");
+    EditorPane *editor_pane = (EditorPane *)userdata;
+    EditorWindow *editor_window = editor_pane->editor_window;
+    GenesisEditor *genesis_editor = editor_window->genesis_editor;
+    genesis_editor->show_view(editor_pane);
 }
 
 GenesisEditor::GenesisEditor() :
@@ -293,6 +296,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     editor_window->undo_menu = undo_menu;
     editor_window->redo_menu = redo_menu;
     editor_window->always_show_tabs_menu = always_show_tabs_menu;
+    editor_window->show_view_menu = show_view_menu;
 
     TextWidget *fps_widget = create<TextWidget>(new_window);
     fps_widget->set_text_interaction(false);
@@ -319,13 +323,6 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
     editor_window->dock_area = dock_area;
 
-    // add "show view" menu entries for each dock
-    for (int i = 0; i < editor_window->all_panes.length(); i += 1) {
-        DockablePaneWidget *pane = editor_window->all_panes.at(i);
-        MenuWidgetItem *this_show_dock_menu = show_view_menu->add_menu(pane->title, -1, no_shortcut());
-        this_show_dock_menu->set_activate_handler(show_dock_handler, editor_window);
-    }
-
     GridLayoutWidget *main_grid_layout = create<GridLayoutWidget>(new_window);
     main_grid_layout->padding = 0;
     main_grid_layout->spacing = 0;
@@ -338,8 +335,15 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 }
 
 void GenesisEditor::add_dock(EditorWindow *editor_window, Widget *widget, const char *title) {
-    DockablePaneWidget *dock = create<DockablePaneWidget>(widget, title);
-    ok_or_panic(editor_window->all_panes.append(dock));
+    DockablePaneWidget *pane = create<DockablePaneWidget>(widget, title);
+    EditorPane *editor_pane = create<EditorPane>();
+
+    editor_pane->pane = pane;
+    editor_pane->editor_window = editor_window;
+    editor_pane->show_menu_item = editor_window->show_view_menu->add_menu(pane->title, -1, no_shortcut());
+    editor_pane->show_menu_item->set_activate_handler(show_dock_handler, editor_pane);
+
+    ok_or_panic(editor_window->all_panes.append(editor_pane));
 }
 
 void GenesisEditor::exec() {
@@ -426,7 +430,8 @@ void GenesisEditor::load_dock(EditorWindow *editor_window, DockAreaWidget *dock_
 
 DockablePaneWidget *GenesisEditor::get_pane_widget(EditorWindow *editor_window, const String &title) {
     for (int i = 0; i < editor_window->all_panes.length(); i += 1) {
-        DockablePaneWidget *pane = editor_window->all_panes.at(i);
+        EditorPane *editor_pane = editor_window->all_panes.at(i);
+        DockablePaneWidget *pane = editor_pane->pane;
         if (String::compare(pane->title, title) == 0)
             return pane;
     }
@@ -479,4 +484,43 @@ void GenesisEditor::save_dock(DockAreaWidget *dock_area, SettingsFileDock *sf_do
             save_dock(dock_area->child_b, sf_dock->child_b);
             break;
     }
+}
+
+void GenesisEditor::show_view(EditorPane *editor_pane) {
+    // find the pane. if we find it, switch tabs so that it is current and set focus to it
+    // if we don't find it, add it to the main dock area
+    EditorWindow *editor_window = editor_pane->editor_window;
+    DockablePaneWidget *container_pane = find_pane(editor_pane, editor_window->dock_area);
+    if (container_pane) {
+        TabWidget *tab_widget = (TabWidget *) container_pane->parent_widget;
+        tab_widget->select_widget(container_pane);
+        editor_window->window->set_focus_widget(container_pane);
+    } else {
+        assert(!editor_pane->pane->parent_widget);
+        editor_window->dock_area->add_left_pane(editor_pane->pane);
+    }
+}
+
+DockablePaneWidget *GenesisEditor::find_pane(EditorPane *editor_pane, DockAreaWidget *dock_area) {
+    switch (dock_area->layout) {
+        case DockAreaLayoutTabs:
+            if (dock_area->tab_widget) {
+                for (int i = 0; i < dock_area->tab_widget->tabs.length(); i += 1) {
+                    TabWidgetTab *tab = dock_area->tab_widget->tabs.at(i);
+                    DockablePaneWidget *pane = (DockablePaneWidget *)tab->widget;
+                    if (pane == editor_pane->pane)
+                        return pane;
+                }
+            }
+            return nullptr;
+        case DockAreaLayoutHoriz:
+        case DockAreaLayoutVert:
+            DockablePaneWidget *pane = nullptr;
+            if ((pane = find_pane(editor_pane, dock_area->child_a)))
+                return pane;
+            if ((pane = find_pane(editor_pane, dock_area->child_b)))
+                return pane;
+            return pane;
+    }
+    panic("invalid dock area layout");
 }

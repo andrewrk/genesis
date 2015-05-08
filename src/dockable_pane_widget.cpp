@@ -64,10 +64,12 @@ DockAreaWidget * DockAreaWidget::transfer_state_to_new_child() {
 void DockAreaWidget::add_tab_widget(DockablePaneWidget *pane) {
     assert(!pane->parent_widget);
     assert(layout == DockAreaLayoutTabs);
-    tab_widget = create<TabWidget>(gui_window);
-    tab_widget->parent_widget = this;
+    if (!tab_widget) {
+        tab_widget = create<TabWidget>(gui_window);
+        tab_widget->parent_widget = this;
+        tab_widget->set_auto_hide(auto_hide_tabs);
+    }
     tab_widget->add_widget(pane, pane->title);
-    tab_widget->set_auto_hide(auto_hide_tabs);
 }
 
 DockAreaWidget *DockAreaWidget::create_dock_area_for_pane(DockablePaneWidget *pane) {
@@ -260,7 +262,7 @@ void DockAreaWidget::update_model() {
                 child_b->on_resize();
 
                 split_border_start_model = transform2d(child_a->width, 0, 1, height);
-                split_border_end_model = transform2d(child_b->left - 1, 0, 1, height);
+                split_border_end_model = transform2d(child_b->left - left - 1, 0, 1, height);
                 break;
             }
         case DockAreaLayoutVert:
@@ -284,7 +286,7 @@ void DockAreaWidget::update_model() {
                 child_b->on_resize();
 
                 split_border_start_model = transform2d(0, child_a->height, width, 1);
-                split_border_end_model = transform2d(0, child_b->top - 1, width, 1);
+                split_border_end_model = transform2d(0, child_b->top - top - 1, width, 1);
                 break;
             }
     }

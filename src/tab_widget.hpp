@@ -36,6 +36,9 @@ public:
         update_model();
     }
 
+    void select_index(int index);
+    void select_widget(Widget *widget);
+
     void on_mouse_move(const MouseEvent *event) override;
     bool on_key_event(const KeyEvent *event) override;
 
@@ -66,6 +69,7 @@ public:
     void update_model();
     TabWidgetTab *get_tab_at(int x, int y);
     void change_current_index(int direction);
+    int get_widget_index(Widget *widget);
 };
 
 #endif

@@ -17,6 +17,13 @@ struct SettingsFilePerspective;
 struct SettingsFileOpenWindow;
 struct SettingsFileDock;
 class DockablePaneWidget;
+struct EditorWindow;
+
+struct EditorPane {
+    DockablePaneWidget *pane;
+    EditorWindow *editor_window;
+    MenuWidgetItem *show_menu_item;
+};
 
 struct EditorWindow {
     GenesisEditor *genesis_editor;
@@ -24,10 +31,11 @@ struct EditorWindow {
     MenuWidgetItem *undo_menu;
     MenuWidgetItem *redo_menu;
     MenuWidgetItem *always_show_tabs_menu;
+    MenuWidgetItem *show_view_menu;
     bool always_show_tabs;
     DockAreaWidget* dock_area;
     TextWidget *fps_widget;
-    List<DockablePaneWidget*> all_panes;
+    List<EditorPane *> all_panes;
 };
 
 class GenesisEditor {
@@ -71,6 +79,9 @@ public:
     void save_perspective_config(EditorWindow *editor_window);
     void save_dock(DockAreaWidget *dock_area, SettingsFileDock *sf_dock);
     void add_dock(EditorWindow *editor_window, Widget *widget, const char *title);
+
+    void show_view(EditorPane *editor_pane);
+    DockablePaneWidget *find_pane(EditorPane *editor_pane, DockAreaWidget *dock_area);
 
     GenesisEditor(const GenesisEditor &copy) = delete;
     GenesisEditor &operator=(const GenesisEditor &copy) = delete;

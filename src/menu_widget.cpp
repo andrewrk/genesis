@@ -405,7 +405,15 @@ bool ContextMenuWidget::on_key_event(const KeyEvent *event) {
         MenuWidgetItem *child = menu_widget_item->children.at(i);
         VirtKey target_key = child->get_mnemonic_key();
         if (child->enabled && target_key == event->virt_key) {
-            child->activate();
+            if (child->children.length() == 0) {
+                child->activate();
+            } else {
+                activated_item = child;
+                on_activated_item_change();
+                sub_menu->activated_item = sub_menu->menu_widget_item->children.at(0);
+                sub_menu->on_activated_item_change();
+                gui_window->set_focus_widget(sub_menu);
+            }
             return true;
         }
     }

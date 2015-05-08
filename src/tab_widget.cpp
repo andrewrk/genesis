@@ -75,6 +75,13 @@ TabWidgetTab *TabWidget::get_tab_at(int x, int y) {
     return nullptr;
 }
 
+void TabWidget::select_index(int index) {
+    assert(index >= 0);
+    assert(index < tabs.length());
+    current_index = index;
+    update_model();
+}
+
 void TabWidget::on_mouse_move(const MouseEvent *event) {
     if (!current_tab)
         return;
@@ -82,8 +89,7 @@ void TabWidget::on_mouse_move(const MouseEvent *event) {
     if (show_tab_bar && event->action == MouseActionDown && event->button == MouseButtonLeft) {
         TabWidgetTab *clicked_tab = get_tab_at(event->x, event->y);
         if (clicked_tab) {
-            current_index = clicked_tab->index;
-            update_model();
+            select_index(clicked_tab->index);
             return;
         }
     }
@@ -96,8 +102,7 @@ void TabWidget::on_mouse_move(const MouseEvent *event) {
 }
 
 void TabWidget::change_current_index(int direction) {
-    current_index = euclidean_mod(current_index + direction, tabs.length());
-    update_model();
+    select_index(euclidean_mod(current_index + direction, tabs.length()));
 }
 
 bool TabWidget::on_key_event(const KeyEvent *event) {
@@ -168,4 +173,19 @@ void TabWidget::update_model() {
         current_tab->widget->height = height - widget_top;
         current_tab->widget->on_resize();
     }
+}
+
+void TabWidget::select_widget(Widget *widget) {
+    int index = get_widget_index(widget);
+    assert(index >= 0);
+    select_index(index);
+}
+
+int TabWidget::get_widget_index(Widget *widget) {
+    for (int i = 0; i < tabs.length(); i += 1) {
+        TabWidgetTab *tab = tabs.at(i);
+        if (tab->widget == widget)
+            return i;
+    }
+    return -1;
 }

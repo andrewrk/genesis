@@ -447,12 +447,12 @@ bool GuiWindow::widget_is_menu(Widget *widget) {
     if (widget == menu_widget)
         return true;
 
-    Widget *target = context_menu;
+    ContextMenuWidget *target = context_menu;
     while (target) {
         if (target == widget)
             return true;
 
-        target = context_menu->sub_menu;
+        target = target->sub_menu;
     }
     return false;
 }
