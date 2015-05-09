@@ -163,42 +163,34 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
 
     int insert_index = tab_widget->get_insert_index_at(event->mouse_event.x, event->mouse_event.y);
     if (insert_index >= 0) {
-        switch (event->action) {
-        case DragActionOut:
-            panic("unreachable");
-        case DragActionMove:
-            {
-                insert_tab_arrow = true;
-                int tab_x, tab_y;
-                tab_widget->get_tab_pos(insert_index, &tab_x, &tab_y);
-                int arrow_icon_left = tab_x - insert_arrow_width / 2;
-                int arrow_icon_top = tab_y - insert_arrow_height;
-                float scale_x = insert_arrow_width / (float)gui->img_arrow_down->width;
-                float scale_y = insert_arrow_height / (float)gui->img_arrow_down->height;
-                insert_arrow_model = transform2d(arrow_icon_left, arrow_icon_top, scale_x, scale_y);
-                break;
-            }
-        case DragActionDrop:
-            {
-                DockablePaneWidget *pane = (DockablePaneWidget *)event->drag_data->ptr;
-                TabWidget *pane_parent = (TabWidget *)pane->parent_widget;
-                int source_index = pane_parent->get_widget_index(pane);
+        if (event->action == DragActionMove) {
+            insert_tab_arrow = true;
+            int tab_x, tab_y;
+            tab_widget->get_tab_pos(insert_index, &tab_x, &tab_y);
+            int arrow_icon_left = tab_x - insert_arrow_width / 2;
+            int arrow_icon_top = tab_y - insert_arrow_height;
+            float scale_x = insert_arrow_width / (float)gui->img_arrow_down->width;
+            float scale_y = insert_arrow_height / (float)gui->img_arrow_down->height;
+            insert_arrow_model = transform2d(arrow_icon_left, arrow_icon_top, scale_x, scale_y);
+        } else if (event->action == DragActionDrop) {
+            DockablePaneWidget *pane = (DockablePaneWidget *)event->drag_data->ptr;
+            TabWidget *pane_parent = (TabWidget *)pane->parent_widget;
+            int source_index = pane_parent->get_widget_index(pane);
 
-                GuiWindow *local_gui_window = gui_window;
-                if (pane_parent == tab_widget) {
-                    tab_widget->move_tab(source_index, insert_index);
-                } else {
-                    pane_parent->remove_tab(source_index);
-                    tab_widget->insert_tab(pane, pane->title, insert_index);
-                    tab_widget->select_index(insert_index);
-                    if (pane_parent->tab_count() == 0) {
-                        DockAreaWidget *dock_area = (DockAreaWidget *)pane_parent->parent_widget;
-                        dock_area->collapse();
-                    }
+            GuiWindow *local_gui_window = gui_window;
+            if (pane_parent == tab_widget) {
+                tab_widget->move_tab(source_index, insert_index);
+            } else {
+                pane_parent->remove_tab(source_index);
+                tab_widget->insert_tab(pane, pane->title, insert_index);
+                tab_widget->select_index(insert_index);
+                if (pane_parent->tab_count() == 0) {
+                    DockAreaWidget *dock_area = (DockAreaWidget *)pane_parent->parent_widget;
+                    dock_area->collapse();
                 }
-                local_gui_window->events.trigger(EventPerspectiveChange);
-                return; // function must return now since dock_area->collapse() might have destroyed us
             }
+            local_gui_window->events.trigger(EventPerspectiveChange);
+            return; // function must return now since dock_area->collapse() might have destroyed us
         }
     } else {
         show_drop_lines = true;
@@ -262,6 +254,50 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
             float scale_x = drop_icon_width / (float)drop_area_icon->width;
             float scale_y = drop_icon_height / (float)drop_area_icon->height;
             drop_area_icon_model = transform2d(icon_left, icon_top, scale_x, scale_y);
+        }
+
+        if (event->action == DragActionDrop) {
+            if (!drop_area_icon)
+                return;
+
+            GuiWindow *local_gui_window = gui_window;
+            DockablePaneWidget *pane = (DockablePaneWidget *)event->drag_data->ptr;
+            TabWidget *pane_parent = (TabWidget *)pane->parent_widget;
+            int source_index = pane_parent->get_widget_index(pane);
+
+            if (drop_area_icon == gui->img_entry_dir) {
+                if (pane_parent == tab_widget) {
+                    tab_widget->move_tab(source_index, tab_widget->tab_count());
+                } else {
+                    pane_parent->remove_tab(source_index);
+                    tab_widget->insert_tab(pane, pane->title, tab_widget->tab_count());
+                    tab_widget->select_index(tab_widget->tab_count() - 1);
+                    if (pane_parent->tab_count() == 0) {
+                        DockAreaWidget *dock_area = (DockAreaWidget *)pane_parent->parent_widget;
+                        dock_area->collapse();
+                    }
+                }
+                local_gui_window->events.trigger(EventPerspectiveChange);
+                return;
+            }
+
+            pane_parent->remove_tab(source_index);
+
+            if (drop_area_icon == gui->img_arrow_up) {
+                add_top_pane(pane);
+            } else if (drop_area_icon == gui->img_arrow_right) {
+                add_right_pane(pane);
+            } else if (drop_area_icon == gui->img_arrow_down) {
+                add_bottom_pane(pane);
+            } else if (drop_area_icon == gui->img_arrow_left) {
+                add_left_pane(pane);
+            }
+
+            if (pane_parent->tab_count() == 0) {
+                DockAreaWidget *pane_parent_dock_area = (DockAreaWidget *)pane_parent->parent_widget;
+                pane_parent_dock_area->collapse();
+            }
+            local_gui_window->events.trigger(EventPerspectiveChange);
         }
     }
 }
@@ -563,6 +599,10 @@ void DockAreaWidget::remove_a() {
     transfer_state(child_b, this);
     if (tab_widget)
         tab_widget->parent_widget = this;
+    if (child_a)
+        child_a->parent_widget = this;
+    if (child_b)
+        child_b->parent_widget = this;
 
     old_child_a->parent_widget = nullptr;
     old_child_b->parent_widget = nullptr;
@@ -582,6 +622,10 @@ void DockAreaWidget::remove_b() {
     transfer_state(child_a, this);
     if (tab_widget)
         tab_widget->parent_widget = this;
+    if (child_a)
+        child_a->parent_widget = this;
+    if (child_b)
+        child_b->parent_widget = this;
 
     old_child_a->parent_widget = nullptr;
     old_child_b->parent_widget = nullptr;
