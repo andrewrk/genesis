@@ -7,6 +7,8 @@
 
 class DockablePaneWidget;
 class TabWidget;
+class Label;
+class SpritesheetImage;
 
 struct DockablePaneTab {
     DockablePaneWidget *pane;
@@ -67,12 +69,26 @@ public:
     bool insert_tab_arrow;
     glm::vec4 insert_tab_arrow_color;
 
+    bool show_drop_lines;
+    int center_drop_left;
+    int center_drop_top;
+    int center_drop_width;
+    int center_drop_height;
+    int center_drop_right;
+    int center_drop_bottom;
+    glm::mat4 drop_lines[4];
+    Label *drop_area_labels[5];
+    glm::mat4 drop_area_label_models[5];
+    const SpritesheetImage *drop_area_icon;
+    glm::mat4 drop_area_icon_model;
+
     DockAreaWidget * transfer_state_to_new_child();
     void transfer_state(DockAreaWidget *source, DockAreaWidget *dest);
     void add_tab_widget(DockablePaneWidget *pane);
     DockAreaWidget *create_dock_area_for_pane(DockablePaneWidget *pane);
     void update_model();
     void handle_tab_drag(const DragEvent *event);
+    void clear_drag_ui();
 };
 
 class DockablePaneWidget : public Widget {

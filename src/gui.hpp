@@ -87,7 +87,10 @@ public:
     const SpritesheetImage *img_volume_up;
     const SpritesheetImage *img_check;
     const SpritesheetImage *img_caret_right;
+    const SpritesheetImage *img_arrow_up;
     const SpritesheetImage *img_arrow_down;
+    const SpritesheetImage *img_arrow_left;
+    const SpritesheetImage *img_arrow_right;
     const SpritesheetImage *img_null;
 
     GenesisContext *_genesis_context;
