@@ -257,6 +257,8 @@ void DockAreaWidget::handle_tab_drag(const DragEvent *event) {
         }
 
         if (event->action == DragActionDrop) {
+            clear_drag_ui();
+
             if (!drop_area_icon)
                 return;
 

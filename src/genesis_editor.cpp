@@ -141,7 +141,7 @@ GenesisEditor::GenesisEditor() :
         create_sf_open_window();
         settings_dirty = true;
     }
-    if (settings_file->perspectives.length() == 0) {
+    while (settings_file->perspectives.length() < settings_file->open_windows.length()) {
         ok_or_panic(settings_file->perspectives.add_one());
         SettingsFilePerspective *perspective = &settings_file->perspectives.last();
         perspective->name = "Default";
@@ -219,11 +219,6 @@ static void save_window_config_handler(Event, void *userdata) {
     editor_window->genesis_editor->save_window_config();
 }
 
-static void save_perspective_config_handler(Event, void *userdata) {
-    EditorWindow *editor_window = (EditorWindow *)userdata;
-    editor_window->genesis_editor->save_perspective_config(editor_window);
-}
-
 SettingsFileOpenWindow *GenesisEditor::create_sf_open_window() {
     ok_or_panic(settings_file->open_windows.add_one());
     SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.last();
@@ -247,7 +242,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     new_window->events.attach_handler(EventWindowClose, static_on_close_event, editor_window);
     new_window->events.attach_handler(EventWindowPosChange, save_window_config_handler, editor_window);
     new_window->events.attach_handler(EventWindowSizeChange, save_window_config_handler, editor_window);
-    new_window->events.attach_handler(EventPerspectiveChange, save_perspective_config_handler, editor_window);
+    new_window->events.attach_handler(EventPerspectiveChange, save_window_config_handler, editor_window);
 
     if (sf_open_window->maximized)
         new_window->maximize();
@@ -440,24 +435,22 @@ DockablePaneWidget *GenesisEditor::get_pane_widget(EditorWindow *editor_window, 
 
 void GenesisEditor::save_window_config() {
     ok_or_panic(settings_file->open_windows.resize(windows.length()));
+    ok_or_panic(settings_file->perspectives.resize(windows.length()));
     for (int i = 0; i < windows.length(); i += 1) {
         EditorWindow *editor_window = windows.at(i);
         GuiWindow *window = editor_window->window;
         SettingsFileOpenWindow *sf_open_window = &settings_file->open_windows.at(i);
-        sf_open_window->perspective_index = 0;
+        sf_open_window->perspective_index = i;
         sf_open_window->left = window->client_left;
         sf_open_window->top = window->client_top;
         sf_open_window->width = window->_client_width;
         sf_open_window->height = window->_client_height;
         sf_open_window->maximized = window->is_maximized;
         sf_open_window->always_show_tabs = editor_window->always_show_tabs;
-    }
-    settings_file_commit(settings_file);
-}
 
-void GenesisEditor::save_perspective_config(EditorWindow *editor_window) {
-    SettingsFilePerspective *perspective = &settings_file->perspectives.at(0);
-    save_dock(editor_window->dock_area, &perspective->dock);
+        SettingsFilePerspective *perspective = &settings_file->perspectives.at(i);
+        save_dock(editor_window->dock_area, &perspective->dock);
+    }
     settings_file_commit(settings_file);
 }
 

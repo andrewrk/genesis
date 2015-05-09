@@ -76,7 +76,6 @@ public:
     void create_editor_window();
     SettingsFileOpenWindow *create_sf_open_window();
     void save_window_config();
-    void save_perspective_config(EditorWindow *editor_window);
     void save_dock(DockAreaWidget *dock_area, SettingsFileDock *sf_dock);
     void add_dock(EditorWindow *editor_window, Widget *widget, const char *title);
 
