@@ -7,6 +7,7 @@ enum SunkenBoxScheme {
     SunkenBoxSchemeSunken,
     SunkenBoxSchemeRaised,
     SunkenBoxSchemeInactive,
+    SunkenBoxSchemeSunkenBorders,
 };
 
 class SunkenBox {
@@ -21,6 +22,15 @@ public:
     glm::vec4 top_color;
     glm::vec4 bottom_color;
     glm::mat4 gradient_model;
+    glm::mat4 border_top_model;
+    glm::mat4 border_right_model;
+    glm::mat4 border_bottom_model;
+    glm::mat4 border_left_model;
+    bool borders_on;
+    glm::vec4 border_top_color;
+    glm::vec4 border_right_color;
+    glm::vec4 border_bottom_color;
+    glm::vec4 border_left_color;
 };
 
 

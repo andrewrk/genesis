@@ -5,9 +5,11 @@
 #include "debug.hpp"
 #include "spritesheet.hpp"
 #include "settings_file.hpp"
+#include "scroll_bar_widget.hpp"
 
 static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
+    resources_tree->refresh_devices();
     resources_tree->update_model();
 }
 
@@ -15,7 +17,6 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
     Widget(gui_window),
     context(gui_window->gui->_genesis_context),
     gui(gui_window->gui),
-    bg_color(color_dark_bg()),
     text_color(color_fg_text()),
     padding_top(4),
     padding_bottom(0),
@@ -28,10 +29,14 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
     item_padding_bottom(4),
     settings_file(settings_file)
 {
+    display_node_count = 0;
+
+    scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
+    dummy_label = create<Label>(gui);
+
     gui->events.attach_handler(EventAudioDeviceChange, device_change_callback, this);
     gui->events.attach_handler(EventMidiDeviceChange, device_change_callback, this);
 
-    /* TODO
     root_node = create_parent_node(nullptr, "");
     root_node->indent_level = -1;
     root_node->parent_data->expanded = true;
@@ -40,50 +45,46 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
     recording_devices_root = create_parent_node(root_node, "Recording Devices");
     midi_devices_root = create_parent_node(root_node, "MIDI Devices");
     samples_root = create_parent_node(root_node, "Samples");
-    */
 
+    refresh_devices();
     scan_sample_dirs();
 }
 
 ResourcesTreeWidget::~ResourcesTreeWidget() {
-    /* TODO
-    destroy_dir_cache();
+    clear_display_nodes();
 
     gui->events.detach_handler(EventAudioDeviceChange, device_change_callback);
     gui->events.detach_handler(EventMidiDeviceChange, device_change_callback);
 
     destroy_node(root_node);
-    */
+
+    destroy(dummy_label, 1);
+    destroy(scroll_bar, 1);
+}
+
+void ResourcesTreeWidget::clear_display_nodes() {
+    for (int i = 0; i < display_nodes.length(); i += 1) {
+        NodeDisplay *node_display = display_nodes.at(i);
+        destroy_node_display(node_display);
+    }
+    display_nodes.clear();
 }
 
 void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
-    /* TODO
-    glm::mat4 bg_mvp = projection * bg_model;
-    gui_window->fill_rect(bg_color, bg_mvp);
+    bg.draw(gui_window, projection);
+    scroll_bar->draw(projection);
 
-    draw_stack.clear();
-    ok_or_panic(draw_stack.append(root_node));
-
-    while (draw_stack.length() > 0) {
-        Node *child = draw_stack.pop();
-        add_children_to_stack(draw_stack, child);
-        if (child->indent_level == -1)
-            continue;
-
-        glm::mat4 label_mvp = projection * child->label_model;
-        child->label->draw(label_mvp, text_color);
-        if (should_draw_icon(child)) {
-            glm::mat4 icon_mvp = projection * child->icon_model;
-            gui->draw_image_color(gui_window, child->icon_img, icon_mvp, text_color);
+    for (int i = 0; i < display_node_count; i += 1) {
+        NodeDisplay *node_display = display_nodes.at(i);
+        node_display->label->draw(projection * node_display->label_model, text_color);
+        if (should_draw_icon(node_display->node)) {
+            gui->draw_image_color(gui_window, node_display->node->icon_img,
+                    projection * node_display->icon_model, text_color);
         }
     }
-    */
 }
 
-void ResourcesTreeWidget::update_model() {
-    /* TODO
-    bg_model = transform2d(0, 0, width, height);
-
+void ResourcesTreeWidget::refresh_devices() {
     int audio_device_count = genesis_get_audio_device_count(context);
     int midi_device_count = genesis_get_midi_device_count(context);
     int default_playback_index = genesis_get_default_playback_device_index(context);
@@ -117,8 +118,7 @@ void ResourcesTreeWidget::update_model() {
         } else if (!playback && i == default_recording_index) {
             text.append(" (default)");
         }
-        node->label->set_text(text);
-        node->label->update();
+        node->text = text;
 
         if (playback) {
             playback_i += 1;
@@ -147,152 +147,113 @@ void ResourcesTreeWidget::update_model() {
         String text = genesis_midi_device_description(midi_device);
         if (i == default_midi_index)
             text.append(" (default)");
-        node->label->set_text(text);
-        node->label->update();
+        node->text = text;
     }
     while (i < midi_devices_root->parent_data->children.length()) {
         pop_destroy_child(midi_devices_root);
     }
+}
 
-    // TODO
+ResourcesTreeWidget::NodeDisplay * ResourcesTreeWidget::create_node_display(Node *node) {
+    NodeDisplay *result = create<NodeDisplay>();
+    result->label = create<Label>(gui);
+    result->node = node;
+    node->display = result;
+    ok_or_panic(display_nodes.append(result));
+    return result;
+}
 
+void ResourcesTreeWidget::destroy_node_display(NodeDisplay *node_display) {
+    if (node_display) {
+        if (node_display->node)
+            node_display->node->display = nullptr;
+        destroy(node_display->label, 1);
+        destroy(node_display, 1);
+    }
+}
 
+void ResourcesTreeWidget::update_model() {
+    scroll_bar->left = left + width - scroll_bar->min_width();
+    scroll_bar->top = top;
+    scroll_bar->width = scroll_bar->min_width();
+    scroll_bar->height = height;
+    scroll_bar->on_resize();
+
+    int available_width = width - scroll_bar->width;
+    int available_height = height - padding_bottom - padding_top;
+
+    bg.update(this, 0, 0, available_width, height);
+
+    // compute item positions
+    int next_top = padding_top;
     update_model_stack.clear();
     ok_or_panic(update_model_stack.append(root_node));
-
-    int next_top = padding_top;
-
     while (update_model_stack.length() > 0) {
         Node *child = update_model_stack.pop();
         add_children_to_stack(update_model_stack, child);
         if (child->indent_level == -1)
             continue;
         child->top = next_top;
-        next_top += item_padding_top + child->label->height() + item_padding_bottom;
+        next_top += item_padding_top + dummy_label->height() + item_padding_bottom;
         child->bottom = next_top;
-
-        int extra_indent = (child->icon_img != nullptr);
-        int label_left = left + padding_left + (icon_width + icon_spacing) *
-            (child->indent_level + extra_indent);
-        int label_top = top + child->top + item_padding_top;
-        child->label_model = glm::translate(
-                        glm::mat4(1.0f),
-                        glm::vec3(label_left, label_top, 0.0f));
-        if (child->icon_img) {
-            child->icon_left = padding_left + (icon_width + icon_spacing) * child->indent_level;
-            child->icon_top = child->top + (child->bottom - child->top) / 2 - icon_height / 2;
-            float icon_scale_width = icon_width / (float)child->icon_img->width;
-            float icon_scale_height = icon_height / (float)child->icon_img->height;
-            child->icon_model = glm::scale(
-                            glm::translate(
-                                glm::mat4(1.0f),
-                                glm::vec3(left + child->icon_left, top + child->icon_top, 0.0f)),
-                            glm::vec3(icon_scale_width, icon_scale_height, 1.0f));
-        }
     }
-    ok_or_panic(draw_stack.ensure_capacity(update_model_stack.capacity()));
-    */
-}
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_playback_node() {
-    /* TODO
-    Node *node = ok_mem(create_zero<Node>());
-    node->label = create<Label>(gui);
-    node->node_type = NodeTypePlaybackDevice;
-    node->parent_node = playback_devices_root;
-    node->icon_img = gui->img_volume_up;
-    ok_or_panic(node->parent_node->parent_data->children.append(node));
-    return node;
-    */
-    return nullptr;
-}
+    int full_height = next_top;
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_record_node() {
-    /* TODO
-    Node *node = ok_mem(create_zero<Node>());
-    node->label = create<Label>(gui);
-    node->node_type = NodeTypeRecordingDevice;
-    node->parent_node = recording_devices_root;
-    node->icon_img = gui->img_microphone;
-    ok_or_panic(node->parent_node->parent_data->children.append(node));
-    return node;
-    */
-    return nullptr;
-}
+    scroll_bar->min_value = 0;
+    scroll_bar->max_value = max(0, full_height - available_height);
+    scroll_bar->set_value(scroll_bar->value);
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_midi_node() {
-    /* TODO
-    Node *node = ok_mem(create_zero<Node>());
-    node->label = create<Label>(gui);
-    node->node_type = NodeTypeMidiDevice;
-    node->parent_node = midi_devices_root;
-    ok_or_panic(node->parent_node->parent_data->children.append(node));
-    return node;
-    */
-    return nullptr;
-}
+    // now consider scroll position and create display nodes for nodes that
+    // are visible
+    display_node_count = 0;
+    update_model_stack.clear();
+    ok_or_panic(update_model_stack.append(root_node));
+    while (update_model_stack.length() > 0) {
+        Node *child = update_model_stack.pop();
+        add_children_to_stack(update_model_stack, child);
+        if (child->indent_level == -1)
+            continue;
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent, const char *text) {
-    /* TODO
-    Node *node = ok_mem(create_zero<Node>());
-    node->label = create<Label>(gui);
-    node->label->set_text(text);
-    node->label->update();
-    node->icon_img = gui->img_plus;
-    node->node_type = NodeTypeParent;
-    node->parent_data = create<ParentNode>();
-    node->parent_data->expanded = false;
-    node->parent_node = parent;
-    if (parent)
-        ok_or_panic(parent->parent_data->children.append(node));
-    return node;
-    */
-    return nullptr;
-}
+        if (child->bottom - scroll_bar->value >= padding_top &&
+            child->top - scroll_bar->value < padding_top + available_height)
+        {
+            NodeDisplay *node_display;
+            if (display_node_count >= display_nodes.length())
+                node_display = create_node_display(child);
+            else
+                node_display = display_nodes.at(display_node_count);
+            display_node_count += 1;
 
-void ResourcesTreeWidget::pop_destroy_child(Node *node) {
-    Node *child = node->parent_data->children.pop();
-    child->parent_node = nullptr;
-    destroy_node(child);
-}
+            node_display->node = child;
+            child->display = node_display;
 
-void ResourcesTreeWidget::destroy_node(Node *node) {
-    /* TODO
-    if (node) {
-        destroy(node->label, 1);
-        destroy(node->parent_data, 1);
-        genesis_audio_device_unref(node->audio_device);
-        genesis_midi_device_unref(node->midi_device);
-        destroy(node, 1);
-    }
-    */
-}
+            node_display->top = child->top - scroll_bar->value;
+            node_display->bottom = child->bottom - scroll_bar->value;
 
-void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
-    /* TODO
-    if (event->action != MouseActionDown)
-        return;
+            int extra_indent = (child->icon_img != nullptr);
+            int label_left = padding_left + (icon_width + icon_spacing) *
+                (child->indent_level + extra_indent);
+            int label_top = node_display->top + item_padding_top;
+            node_display->label_model = transform2d(label_left, label_top);
+            node_display->label->set_text(child->text);
+            node_display->label->update();
 
-    List<Node *> stack;
-    ok_or_panic(stack.append(root_node));
-
-    while (stack.length() > 0) {
-        Node *node = stack.pop();
-        add_children_to_stack(stack, node);
-        if (node->node_type == NodeTypeParent) {
-            if (event->x >= node->icon_left && event->x < node->icon_left + icon_width + icon_spacing &&
-                event->y >= node->top && event->y < node->bottom)
-            {
-                toggle_expansion(node);
-                break;
+            if (child->icon_img) {
+                node_display->icon_left = padding_left + (icon_width + icon_spacing) * child->indent_level;
+                node_display->icon_top = node_display->top +
+                    (node_display->bottom - node_display->top) / 2 - icon_height / 2;
+                float icon_scale_width = icon_width / (float)child->icon_img->width;
+                float icon_scale_height = icon_height / (float)child->icon_img->height;
+                node_display->icon_model = transform2d(
+                        node_display->icon_left, node_display->icon_top,
+                        icon_scale_width, icon_scale_height);
             }
         }
     }
-    */
 }
 
 void ResourcesTreeWidget::add_children_to_stack(List<Node *> &stack, Node *node) {
-    /* TODO
     if (node->node_type != NodeTypeParent)
         return;
     if (!node->parent_data->expanded)
@@ -303,7 +264,92 @@ void ResourcesTreeWidget::add_children_to_stack(List<Node *> &stack, Node *node)
         child->indent_level = node->indent_level + 1;
         ok_or_panic(stack.append(child));
     }
-    */
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_playback_node() {
+    Node *node = ok_mem(create_zero<Node>());
+    node->node_type = NodeTypePlaybackDevice;
+    node->parent_node = playback_devices_root;
+    node->icon_img = gui->img_volume_up;
+    ok_or_panic(node->parent_node->parent_data->children.append(node));
+    return node;
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_record_node() {
+    Node *node = ok_mem(create_zero<Node>());
+    node->node_type = NodeTypeRecordingDevice;
+    node->parent_node = recording_devices_root;
+    node->icon_img = gui->img_microphone;
+    ok_or_panic(node->parent_node->parent_data->children.append(node));
+    return node;
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_midi_node() {
+    Node *node = ok_mem(create_zero<Node>());
+    node->node_type = NodeTypeMidiDevice;
+    node->parent_node = midi_devices_root;
+    ok_or_panic(node->parent_node->parent_data->children.append(node));
+    return node;
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent, const char *text) {
+    Node *node = ok_mem(create_zero<Node>());
+    node->text = text;
+    node->icon_img = gui->img_plus;
+    node->node_type = NodeTypeParent;
+    node->parent_data = create<ParentNode>();
+    node->parent_data->expanded = false;
+    node->parent_node = parent;
+    if (parent)
+        ok_or_panic(parent->parent_data->children.append(node));
+    return node;
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_sample_file_node(Node *parent, OsDirEntry *dir_entry) {
+    Node *node = ok_mem(create_zero<Node>());
+    node->node_type = NodeTypeSampleFile;
+    node->text = dir_entry->name;
+    node->parent_node = parent;
+    node->dir_entry = dir_entry;
+    node->icon_img = gui->img_entry_file;
+    ok_or_panic(node->parent_node->parent_data->children.append(node));
+    return node;
+}
+
+void ResourcesTreeWidget::pop_destroy_child(Node *node) {
+    Node *child = node->parent_data->children.pop();
+    child->parent_node = nullptr;
+    destroy_node(child);
+}
+
+void ResourcesTreeWidget::destroy_node(Node *node) {
+    if (node) {
+        destroy(node->parent_data, 1);
+        genesis_audio_device_unref(node->audio_device);
+        genesis_midi_device_unref(node->midi_device);
+        os_dir_entry_unref(node->dir_entry);
+        destroy(node, 1);
+    }
+}
+
+void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
+    if (event->action != MouseActionDown)
+        return;
+
+    for (int i = 0; i < display_nodes.length(); i += 1) {
+        NodeDisplay *node_display = display_nodes.at(i);
+        Node *node = node_display->node;
+        if (node->node_type == NodeTypeParent) {
+            if (event->x >= node_display->icon_left &&
+                event->x < node_display->icon_left + icon_width + icon_spacing &&
+                event->y >= node_display->top &&
+                event->y < node_display->bottom)
+            {
+                toggle_expansion(node);
+                break;
+            }
+        }
+    }
 }
 
 void ResourcesTreeWidget::toggle_expansion(Node *node) {
@@ -320,44 +366,62 @@ bool ResourcesTreeWidget::should_draw_icon(Node *node) {
     return true;
 }
 
-static void destroy_dir_cache_recursive(SampleDirCache *dir_cache) {
-    os_dir_entry_unref(dir_cache->entry);
-    for (int i = 0; i < dir_cache->dirs.length(); i += 1) {
-        destroy_dir_cache_recursive(dir_cache->dirs.at(i));
-    }
-    for (int i = 0; i < dir_cache->files.length(); i += 1) {
-        os_dir_entry_unref(dir_cache->files.at(i));
-    }
-}
-
-void ResourcesTreeWidget::destroy_dir_cache() {
-    if (sample_dir_cache_root) {
-        destroy_dir_cache_recursive(sample_dir_cache_root);
-        destroy(sample_dir_cache_root, 1);
-        sample_dir_cache_root = nullptr;
+void ResourcesTreeWidget::delete_all_children(Node *root) {
+    assert(root->node_type == NodeTypeParent);
+    List<Node *> pending;
+    ok_or_panic(pending.append(root));
+    while (pending.length() > 0) {
+        Node *node = pending.pop();
+        if (node->node_type == NodeTypeParent) {
+            for (int i = 0; i < node->parent_data->children.length(); i += 1) {
+                ok_or_panic(pending.append(node->parent_data->children.at(i)));
+            }
+        }
+        if (node != root)
+            destroy_node(node);
     }
 }
 
-static void scan_dir_recursive(const ByteBuffer &dir, SampleDirCache *dir_cache) {
+static int compare_is_dir_then_name(OsDirEntry *a, OsDirEntry *b) {
+    if (a->is_dir && !b->is_dir) {
+        return -1;
+    } else if (b->is_dir && !a->is_dir) {
+        return 1;
+    } else {
+        return ByteBuffer::compare(a->name, b->name);
+    }
+}
+
+void ResourcesTreeWidget::scan_dir_recursive(const ByteBuffer &dir, Node *parent_node) {
     List<OsDirEntry *> entries;
     int err = os_readdir(dir.raw(), entries);
     if (err)
         fprintf(stderr, "Error reading %s: %s\n", dir.raw(), genesis_error_string(err));
+    entries.sort<compare_is_dir_then_name>();
     for (int i = 0; i < entries.length(); i += 1) {
-        OsDirEntry *entry = entries.at(i);
-        if (entry->is_dir) {
-            SampleDirCache *child = create<SampleDirCache>();
-            child->entry = entry;
-            scan_dir_recursive(entry->name, child);
+        OsDirEntry *dir_entry = entries.at(i);
+        if (dir_entry->is_dir) {
+            Node *child = create_parent_node(parent_node, dir_entry->name.raw());
+            ByteBuffer full_path = os_path_join(dir, dir_entry->name);
+            scan_dir_recursive(full_path, child);
+            os_dir_entry_unref(dir_entry);
         } else {
-            ok_or_panic(dir_cache->files.append(entry));
+            create_sample_file_node(parent_node, dir_entry);
         }
     }
 }
 
 void ResourcesTreeWidget::scan_sample_dirs() {
-    destroy_dir_cache();
-    sample_dir_cache_root = ok_mem(create_zero<SampleDirCache>());
-    ByteBuffer samples_dir = os_get_samples_dir();
-    scan_dir_recursive(samples_dir, sample_dir_cache_root);
+    List<ByteBuffer> dirs;
+    ok_or_panic(dirs.append(os_get_samples_dir()));
+    for (int i = 0; i < settings_file->sample_dirs.length(); i += 1) {
+        ok_or_panic(dirs.append(settings_file->sample_dirs.at(i)));
+    }
+
+    delete_all_children(samples_root);
+
+    for (int i = 0; i < dirs.length(); i += 1) {
+        Node *parent_node = create_parent_node(samples_root, dirs.at(i).raw());
+        scan_dir_recursive(dirs.at(i), parent_node);
+    }
 }

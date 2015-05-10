@@ -20,6 +20,8 @@ public:
     void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *) override;
 
+    void set_value(int value);
+
     int min_width() const override;
     int max_width() const override;
     int min_height() const override;

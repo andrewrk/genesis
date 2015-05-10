@@ -5,17 +5,13 @@
 #include "genesis.h"
 #include "label.hpp"
 #include "os.hpp"
+#include "sunken_box.hpp"
 
 class GuiWindow;
 class Gui;
 class SpritesheetImage;
 class SettingsFile;
-
-struct SampleDirCache {
-    OsDirEntry *entry;
-    List<SampleDirCache *> dirs;
-    List<OsDirEntry *> files;
-};
+class ScrollBarWidget;
 
 class ResourcesTreeWidget : public Widget {
 public:
@@ -33,7 +29,6 @@ public:
         NodeTypePlaybackDevice,
         NodeTypeRecordingDevice,
         NodeTypeMidiDevice,
-        NodeTypeSampleDir,
         NodeTypeSampleFile,
     };
 
@@ -45,14 +40,21 @@ public:
     };
 
     struct Node {
+        Node *parent_node;
         NodeDisplay *display;
         String text;
+        int indent_level;
         const SpritesheetImage *icon_img;
         NodeType node_type;
+        // not adjusted for scroll position
+        int top;
+        int bottom;
+
+        // these depend on node_type
         GenesisAudioDevice *audio_device;
         GenesisMidiDevice *midi_device;
         ParentNode *parent_data;
-        Node *parent_node;
+        OsDirEntry *dir_entry;
     };
 
     struct NodeDisplay {
@@ -60,7 +62,7 @@ public:
         Label *label;
         glm::mat4 label_model;
         glm::mat4 icon_model;
-        int indent_level;
+        // adjusted for scroll position
         int top;
         int bottom;
         int icon_left;
@@ -69,9 +71,8 @@ public:
 
     GenesisContext *context;
     Gui *gui;
-    glm::vec4 bg_color;
     glm::vec4 text_color;
-    glm::mat4 bg_model;
+    SunkenBox bg;
     Node *root_node;
     int padding_top;
     int padding_bottom;
@@ -87,10 +88,11 @@ public:
     Node *midi_devices_root;
     Node *samples_root;
     List<Node *> update_model_stack;
-    List<Node *> draw_stack;
     SettingsFile *settings_file;
-    SampleDirCache *sample_dir_cache_root;
     List<NodeDisplay *> display_nodes;
+    ScrollBarWidget *scroll_bar;
+    Label *dummy_label; // so we know the height
+    int display_node_count;
 
     void update_model();
 
@@ -98,13 +100,22 @@ public:
     Node *create_playback_node();
     Node *create_record_node();
     Node *create_midi_node();
+    Node *create_sample_file_node(Node *parent, OsDirEntry *entry);
     void destroy_node(Node *node);
     void pop_destroy_child(Node *node);
     void add_children_to_stack(List<Node *> &stack, Node *node);
     void toggle_expansion(Node *node);
     bool should_draw_icon(Node *node);
-    void scan_sample_dirs();
     void destroy_dir_cache();
+    void delete_all_children(Node *node);
+    void destroy_node_display(NodeDisplay *node_display);
+    NodeDisplay * create_node_display(Node *node);
+    void clear_display_nodes();
+    void scan_dir_recursive(const ByteBuffer &dir, Node *parent_node);
+
+    // must call update_model after calling these
+    void scan_sample_dirs();
+    void refresh_devices();
 };
 
 #endif
