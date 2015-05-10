@@ -115,12 +115,10 @@ void GridLayoutWidget::on_resize() {
 void GridLayoutWidget::ensure_size(int row_count, int col_count) {
     if (rows() < row_count) {
         int old_length = rows();
-        if (cells.resize(row_count))
-            panic("out of memory");
+        ok_or_panic(cells.resize(row_count));
         for (int row = old_length; row < row_count; row += 1) {
             List<Cell> *r = &cells.at(row);
-            if (r->resize(col_count))
-                panic("out of memory");
+            ok_or_panic(r->resize(col_count));
             for (int col = 0; col < col_count; col += 1) {
                 r->at(col).widget = nullptr;
             }
@@ -130,8 +128,7 @@ void GridLayoutWidget::ensure_size(int row_count, int col_count) {
         List<Cell> *r = &cells.at(row);
         if (r->length() < col_count) {
             int old_length = r->length();
-            if (r->resize(col_count))
-                panic("out of memory");
+            ok_or_panic(r->resize(col_count));
             for (int col = old_length; col < col_count; col += 1) {
                 r->at(col).widget = nullptr;
             }
@@ -156,8 +153,7 @@ void GridLayoutWidget::reduce_size() {
     }
     int row_shave_size = (last_row - row) + all_cols_empty;
     if (row_shave_size > 0) {
-        if (cells.resize(rows() - row_shave_size))
-            panic("out of memory");
+        ok_or_panic(cells.resize(rows() - row_shave_size));
     }
 
     int last_col = cells.at(0).length() - 1;
@@ -178,8 +174,7 @@ void GridLayoutWidget::reduce_size() {
     if (col_shave_size > 0) {
         for (int row = 0; row < rows(); row += 1) {
             List<Cell> *r = &cells.at(row);
-            if (r->resize(r->length() - col_shave_size))
-                panic("out of memory");
+            ok_or_panic(r->resize(r->length() - col_shave_size));
         }
     }
 }
@@ -306,8 +301,7 @@ int GridLayoutWidget::get_col_max_height(int col) const {
 void GridLayoutWidget::layout_x() {
     int available_width = width - padding * 2 - spacing * (cols() - 1);
 
-    if (col_props.resize(cols()))
-        panic("out of memory");
+    ok_or_panic(col_props.resize(cols()));
 
     bool expanding = expanding_x();
     for (int col = 0; col < cols(); col += 1) {
@@ -388,8 +382,7 @@ outer:
 void GridLayoutWidget::layout_y() {
     int available_height = height - padding * 2 - spacing * (rows() - 1);
 
-    if (row_props.resize(rows()))
-        panic("out of memory");
+    ok_or_panic(row_props.resize(rows()));
 
     bool expanding = expanding_y();
     for (int row = 0; row < rows(); row += 1) {

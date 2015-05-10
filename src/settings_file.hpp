@@ -14,6 +14,8 @@ enum SettingsFileState {
     SettingsFileStateOpenProjectFile,
     SettingsFileStateUserName,
     SettingsFileStateUserId,
+    SettingsFileStateExpectSampleDirs,
+    SettingsFileStateSampleDirsItem,
     SettingsFileStatePerspectives,
     SettingsFileStatePerspectivesItem,
     SettingsFileStatePerspectivesItemProp,
@@ -74,6 +76,7 @@ struct SettingsFile {
     uint256 user_id;
     List<SettingsFileOpenWindow> open_windows;
     List<SettingsFilePerspective> perspectives;
+    List<ByteBuffer> sample_dirs;
 
     // private state
     ByteBuffer path;

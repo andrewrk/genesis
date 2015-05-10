@@ -19,9 +19,7 @@ TabWidget::TabWidget(GuiWindow *window) :
     tab_border_color(color_light_border()),
     tab_height(20),
     bg_color(color_light_bg()),
-    tab_bg_color(color_dark_bg_inactive()),
     tab_text_color(color_fg_text()),
-    tab_selected_bg_color(color_dark_bg()),
     padding_left(2),
     padding_right(2),
     padding_top(2),
@@ -53,8 +51,7 @@ void TabWidget::draw(const glm::mat4 &projection) {
 
         for (int i = 0; i < tabs.length(); i += 1) {
             TabWidgetTab *tab = tabs.at(i);
-            glm::vec4 this_bg_color = tab->is_current ? tab_selected_bg_color : tab_bg_color;
-            gui_window->fill_rect(this_bg_color, projection * tab->bg_model);
+            tab->bg.draw(gui_window, projection);
             gui_window->fill_rect(tab_border_color, projection * tab->left_line_model);
             gui_window->fill_rect(tab_border_color, projection * tab->right_line_model);
             gui_window->fill_rect(tab_border_color, projection * tab->top_line_model);
@@ -199,7 +196,8 @@ void TabWidget::update_model() {
         tab->top_line_model = transform2d(tab->left, tab_top, tab->right - tab->left, 1);
 
         int extra_height = tab->is_current ? 0 : -1;
-        tab->bg_model = transform2d(tab->left, tab_top, tab->right - tab->left, tab_height + extra_height);
+        tab->bg.update(this, tab->left, tab_top, tab->right - tab->left, tab_height + extra_height);
+        tab->bg.set_scheme(tab->is_current ? SunkenBoxSchemeRaised : SunkenBoxSchemeInactive);
     }
 
     if (tabs.length() == 0) {

@@ -35,6 +35,12 @@ public:
     GLint texture_color_uniform_mvp;
     GLint texture_color_uniform_tex;
     GLint texture_color_uniform_color;
+
+    ShaderProgram gradient_program;
+    GLint gradient_attrib_position;
+    GLint gradient_uniform_mvp;
+    GLint gradient_uniform_color_top;
+    GLint gradient_uniform_color_bottom;
 };
 
 #endif

@@ -29,6 +29,9 @@ enum GenesisError {
     GenesisErrorInvalidFormat,
     GenesisErrorEmptyFile,
     GenesisErrorKeyNotFound,
+    GenesisErrorFileNotFound,
+    GenesisErrorPermissionDenied,
+    GenesisErrorNotDir,
 };
 
 const char *genesis_error_string(int error);

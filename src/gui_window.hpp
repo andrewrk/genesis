@@ -43,6 +43,7 @@ public:
     void fill_rect(const glm::vec4 &color, const glm::mat4 &mvp);
     void fill_rect(const glm::vec4 &color, int x, int y, int w, int h);
     void draw_image(const SpritesheetImage *img, int x, int y, int w, int h);
+    void fill_rect_gradient(const glm::vec4 &top_color, const glm::vec4 &bottom_color, const glm::mat4 &mvp);
 
     void set_clipboard_string(const String &str);
     String get_clipboard_string() const;

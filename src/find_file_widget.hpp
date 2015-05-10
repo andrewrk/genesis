@@ -4,7 +4,7 @@
 #include "widget.hpp"
 #include "text_widget.hpp"
 #include "byte_buffer.hpp"
-#include "path.hpp"
+#include "os.hpp"
 
 class Gui;
 class GuiWindow;
@@ -45,7 +45,7 @@ public:
 
     struct TextWidgetUserData {
         FindFileWidget *find_file_widget;
-        DirEntry *dir_entry;
+        OsDirEntry *dir_entry;
     };
 
     Mode _mode;
@@ -60,10 +60,10 @@ public:
     TextWidget *_filter_widget;
 
     ByteBuffer _current_path;
-    List<DirEntry*> _entries;
+    List<OsDirEntry*> _entries;
 
     struct DisplayEntry {
-        DirEntry *entry;
+        OsDirEntry *entry;
         TextWidget *widget;
     };
     List<DisplayEntry> _displayed_entries;
@@ -98,10 +98,10 @@ public:
     void destroy_all_displayed_entries();
     void destroy_all_dir_entries();
     void change_current_path(const ByteBuffer &dir);
-    bool should_show_entry(DirEntry *dir_entry, const String &text,
+    bool should_show_entry(OsDirEntry *dir_entry, const String &text,
             const List<String> &search_words);
 
-    void choose_dir_entry(DirEntry *dir_entry);
+    void choose_dir_entry(OsDirEntry *dir_entry);
 
     static int compare_display_name(DisplayEntry a, DisplayEntry b) {
         if (a.entry->is_dir && !b.entry->is_dir) {

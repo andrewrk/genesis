@@ -66,8 +66,7 @@ int main(int argc, char *argv[]) {
         sscanf(line_fields.at(0).raw(), "%X", &codepoint);
 
         while (codepoint > (uint32_t)case_info_list.length()) {
-            if (case_info_list.append({ 0, 0 }))
-                panic("out of memory");
+            ok_or_panic(case_info_list.append({ 0, 0 }));
         }
 
         ByteBuffer upper_str = line_fields.at(12);
@@ -79,8 +78,7 @@ int main(int argc, char *argv[]) {
             sscanf(lower_str.raw(), "%X", &lower);
             sscanf(upper_str.raw(), "%X", &upper);
         }
-        if (case_info_list.append({ lower, upper }))
-            panic("out of memory");
+        ok_or_panic(case_info_list.append({ lower, upper }));
     }
 
     fprintf(out, "// This file is auto-generated.\n");

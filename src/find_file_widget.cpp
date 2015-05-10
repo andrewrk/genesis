@@ -157,8 +157,8 @@ bool FindFileWidget::on_filter_key(const KeyEvent *event) {
     return false;
 }
 
-void FindFileWidget::choose_dir_entry(DirEntry *dir_entry) {
-    ByteBuffer selected_path = path_join(_current_path, dir_entry->name);
+void FindFileWidget::choose_dir_entry(OsDirEntry *dir_entry) {
+    ByteBuffer selected_path = os_path_join(_current_path, dir_entry->name);
     if (dir_entry->is_dir) {
         change_current_path(selected_path);
     } else {
@@ -167,7 +167,7 @@ void FindFileWidget::choose_dir_entry(DirEntry *dir_entry) {
 }
 
 void FindFileWidget::go_up_one() {
-    change_current_path(path_dirname(_current_path));
+    change_current_path(os_path_dirname(_current_path));
 }
 
 void FindFileWidget::update_current_path_display() {
@@ -182,7 +182,7 @@ void FindFileWidget::change_current_path(const ByteBuffer &dir) {
     _filter_widget->set_text("");
     update_current_path_display();
     destroy_all_dir_entries();
-    int err = path_readdir(_current_path.raw(), _entries);
+    int err = os_readdir(_current_path.raw(), _entries);
     if (err) {
         char *err_str = strerror(err);
         fprintf(stderr, "Unable to read directory: %s\n", err_str);
@@ -199,7 +199,7 @@ void FindFileWidget::update_entries_display() {
 
     bool ok;
     for (int i = 0; i < _entries.length(); i += 1) {
-        DirEntry *entry = _entries.at(i);
+        OsDirEntry *entry = _entries.at(i);
         String text(entry->name, &ok);
         if (should_show_entry(entry, text, search_words)) {
             TextWidget *text_widget = create<TextWidget>(gui_window);
@@ -223,12 +223,10 @@ void FindFileWidget::update_entries_display() {
                 text_widget->set_icon(gui->img_null);
             }
 
-            int err = _displayed_entries.append({
+            ok_or_panic(_displayed_entries.append({
                     entry,
                     text_widget,
-            });
-            if (err)
-                panic("out of memory");
+            }));
         }
     }
     _displayed_entries.sort<compare_display_name>();
@@ -239,7 +237,7 @@ void FindFileWidget::on_filter_text_change() {
     update_entries_display();
 }
 
-bool FindFileWidget::should_show_entry(DirEntry *dir_entry, const String &text,
+bool FindFileWidget::should_show_entry(OsDirEntry *dir_entry, const String &text,
         const List<String> &search_words)
 {
     if (!_show_hidden_files && dir_entry->is_hidden)

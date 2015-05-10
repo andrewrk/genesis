@@ -158,8 +158,7 @@ GuiWindow *Gui::create_utility_window() {
 GuiWindow *Gui::create_generic_window(bool with_borders, int left, int top, int width, int height) {
     GuiWindow *window = create<GuiWindow>(this, with_borders, left, top, width, height);
     window->_gui_index = _window_list.length();
-    if (_window_list.append(window))
-        panic("out of memory");
+    ok_or_panic(_window_list.append(window));
     return window;
 }
 

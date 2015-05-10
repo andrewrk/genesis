@@ -4,14 +4,22 @@
 #include "widget.hpp"
 #include "genesis.h"
 #include "label.hpp"
+#include "os.hpp"
 
 class GuiWindow;
 class Gui;
 class SpritesheetImage;
+class SettingsFile;
+
+struct SampleDirCache {
+    OsDirEntry *entry;
+    List<SampleDirCache *> dirs;
+    List<OsDirEntry *> files;
+};
 
 class ResourcesTreeWidget : public Widget {
 public:
-    ResourcesTreeWidget(GuiWindow *gui_window);
+    ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file);
     ~ResourcesTreeWidget() override;
 
     void draw(const glm::mat4 &projection) override;
@@ -25,29 +33,38 @@ public:
         NodeTypePlaybackDevice,
         NodeTypeRecordingDevice,
         NodeTypeMidiDevice,
+        NodeTypeSampleDir,
+        NodeTypeSampleFile,
     };
 
     struct Node;
+    struct NodeDisplay;
     struct ParentNode {
         List<Node *> children;
         bool expanded;
     };
 
     struct Node {
-        Label *label;
-        glm::mat4 label_model;
-        glm::mat4 icon_model;
+        NodeDisplay *display;
+        String text;
         const SpritesheetImage *icon_img;
-        int indent_level;
-        int top;
-        int bottom;
-        int icon_left;
-        int icon_top;
         NodeType node_type;
         GenesisAudioDevice *audio_device;
         GenesisMidiDevice *midi_device;
         ParentNode *parent_data;
         Node *parent_node;
+    };
+
+    struct NodeDisplay {
+        Node *node;
+        Label *label;
+        glm::mat4 label_model;
+        glm::mat4 icon_model;
+        int indent_level;
+        int top;
+        int bottom;
+        int icon_left;
+        int icon_top;
     };
 
     GenesisContext *context;
@@ -68,8 +85,12 @@ public:
     Node *playback_devices_root;
     Node *recording_devices_root;
     Node *midi_devices_root;
+    Node *samples_root;
     List<Node *> update_model_stack;
     List<Node *> draw_stack;
+    SettingsFile *settings_file;
+    SampleDirCache *sample_dir_cache_root;
+    List<NodeDisplay *> display_nodes;
 
     void update_model();
 
@@ -82,6 +103,8 @@ public:
     void add_children_to_stack(List<Node *> &stack, Node *node);
     void toggle_expansion(Node *node);
     bool should_draw_icon(Node *node);
+    void scan_sample_dirs();
+    void destroy_dir_cache();
 };
 
 #endif

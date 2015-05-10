@@ -2,11 +2,13 @@
 #define TRACK_EDITOR_WIDGET_HPP
 
 #include "widget.hpp"
+#include "sunken_box.hpp"
 
 struct Project;
 struct Track;
 class Label;
 class MenuWidgetItem;
+class ScrollBarWidget;
 
 class TrackEditorWidget : public Widget {
 public:
@@ -44,7 +46,7 @@ public:
     struct GuiTrack {
         Track *track;
         glm::mat4 head_model;
-        glm::mat4 body_model;
+        SunkenBox body_bg;
         glm::mat4 border_top_model;
         glm::mat4 border_bottom_model;
 
@@ -59,6 +61,8 @@ public:
 
     MenuWidgetItem *track_context_menu;
     GuiTrack *menu_track;
+    ScrollBarWidget *vert_scroll_bar;
+    ScrollBarWidget *horiz_scroll_bar;
 
     void update_model();
     GuiTrack *create_gui_track();

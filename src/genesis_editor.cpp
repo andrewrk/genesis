@@ -9,7 +9,6 @@
 #include "project.hpp"
 #include "settings_file.hpp"
 #include "resource_bundle.hpp"
-#include "path.hpp"
 #include "dockable_pane_widget.hpp"
 #include "text_widget.hpp"
 #include "tab_widget.hpp"
@@ -86,20 +85,25 @@ static void show_dock_handler(void *userdata) {
 GenesisEditor::GenesisEditor() :
     project(nullptr)
 {
+    int err;
+
     ByteBuffer config_dir = os_get_app_config_dir();
-    int err = path_mkdirp(config_dir);
-    if (err)
+    if ((err = os_mkdirp(config_dir)))
         panic("unable to make genesis path: %s", genesis_error_string(err));
+
+    ByteBuffer samples_dir = os_get_samples_dir();
+    if ((err = os_mkdirp(samples_dir)))
+        panic("unable to make samples path: %s", genesis_error_string(err));
+
     ByteBuffer config_path = os_get_app_config_path();
     settings_file = settings_file_open(config_path);
 
     resource_bundle = create<ResourceBundle>("resources.bundle");
 
-    err = genesis_create_context(&_genesis_context);
-    if (err)
+    if ((err = genesis_create_context(&genesis_context)))
         panic("unable to create genesis context: %s", genesis_error_string(err));
 
-    gui = create<Gui>(_genesis_context, resource_bundle);
+    gui = create<Gui>(genesis_context, resource_bundle);
 
     gui->events.attach_handler(EventFpsChange, on_fps_change, this);
 
@@ -116,9 +120,9 @@ GenesisEditor::GenesisEditor() :
 
     bool create_new = true;
     if (settings_file->open_project_id != uint256::zero()) {
-        ByteBuffer proj_dir = path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
-        ByteBuffer proj_path = path_join(proj_dir, "project.gdaw");
-        int err = project_open(proj_path.raw(), user, &project);
+        ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
+        ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
+        int err = project_open(proj_path.raw(), genesis_context, user, &project);
         if (err) {
             fprintf(stderr, "Unable to load project: %s\n", genesis_error_string(err));
         } else {
@@ -128,10 +132,10 @@ GenesisEditor::GenesisEditor() :
 
     if (create_new) {
         uint256 id = uint256::random();
-        ByteBuffer proj_dir = path_join(os_get_projects_dir(), id.to_string());
-        ByteBuffer proj_path = path_join(proj_dir, "project.gdaw");
-        ok_or_panic(path_mkdirp(proj_dir));
-        ok_or_panic(project_create(proj_path.raw(), id, user, &project));
+        ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), id.to_string());
+        ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
+        ok_or_panic(os_mkdirp(proj_dir));
+        ok_or_panic(project_create(proj_path.raw(), genesis_context, id, user, &project));
 
         settings_file->open_project_id = id;
         settings_dirty = true;
@@ -173,7 +177,7 @@ GenesisEditor::GenesisEditor() :
 GenesisEditor::~GenesisEditor() {
     project_close(project);
     user_destroy(user);
-    genesis_destroy_context(_genesis_context);
+    genesis_destroy_context(genesis_context);
 }
 
 void GenesisEditor::create_editor_window() {
@@ -306,7 +310,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     top_bar_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
     top_bar_grid_layout->add_widget(fps_widget, 0, 1, HAlignRight, VAlignTop);
 
-    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window);
+    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window, settings_file);
     add_dock(editor_window, resources_tree, "Resources");
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);

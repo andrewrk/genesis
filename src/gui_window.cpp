@@ -569,6 +569,25 @@ void GuiWindow::set_focus_widget(Widget *widget) {
     _focus_widget->on_gain_focus();
 }
 
+void GuiWindow::fill_rect_gradient(const glm::vec4 &top_color, const glm::vec4 &bottom_color,
+        const glm::mat4 &mvp)
+{
+    gui->_shader_program_manager.gradient_program.bind();
+
+    gui->_shader_program_manager.gradient_program.set_uniform(
+            gui->_shader_program_manager.gradient_uniform_mvp, mvp);
+    gui->_shader_program_manager.gradient_program.set_uniform(
+            gui->_shader_program_manager.gradient_uniform_color_top, top_color);
+    gui->_shader_program_manager.gradient_program.set_uniform(
+            gui->_shader_program_manager.gradient_uniform_color_bottom, bottom_color);
+
+    glBindBuffer(GL_ARRAY_BUFFER, gui->_static_geometry._rect_2d_vertex_buffer);
+    glEnableVertexAttribArray(gui->_shader_program_manager.gradient_attrib_position);
+    glVertexAttribPointer(gui->_shader_program_manager.gradient_attrib_position, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
 void GuiWindow::fill_rect(const glm::vec4 &color, const glm::mat4 &mvp) {
     gui->_shader_program_manager._primitive_shader_program.bind();
 

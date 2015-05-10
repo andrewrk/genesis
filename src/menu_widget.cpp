@@ -44,8 +44,7 @@ MenuWidgetItem::~MenuWidgetItem() {
 
 MenuWidgetItem *MenuWidgetItem::add_menu(const String &name, int mnemonic_index, const KeySequence &shortcut) {
     MenuWidgetItem *new_item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, shortcut);
-    if (children.append(new_item))
-        panic("out of memory");
+    ok_or_panic(children.append(new_item));
     return new_item;
 }
 
@@ -458,8 +457,7 @@ MenuWidgetItem *MenuWidget::add_menu(const String &name_orig) {
 }
 
 MenuWidgetItem *MenuWidget::add_menu(const String &name, int mnemonic_index) {
-    if (children.resize(children.length() + 1))
-        panic("out of memory");
+    ok_or_panic(children.resize(children.length() + 1));
 
     TopLevelMenu *child = &children.at(children.length() - 1);
     child->item = create<MenuWidgetItem>(gui_window, name, mnemonic_index, no_shortcut());

@@ -39,7 +39,7 @@ follow the <a href="http://genesisdaw.org/">development blog</a>.
 
 #### Screenshots
 
-![](http://i.imgur.com/lJKWz4e.png)
+![](https://s3.amazonaws.com/genesisdaw.org/img/beginnings-of-track-editor.png)
 
 ## Contributing
 
@@ -51,6 +51,7 @@ libgenesis is programmed in a tiny subset of C++:
  * Pass pointers instead of references.
  * No linking against libstdc++.
  * All fields and methods in structs and classes are `public`.
+ * Avoid constructor initialization lists.
 
 ### Building and Running
 
@@ -103,8 +104,9 @@ make
 
 ## Roadmap
 
- 0. mixer widget
- 0. piano roll widget
+ 0. show samples in the resource browser
+ 0. drag a sample from the resource browser into the track editor
+ 0. ability to put audio clips in the track editor
 
 ## Grand Plans
 

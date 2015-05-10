@@ -15,6 +15,7 @@ enum Event {
     EventMidiDeviceChange,
     EventFpsChange,
     EventPerspectiveChange,
+    EventScrollValueChange,
 };
 
 struct EventHandler {

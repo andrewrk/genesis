@@ -44,7 +44,6 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/os.cpp"
-    "${CMAKE_SOURCE_DIR}/src/path.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
     "${CMAKE_SOURCE_DIR}/src/shader_program.cpp"
     "${CMAKE_SOURCE_DIR}/src/gui.cpp"
@@ -77,6 +76,8 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/tab_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/dockable_pane_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/mixer_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/scroll_bar_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sunken_box.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -85,6 +86,7 @@ set(GENERATE_UNICODE_DATA_SOURCES
     "${CMAKE_SOURCE_DIR}/src/generate_unicode_data.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/error.cpp"
 )
 
 set(TEST_SOURCES
@@ -100,10 +102,18 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/os.cpp"
     "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
-    "${CMAKE_SOURCE_DIR}/src/path.cpp"
     "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/project.cpp"
     "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
+    "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
+    "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
+    "${CMAKE_SOURCE_DIR}/src/channel_layout.cpp"
+    "${CMAKE_SOURCE_DIR}/src/synth.cpp"
+    "${CMAKE_SOURCE_DIR}/src/delay.cpp"
+    "${CMAKE_SOURCE_DIR}/src/resample.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
 )
 
 find_package(Threads)
@@ -350,6 +360,9 @@ add_executable(unit_tests ${TEST_SOURCES} ${UNICODE_HPP})
 target_link_libraries(unit_tests LINK_PUBLIC
     ${CMAKE_THREAD_LIBS_INIT}
     ${LAXJSON_LIBRARY}
+    ${LIBAV_LIBRARIES}
+    ${PULSEAUDIO_LIBRARY}
+    ${ALSA_LIBRARIES}
     m
     -lstdc++
 )

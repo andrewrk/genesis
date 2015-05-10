@@ -50,14 +50,24 @@ struct User {
     String name;
 };
 
+struct MixerLine {
+    uint256 id;
+    String name;
+    SortKey sort_key;
+    bool solo;
+    float volume;
+};
+
 struct Project {
     /////////// canonical data, shared among all users
     uint256 id;
+    uint256 master_mixer_line_id;
     IdMap<AudioClipSegment *> audio_clip_segments;
     IdMap<AudioClip *> audio_clips;
     IdMap<AudioAsset *> audio_assets;
     IdMap<Track *> tracks;
     IdMap<User *> users;
+    IdMap<MixerLine *> mixer_lines;
     // this represents the true history of the project. you can create the
     // entire project data structure just from this data
     // this grows forever and never shrinks
@@ -84,6 +94,7 @@ struct Project {
     User *active_user; // the user that is running this instance of genesis
     OrderedMapFile *omf;
     EventDispatcher events;
+    GenesisContext *genesis_context;
 };
 
 int project_get_next_revision(Project *project);
@@ -227,8 +238,10 @@ public:
 User *user_create(const uint256 &id, const String &name);
 void user_destroy(User *user);
 
-int project_open(const char *path, User *user, Project **out_project);
-int project_create(const char *path, const uint256 &id, User *user, Project **out_project);
+int project_open(const char *path, GenesisContext *genesis_context,
+        User *user, Project **out_project);
+int project_create(const char *path, GenesisContext *genesis_context,
+        const uint256 &id, User *user, Project **out_project);
 void project_close(Project *project);
 
 void project_undo(Project *project);

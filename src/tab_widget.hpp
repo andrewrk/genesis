@@ -2,6 +2,7 @@
 #define TAB_WIDGET_HPP
 
 #include "widget.hpp"
+#include "sunken_box.hpp"
 
 class Label;
 
@@ -10,7 +11,7 @@ struct TabWidgetTab {
     Label *label;
     int left;
     int right;
-    glm::mat4 bg_model;
+    SunkenBox bg;
     glm::mat4 label_model;
     glm::mat4 left_line_model;
     glm::mat4 right_line_model;

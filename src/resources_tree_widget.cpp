@@ -4,13 +4,14 @@
 #include "color.hpp"
 #include "debug.hpp"
 #include "spritesheet.hpp"
+#include "settings_file.hpp"
 
 static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
     resources_tree->update_model();
 }
 
-ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window) :
+ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file) :
     Widget(gui_window),
     context(gui_window->gui->_genesis_context),
     gui(gui_window->gui),
@@ -24,11 +25,13 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window) :
     icon_width(12),
     icon_height(12),
     item_padding_top(4),
-    item_padding_bottom(4)
+    item_padding_bottom(4),
+    settings_file(settings_file)
 {
     gui->events.attach_handler(EventAudioDeviceChange, device_change_callback, this);
     gui->events.attach_handler(EventMidiDeviceChange, device_change_callback, this);
 
+    /* TODO
     root_node = create_parent_node(nullptr, "");
     root_node->indent_level = -1;
     root_node->parent_data->expanded = true;
@@ -36,16 +39,25 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window) :
     playback_devices_root = create_parent_node(root_node, "Playback Devices");
     recording_devices_root = create_parent_node(root_node, "Recording Devices");
     midi_devices_root = create_parent_node(root_node, "MIDI Devices");
+    samples_root = create_parent_node(root_node, "Samples");
+    */
+
+    scan_sample_dirs();
 }
 
 ResourcesTreeWidget::~ResourcesTreeWidget() {
+    /* TODO
+    destroy_dir_cache();
+
     gui->events.detach_handler(EventAudioDeviceChange, device_change_callback);
     gui->events.detach_handler(EventMidiDeviceChange, device_change_callback);
 
     destroy_node(root_node);
+    */
 }
 
 void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
+    /* TODO
     glm::mat4 bg_mvp = projection * bg_model;
     gui_window->fill_rect(bg_color, bg_mvp);
 
@@ -65,14 +77,12 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
             gui->draw_image_color(gui_window, child->icon_img, icon_mvp, text_color);
         }
     }
+    */
 }
 
 void ResourcesTreeWidget::update_model() {
-    bg_model = glm::scale(
-                glm::translate(
-                    glm::mat4(1.0f),
-                    glm::vec3(left, top, 0.0f)),
-                glm::vec3(width, height, 1.0f));
+    /* TODO
+    bg_model = transform2d(0, 0, width, height);
 
     int audio_device_count = genesis_get_audio_device_count(context);
     int midi_device_count = genesis_get_midi_device_count(context);
@@ -144,6 +154,9 @@ void ResourcesTreeWidget::update_model() {
         pop_destroy_child(midi_devices_root);
     }
 
+    // TODO
+
+
     update_model_stack.clear();
     ok_or_panic(update_model_stack.append(root_node));
 
@@ -178,47 +191,50 @@ void ResourcesTreeWidget::update_model() {
         }
     }
     ok_or_panic(draw_stack.ensure_capacity(update_model_stack.capacity()));
+    */
 }
 
 ResourcesTreeWidget::Node *ResourcesTreeWidget::create_playback_node() {
-    Node *node = create_zero<Node>();
-    if (!node)
-        panic("out of memory");
+    /* TODO
+    Node *node = ok_mem(create_zero<Node>());
     node->label = create<Label>(gui);
     node->node_type = NodeTypePlaybackDevice;
     node->parent_node = playback_devices_root;
     node->icon_img = gui->img_volume_up;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
+    */
+    return nullptr;
 }
 
 ResourcesTreeWidget::Node *ResourcesTreeWidget::create_record_node() {
-    Node *node = create_zero<Node>();
-    if (!node)
-        panic("out of memory");
+    /* TODO
+    Node *node = ok_mem(create_zero<Node>());
     node->label = create<Label>(gui);
     node->node_type = NodeTypeRecordingDevice;
     node->parent_node = recording_devices_root;
     node->icon_img = gui->img_microphone;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
+    */
+    return nullptr;
 }
 
 ResourcesTreeWidget::Node *ResourcesTreeWidget::create_midi_node() {
-    Node *node = create_zero<Node>();
-    if (!node)
-        panic("out of memory");
+    /* TODO
+    Node *node = ok_mem(create_zero<Node>());
     node->label = create<Label>(gui);
     node->node_type = NodeTypeMidiDevice;
     node->parent_node = midi_devices_root;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
+    */
+    return nullptr;
 }
 
 ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent, const char *text) {
-    Node *node = create_zero<Node>();
-    if (!node)
-        panic("out of memory");
+    /* TODO
+    Node *node = ok_mem(create_zero<Node>());
     node->label = create<Label>(gui);
     node->label->set_text(text);
     node->label->update();
@@ -230,6 +246,8 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent,
     if (parent)
         ok_or_panic(parent->parent_data->children.append(node));
     return node;
+    */
+    return nullptr;
 }
 
 void ResourcesTreeWidget::pop_destroy_child(Node *node) {
@@ -239,6 +257,7 @@ void ResourcesTreeWidget::pop_destroy_child(Node *node) {
 }
 
 void ResourcesTreeWidget::destroy_node(Node *node) {
+    /* TODO
     if (node) {
         destroy(node->label, 1);
         destroy(node->parent_data, 1);
@@ -246,9 +265,11 @@ void ResourcesTreeWidget::destroy_node(Node *node) {
         genesis_midi_device_unref(node->midi_device);
         destroy(node, 1);
     }
+    */
 }
 
 void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
+    /* TODO
     if (event->action != MouseActionDown)
         return;
 
@@ -267,9 +288,11 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
             }
         }
     }
+    */
 }
 
 void ResourcesTreeWidget::add_children_to_stack(List<Node *> &stack, Node *node) {
+    /* TODO
     if (node->node_type != NodeTypeParent)
         return;
     if (!node->parent_data->expanded)
@@ -280,6 +303,7 @@ void ResourcesTreeWidget::add_children_to_stack(List<Node *> &stack, Node *node)
         child->indent_level = node->indent_level + 1;
         ok_or_panic(stack.append(child));
     }
+    */
 }
 
 void ResourcesTreeWidget::toggle_expansion(Node *node) {
@@ -294,4 +318,46 @@ bool ResourcesTreeWidget::should_draw_icon(Node *node) {
     if (node->node_type == NodeTypeParent && node->parent_data->children.length() == 0)
         return false;
     return true;
+}
+
+static void destroy_dir_cache_recursive(SampleDirCache *dir_cache) {
+    os_dir_entry_unref(dir_cache->entry);
+    for (int i = 0; i < dir_cache->dirs.length(); i += 1) {
+        destroy_dir_cache_recursive(dir_cache->dirs.at(i));
+    }
+    for (int i = 0; i < dir_cache->files.length(); i += 1) {
+        os_dir_entry_unref(dir_cache->files.at(i));
+    }
+}
+
+void ResourcesTreeWidget::destroy_dir_cache() {
+    if (sample_dir_cache_root) {
+        destroy_dir_cache_recursive(sample_dir_cache_root);
+        destroy(sample_dir_cache_root, 1);
+        sample_dir_cache_root = nullptr;
+    }
+}
+
+static void scan_dir_recursive(const ByteBuffer &dir, SampleDirCache *dir_cache) {
+    List<OsDirEntry *> entries;
+    int err = os_readdir(dir.raw(), entries);
+    if (err)
+        fprintf(stderr, "Error reading %s: %s\n", dir.raw(), genesis_error_string(err));
+    for (int i = 0; i < entries.length(); i += 1) {
+        OsDirEntry *entry = entries.at(i);
+        if (entry->is_dir) {
+            SampleDirCache *child = create<SampleDirCache>();
+            child->entry = entry;
+            scan_dir_recursive(entry->name, child);
+        } else {
+            ok_or_panic(dir_cache->files.append(entry));
+        }
+    }
+}
+
+void ResourcesTreeWidget::scan_sample_dirs() {
+    destroy_dir_cache();
+    sample_dir_cache_root = ok_mem(create_zero<SampleDirCache>());
+    ByteBuffer samples_dir = os_get_samples_dir();
+    scan_dir_recursive(samples_dir, sample_dir_cache_root);
 }

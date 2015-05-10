@@ -47,7 +47,7 @@ public:
     void create_window(SettingsFileOpenWindow *sf_open_window);
 
 
-    GenesisContext *_genesis_context;
+    GenesisContext *genesis_context;
     ResourceBundle *resource_bundle;
     Gui *gui;
 

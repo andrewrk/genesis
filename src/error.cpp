@@ -25,6 +25,9 @@ const char *genesis_error_string(int error) {
         case GenesisErrorInvalidFormat: return "invalid format";
         case GenesisErrorEmptyFile: return "empty file";
         case GenesisErrorKeyNotFound: return "key not found";
+        case GenesisErrorFileNotFound: return "file not found";
+        case GenesisErrorPermissionDenied: return "permission denied";
+        case GenesisErrorNotDir: return "not a directory";
     }
     panic("invalid error enum value");
 }

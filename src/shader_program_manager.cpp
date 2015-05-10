@@ -124,6 +124,35 @@ void main(void)
     FragColor = vec4(1, 1, 1, texture(Tex, FragTexCoord).a) * Color;
 }
 
+)FRAGMENT", NULL),
+    gradient_program(R"VERTEX(
+
+#version 150 core
+
+in vec3 VertexPosition;
+out float MixAmt;
+
+uniform mat4 MVP;
+
+void main(void) {
+    MixAmt = clamp(0, VertexPosition.y, 1);
+    gl_Position = MVP * vec4(VertexPosition, 1.0);
+}
+
+)VERTEX", R"FRAGMENT(
+
+#version 150 core
+
+in float MixAmt;
+out vec4 FragColor;
+
+uniform vec4 ColorTop;
+uniform vec4 ColorBottom;
+
+void main(void) {
+    FragColor = ColorBottom * MixAmt + ColorTop * (1 - MixAmt);
+}
+
 )FRAGMENT", NULL)
 {
     _texture_attrib_tex_coord = _texture_shader_program.attrib_location("TexCoord");
@@ -146,6 +175,11 @@ void main(void)
     texture_color_uniform_mvp = texture_color_program.uniform_location("MVP");
     texture_color_uniform_tex = texture_color_program.uniform_location("Tex");
     texture_color_uniform_color = texture_color_program.uniform_location("Color");
+
+    gradient_attrib_position = gradient_program.attrib_location("VertexPosition");
+    gradient_uniform_mvp = gradient_program.uniform_location("MVP");
+    gradient_uniform_color_top = gradient_program.uniform_location("ColorTop");
+    gradient_uniform_color_bottom = gradient_program.uniform_location("ColorBottom");
 
     assert_no_gl_error();
 }

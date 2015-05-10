@@ -527,25 +527,19 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
 }
 
 static OrderedMapFileBuffer *omf_buf_uint256(const uint256 &value) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(UINT256_SIZE);
-    if (!buf)
-        panic("out of memory");
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(UINT256_SIZE));
     value.write_be(buf->data);
     return buf;
 }
 
 static OrderedMapFileBuffer *omf_buf_uint32(uint32_t x) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(4);
-    if (!buf)
-        panic("out of memory");
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(4));
     write_uint32be(buf->data, x);
     return buf;
 }
 
 static OrderedMapFileBuffer *omf_buf_byte_buffer(const ByteBuffer &byte_buffer) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(byte_buffer.length());
-    if (!buf)
-        panic("out of memory");
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(byte_buffer.length()));
     memcpy(buf->data, byte_buffer.raw(), byte_buffer.length());
     return buf;
 }
@@ -635,9 +629,7 @@ int project_get_next_revision(Project *project) {
 }
 
 static OrderedMapFileBuffer *create_undo_stack_key(int index) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + 4);
-    if (!buf)
-        panic("out of memory");
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + 4));
     write_uint32be(&buf->data[0], PropKeyUndoStack);
     write_uint32be(&buf->data[4], PropKeyDelimiter);
     write_uint32be(&buf->data[8], index);
@@ -645,9 +637,7 @@ static OrderedMapFileBuffer *create_undo_stack_key(int index) {
 }
 
 static OrderedMapFileBuffer *create_id_key(PropKey prop_key, const uint256 &id) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE);
-    if (!buf)
-        panic("out of memory");
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(PROP_KEY_SIZE + PROP_KEY_SIZE + UINT256_SIZE));
     write_uint32be(&buf->data[0], prop_key);
     write_uint32be(&buf->data[4], PropKeyDelimiter);
     id.write_be(&buf->data[8]);
@@ -667,9 +657,7 @@ static OrderedMapFileBuffer *create_command_key(const uint256 &id) {
 }
 
 static OrderedMapFileBuffer *create_basic_key(PropKey prop_key) {
-    OrderedMapFileBuffer *buf = ordered_map_file_buffer_create(4);
-    if (!buf)
-        panic("out of memory");
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(4));
     write_uint32be(buf->data, prop_key);
     return buf;
 }
@@ -925,7 +913,9 @@ static void project_push_command(Project *project, Command *command) {
     project->commands.put(command->id, command);
 }
 
-int project_open(const char *path, User *user, Project **out_project) {
+int project_open(const char *path, GenesisContext *genesis_context,
+        User *user, Project **out_project)
+{
     *out_project = nullptr;
 
     Project *project = create_zero<Project>();
@@ -935,6 +925,7 @@ int project_open(const char *path, User *user, Project **out_project) {
     }
 
     project->active_user = user;
+    project->genesis_context = genesis_context;
 
     int err = ordered_map_file_open(path, &project->omf);
     if (err) {
@@ -990,11 +981,15 @@ int project_open(const char *path, User *user, Project **out_project) {
     project_compute_indexes(project);
     ordered_map_file_done_reading(project->omf);
 
+    genesis_start_pipeline(project->genesis_context);
+
     *out_project = project;
     return 0;
 }
 
-int project_create(const char *path, const uint256 &id, User *user, Project **out_project) {
+int project_create(const char *path, GenesisContext *genesis_context,
+        const uint256 &id, User *user, Project **out_project)
+{
     *out_project = nullptr;
     Project *project = create_zero<Project>();
     if (!project) {
@@ -1011,6 +1006,7 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
 
     project->id = id;
     project->active_user = user;
+    project->genesis_context = genesis_context;
 
     project->users.put(user->id, user);
     project->user_list_dirty = true;
@@ -1031,12 +1027,17 @@ int project_create(const char *path, const uint256 &id, User *user, Project **ou
     }
     project_compute_indexes(project);
 
+    genesis_start_pipeline(project->genesis_context);
+
     *out_project = project;
     return 0;
 }
 
 void project_close(Project *project) {
     if (project) {
+        if (project->genesis_context)
+            genesis_stop_pipeline(project->genesis_context);
+
         ordered_map_file_close(project->omf);
         for (int i = 0; i < project->command_list.length(); i += 1) {
             Command *cmd = project->command_list.at(i);
@@ -1131,9 +1132,7 @@ void project_delete_track(Project *project, Track *track) {
 }
 
 User *user_create(const uint256 &id, const String &name) {
-    User *user = create_zero<User>();
-    if (!user)
-        panic("out of memory");
+    User *user = ok_mem(create_zero<User>());
 
     user->id = id;
     user->name = name;

@@ -1,6 +1,5 @@
 #include "settings_file.hpp"
 #include "os.hpp"
-#include "path.hpp"
 
 #include <errno.h>
 #include <laxjson.h>
@@ -31,6 +30,8 @@ static int on_string(struct LaxJsonContext *json,
                     sf->state = SettingsFileStatePerspectives;
                 } else if (ByteBuffer::compare(value, "open_windows") == 0) {
                     sf->state = SettingsFileStateOpenWindows;
+                } else if (ByteBuffer::compare(value, "sample_dirs") == 0) {
+                    sf->state = SettingsFileStateExpectSampleDirs;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
@@ -98,6 +99,9 @@ static int on_string(struct LaxJsonContext *json,
                 return parse_error(sf, "invalid dock_type value");
             }
             sf->state = SettingsFileStateDockItemProp;
+            break;
+        case SettingsFileStateSampleDirsItem:
+            ok_or_panic(sf->sample_dirs.append(value));
             break;
         case SettingsFileStateTabName:
             {
@@ -197,6 +201,11 @@ static int on_begin(struct LaxJsonContext *json, enum LaxJsonType type) {
                 return parse_error(sf, "expected object");
             sf->state = SettingsFileStateReadyForProp;
             break;
+        case SettingsFileStateExpectSampleDirs:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected array");
+            sf->state = SettingsFileStateSampleDirsItem;
+            break;
         case SettingsFileStatePerspectives:
             if (type != LaxJsonTypeArray)
                 return parse_error(sf, "expected array");
@@ -263,6 +272,11 @@ static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
             sf->state = SettingsFileStatePerspectivesItem;
             break;
         case SettingsFileStatePerspectivesItem:
+            if (type != LaxJsonTypeArray)
+                return parse_error(sf, "expected end array");
+            sf->state = SettingsFileStateReadyForProp;
+            break;
+        case SettingsFileStateSampleDirsItem:
             if (type != LaxJsonTypeArray)
                 return parse_error(sf, "expected end array");
             sf->state = SettingsFileStateReadyForProp;
@@ -349,6 +363,28 @@ static void json_inline_str(FILE *f, const ByteBuffer &value) {
     fprintf(f, "\"");
 }
 
+static void json_line_indent(FILE *f, int *indent, const char *brace) {
+    fprintf(f, "%s\n", brace);
+    *indent += 2;
+}
+
+static void json_line_outdent(FILE *f, int *indent, const char *brace) {
+    *indent -= 2;
+    do_indent(f, *indent);
+    fprintf(f, "%s\n", brace);
+}
+
+static void json_line_str_list(FILE *f, int indent, const char *key, const List<ByteBuffer> &value) {
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_line_indent(f, &indent, "[");
+    for (int i = 0; i < value.length(); i += 1) {
+        json_inline_str(f, value.at(i));
+        fprintf(f, ",\n");
+    }
+    json_line_outdent(f, &indent, "],\n");
+}
+
 static void json_line_str(FILE *f, int indent, const char *key, const ByteBuffer &value) {
     do_indent(f, indent);
     fprintf(f, "%s: ", key);
@@ -379,17 +415,6 @@ static void json_line_bool(FILE *f, int indent, const char *key, bool value) {
 static void json_line_comment(FILE *f, int indent, const char *comment) {
     do_indent(f, indent);
     fprintf(f, "// %s\n", comment);
-}
-
-static void json_line_indent(FILE *f, int *indent, const char *brace) {
-    fprintf(f, "%s\n", brace);
-    *indent += 2;
-}
-
-static void json_line_outdent(FILE *f, int *indent, const char *brace) {
-    *indent -= 2;
-    do_indent(f, *indent);
-    fprintf(f, "%s\n", brace);
 }
 
 static void json_line_dock(FILE *f, int indent, const char *key, const SettingsFileDock *dock) {
@@ -506,9 +531,7 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
 
     sf->state = SettingsFileStateStart;
 
-    LaxJsonContext *json = lax_json_create();
-    if (!json)
-        panic("out of memory");
+    LaxJsonContext *json = ok_mem(lax_json_create());
     sf->json = json;
 
     json->userdata = sf;
@@ -581,7 +604,7 @@ void settings_file_clear_dock(SettingsFileDock *dock) {
 
 int settings_file_commit(SettingsFile *sf) {
     OsTempFile tmp_file;
-    int err = os_create_temp_file(path_dirname(sf->path).raw(), &tmp_file);
+    int err = os_create_temp_file(os_path_dirname(sf->path).raw(), &tmp_file);
     if (err)
         return err;
 
@@ -600,6 +623,11 @@ int settings_file_commit(SettingsFile *sf) {
 
     json_line_comment(f, indent, "your user id");
     json_line_uint256(f, indent, "user_id", sf->user_id);
+    fprintf(f, "\n");
+
+    json_line_comment(f, indent, "extra directories to search for samples.");
+    json_line_comment(f, indent, "note: ~/.genesis/samples/ is always searched.");
+    json_line_str_list(f, indent, "sample_dirs", sf->sample_dirs);
     fprintf(f, "\n");
 
     json_line_comment(f, indent, "open this project on startup");

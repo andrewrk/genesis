@@ -15,6 +15,7 @@
 #include "os.hpp"
 #include "settings_file.hpp"
 #include "project.hpp"
+#include "genesis.h"
 
 #include <stdio.h>
 #include <assert.h>
@@ -357,6 +358,8 @@ static void test_list_sort(void) {
 }
 
 static void test_basic_project_editing(void) {
+    GenesisContext *context;
+    ok_or_panic(genesis_create_context(&context));
     static const char *tmp_proj_path = "/tmp/test_genesis_project.gdaw";
     os_delete(tmp_proj_path);
 
@@ -365,7 +368,7 @@ static void test_basic_project_editing(void) {
 
     uint256 project_id = uint256::random();
     Project *project;
-    ok_or_panic(project_create(tmp_proj_path, project_id, user, &project));
+    ok_or_panic(project_create(tmp_proj_path, context, project_id, user, &project));
 
     assert(project->user_list.length() == 1);
     assert(project->user_list.at(0)->id == user_id);
@@ -373,7 +376,7 @@ static void test_basic_project_editing(void) {
     project_close(project);
     project = nullptr;
 
-    int err = project_open(tmp_proj_path, user, &project);
+    int err = project_open(tmp_proj_path, context, user, &project);
     assert(err == 0);
 
     assert(project->id == project_id);
@@ -401,7 +404,7 @@ static void test_basic_project_editing(void) {
     project_close(project);
     project = nullptr;
 
-    err = project_open(tmp_proj_path, user, &project);
+    err = project_open(tmp_proj_path, context, user, &project);
     assert(err == 0);
 
     assert(project->user_list.length() == 1);
@@ -417,6 +420,7 @@ static void test_basic_project_editing(void) {
 
     user_destroy(user);
     os_delete(tmp_proj_path);
+    genesis_destroy_context(context);
 }
 
 static void test_string_compare(void) {
