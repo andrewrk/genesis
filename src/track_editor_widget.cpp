@@ -38,8 +38,7 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     track_height(60),
     track_name_label_padding_left(4),
     track_name_label_padding_top(4),
-    track_name_color(color_dark_text()),
-    track_head_bg_color(color_light_bg()),
+    track_name_color(color_fg_text()),
     track_main_bg_color(color_dark_bg()),
     timeline_bg_color(color_dark_bg_alt()),
     dark_border_color(color_dark_border()),
@@ -77,11 +76,11 @@ TrackEditorWidget::~TrackEditorWidget() {
 }
 
 void TrackEditorWidget::draw(const glm::mat4 &projection) {
-    gui_window->fill_rect(timeline_bg_color, projection * timeline_model);
+    timeline_bg.draw(gui_window, projection);
 
     for (int i = 0; i < tracks.length(); i += 1) {
         GuiTrack *gui_track = tracks.at(i);
-        gui_window->fill_rect(track_head_bg_color, projection * gui_track->head_model);
+        gui_track->head_bg.draw(gui_window, projection);
         gui_track->body_bg.draw(gui_window, projection);
         gui_track->track_name_label->draw(
                 projection * gui_track->track_name_label_model, track_name_color);
@@ -94,8 +93,14 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
 }
 
 void TrackEditorWidget::update_model() {
-    int timeline_top = padding_top;
-    timeline_model = transform2d(padding_left, padding_top,
+    horiz_scroll_bar->left = left;
+    horiz_scroll_bar->top = top;
+    horiz_scroll_bar->width = width;
+    horiz_scroll_bar->height = horiz_scroll_bar->min_height();
+    horiz_scroll_bar->on_resize();
+
+    int timeline_top = horiz_scroll_bar->height;
+    timeline_bg.update(this, padding_left, timeline_top,
             width - padding_left - padding_right, timeline_height);
 
     int next_top = timeline_top + timeline_height;
@@ -123,8 +128,8 @@ void TrackEditorWidget::update_model() {
         next_top += 1;
 
         int head_top = gui_track->top;
-        gui_track->head_model = transform2d(padding_left, head_top, track_head_width, track_height);
-
+        gui_track->head_bg.update(this, padding_left, head_top, track_head_width, track_height);
+        gui_track->head_bg.set_scheme(SunkenBoxSchemeRaised);
         gui_track->body_bg.update(this, body_left, head_top, body_width, track_height);
 
         gui_track->track_name_label->set_text(track->name);
@@ -142,11 +147,6 @@ void TrackEditorWidget::update_model() {
         destroy_gui_track(gui_track);
     }
 
-    horiz_scroll_bar->left = left + track_head_width;
-    horiz_scroll_bar->top = top + next_top;
-    horiz_scroll_bar->width = body_width;
-    horiz_scroll_bar->height = horiz_scroll_bar->min_height();
-    horiz_scroll_bar->on_resize();
 }
 
 TrackEditorWidget::GuiTrack * TrackEditorWidget::create_gui_track() {

@@ -34,18 +34,17 @@ public:
     int track_name_label_padding_top;
 
     glm::vec4 track_name_color;
-    glm::vec4 track_head_bg_color;
     glm::vec4 track_main_bg_color;
     glm::vec4 timeline_bg_color;
 
     glm::vec4 dark_border_color;
     glm::vec4 light_border_color;
 
-    glm::mat4 timeline_model;
+    SunkenBox timeline_bg;
 
     struct GuiTrack {
         Track *track;
-        glm::mat4 head_model;
+        SunkenBox head_bg;
         SunkenBox body_bg;
         glm::mat4 border_top_model;
         glm::mat4 border_bottom_model;
