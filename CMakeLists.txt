@@ -209,6 +209,10 @@ endif()
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wno-unused-variable")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-unused-variable")
+
+
 set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -fdiagnostics-color=auto")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -fdiagnostics-color=auto")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")

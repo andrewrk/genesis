@@ -77,20 +77,24 @@ double os_random_double(void) {
     return ((double)x) / (((double)(UINT32_MAX))+1);
 }
 
-void os_init(OsRandomQuality random_quality) {
-    uint32_t seed;
+static uint32_t get_seed(OsRandomQuality random_quality) {
     switch (random_quality) {
     case OsRandomQualityRobust:
         {
-            int err = get_random_seed(&seed);
-            if (err)
+            uint32_t result;
+            int err;
+            if ((err = get_random_seed(&result)))
                 panic("Unable to get random seed: %s", genesis_error_string(err));
-            break;
+            return result;
         }
     case OsRandomQualityPseudo:
-        seed = time(nullptr) + getpid();
-        break;
+        return (time(nullptr) + getpid());
     }
+    panic("invalid random quality enum value");
+}
+
+void os_init(OsRandomQuality random_quality) {
+    uint32_t seed = get_seed(random_quality);
     init_random_state(&random_state, seed);
 }
 

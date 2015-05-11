@@ -150,7 +150,8 @@ static void resample_run(struct GenesisNode *node) {
             for (int ch = 0; ch < out_channel_count; ch += 1) {
                 float over_value = get_channel_value(in_buf, resample_context,
                         in_channel_layout, out_channel_layout, in_index, ch);
-                total[ch] += resample_context->impulse_response[window_size - impulse_i - 1] * over_value;
+                int impulse_response_index = window_size - impulse_i - 1;
+                total[ch] += resample_context->impulse_response[impulse_response_index] * over_value;
             }
         }
         for (int ch = 0; ch < out_channel_count; ch += 1) {
