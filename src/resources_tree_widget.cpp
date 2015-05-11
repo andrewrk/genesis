@@ -173,11 +173,6 @@ void ResourcesTreeWidget::destroy_node_display(NodeDisplay *node_display) {
 }
 
 void ResourcesTreeWidget::update_model() {
-    scroll_bar->left = left + width - scroll_bar->min_width();
-    scroll_bar->top = top;
-    scroll_bar->width = scroll_bar->min_width();
-    scroll_bar->height = height;
-    scroll_bar->on_resize();
 
     int available_width = width - scroll_bar->width;
     int available_height = height - padding_bottom - padding_top;
@@ -200,9 +195,15 @@ void ResourcesTreeWidget::update_model() {
 
     int full_height = next_top;
 
+    scroll_bar->left = left + width - scroll_bar->min_width();
+    scroll_bar->top = top;
+    scroll_bar->width = scroll_bar->min_width();
+    scroll_bar->height = height;
     scroll_bar->min_value = 0;
     scroll_bar->max_value = max(0, full_height - available_height);
+    scroll_bar->set_handle_ratio(available_height, full_height);
     scroll_bar->set_value(scroll_bar->value);
+    scroll_bar->on_resize();
 
     // now consider scroll position and create display nodes for nodes that
     // are visible

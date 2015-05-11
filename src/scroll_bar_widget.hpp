@@ -21,6 +21,7 @@ public:
     void on_mouse_move(const MouseEvent *) override;
 
     void set_value(int value);
+    void set_handle_ratio(int container_size, int content_size);
 
     int min_width() const override;
     int max_width() const override;
@@ -30,13 +31,16 @@ public:
     void on_resize() override { update_model(); }
 
     ScrollBarLayout layout;
+    float handle_ratio;
     int min_value;
     int max_value;
     int value;
     EventDispatcher events;
-    SunkenBox sunken_box;
+    SunkenBox bg;
+    SunkenBox handle;
 
     void update_model();
+    int long_dimension() const;
 };
 
 #endif

@@ -8,6 +8,7 @@ enum SunkenBoxScheme {
     SunkenBoxSchemeRaised,
     SunkenBoxSchemeInactive,
     SunkenBoxSchemeSunkenBorders,
+    SunkenBoxSchemeRaisedBorders,
 };
 
 class SunkenBox {

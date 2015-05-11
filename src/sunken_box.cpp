@@ -27,6 +27,15 @@ void SunkenBox::set_scheme(SunkenBoxScheme color_scheme) {
             bottom_color = color_dark_bg();
             borders_on = false;
             break;
+        case SunkenBoxSchemeRaisedBorders:
+            top_color = color_dark_bg_highlight();
+            bottom_color = color_dark_bg();
+            borders_on = true;
+            border_top_color = color_light_border();
+            border_right_color = color_light_border();
+            border_bottom_color = color_light_border();
+            border_left_color = color_light_border();
+            break;
         case SunkenBoxSchemeInactive:
             top_color = color_dark_bg_inactive();
             bottom_color = color_dark_bg_inactive();
