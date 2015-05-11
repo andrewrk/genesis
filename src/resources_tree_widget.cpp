@@ -13,6 +13,11 @@ static void device_change_callback(Event, void *userdata) {
     resources_tree->update_model();
 }
 
+static void scroll_change_callback(Event, void *userdata) {
+    ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
+    resources_tree->update_model();
+}
+
 ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file) :
     Widget(gui_window),
     context(gui_window->gui->_genesis_context),
@@ -36,6 +41,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
 
     gui->events.attach_handler(EventAudioDeviceChange, device_change_callback, this);
     gui->events.attach_handler(EventMidiDeviceChange, device_change_callback, this);
+    scroll_bar->events.attach_handler(EventScrollValueChange, scroll_change_callback, this);
 
     root_node = create_parent_node(nullptr, "");
     root_node->indent_level = -1;
@@ -333,7 +339,16 @@ void ResourcesTreeWidget::destroy_node(Node *node) {
     }
 }
 
+void ResourcesTreeWidget::on_mouse_wheel(const MouseWheelEvent *event) {
+    float range = scroll_bar->max_value - scroll_bar->min_value;
+    scroll_bar->set_value(scroll_bar->value - event->wheel_y * range * 0.18f * scroll_bar->handle_ratio);
+    update_model();
+}
+
 void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
+    if (forward_mouse_event(scroll_bar, event))
+        return;
+
     if (event->action != MouseActionDown)
         return;
 

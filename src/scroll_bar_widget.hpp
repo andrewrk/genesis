@@ -38,9 +38,20 @@ public:
     EventDispatcher events;
     SunkenBox bg;
     SunkenBox handle;
+    int handle_left;
+    int handle_right;
+    int handle_top;
+    int handle_bottom;
+    int handle_track_long_size;
+    int handle_long_size;
+    int drag_start_x;
+    int drag_start_y;
+    bool dragging_handle;
+    int drag_start_value;
 
     void update_model();
     int long_dimension() const;
+    float get_pos_amt(int x, int y);
 };
 
 #endif

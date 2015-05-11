@@ -5,17 +5,19 @@ static const int NON_EXPANDING_AXIS_SIZE = 20;
 static const int MIN_SIZE = 64;
 static const int HANDLE_SIZE = 16;
 static const int MIN_HANDLE_LONG_SIZE = 8;
+static const int TRACK_PADDING_BEGIN = 2;
+static const int TRACK_PADDING_END = 2;
 
 ScrollBarWidget::ScrollBarWidget(GuiWindow *gui_window, ScrollBarLayout layout) :
     Widget(gui_window)
 {
     this->layout = layout;
     bg.set_scheme(SunkenBoxSchemeSunkenBorders);
-    handle.set_scheme(SunkenBoxSchemeRaisedBorders);
     min_value = 0;
     max_value = 0;
     value = 0;
     handle_ratio = 0.0f;
+    dragging_handle = false;
 }
 
 ScrollBarWidget::~ScrollBarWidget() { }
@@ -29,10 +31,7 @@ void ScrollBarWidget::update_model() {
 
     int range = max_value - min_value;
     float amt = (range > 0) ? ((value - min_value) / (float)range) : 0.0f;
-    int track_padding_begin = 2;
-    int track_padding_end = 2;
-    int handle_track_long_size = long_dimension() - track_padding_begin - track_padding_end;
-    int handle_long_size;
+    handle_track_long_size = long_dimension() - TRACK_PADDING_BEGIN - TRACK_PADDING_END;
     if (range > 0) {
         if (handle_ratio > 0.0f) {
             handle_long_size = max(MIN_HANDLE_LONG_SIZE, handle_track_long_size * handle_ratio);
@@ -45,16 +44,18 @@ void ScrollBarWidget::update_model() {
     int full_scroll = handle_track_long_size - handle_long_size;
 
     if (layout == ScrollBarLayoutVert) {
-        handle.update(this,
-                width / 2 - HANDLE_SIZE / 2,
-                track_padding_begin + amt * full_scroll,
-                HANDLE_SIZE, handle_long_size);
+        handle_left = width / 2 - HANDLE_SIZE / 2;
+        handle_top = TRACK_PADDING_BEGIN + amt * full_scroll;
+        handle_right = handle_left + HANDLE_SIZE;
+        handle_bottom = handle_top + handle_long_size;
     } else {
-        handle.update(this,
-                track_padding_begin + amt * full_scroll,
-                height / 2 - HANDLE_SIZE / 2,
-                handle_long_size, HANDLE_SIZE);
+        handle_left = TRACK_PADDING_BEGIN + amt * full_scroll;
+        handle_top = height / 2 - HANDLE_SIZE / 2,
+        handle_right = handle_left + handle_long_size;
+        handle_bottom = handle_top + HANDLE_SIZE;
     }
+    handle.set_scheme(dragging_handle ? SunkenBoxSchemeSunkenBorders : SunkenBoxSchemeRaisedBorders);
+    handle.update(this, handle_left, handle_top, handle_right - handle_left, handle_bottom - handle_top);
 }
 
 void ScrollBarWidget::draw(const glm::mat4 &projection) {
@@ -62,8 +63,58 @@ void ScrollBarWidget::draw(const glm::mat4 &projection) {
     handle.draw(gui_window, projection);
 }
 
-void ScrollBarWidget::on_mouse_move(const MouseEvent *) {
-    // TODO handle scrolling
+float ScrollBarWidget::get_pos_amt(int x, int y) {
+    if (layout == ScrollBarLayoutVert) {
+        return y / (float)height;
+    } else {
+        return x / (float)width;
+    }
+}
+
+void ScrollBarWidget::on_mouse_move(const MouseEvent *event) {
+    switch (event->action) {
+        case MouseActionDown:
+            {
+                if (event->button != MouseButtonLeft)
+                    return;
+                drag_start_x = event->x;
+                drag_start_y = event->y;
+                dragging_handle = true;
+                bool clicked_handle = (event->x >= handle_left && event->x < handle_right &&
+                                       event->y >= handle_top && event->y < handle_bottom);
+                if (!clicked_handle) {
+                    float amt = get_pos_amt(event->x, event->y);
+                    set_value(min_value + amt * (max_value - min_value));
+                    events.trigger(EventScrollValueChange);
+                }
+                drag_start_value = value;
+                update_model();
+                break;
+            }
+        case MouseActionUp:
+            if (!dragging_handle || event->button != MouseButtonLeft)
+                return;
+            dragging_handle = false;
+            update_model();
+            break;
+        case MouseActionMove:
+            if (!dragging_handle)
+                return;
+
+            int range = max_value - min_value;
+            int delta;
+            if (layout == ScrollBarLayoutVert) {
+                delta = (event->y - drag_start_y);
+            } else {
+                delta = (event->x - drag_start_x);
+            }
+            float amt = delta / (float)(handle_track_long_size - handle_long_size);
+            set_value(drag_start_value + range * amt);
+            events.trigger(EventScrollValueChange);
+
+            update_model();
+            break;
+    }
 }
 
 int ScrollBarWidget::min_width() const {
@@ -106,3 +157,4 @@ void ScrollBarWidget::set_handle_ratio(int container_size, int content_size) {
     assert(content_size != 0);
     handle_ratio = container_size / (float)content_size;
 }
+

@@ -22,6 +22,7 @@ public:
 
     void on_resize() override { update_model(); }
     void on_mouse_move(const MouseEvent *) override;
+    void on_mouse_wheel(const MouseWheelEvent *event) override;
 
 
     enum NodeType {
