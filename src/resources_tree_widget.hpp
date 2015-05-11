@@ -131,6 +131,7 @@ public:
     void mouse_down_node(Node *node);
     void double_click_node(Node *node);
     bool is_node_expanded(Node *node);
+    int get_node_index(Node *node);
 };
 
 #endif

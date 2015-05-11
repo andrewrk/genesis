@@ -393,25 +393,24 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
     for (int i = 0; i < display_nodes.length(); i += 1) {
         NodeDisplay *node_display = display_nodes.at(i);
         Node *node = node_display->node;
-        if (node->node_type == NodeTypeParent) {
-            if (event->x >= node_display->icon_left &&
-                event->x < node_display->icon_left + icon_width + icon_spacing &&
-                event->y >= node_display->top &&
-                event->y < node_display->bottom)
-            {
-                toggle_expansion(node);
-                break;
-            } else if (event->x >= node_display->icon_left &&
-                       event->x < node_display->right &&
-                       event->y >= node_display->top &&
-                       event->y < node_display->bottom)
-            {
-                if (event->is_double_click)
-                    double_click_node(node);
-                else
-                    mouse_down_node(node);
-                break;
-            }
+        if (node->node_type == NodeTypeParent &&
+            event->x >= node_display->icon_left &&
+            event->x < node_display->icon_left + icon_width + icon_spacing &&
+            event->y >= node_display->top &&
+            event->y < node_display->bottom)
+        {
+            toggle_expansion(node);
+            break;
+        } else if (event->x >= node_display->icon_left &&
+                   event->x < node_display->right &&
+                   event->y >= node_display->top &&
+                   event->y < node_display->bottom)
+        {
+            if (event->is_double_click)
+                double_click_node(node);
+            else
+                mouse_down_node(node);
+            break;
         }
     }
 }
@@ -444,6 +443,17 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::get_last_node() {
     return node;
 }
 
+int ResourcesTreeWidget::get_node_index(Node *target_node) {
+    Node *parent = target_node->parent_node;
+    assert(parent->node_type == NodeTypeParent);
+    for (int i = 0; i < parent->parent_data->children.length(); i += 1) {
+        Node *child = parent->parent_data->children.at(i);
+        if (child == target_node)
+            return i;
+    }
+    panic("node not found");
+}
+
 void ResourcesTreeWidget::nav_sel_x(int dir) {
     if (!selected_node) {
         selected_node = (dir > 0) ? get_first_node() : get_last_node();
@@ -460,12 +470,18 @@ void ResourcesTreeWidget::nav_sel_x(int dir) {
             if (is_node_expanded(selected_node)) {
                 toggle_expansion(selected_node);
             } else {
-                // TODO nav to parent
+                if (selected_node->parent_node != root_node)
+                    selected_node = selected_node->parent_node;
             }
         }
         return;
     }
-    // TODO
+    if (dir < 0) {
+        if (selected_node->parent_node != root_node) {
+            selected_node = selected_node->parent_node;
+            toggle_expansion(selected_node);
+        }
+    }
 }
 
 void ResourcesTreeWidget::nav_sel_y(int dir) {
@@ -473,10 +489,48 @@ void ResourcesTreeWidget::nav_sel_y(int dir) {
         selected_node = (dir > 0) ? get_first_node() : get_last_node();
         return;
     }
-    // TODO
+    if (dir > 0) {
+        if (selected_node->node_type == NodeTypeParent &&
+            is_node_expanded(selected_node) &&
+            selected_node->parent_data->children.length() > 0)
+        {
+            selected_node = selected_node->parent_data->children.at(0);
+            return;
+        }
+        Node *target_node = selected_node;
+        while (target_node != root_node) {
+            Node *parent = target_node->parent_node;
+            int target_node_index = get_node_index(target_node);
+            if (target_node_index >= parent->parent_data->children.length() - 1) {
+                target_node = parent;
+            } else {
+                selected_node = parent->parent_data->children.at(target_node_index + 1);
+                return;
+            }
+        }
+    } else {
+        Node *parent = selected_node->parent_node;
+        int selected_node_index = get_node_index(selected_node);
+        if (selected_node_index > 0) {
+            Node *upper_node = parent->parent_data->children.at(selected_node_index - 1);
+            while (upper_node->node_type == NodeTypeParent && is_node_expanded(upper_node)) {
+                if (upper_node->parent_data->children.length() > 0) {
+                    upper_node = upper_node->parent_data->children.last();
+                } else {
+                    break;
+                }
+            }
+            selected_node = upper_node;
+        } else {
+            selected_node = parent;
+        }
+    }
 }
 
 bool ResourcesTreeWidget::on_key_event(const KeyEvent *event) {
+    if (event->action != KeyActionDown)
+        return false;
+
     switch (event->virt_key) {
         default: break;
         case VirtKeyDown:
