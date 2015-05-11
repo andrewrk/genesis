@@ -20,6 +20,9 @@ struct PlayContext {
 static void audio_file_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
     struct PlayContext *play_context = (struct PlayContext *)genesis_node_descriptor_userdata(node_descriptor);
+    if (!play_context->running)
+        return;
+
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
@@ -230,6 +233,8 @@ int main(int argc, char **argv) {
 
     while (play_context.running)
         genesis_wait_events(context);
+
+    genesis_stop_pipeline(context);
 
     genesis_audio_file_destroy(audio_file);
     genesis_destroy_context(context);
