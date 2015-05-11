@@ -303,12 +303,6 @@ int genesis_audio_file_load(struct GenesisContext *context,
         return GenesisErrorFileAccess;
     }
 
-    err = avformat_find_stream_info(ic, NULL);
-    if (err < 0) {
-        genesis_audio_file_destroy(audio_file);
-        return GenesisErrorNoAudioFound;
-    }
-
     // set all streams to discard. in a few lines here we will find the audio
     // stream and cancel discarding it
     for (long i = 0; i < ic->nb_streams; i += 1)
