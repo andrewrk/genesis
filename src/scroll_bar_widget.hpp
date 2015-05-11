@@ -19,6 +19,7 @@ public:
 
     void draw(const glm::mat4 &projection) override;
     void on_mouse_move(const MouseEvent *) override;
+    void on_mouse_wheel(const MouseWheelEvent *) override { fprintf(stderr, "scroll wheel\n"); }
 
     void set_value(int value);
     void set_handle_ratio(int container_size, int content_size);

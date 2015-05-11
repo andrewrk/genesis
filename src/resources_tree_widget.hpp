@@ -94,6 +94,7 @@ public:
     ScrollBarWidget *scroll_bar;
     Label *dummy_label; // so we know the height
     int display_node_count;
+    glm::mat4 stencil_model;
 
     void update_model();
 

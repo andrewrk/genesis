@@ -37,6 +37,8 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
     display_node_count = 0;
 
     scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
+    scroll_bar->parent_widget = this;
+
     dummy_label = create<Label>(gui);
 
     gui->events.attach_handler(EventAudioDeviceChange, device_change_callback, this);
@@ -80,6 +82,22 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
     bg.draw(gui_window, projection);
     scroll_bar->draw(projection);
 
+
+    glEnable(GL_STENCIL_TEST);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    gui_window->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), projection * stencil_model);
+
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glStencilMask(0x00);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
     for (int i = 0; i < display_node_count; i += 1) {
         NodeDisplay *node_display = display_nodes.at(i);
         node_display->label->draw(projection * node_display->label_model, text_color);
@@ -88,6 +106,8 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
                     projection * node_display->icon_model, text_color);
         }
     }
+
+    glDisable(GL_STENCIL_TEST);
 }
 
 void ResourcesTreeWidget::refresh_devices() {
@@ -180,10 +200,12 @@ void ResourcesTreeWidget::destroy_node_display(NodeDisplay *node_display) {
 
 void ResourcesTreeWidget::update_model() {
 
-    int available_width = width - scroll_bar->width;
+    int available_width = width - scroll_bar->width - padding_left - padding_right;
     int available_height = height - padding_bottom - padding_top;
 
-    bg.update(this, 0, 0, available_width, height);
+    stencil_model = transform2d(padding_left, padding_top, available_width, available_height);
+
+    bg.update(this, 0, 0, padding_left + available_width, height);
 
     // compute item positions
     int next_top = padding_top;

@@ -370,7 +370,7 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
 void GuiWindow::scroll_callback(double xoffset, double yoffset) {
     MutexLocker locker(&gui->gui_mutex);
 
-    if (!_focus_widget)
+    if (!_mouse_over_widget)
         return;
 
     double xpos, ypos;
@@ -378,14 +378,14 @@ void GuiWindow::scroll_callback(double xoffset, double yoffset) {
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
     MouseWheelEvent wheel_event = {
-        x - _focus_widget->left,
-        y - _focus_widget->top,
+        x - _mouse_over_widget->left,
+        y - _mouse_over_widget->top,
         (int)sign(xoffset),
         (int)sign(yoffset),
         get_modifiers(),
     };
 
-    _focus_widget->on_mouse_wheel(&wheel_event);
+    _mouse_over_widget->on_mouse_wheel(&wheel_event);
 }
 
 void GuiWindow::on_mouse_move(const MouseEvent *event) {
