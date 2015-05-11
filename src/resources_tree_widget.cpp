@@ -317,6 +317,7 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::create_midi_node() {
     Node *node = ok_mem(create_zero<Node>());
     node->node_type = NodeTypeMidiDevice;
     node->parent_node = midi_devices_root;
+    node->icon_img = gui->img_music;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
 }
