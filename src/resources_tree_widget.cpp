@@ -23,6 +23,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
     context(gui_window->gui->_genesis_context),
     gui(gui_window->gui),
     text_color(color_fg_text()),
+    selection_color(color_selection()),
     padding_top(4),
     padding_bottom(0),
     padding_left(4),
@@ -35,6 +36,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
     settings_file(settings_file)
 {
     display_node_count = 0;
+    selected_node = nullptr;
 
     scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
     scroll_bar->parent_widget = this;
@@ -100,6 +102,9 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
 
     for (int i = 0; i < display_node_count; i += 1) {
         NodeDisplay *node_display = display_nodes.at(i);
+        if (node_display->node == selected_node) {
+            gui_window->fill_rect(selection_color, projection * node_display->selected_model);
+        }
         node_display->label->draw(projection * node_display->label_model, text_color);
         if (should_draw_icon(node_display->node)) {
             gui->draw_image_color(gui_window, node_display->node->icon_img,
@@ -260,6 +265,9 @@ void ResourcesTreeWidget::update_model() {
             node_display->top = child->top - scroll_bar->value;
             node_display->bottom = child->bottom - scroll_bar->value;
 
+            node_display->icon_left = padding_left + (icon_width + icon_spacing) * child->indent_level;
+            node_display->right = width - padding_right;
+
             int extra_indent = (child->icon_img != nullptr);
             int label_left = padding_left + (icon_width + icon_spacing) *
                 (child->indent_level + extra_indent);
@@ -268,8 +276,13 @@ void ResourcesTreeWidget::update_model() {
             node_display->label->set_text(child->text);
             node_display->label->update();
 
+            node_display->selected_model = transform2d(
+                    node_display->icon_left, node_display->top,
+                    node_display->right - node_display->icon_left,
+                    node_display->bottom - node_display->top);
+
+
             if (child->icon_img) {
-                node_display->icon_left = padding_left + (icon_width + icon_spacing) * child->indent_level;
                 node_display->icon_top = node_display->top +
                     (node_display->bottom - node_display->top) / 2 - icon_height / 2;
                 float icon_scale_width = icon_width / (float)child->icon_img->width;
@@ -354,6 +367,8 @@ void ResourcesTreeWidget::pop_destroy_child(Node *node) {
 
 void ResourcesTreeWidget::destroy_node(Node *node) {
     if (node) {
+        if (node == selected_node)
+            selected_node = nullptr;
         destroy(node->parent_data, 1);
         genesis_audio_device_unref(node->audio_device);
         genesis_midi_device_unref(node->midi_device);
@@ -386,9 +401,103 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
             {
                 toggle_expansion(node);
                 break;
+            } else if (event->x >= node_display->icon_left &&
+                       event->x < node_display->right &&
+                       event->y >= node_display->top &&
+                       event->y < node_display->bottom)
+            {
+                if (event->is_double_click)
+                    double_click_node(node);
+                else
+                    mouse_down_node(node);
+                break;
             }
         }
     }
+}
+
+void ResourcesTreeWidget::mouse_down_node(Node *node) {
+    selected_node = node;
+}
+
+void ResourcesTreeWidget::double_click_node(Node *node) {
+    if (node->node_type == NodeTypeParent) {
+        toggle_expansion(node);
+    }
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::get_first_node() {
+    if (root_node->parent_data->children.length() == 0)
+        return nullptr;
+    else
+        return root_node->parent_data->children.at(0);
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::get_last_node() {
+    Node *node = root_node;
+    while (node->node_type == NodeTypeParent) {
+        if (node->parent_data->children.length() > 0)
+            node = node->parent_data->children.last();
+        else
+            break;
+    }
+    return node;
+}
+
+void ResourcesTreeWidget::nav_sel_x(int dir) {
+    if (!selected_node) {
+        selected_node = (dir > 0) ? get_first_node() : get_last_node();
+        return;
+    }
+    if (selected_node->node_type == NodeTypeParent) {
+        if (dir > 0) {
+            if (is_node_expanded(selected_node)) {
+                nav_sel_y(1);
+            } else {
+                toggle_expansion(selected_node);
+            }
+        } else {
+            if (is_node_expanded(selected_node)) {
+                toggle_expansion(selected_node);
+            } else {
+                // TODO nav to parent
+            }
+        }
+        return;
+    }
+    // TODO
+}
+
+void ResourcesTreeWidget::nav_sel_y(int dir) {
+    if (!selected_node) {
+        selected_node = (dir > 0) ? get_first_node() : get_last_node();
+        return;
+    }
+    // TODO
+}
+
+bool ResourcesTreeWidget::on_key_event(const KeyEvent *event) {
+    switch (event->virt_key) {
+        default: break;
+        case VirtKeyDown:
+            nav_sel_y(1);
+            return true;
+        case VirtKeyUp:
+            nav_sel_y(-1);
+            return true;
+        case VirtKeyLeft:
+            nav_sel_x(-1);
+            return true;
+        case VirtKeyRight:
+            nav_sel_x(1);
+            return true;
+    }
+    return false;
+}
+
+bool ResourcesTreeWidget::is_node_expanded(Node *node) {
+    assert(node->node_type == NodeTypeParent);
+    return node->parent_data->expanded;
 }
 
 void ResourcesTreeWidget::toggle_expansion(Node *node) {

@@ -1,6 +1,7 @@
 #include "text_widget.hpp"
 #include "gui.hpp"
 #include "gui_window.hpp"
+#include "color.hpp"
 
 static bool default_on_key_event(TextWidget *, const KeyEvent *event) {
     return false;
@@ -26,7 +27,7 @@ TextWidget::TextWidget(GuiWindow *gui_window) :
     _sel_text_color(1.0f, 1.0f, 1.0f, 1.0f),
     _background_color(0.828f, 0.862f, 0.916f, 1.0f),
     _hover_color(0.7f, 0.7f, 0.8f, 1.0f),
-    _selection_color(0.1216f, 0.149f, 0.2078, 1.0f),
+    _selection_color(color_selection()),
     _cursor_color(0.1216f, 0.149f, 0.2078, 1.0f),
     _auto_size(false),
     fixed_min_width(0),

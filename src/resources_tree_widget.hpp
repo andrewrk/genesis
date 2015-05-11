@@ -23,6 +23,7 @@ public:
     void on_resize() override { update_model(); }
     void on_mouse_move(const MouseEvent *) override;
     void on_mouse_wheel(const MouseWheelEvent *event) override;
+    bool on_key_event(const KeyEvent *) override;
 
 
     enum NodeType {
@@ -63,16 +64,19 @@ public:
         Label *label;
         glm::mat4 label_model;
         glm::mat4 icon_model;
+        glm::mat4 selected_model;
         // adjusted for scroll position
         int top;
         int bottom;
         int icon_left;
         int icon_top;
+        int right;
     };
 
     GenesisContext *context;
     Gui *gui;
     glm::vec4 text_color;
+    glm::vec4 selection_color;
     SunkenBox bg;
     Node *root_node;
     int padding_top;
@@ -95,6 +99,7 @@ public:
     Label *dummy_label; // so we know the height
     int display_node_count;
     glm::mat4 stencil_model;
+    Node *selected_node;
 
     void update_model();
 
@@ -118,6 +123,14 @@ public:
     // must call update_model after calling these
     void scan_sample_dirs();
     void refresh_devices();
+
+    void nav_sel_x(int dir);
+    void nav_sel_y(int dir);
+    Node * get_first_node();
+    Node * get_last_node();
+    void mouse_down_node(Node *node);
+    void double_click_node(Node *node);
+    bool is_node_expanded(Node *node);
 };
 
 #endif
