@@ -12,10 +12,11 @@ class Gui;
 class SpritesheetImage;
 class SettingsFile;
 class ScrollBarWidget;
+struct Project;
 
 class ResourcesTreeWidget : public Widget {
 public:
-    ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file);
+    ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file, Project *project);
     ~ResourcesTreeWidget() override;
 
     void draw(const glm::mat4 &projection) override;
@@ -57,6 +58,7 @@ public:
         GenesisMidiDevice *midi_device;
         ParentNode *parent_data;
         OsDirEntry *dir_entry;
+        ByteBuffer full_path;
     };
 
     struct NodeDisplay {
@@ -100,6 +102,7 @@ public:
     int display_node_count;
     glm::mat4 stencil_model;
     Node *selected_node;
+    Project *project;
 
     void update_model();
 
@@ -107,7 +110,7 @@ public:
     Node *create_playback_node();
     Node *create_record_node();
     Node *create_midi_node();
-    Node *create_sample_file_node(Node *parent, OsDirEntry *entry);
+    Node *create_sample_file_node(Node *parent, OsDirEntry *entry, const ByteBuffer &full_path);
     void destroy_node(Node *node);
     void pop_destroy_child(Node *node);
     void add_children_to_stack(List<Node *> &stack, Node *node);
@@ -132,6 +135,7 @@ public:
     void double_click_node(Node *node);
     bool is_node_expanded(Node *node);
     int get_node_index(Node *node);
+    void select_node(Node *node);
 };
 
 #endif

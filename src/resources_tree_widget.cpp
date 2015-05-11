@@ -6,6 +6,7 @@
 #include "spritesheet.hpp"
 #include "settings_file.hpp"
 #include "scroll_bar_widget.hpp"
+#include "audio_graph.hpp"
 
 static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
@@ -18,7 +19,8 @@ static void scroll_change_callback(Event, void *userdata) {
     resources_tree->update_model();
 }
 
-ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file) :
+ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
+        SettingsFile *settings_file, Project *the_project) :
     Widget(gui_window),
     context(gui_window->gui->_genesis_context),
     gui(gui_window->gui),
@@ -37,6 +39,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *se
 {
     display_node_count = 0;
     selected_node = nullptr;
+    project = the_project;
 
     scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
     scroll_bar->parent_widget = this;
@@ -348,13 +351,16 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent,
     return node;
 }
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_sample_file_node(Node *parent, OsDirEntry *dir_entry) {
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_sample_file_node(Node *parent,
+        OsDirEntry *dir_entry, const ByteBuffer &full_path)
+{
     Node *node = ok_mem(create_zero<Node>());
     node->node_type = NodeTypeSampleFile;
     node->text = dir_entry->name;
     node->parent_node = parent;
     node->dir_entry = dir_entry;
     node->icon_img = gui->img_entry_file;
+    node->full_path = full_path;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
 }
@@ -368,7 +374,7 @@ void ResourcesTreeWidget::pop_destroy_child(Node *node) {
 void ResourcesTreeWidget::destroy_node(Node *node) {
     if (node) {
         if (node == selected_node)
-            selected_node = nullptr;
+            select_node(nullptr);
         destroy(node->parent_data, 1);
         genesis_audio_device_unref(node->audio_device);
         genesis_midi_device_unref(node->midi_device);
@@ -415,8 +421,17 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
     }
 }
 
-void ResourcesTreeWidget::mouse_down_node(Node *node) {
+void ResourcesTreeWidget::select_node(Node *node) {
     selected_node = node;
+    if (selected_node) {
+        if (selected_node->node_type == NodeTypeSampleFile) {
+            project_play_sample_file(project, selected_node->full_path);
+        }
+    }
+}
+
+void ResourcesTreeWidget::mouse_down_node(Node *node) {
+    select_node(node);
 }
 
 void ResourcesTreeWidget::double_click_node(Node *node) {
@@ -434,7 +449,7 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::get_first_node() {
 
 ResourcesTreeWidget::Node *ResourcesTreeWidget::get_last_node() {
     Node *node = root_node;
-    while (node->node_type == NodeTypeParent) {
+    while (node->node_type == NodeTypeParent && is_node_expanded(node)) {
         if (node->parent_data->children.length() > 0)
             node = node->parent_data->children.last();
         else
@@ -456,7 +471,7 @@ int ResourcesTreeWidget::get_node_index(Node *target_node) {
 
 void ResourcesTreeWidget::nav_sel_x(int dir) {
     if (!selected_node) {
-        selected_node = (dir > 0) ? get_first_node() : get_last_node();
+        select_node((dir > 0) ? get_first_node() : get_last_node());
         return;
     }
     if (selected_node->node_type == NodeTypeParent) {
@@ -471,14 +486,14 @@ void ResourcesTreeWidget::nav_sel_x(int dir) {
                 toggle_expansion(selected_node);
             } else {
                 if (selected_node->parent_node != root_node)
-                    selected_node = selected_node->parent_node;
+                    select_node(selected_node->parent_node);
             }
         }
         return;
     }
     if (dir < 0) {
         if (selected_node->parent_node != root_node) {
-            selected_node = selected_node->parent_node;
+            select_node(selected_node->parent_node);
             toggle_expansion(selected_node);
         }
     }
@@ -486,7 +501,7 @@ void ResourcesTreeWidget::nav_sel_x(int dir) {
 
 void ResourcesTreeWidget::nav_sel_y(int dir) {
     if (!selected_node) {
-        selected_node = (dir > 0) ? get_first_node() : get_last_node();
+        select_node((dir > 0) ? get_first_node() : get_last_node());
         return;
     }
     if (dir > 0) {
@@ -494,7 +509,7 @@ void ResourcesTreeWidget::nav_sel_y(int dir) {
             is_node_expanded(selected_node) &&
             selected_node->parent_data->children.length() > 0)
         {
-            selected_node = selected_node->parent_data->children.at(0);
+            select_node(selected_node->parent_data->children.at(0));
             return;
         }
         Node *target_node = selected_node;
@@ -504,7 +519,7 @@ void ResourcesTreeWidget::nav_sel_y(int dir) {
             if (target_node_index >= parent->parent_data->children.length() - 1) {
                 target_node = parent;
             } else {
-                selected_node = parent->parent_data->children.at(target_node_index + 1);
+                select_node(parent->parent_data->children.at(target_node_index + 1));
                 return;
             }
         }
@@ -520,9 +535,9 @@ void ResourcesTreeWidget::nav_sel_y(int dir) {
                     break;
                 }
             }
-            selected_node = upper_node;
+            select_node(upper_node);
         } else {
-            selected_node = parent;
+            select_node(parent);
         }
     }
 }
@@ -602,13 +617,13 @@ void ResourcesTreeWidget::scan_dir_recursive(const ByteBuffer &dir, Node *parent
     entries.sort<compare_is_dir_then_name>();
     for (int i = 0; i < entries.length(); i += 1) {
         OsDirEntry *dir_entry = entries.at(i);
+        ByteBuffer full_path = os_path_join(dir, dir_entry->name);
         if (dir_entry->is_dir) {
             Node *child = create_parent_node(parent_node, dir_entry->name.raw());
-            ByteBuffer full_path = os_path_join(dir, dir_entry->name);
             scan_dir_recursive(full_path, child);
             os_dir_entry_unref(dir_entry);
         } else {
-            create_sample_file_node(parent_node, dir_entry);
+            create_sample_file_node(parent_node, dir_entry, full_path);
         }
     }
 }

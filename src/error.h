@@ -32,6 +32,7 @@ enum GenesisError {
     GenesisErrorFileNotFound,
     GenesisErrorPermissionDenied,
     GenesisErrorNotDir,
+    GenesisErrorNoDecoderFound,
 };
 
 const char *genesis_error_string(int error);

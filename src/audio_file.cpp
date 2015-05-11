@@ -298,16 +298,15 @@ int genesis_audio_file_load(struct GenesisContext *context,
 
     int err = avformat_open_input(&ic, input_filename, NULL, NULL);
     if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("unable to open %s: %s", input_filename, buf);
+        genesis_audio_file_destroy(audio_file);
+        // TODO more granular error codes
+        return GenesisErrorFileAccess;
     }
 
     err = avformat_find_stream_info(ic, NULL);
     if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("unable to find stream in %s: %s", input_filename, buf);
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorNoAudioFound;
     }
 
     // set all streams to discard. in a few lines here we will find the audio
@@ -318,10 +317,14 @@ int genesis_audio_file_load(struct GenesisContext *context,
     AVCodec *decoder = NULL;
     int audio_stream_index = av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO,
             -1, -1, &decoder, 0);
-    if (audio_stream_index < 0)
-        panic("no audio stream found");
-    if (!decoder)
-        panic("no decoder found");
+    if (audio_stream_index < 0) {
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorNoAudioFound;
+    }
+    if (!decoder) {
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorNoDecoderFound;
+    }
 
     AVStream *audio_st = ic->streams[audio_stream_index];
     audio_st->discard = AVDISCARD_DEFAULT;
@@ -329,9 +332,8 @@ int genesis_audio_file_load(struct GenesisContext *context,
     AVCodecContext *codec_ctx = audio_st->codec;
     err = avcodec_open2(codec_ctx, decoder, NULL);
     if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("unable to open decoder: %s", buf);
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorDecodingAudio;
     }
 
     if (!codec_ctx->channel_layout)
@@ -352,8 +354,11 @@ int genesis_audio_file_load(struct GenesisContext *context,
 
     int genesis_err = channel_layout_init_from_libav(codec_ctx->channel_layout,
            &audio_file->channel_layout);
-    if (genesis_err)
-        panic("unable to determine channel layout: %s", genesis_error_string(genesis_err));
+    if (genesis_err) {
+        genesis_audio_file_destroy(audio_file);
+        return genesis_err;
+    }
+
     audio_file->sample_rate = codec_ctx->sample_rate;
     long channel_count = audio_file->channel_layout.channel_count;
 
@@ -405,8 +410,10 @@ int genesis_audio_file_load(struct GenesisContext *context,
     }
 
     AVFrame *in_frame = av_frame_alloc();
-    if (!in_frame)
-        panic("unable to allocate frame");
+    if (!in_frame) {
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorNoMem;
+    }
 
     AVPacket pkt;
     memset(&pkt, 0, sizeof(AVPacket));
@@ -416,9 +423,8 @@ int genesis_audio_file_load(struct GenesisContext *context,
         if (err == AVERROR_EOF) {
             break;
         } else if (err < 0) {
-            char buf[256];
-            av_strerror(err, buf, sizeof(buf));
-            panic("unable to read frame: %s", buf);
+            genesis_audio_file_destroy(audio_file);
+            return GenesisErrorDecodingAudio;
         }
         int negative_err = decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame);
         av_free_packet(&pkt);

@@ -1,5 +1,6 @@
 #include "project.hpp"
 #include "debug.hpp"
+#include "audio_graph.hpp"
 
 #include <limits.h>
 
@@ -981,7 +982,7 @@ int project_open(const char *path, GenesisContext *genesis_context,
     project_compute_indexes(project);
     ordered_map_file_done_reading(project->omf);
 
-    genesis_start_pipeline(project->genesis_context);
+    project_set_up_audio_graph(project);
 
     *out_project = project;
     return 0;
@@ -1027,7 +1028,7 @@ int project_create(const char *path, GenesisContext *genesis_context,
     }
     project_compute_indexes(project);
 
-    genesis_start_pipeline(project->genesis_context);
+    project_set_up_audio_graph(project);
 
     *out_project = project;
     return 0;
@@ -1035,8 +1036,7 @@ int project_create(const char *path, GenesisContext *genesis_context,
 
 void project_close(Project *project) {
     if (project) {
-        if (project->genesis_context)
-            genesis_stop_pipeline(project->genesis_context);
+        project_tear_down_audio_graph(project);
 
         ordered_map_file_close(project->omf);
         for (int i = 0; i < project->command_list.length(); i += 1) {

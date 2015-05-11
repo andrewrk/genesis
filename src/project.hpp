@@ -58,6 +58,11 @@ struct MixerLine {
     float volume;
 };
 
+struct PlayChannelContext {
+    struct GenesisAudioFileIterator iter;
+    long offset;
+};
+
 struct Project {
     /////////// canonical data, shared among all users
     uint256 id;
@@ -94,7 +99,18 @@ struct Project {
     User *active_user; // the user that is running this instance of genesis
     OrderedMapFile *omf;
     EventDispatcher events;
+
     GenesisContext *genesis_context;
+    GenesisNodeDescriptor *resample_descr;
+    GenesisNodeDescriptor *audio_file_descr;
+    GenesisNode *audio_file_node;
+    GenesisNode *resample_node;
+    GenesisNode *playback_node;
+    GenesisAudioFile *audio_file;
+    GenesisPortDescriptor *audio_file_port_descr;
+    long audio_file_frame_count;
+    long audio_file_frame_index;
+    PlayChannelContext audio_file_channel_context[GENESIS_MAX_CHANNELS];
 };
 
 int project_get_next_revision(Project *project);

@@ -28,6 +28,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorFileNotFound: return "file not found";
         case GenesisErrorPermissionDenied: return "permission denied";
         case GenesisErrorNotDir: return "not a directory";
+        case GenesisErrorNoDecoderFound: return "no decoder found";
     }
     panic("invalid error enum value");
 }

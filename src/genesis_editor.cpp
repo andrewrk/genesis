@@ -310,7 +310,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     top_bar_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
     top_bar_grid_layout->add_widget(fps_widget, 0, 1, HAlignRight, VAlignTop);
 
-    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window, settings_file);
+    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window, settings_file, project);
     add_dock(editor_window, resources_tree, "Resources");
 
     TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
