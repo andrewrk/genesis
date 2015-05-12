@@ -536,7 +536,7 @@ void ResourcesTreeWidget::nav_sel_y(int dir) {
                 }
             }
             select_node(upper_node);
-        } else {
+        } else if (parent != root_node) {
             select_node(parent);
         }
     }
