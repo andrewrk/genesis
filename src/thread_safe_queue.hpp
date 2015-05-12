@@ -77,7 +77,9 @@ public:
         int in_bounds_index = my_write_index % _size;
         _items[in_bounds_index] = item;
         int my_queue_count = _queue_count.fetch_add(1);
-        assert(my_queue_count < _size);
+        // we can't have this assert here because wakeup_all adds _size to _queue_count
+        // which causes this assert to trigger
+        //assert(my_queue_count < _size);
         if (my_queue_count <= 0)
             futex_wake(reinterpret_cast<int*>(&_queue_count), _size);
     }
