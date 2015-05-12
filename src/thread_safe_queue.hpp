@@ -43,9 +43,10 @@ public:
     ThreadSafeQueue() {
         _items = nullptr;
         _size = 0;
+        _allocated_size = 0;
     }
     ~ThreadSafeQueue() {
-        destroy(_items, _size);
+        destroy(_items, _allocated_size);
     }
 
     // this method not thread safe
@@ -53,15 +54,16 @@ public:
         if (size < 0)
             return GenesisErrorInvalidParam;
 
-        if (size != _size) {
-            T *new_items = reallocate_safe(_items, _size, size);
+        if (size > _allocated_size) {
+            T *new_items = reallocate_safe<T>(_items, _allocated_size, size);
             if (!new_items)
                 return GenesisErrorNoMem;
 
+            _allocated_size = size;
             _items = new_items;
-            _size = size;
         }
 
+        _size = size;
         _queue_count = 0;
         _read_index = 0;
         _write_index = 0;
@@ -128,6 +130,7 @@ public:
 private:
     T *_items;
     int _size;
+    int _allocated_size;
     atomic_int _queue_count;
     atomic_int _read_index;
     atomic_int _write_index;

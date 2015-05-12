@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 #include <math.h>
 #include <new>
 
@@ -75,10 +76,11 @@ __attribute__((malloc)) static inline T *allocate_safe(size_t count) {
 // behavior is undefined.
 template<typename T>
 static inline T * reallocate(T * old, size_t old_count, size_t new_count) {
+    assert(old_count <= new_count);
     T * new_ptr = reinterpret_cast<T*>(realloc(old, new_count * sizeof(T)));
     if (!new_ptr)
         panic("reallocate: out of memory");
-    for (size_t i = old_count; i < new_count; i++)
+    for (size_t i = old_count; i < new_count; i += 1)
         new (&new_ptr[i]) T;
     return new_ptr;
 }
@@ -86,9 +88,10 @@ static inline T * reallocate(T * old, size_t old_count, size_t new_count) {
 // return NULL instead of panicking
 template<typename T>
 static inline T * reallocate_safe(T * old, size_t old_count, size_t new_count) {
+    assert(old_count <= new_count);
     T * new_ptr = reinterpret_cast<T*>(realloc(old, new_count * sizeof(T)));
     if (new_ptr) {
-        for (size_t i = old_count; i < new_count; i++)
+        for (size_t i = old_count; i < new_count; i += 1)
             new (&new_ptr[i]) T;
     }
     return new_ptr;
@@ -101,7 +104,7 @@ static inline T * reallocate_safe(T * old, size_t old_count, size_t new_count) {
 template<typename T>
 static inline void destroy(T * ptr, size_t count) {
     if (ptr) {
-        for (size_t i = 0; i < count; i++)
+        for (size_t i = 0; i < count; i += 1)
             ptr[i].~T();
     }
     free(ptr);
