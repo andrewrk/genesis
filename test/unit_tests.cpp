@@ -432,6 +432,32 @@ static void test_string_compare(void) {
     assert(String::compare_insensitive(b, a) == 1);
 }
 
+static void test_audio_file(void) {
+    static const char *tmp_file_path = "/tmp/test_genesis_out.flac";
+
+    GenesisContext *context;
+    ok_or_panic(genesis_create_context(&context));
+
+    GenesisAudioFile *audio_file;
+    ok_or_panic(genesis_audio_file_load(context, "../test/tiny-sine.ogg", &audio_file));
+
+    GenesisExportFormat format;
+    format.bit_rate = 320 * 1000;
+    format.codec = genesis_guess_audio_file_codec(context, tmp_file_path, nullptr, nullptr);
+    assert(format.codec);
+    int sample_format_count = genesis_audio_file_codec_sample_format_count(format.codec);
+    assert(sample_format_count > 0);
+    format.sample_format = genesis_audio_file_codec_sample_format_index(format.codec, 0);
+    format.sample_rate = 48000;
+    assert(genesis_audio_file_codec_supports_sample_rate(format.codec, format.sample_rate));
+
+    genesis_audio_file_export(audio_file, tmp_file_path, &format);
+    genesis_audio_file_destroy(audio_file);
+    genesis_destroy_context(context);
+
+    os_delete(tmp_file_path);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -459,6 +485,7 @@ static struct Test tests[] = {
     {"List::sort", test_list_sort},
     {"basic project editing", test_basic_project_editing},
     {"String::compare", test_string_compare},
+    {"basic audio file loading and saving", test_audio_file},
     {NULL, NULL},
 };
 

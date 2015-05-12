@@ -16,6 +16,11 @@ struct GenesisAudioFile {
     GenesisChannelLayout channel_layout;
     int sample_rate;
     HashMap<ByteBuffer, ByteBuffer, ByteBuffer::hash> tags;
+
+    // private
+    AVFormatContext *ic;
+    AVCodecContext *codec_ctx;
+    AVFrame *in_frame;
 };
 
 struct GenesisAudioFileCodec {

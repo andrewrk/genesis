@@ -287,29 +287,36 @@ int genesis_audio_file_load(struct GenesisContext *context,
         return GenesisErrorNoMem;
     }
 
-    AVFormatContext *ic = avformat_alloc_context();
-    if (!ic) {
+    audio_file->ic = avformat_alloc_context();
+    if (!audio_file->ic) {
         genesis_audio_file_destroy(audio_file);
         return GenesisErrorNoMem;
     }
 
-    ic->interrupt_callback.callback = decode_interrupt_cb;
-    ic->interrupt_callback.opaque = NULL;
+    audio_file->ic->interrupt_callback.callback = decode_interrupt_cb;
+    audio_file->ic->interrupt_callback.opaque = NULL;
 
-    int err = avformat_open_input(&ic, input_filename, NULL, NULL);
-    if (err < 0) {
+    int av_err = avformat_open_input(&audio_file->ic, input_filename, NULL, NULL);
+    if (av_err < 0) {
         genesis_audio_file_destroy(audio_file);
-        // TODO more granular error codes
-        return GenesisErrorFileAccess;
+        if (av_err == AVERROR(ENOMEM)) {
+            return GenesisErrorNoMem;
+        } else if (av_err == AVERROR(EIO)) {
+            return GenesisErrorFileAccess;
+        } else {
+            char buf[256];
+            av_strerror(av_err, buf, sizeof(buf));
+            panic("unexpected error code from avformat_open_input: %s", buf);
+        }
     }
 
     // set all streams to discard. in a few lines here we will find the audio
     // stream and cancel discarding it
-    for (long i = 0; i < ic->nb_streams; i += 1)
-        ic->streams[i]->discard = AVDISCARD_ALL;
+    for (long i = 0; i < audio_file->ic->nb_streams; i += 1)
+        audio_file->ic->streams[i]->discard = AVDISCARD_ALL;
 
     AVCodec *decoder = NULL;
-    int audio_stream_index = av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO,
+    int audio_stream_index = av_find_best_stream(audio_file->ic, AVMEDIA_TYPE_AUDIO,
             -1, -1, &decoder, 0);
     if (audio_stream_index < 0) {
         genesis_audio_file_destroy(audio_file);
@@ -320,44 +327,44 @@ int genesis_audio_file_load(struct GenesisContext *context,
         return GenesisErrorNoDecoderFound;
     }
 
-    AVStream *audio_st = ic->streams[audio_stream_index];
+    AVStream *audio_st = audio_file->ic->streams[audio_stream_index];
     audio_st->discard = AVDISCARD_DEFAULT;
 
-    AVCodecContext *codec_ctx = audio_st->codec;
-    err = avcodec_open2(codec_ctx, decoder, NULL);
-    if (err < 0) {
+    audio_file->codec_ctx = audio_st->codec;
+    av_err = avcodec_open2(audio_file->codec_ctx, decoder, NULL);
+    if (av_err < 0) {
         genesis_audio_file_destroy(audio_file);
         return GenesisErrorDecodingAudio;
     }
 
-    if (!codec_ctx->channel_layout)
-        codec_ctx->channel_layout = av_get_default_channel_layout(codec_ctx->channels);
-    if (!codec_ctx->channel_layout) {
+    if (!audio_file->codec_ctx->channel_layout)
+        audio_file->codec_ctx->channel_layout = av_get_default_channel_layout(audio_file->codec_ctx->channels);
+    if (!audio_file->codec_ctx->channel_layout) {
         genesis_audio_file_destroy(audio_file);
         return GenesisErrorNoAudioFound;
     }
 
     // copy the audio stream metadata to the context metadata
-    av_dict_copy(&ic->metadata, audio_st->metadata, 0);
+    av_dict_copy(&audio_file->ic->metadata, audio_st->metadata, 0);
 
     AVDictionaryEntry *tag = NULL;
     audio_file->tags.clear();
-    while ((tag = av_dict_get(ic->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+    while ((tag = av_dict_get(audio_file->ic->metadata, "", tag, AV_DICT_IGNORE_SUFFIX))) {
         audio_file->tags.put(tag->key, tag->value);
     }
 
-    int genesis_err = channel_layout_init_from_libav(codec_ctx->channel_layout,
+    int genesis_err = channel_layout_init_from_libav(audio_file->codec_ctx->channel_layout,
            &audio_file->channel_layout);
     if (genesis_err) {
         genesis_audio_file_destroy(audio_file);
         return genesis_err;
     }
 
-    audio_file->sample_rate = codec_ctx->sample_rate;
+    audio_file->sample_rate = audio_file->codec_ctx->sample_rate;
     long channel_count = audio_file->channel_layout.channel_count;
 
     int (*import_frame)(const AVFrame *, GenesisAudioFile *);
-    switch (codec_ctx->sample_fmt) {
+    switch (audio_file->codec_ctx->sample_fmt) {
         default:
             panic("unrecognized sample format");
             break;
@@ -394,17 +401,16 @@ int genesis_audio_file_load(struct GenesisContext *context,
             break;
     }
 
-    err = audio_file->channels.resize(channel_count);
-    if (err) {
+    if (audio_file->channels.resize(channel_count)) {
         genesis_audio_file_destroy(audio_file);
-        return err;
+        return GenesisErrorNoMem;
     }
     for (int i = 0; i < audio_file->channels.length(); i += 1) {
         audio_file->channels.at(i).samples.clear();
     }
 
-    AVFrame *in_frame = av_frame_alloc();
-    if (!in_frame) {
+    audio_file->in_frame = av_frame_alloc();
+    if (!audio_file->in_frame) {
         genesis_audio_file_destroy(audio_file);
         return GenesisErrorNoMem;
     }
@@ -413,17 +419,19 @@ int genesis_audio_file_load(struct GenesisContext *context,
     memset(&pkt, 0, sizeof(AVPacket));
 
     for (;;) {
-        err = av_read_frame(ic, &pkt);
-        if (err == AVERROR_EOF) {
+        av_err = av_read_frame(audio_file->ic, &pkt);
+        if (av_err == AVERROR_EOF) {
             break;
-        } else if (err < 0) {
+        } else if (av_err < 0) {
             genesis_audio_file_destroy(audio_file);
             return GenesisErrorDecodingAudio;
         }
-        int negative_err = decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame);
+        int negative_err = decode_frame(audio_file, &pkt, audio_file->codec_ctx, audio_file->in_frame, import_frame);
         av_free_packet(&pkt);
-        if (negative_err < 0)
-            break;
+        if (negative_err < 0) {
+            genesis_audio_file_destroy(audio_file);
+            return -negative_err;
+        }
     }
 
     // flush
@@ -432,16 +440,32 @@ int genesis_audio_file_load(struct GenesisContext *context,
         pkt.data = NULL;
         pkt.size = 0;
         pkt.stream_index = audio_stream_index;
-        if (decode_frame(audio_file, &pkt, codec_ctx, in_frame, import_frame) <= 0)
+        int negative_err = decode_frame(audio_file, &pkt, audio_file->codec_ctx, audio_file->in_frame, import_frame);
+        if (negative_err < 0) {
+            genesis_audio_file_destroy(audio_file);
+            return -negative_err;
+        } else if (negative_err == 0) {
             break;
+        }
     }
 
-    av_frame_free(&in_frame);
-    avcodec_close(codec_ctx);
-    avformat_close_input(&ic);
+    av_frame_free(&audio_file->in_frame); audio_file->in_frame = nullptr;
+    avcodec_close(audio_file->codec_ctx); audio_file->codec_ctx = nullptr;
+    avformat_close_input(&audio_file->ic); audio_file->ic = nullptr;
 
     *out_audio_file = audio_file;
     return 0;
+}
+
+void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file) {
+    if (audio_file) {
+        av_frame_free(&audio_file->in_frame);
+        if (audio_file->codec_ctx)
+            avcodec_close(audio_file->codec_ctx);
+        if (audio_file->ic)
+            avformat_close_input(&audio_file->ic);
+        destroy(audio_file, 1);
+    }
 }
 
 GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
@@ -1004,12 +1028,6 @@ void audio_file_init(void) {
     av_log_set_level(AV_LOG_QUIET);
     avcodec_register_all();
     av_register_all();
-}
-
-void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file) {
-    if (audio_file) {
-        destroy(audio_file, 1);
-    }
 }
 
 static int add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {
