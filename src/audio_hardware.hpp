@@ -54,6 +54,7 @@ int open_playback_device_create(GenesisAudioDevice *audio_device, GenesisSampleF
 void open_playback_device_destroy(OpenPlaybackDevice *open_playback_device);
 
 int open_playback_device_start(OpenPlaybackDevice *open_playback_device);
+void open_playback_device_stop(OpenPlaybackDevice *open_playback_device);
 
 void open_playback_device_lock(OpenPlaybackDevice *open_playback_device);
 void open_playback_device_unlock(OpenPlaybackDevice *open_playback_device);
@@ -85,6 +86,7 @@ int open_recording_device_create(GenesisAudioDevice *audio_device,
 void open_recording_device_destroy(OpenRecordingDevice *open_recording_device);
 
 int open_recording_device_start(OpenRecordingDevice *open_recording_device);
+void open_recording_device_stop(OpenRecordingDevice *open_recording_device);
 void open_recording_device_peek(OpenRecordingDevice *open_recording_device,
         const char **data, int *frame_count);
 void open_recording_device_drop(OpenRecordingDevice *open_recording_device);
