@@ -536,14 +536,6 @@ static void playback_stream_write_callback(pa_stream *stream, size_t nbytes, voi
     open_playback_device->write_callback(open_playback_device, frame_count);
 }
 
-static void stop_playback_device_nolock(OpenPlaybackDevice *open_playback_device) {
-    pa_stream *stream = open_playback_device->stream;
-    pa_stream_set_write_callback(stream, nullptr, nullptr);
-    pa_stream_set_state_callback(stream, nullptr, nullptr);
-    pa_stream_set_underflow_callback(stream, nullptr, nullptr);
-    pa_stream_disconnect(stream);
-}
-
 int open_playback_device_create(GenesisAudioDevice *audio_device, GenesisSampleFormat sample_format,
         double latency, void *userdata, void (*write_callback)(OpenPlaybackDevice *, int),
         void (*underrun_callback)(OpenPlaybackDevice *),
@@ -559,11 +551,13 @@ int open_playback_device_create(GenesisAudioDevice *audio_device, GenesisSampleF
 
     genesis_audio_device_ref(audio_device);
     open_playback_device->audio_device = audio_device;
+    open_playback_device->stream_ready = false;
     open_playback_device->userdata = userdata;
     open_playback_device->write_callback = write_callback;
     open_playback_device->underrun_callback = underrun_callback;
 
     AudioHardware *audio_hardware = audio_device->audio_hardware;
+    assert(audio_hardware->pulse_context);
 
     pa_threaded_mainloop_lock(audio_hardware->main_loop);
 
@@ -580,6 +574,12 @@ int open_playback_device_create(GenesisAudioDevice *audio_device, GenesisSampleF
         open_playback_device_destroy(open_playback_device);
         return GenesisErrorNoMem;
     }
+    pa_stream_set_state_callback(open_playback_device->stream, playback_stream_state_callback,
+            open_playback_device);
+    pa_stream_set_write_callback(open_playback_device->stream, playback_stream_write_callback,
+            open_playback_device);
+    pa_stream_set_underflow_callback(open_playback_device->stream, playback_stream_underflow_callback,
+            open_playback_device);
 
     open_playback_device->bytes_per_frame = genesis_get_bytes_per_frame(sample_format,
             audio_device->channel_layout.channel_count);
@@ -608,7 +608,11 @@ void open_playback_device_destroy(OpenPlaybackDevice *open_playback_device) {
     pa_stream *stream = open_playback_device->stream;
     if (stream) {
         pa_threaded_mainloop_lock(audio_hardware->main_loop);
-        stop_playback_device_nolock(open_playback_device);
+
+        pa_stream_set_write_callback(stream, nullptr, nullptr);
+        pa_stream_set_state_callback(stream, nullptr, nullptr);
+        pa_stream_set_underflow_callback(stream, nullptr, nullptr);
+        pa_stream_disconnect(stream);
 
         pa_stream_unref(stream);
 
@@ -619,28 +623,11 @@ void open_playback_device_destroy(OpenPlaybackDevice *open_playback_device) {
     destroy(open_playback_device, 1);
 }
 
-void open_playback_device_stop(OpenPlaybackDevice *open_playback_device) {
-    AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
-
-    pa_threaded_mainloop_lock(audio_hardware->main_loop);
-
-    stop_playback_device_nolock(open_playback_device);
-
-    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
-}
-
 int open_playback_device_start(OpenPlaybackDevice *open_playback_device) {
     AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
-    open_playback_device->stream_ready = false;
 
     pa_threaded_mainloop_lock(audio_hardware->main_loop);
 
-    pa_stream_set_state_callback(open_playback_device->stream, playback_stream_state_callback,
-            open_playback_device);
-    pa_stream_set_write_callback(open_playback_device->stream, playback_stream_write_callback,
-            open_playback_device);
-    pa_stream_set_underflow_callback(open_playback_device->stream, playback_stream_underflow_callback,
-            open_playback_device);
 
     int err = pa_stream_connect_playback(open_playback_device->stream,
             open_playback_device->audio_device->name, &open_playback_device->buffer_attr,
@@ -737,6 +724,7 @@ int open_recording_device_create(GenesisAudioDevice *audio_device,
 
     genesis_audio_device_ref(audio_device);
     open_recording_device->audio_device = audio_device;
+    open_recording_device->stream_ready = false;
     open_recording_device->userdata = userdata;
     open_recording_device->read_callback = read_callback;
 
@@ -759,6 +747,11 @@ int open_recording_device_create(GenesisAudioDevice *audio_device,
         return GenesisErrorNoMem;
     }
 
+    pa_stream *stream = open_recording_device->stream;
+
+    pa_stream_set_state_callback(stream, recording_stream_state_callback, open_recording_device);
+    pa_stream_set_read_callback(stream, recording_stream_read_callback, open_recording_device);
+
     open_recording_device->bytes_per_frame = genesis_get_bytes_per_frame(sample_format,
             audio_device->channel_layout.channel_count);
     int bytes_per_second = open_recording_device->bytes_per_frame * audio_device->default_sample_rate;
@@ -777,13 +770,6 @@ int open_recording_device_create(GenesisAudioDevice *audio_device,
     return 0;
 }
 
-static void stop_recording_device_nolock(OpenRecordingDevice *open_recording_device) {
-    pa_stream *stream = open_recording_device->stream;
-    pa_stream_set_state_callback(stream, nullptr, nullptr);
-    pa_stream_set_read_callback(stream, nullptr, nullptr);
-    pa_stream_disconnect(stream);
-}
-
 void open_recording_device_destroy(OpenRecordingDevice *open_recording_device) {
     if (open_recording_device) {
         pa_stream *stream = open_recording_device->stream;
@@ -791,7 +777,9 @@ void open_recording_device_destroy(OpenRecordingDevice *open_recording_device) {
             AudioHardware *audio_hardware = open_recording_device->audio_device->audio_hardware;
             pa_threaded_mainloop_lock(audio_hardware->main_loop);
 
-            stop_recording_device_nolock(open_recording_device);
+            pa_stream_set_state_callback(stream, nullptr, nullptr);
+            pa_stream_set_read_callback(stream, nullptr, nullptr);
+            pa_stream_disconnect(stream);
             pa_stream_unref(stream);
 
             pa_threaded_mainloop_unlock(audio_hardware->main_loop);
@@ -802,23 +790,10 @@ void open_recording_device_destroy(OpenRecordingDevice *open_recording_device) {
     }
 }
 
-void open_recording_device_stop(OpenRecordingDevice *open_recording_device) {
-    AudioHardware *audio_hardware = open_recording_device->audio_device->audio_hardware;
-    pa_threaded_mainloop_lock(audio_hardware->main_loop);
-    stop_recording_device_nolock(open_recording_device);
-    pa_threaded_mainloop_unlock(audio_hardware->main_loop);
-}
-
 int open_recording_device_start(OpenRecordingDevice *open_recording_device) {
     AudioHardware *audio_hardware = open_recording_device->audio_device->audio_hardware;
-    open_recording_device->stream_ready = false;
 
     pa_threaded_mainloop_lock(audio_hardware->main_loop);
-
-    pa_stream *stream = open_recording_device->stream;
-
-    pa_stream_set_state_callback(stream, recording_stream_state_callback, open_recording_device);
-    pa_stream_set_read_callback(stream, recording_stream_read_callback, open_recording_device);
 
     int err = pa_stream_connect_record(open_recording_device->stream,
             open_recording_device->audio_device->name,
