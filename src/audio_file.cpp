@@ -305,6 +305,8 @@ int genesis_audio_file_load(struct GenesisContext *context,
             return GenesisErrorFileAccess;
         } else if (av_err == AVERROR_INVALIDDATA) {
             return GenesisErrorDecodingAudio;
+        } else if (av_err == AVERROR(ENOENT)) {
+            return GenesisErrorFileNotFound;
         } else {
             char buf[256];
             av_strerror(av_err, buf, sizeof(buf));
