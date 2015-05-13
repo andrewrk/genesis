@@ -223,6 +223,7 @@ set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wno-unused-variable")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-unused-variable")
 
+set(ADDRESS_SANITIZER_FLAGS "-fsanitize=address -fno-omit-frame-pointer")
 
 set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall -fdiagnostics-color=auto")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall -fdiagnostics-color=auto")
@@ -350,7 +351,7 @@ add_custom_target(rucksack_bundle ALL
 add_executable(genesis ${GENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(genesis PROPERTIES
     LINKER_LANGUAGE CXX
-    COMPILE_FLAGS ${LIB_CFLAGS}
+    COMPILE_FLAGS "${LIB_CFLAGS} ${ADDRESS_SANITIZER_FLAGS}"
 )
 include_directories(
     ${FREETYPE_INCLUDE_DIR}
@@ -369,6 +370,7 @@ target_link_libraries(genesis libgenesis_shared
     ${EPOXY_LIBRARY}
     ${LAXJSON_LIBRARY}
     ${RHASH_LIBRARY}
+    asan
     -lstdc++
 )
 install(TARGETS genesis DESTINATION bin)
