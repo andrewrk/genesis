@@ -7,6 +7,7 @@
 #include "settings_file.hpp"
 #include "scroll_bar_widget.hpp"
 #include "audio_graph.hpp"
+#include "dragged_sample_file.hpp"
 
 static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
@@ -419,7 +420,7 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
                 double_click_node(node);
             } else {
                 last_click_node = node;
-                mouse_down_node(node);
+                mouse_down_node(node, event);
             }
             break;
         }
@@ -435,8 +436,24 @@ void ResourcesTreeWidget::select_node(Node *node) {
     }
 }
 
-void ResourcesTreeWidget::mouse_down_node(Node *node) {
+static void destruct_sample_file_drag(DragData *drag_data) {
+    DraggedSampleFile *dragged_sample_file = (DraggedSampleFile *)drag_data->ptr;
+    destroy(dragged_sample_file, 1);
+}
+
+void ResourcesTreeWidget::mouse_down_node(Node *node, const MouseEvent *event) {
     select_node(node);
+
+    if (node->node_type == NodeTypeSampleFile) {
+        DraggedSampleFile *dragged_sample_file = ok_mem(create_zero<DraggedSampleFile>());
+        dragged_sample_file->full_path = node->full_path;
+
+        DragData *drag_data = ok_mem(create_zero<DragData>());
+        drag_data->drag_type = DragTypeSampleFile;
+        drag_data->ptr = dragged_sample_file;
+        drag_data->destruct = destruct_sample_file_drag;
+        gui_window->start_drag(event, drag_data);
+    }
 }
 
 void ResourcesTreeWidget::double_click_node(Node *node) {

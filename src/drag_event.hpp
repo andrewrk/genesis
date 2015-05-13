@@ -5,6 +5,7 @@
 
 enum DragType {
     DragTypeViewTab,
+    DragTypeSampleFile,
 };
 
 enum DragAction {

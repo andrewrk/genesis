@@ -196,3 +196,10 @@ void TrackEditorWidget::clear_track_context_menu() {
     if (menu_track)
         gui_window->destroy_context_menu();
 }
+
+void TrackEditorWidget::on_drag(const DragEvent *event) {
+    if (event->drag_data->drag_type == DragTypeSampleFile) {
+        if (event->action == DragActionDrop)
+            fprintf(stderr, "drop sample file\n");
+    }
+}

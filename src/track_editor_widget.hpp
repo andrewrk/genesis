@@ -18,6 +18,7 @@ public:
     void draw(const glm::mat4 &projection) override;
     void on_resize() override { update_model(); }
     void on_mouse_move(const MouseEvent *event) override;
+    void on_drag(const DragEvent *) override;
 
 
     Project *project;

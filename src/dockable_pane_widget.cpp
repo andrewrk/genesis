@@ -112,14 +112,16 @@ static void on_tab_widget_drag_tab(TabWidgetTab *tab,
     DragData *drag_data = ok_mem(create_zero<DragData>());
     drag_data->drag_type = DragTypeViewTab;
     drag_data->ptr = tab->widget;
-    drag_data->destruct = nullptr;
 
     dock_area->gui_window->start_drag(event, drag_data);
 }
 
 static void on_tab_widget_drag_event(TabWidget *tab_widget, const DragEvent *event) {
     DockAreaWidget *dock_area = (DockAreaWidget *) tab_widget->parent_widget;
-    dock_area->handle_tab_drag(event);
+    if (event->drag_data->drag_type == DragTypeViewTab)
+        dock_area->handle_tab_drag(event);
+    else
+        tab_widget->forward_drag_event(tab_widget->current_tab->widget, event);
 }
 
 void DockAreaWidget::on_drag(const DragEvent *event) {

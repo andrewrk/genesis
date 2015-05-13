@@ -105,7 +105,6 @@ make
 ## Roadmap
 
  0. drag a sample from the resource browser into the track editor
- 0. ability to put audio clips in the track editor
 
 ## Grand Plans
 
