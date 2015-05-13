@@ -8,33 +8,30 @@ static void audio_file_node_run(struct GenesisNode *node) {
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
     const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int channel_count = channel_layout->channel_count;
-    float *out_samples = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
+    float *out_samples = genesis_audio_out_port_write_ptr(audio_out_port);
 
-    int frame_index_end = project->audio_file_frame_index + output_frame_count;
-    int audio_file_frames_left = project->audio_file_frame_count - frame_index_end;
-    bool end_detected = audio_file_frames_left <= 0;
-    if (end_detected)
-        return;
-    int output_end = (output_frame_count < audio_file_frames_left) ? output_frame_count : audio_file_frames_left;
+    int audio_file_frames_left = project->audio_file_frame_count - project->audio_file_frame_index;
+    int frames_to_advance = min(output_frame_count, audio_file_frames_left);
 
     for (int ch = 0; ch < channel_count; ch += 1) {
         struct PlayChannelContext *channel_context = &project->audio_file_channel_context[ch];
-        for (int frame_offset = 0; frame_offset < output_end; frame_offset += 1) {
+        for (int frame_offset = 0; frame_offset < frames_to_advance; frame_offset += 1) {
             if (channel_context->offset >= channel_context->iter.end) {
                 genesis_audio_file_iterator_next(&channel_context->iter);
                 channel_context->offset = 0;
             }
 
-            out_samples[channel_count * frame_offset + ch] =
-                channel_context->iter.ptr[channel_context->offset];
+            out_samples[channel_count * frame_offset + ch] = channel_context->iter.ptr[channel_context->offset];
 
             channel_context->offset += 1;
         }
     }
+    int silent_frames = output_frame_count - frames_to_advance;
+    memset(&out_samples[channel_count * frames_to_advance], 0, silent_frames * 4 * channel_count);
 
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_end);
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
 
-    project->audio_file_frame_index += output_end;
+    project->audio_file_frame_index += frames_to_advance;
 }
 
 static void connect_audio_nodes(Project *project, GenesisNode *source, GenesisNode *dest) {
