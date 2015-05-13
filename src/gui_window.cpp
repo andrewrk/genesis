@@ -70,6 +70,7 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
     _last_click_time(os_get_time()),
     _last_click_button(MouseButtonLeft),
     _double_click_timeout(0.3),
+    dbl_click_count(0),
     running(true),
     main_widget(nullptr),
     context_menu(nullptr),
@@ -346,13 +347,12 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
     bool right = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
     MouseAction mouse_action = (action == GLFW_PRESS) ? MouseActionDown : MouseActionUp;
-    bool is_double_click = false;
     if (mouse_action == MouseActionDown) {
         double this_click_time = os_get_time();
-        if (_last_click_button == btn) {
-            if (this_click_time - _last_click_time < _double_click_timeout)
-                is_double_click = true;
-        }
+        if (_last_click_button == btn && this_click_time - _last_click_time < _double_click_timeout)
+            dbl_click_count += 1;
+        else
+            dbl_click_count = 0;
         _last_click_time = this_click_time;
     }
     MouseEvent mouse_event = {
@@ -362,7 +362,7 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
         mouse_action,
         MouseButtons {left, middle, right},
         mods,
-        is_double_click,
+        dbl_click_count,
     };
     on_mouse_move(&mouse_event);
 }

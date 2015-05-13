@@ -39,6 +39,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
 {
     display_node_count = 0;
     selected_node = nullptr;
+    last_click_node = nullptr;
     project = the_project;
 
     scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
@@ -375,6 +376,8 @@ void ResourcesTreeWidget::destroy_node(Node *node) {
     if (node) {
         if (node == selected_node)
             select_node(nullptr);
+        if (node == last_click_node)
+            last_click_node = nullptr;
         destroy(node->parent_data, 1);
         genesis_audio_device_unref(node->audio_device);
         genesis_midi_device_unref(node->midi_device);
@@ -412,10 +415,12 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
                    event->y >= node_display->top &&
                    event->y < node_display->bottom)
         {
-            if (event->is_double_click)
+            if (event->dbl_click_count > 0 && node == last_click_node) {
                 double_click_node(node);
-            else
+            } else {
+                last_click_node = node;
                 mouse_down_node(node);
+            }
             break;
         }
     }

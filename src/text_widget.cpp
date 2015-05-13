@@ -163,7 +163,7 @@ void TextWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:
             if (event->button == MouseButtonLeft) {
-                if (event->is_double_click) {
+                if (event->dbl_click_count > 0) {
                     int start = advance_word_from_index(_cursor_end + 1, -1);
                     int end = advance_word_from_index(_cursor_end - 1, 1);
                     set_selection(start, end);

@@ -27,7 +27,7 @@ struct MouseEvent {
     MouseAction action;
     MouseButtons buttons;
     int modifiers;
-    bool is_double_click;
+    int dbl_click_count;
 };
 
 struct MouseWheelEvent {

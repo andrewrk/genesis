@@ -103,6 +103,7 @@ public:
     glm::mat4 stencil_model;
     Node *selected_node;
     Project *project;
+    Node *last_click_node;
 
     void update_model();
 

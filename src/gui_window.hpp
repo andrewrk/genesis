@@ -87,6 +87,7 @@ public:
     double _last_click_time;
     MouseButton _last_click_button;
     double _double_click_timeout;
+    int dbl_click_count;
 
     Thread thread;
     atomic_bool running;
