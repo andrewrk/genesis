@@ -111,9 +111,13 @@ public:
         int my_read_index = _read_index.fetch_add(1);
         int in_bounds_index = my_read_index % _size;
         // keep the index values in check
-        if (my_read_index >= _size && !_modulus_flag.test_and_set()) {
-            _read_index -= _size;
-            _write_index -= _size;
+        if (!_modulus_flag.test_and_set()) {
+            if (_read_index > _size && _write_index > _size) {
+                _read_index -= _size;
+                _write_index -= _size;
+                assert(_read_index >= 0);
+                assert(_write_index >= 0);
+            }
             _modulus_flag.clear();
         }
         return _items[in_bounds_index];
