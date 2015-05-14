@@ -50,8 +50,12 @@ int os_create_temp_file(const char *dir, OsTempFile *out_tmp_file);
 int os_mkdirp(ByteBuffer path);
 ByteBuffer os_path_dirname(ByteBuffer path);
 ByteBuffer os_path_join(ByteBuffer left, ByteBuffer right);
+ByteBuffer os_path_extension(ByteBuffer path);
 
 // call unref on each entry when done
+int os_copy_no_clobber(const char *source_path, const char *dest_dir,
+        const char *dest_extension, ByteBuffer &out_path);
+int os_copy(const char *source_path, const char *dest_path);
 int os_readdir(const char *dir, List<OsDirEntry*> &out_entries);
 void os_dir_entry_ref(OsDirEntry *dir_entry);
 void os_dir_entry_unref(OsDirEntry *dir_entry);

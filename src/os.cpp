@@ -212,6 +212,14 @@ ByteBuffer os_path_join(ByteBuffer left, ByteBuffer right) {
     return ByteBuffer::format(fmt_str, left.raw(), right.raw());
 }
 
+ByteBuffer os_path_extension(ByteBuffer path) {
+    int dot_index = path.index_of_rev('.');
+    if (dot_index == -1)
+        return "";
+
+    return path.substring(dot_index, path.length());
+}
+
 int os_readdir(const char *dir, List<OsDirEntry*> &entries) {
     for (int i = 0; i < entries.length(); i += 1)
         os_dir_entry_unref(entries.at(i));
@@ -298,4 +306,102 @@ void os_dir_entry_unref(OsDirEntry *dir_entry) {
         if (dir_entry->ref_count == 0)
             destroy(dir_entry, 1);
     }
+}
+
+static int copy_open_files(FILE *in_f, FILE *out_f) {
+    char *buf = allocate_safe<char>(BUFSIZ);
+    if (!buf)
+        return GenesisErrorNoMem;
+
+    for (;;) {
+        size_t amt_read = fread(buf, 1, BUFSIZ, in_f);
+        size_t amt_written = fwrite(buf, 1, BUFSIZ, out_f);
+        if (amt_read != BUFSIZ) {
+            if (feof(in_f)) {
+                destroy(buf, 1);
+                if (amt_written != amt_read)
+                    return GenesisErrorFileAccess;
+                else
+                    return 0;
+            } else {
+                destroy(buf, 1);
+                return GenesisErrorFileAccess;
+            }
+        } else if (amt_written != amt_read) {
+            destroy(buf, 1);
+            return GenesisErrorFileAccess;
+        }
+    }
+}
+
+int os_copy_no_clobber(const char *source_path, const char *dest_dir,
+        const char *prefix, const char *dest_extension, ByteBuffer &out_path)
+{
+    ByteBuffer dir_plus_prefix = os_path_join(dest_dir, prefix);
+    ByteBuffer full_path;
+    int out_fd;
+    for (int counter = 0;; counter += 1) {
+        full_path = dir_plus_prefix;
+        if (counter != 0)
+            full_path.append(ByteBuffer::format("%d", counter));
+        full_path.append(dest_extension);
+        out_fd = open(full_path.raw(), O_CREAT|O_WRONLY|O_EXCL);
+        if (out_fd == -1) {
+            if (errno == EEXIST) {
+                continue;
+            } else if (errno == ENOMEM) {
+                return GenesisErrorNoMem;
+            } else {
+                return GenesisErrorFileAccess;
+            }
+        }
+        break;
+    }
+
+    FILE *out_f = fdopen(out_fd, "wb");
+    if (!out_f) {
+        close(out_fd);
+        os_delete(full_path.raw());
+        return GenesisErrorNoMem;
+    }
+
+    FILE *in_f = fopen(source_path, "rb");
+    if (!in_f) {
+        fclose(out_f);
+        os_delete(full_path.raw());
+        return GenesisErrorFileAccess;
+    }
+
+    int err;
+    if ((err = copy_open_files(in_f, out_f))) {
+        fclose(in_f);
+        fclose(out_f);
+        os_delete(full_path.raw());
+        return err;
+    }
+    out_path = full_path;
+
+    return 0;
+}
+
+int os_copy(const char *source_path, const char *dest_path) {
+    FILE *in_f = fopen(source_path, "rb");
+    if (!in_f)
+        return GenesisErrorFileAccess;
+
+    FILE *out_f = fopen(dest_path, "wb");
+    if (!out_f) {
+        fclose(in_f);
+        return GenesisErrorFileAccess;
+    }
+
+    int err;
+    if ((err = copy_open_files(in_f, out_f))) {
+        fclose(in_f);
+        fclose(out_f);
+        os_delete(dest_path);
+        return err;
+    }
+
+    return 0;
 }

@@ -458,6 +458,12 @@ static void test_audio_file(void) {
     os_delete(tmp_file_path);
 }
 
+static void test_path_extension(void) {
+    assert(ByteBuffer::compare(os_path_extension("foo"), "") == 0);
+    assert(ByteBuffer::compare(os_path_extension("foo.ogg"), ".ogg") == 0);
+    assert(ByteBuffer::compare(os_path_extension("foo.ogg.flac"), ".flac") == 0);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -486,6 +492,7 @@ static struct Test tests[] = {
     {"basic project editing", test_basic_project_editing},
     {"String::compare", test_string_compare},
     {"basic audio file loading and saving", test_audio_file},
+    {"os_path_extension", test_path_extension},
     {NULL, NULL},
 };
 
