@@ -5,6 +5,7 @@
 #include "label.hpp"
 #include "menu_widget.hpp"
 #include "scroll_bar_widget.hpp"
+#include "dragged_sample_file.hpp"
 
 static void insert_track_before_handler(void *userdata) {
     TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
@@ -104,8 +105,8 @@ void TrackEditorWidget::update_model() {
             width - padding_left - padding_right, timeline_height);
 
     int next_top = timeline_top + timeline_height;
-    int head_left = padding_left;
-    int body_left = head_left + track_head_width;
+    head_left = padding_left;
+    body_left = head_left + track_head_width;
     int body_width = width - padding_right - body_left;
 
     int i;
@@ -165,19 +166,31 @@ void TrackEditorWidget::destroy_gui_track(GuiTrack *gui_track) {
 }
 
 void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
-    if (event->action != MouseActionDown)
-        return;
-    if (event->button != MouseButtonRight)
-        return;
+    if (event->button == MouseButtonRight && event->action == MouseActionDown) {
+        GuiTrack *gui_track = get_track_head_at(event->x, event->y);
+        if (gui_track)
+            right_click_track_head(gui_track, event->x, event->y);
+    }
+}
 
+TrackEditorWidget::GuiTrack * TrackEditorWidget::get_track_head_at(int x, int y) {
     for (int i = 0; i < tracks.length(); i += 1) {
         GuiTrack *gui_track = tracks.at(i);
 
-        if (event->y >= gui_track->top && event->y < gui_track->bottom) {
-            right_click_track(gui_track, event->x, event->y);
-            return;
-        }
+        if (y >= gui_track->top && y < gui_track->bottom && x >= head_left && x < body_left)
+            return gui_track;
     }
+    return nullptr;
+}
+
+TrackEditorWidget::GuiTrack *TrackEditorWidget::get_track_body_at(int x, int y) {
+    for (int i = 0; i < tracks.length(); i += 1) {
+        GuiTrack *gui_track = tracks.at(i);
+
+        if (y >= gui_track->top && y < gui_track->bottom && x >= body_left)
+            return gui_track;
+    }
+    return nullptr;
 }
 
 static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
@@ -185,7 +198,7 @@ static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
     track_editor_widget->menu_track = nullptr;
 }
 
-void TrackEditorWidget::right_click_track(GuiTrack *gui_track, int x, int y) {
+void TrackEditorWidget::right_click_track_head(GuiTrack *gui_track, int x, int y) {
     menu_track = gui_track;
     ContextMenuWidget *context_menu = pop_context_menu(track_context_menu, x, y, 1, 1);
     context_menu->userdata = this;
@@ -199,7 +212,17 @@ void TrackEditorWidget::clear_track_context_menu() {
 
 void TrackEditorWidget::on_drag(const DragEvent *event) {
     if (event->drag_data->drag_type == DragTypeSampleFile) {
-        if (event->action == DragActionDrop)
-            fprintf(stderr, "drop sample file\n");
+        if (event->action == DragActionDrop) {
+            GuiTrack *gui_track = get_track_body_at(event->mouse_event.x, event->mouse_event.y);
+            if (!gui_track)
+                return;
+
+            DraggedSampleFile *dragged_sample_file = (DraggedSampleFile *)event->drag_data->ptr;
+            AudioAsset *audio_asset;
+            ok_or_panic(project_add_audio_asset(project, dragged_sample_file->full_path, &audio_asset));
+
+            AudioClip *audio_clip;
+            ok_or_panic(project_add_audio_clip(project, audio_asset, &audio_clip));
+        }
     }
 }

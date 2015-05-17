@@ -19,9 +19,12 @@ struct AudioAsset {
 };
 
 struct AudioClip {
+    // canonical data
     uint256 id;
+    uint256 audio_asset_id;
+
+    // prepared view of the data
     AudioAsset *audio_asset;
-    GenesisNode *node;
 };
 
 struct Track {
@@ -99,6 +102,7 @@ struct Project {
     User *active_user; // the user that is running this instance of genesis
     OrderedMapFile *omf;
     EventDispatcher events;
+    ByteBuffer path; // path to the project file
 
     GenesisContext *genesis_context;
     GenesisNodeDescriptor *resample_descr;
@@ -269,6 +273,9 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
 void project_insert_track(Project *project, const Track *before, const Track *after);
 AddTrackCommand * project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
         const Track *before, const Track *after);
+
+int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **audio_asset);
+int project_add_audio_clip(Project *project, AudioAsset *audio_asset, AudioClip **audio_clip);
 
 void project_delete_track(Project *project, Track *track);
 

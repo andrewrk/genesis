@@ -370,7 +370,8 @@ void ordered_map_file_done_reading(OrderedMapFile *omf) {
         panic("unable to seek in file");
 }
 
-int ordered_map_file_find_prefix(OrderedMapFile *omf, const ByteBuffer &prefix) {
+template <bool prefix>
+static int ordered_map_file_find_key_tpl(OrderedMapFile *omf, const ByteBuffer &key) {
     if (omf->list->length() == 0)
         return -1;
 
@@ -380,7 +381,8 @@ int ordered_map_file_find_prefix(OrderedMapFile *omf, const ByteBuffer &prefix) 
     while (start < end) {
         int middle = (start + end) / 2;
         OrderedMapFileEntry *entry = omf->list->at(middle);
-        if (entry->key.cmp_prefix(prefix) < 0)
+        int cmp = prefix ? entry->key.cmp_prefix(key) : ByteBuffer::compare(entry->key, key);
+        if (cmp < 0)
             start = middle + 1;
         else
             end = middle;
@@ -390,36 +392,19 @@ int ordered_map_file_find_prefix(OrderedMapFile *omf, const ByteBuffer &prefix) 
         return -1;
 
     OrderedMapFileEntry *entry = omf->list->at(start);
-    if (entry->key.cmp_prefix(prefix) == 0)
+    int cmp = prefix ? entry->key.cmp_prefix(key) : ByteBuffer::compare(entry->key, key);
+    if (cmp == 0)
         return start;
 
     return -1;
 }
 
+int ordered_map_file_find_prefix(OrderedMapFile *omf, const ByteBuffer &prefix) {
+    return ordered_map_file_find_key_tpl<true>(omf, prefix);
+}
+
 int ordered_map_file_find_key(OrderedMapFile *omf, const ByteBuffer &key) {
-    if (omf->list->length() == 0)
-        return -1;
-
-    // binary search
-    int start = 0;
-    int end = omf->list->length();
-    while (start < end) {
-        int middle = (start + end) / 2;
-        OrderedMapFileEntry *entry = omf->list->at(middle);
-        if (ByteBuffer::compare(entry->key, key) < 0)
-            start = middle + 1;
-        else
-            end = middle;
-    }
-
-    if (start != end || start == omf->list->length())
-        return -1;
-
-    OrderedMapFileEntry *entry = omf->list->at(start);
-    if (ByteBuffer::compare(entry->key, key) == 0)
-        return start;
-
-    return -1;
+    return ordered_map_file_find_key_tpl<false>(omf, key);
 }
 
 int ordered_map_file_get(OrderedMapFile *omf, int index, ByteBuffer **out_key, ByteBuffer &out_value) {

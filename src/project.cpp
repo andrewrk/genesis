@@ -14,11 +14,14 @@ enum PropKey {
     PropKeyUser,
     PropKeyUndoStack,
     PropKeyUndoStackIndex,
+    PropKeyAudioAsset,
+    PropKeyAudioClip,
 };
 
 static const int PROP_KEY_SIZE = 4;
 static const int UINT256_SIZE = 32;
 
+// modifying this structure affects project file backward compatibility
 enum SerializableFieldKey {
     SerializableFieldKeyInvalid,
     SerializableFieldKeyId,
@@ -31,8 +34,11 @@ enum SerializableFieldKey {
     SerializableFieldKeyOtherCommandId,
     SerializableFieldKeyCmdType,
     SerializableFieldKeyCommandChild,
+    SerializableFieldKeyPath,
+    SerializableFieldKeyAudioAssetId,
 };
 
+// modifying this structure affects project file backward compatibility
 enum SerializableFieldType {
     SerializableFieldTypeInvalid,
     SerializableFieldTypeUInt32,
@@ -90,6 +96,46 @@ static const SerializableField<User> *get_serializable_fields(User *) {
             SerializableFieldTypeString,
             [](User *user) -> void * {
                 return &user->name;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<AudioAsset> *get_serializable_fields(AudioAsset *) {
+    static const SerializableField<AudioAsset> fields[] = {
+        {
+            SerializableFieldKeyPath,
+            SerializableFieldTypeByteBuffer,
+            [](AudioAsset *audio_asset) -> void * {
+                return &audio_asset->path;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<AudioClip> *get_serializable_fields(AudioClip *) {
+    static const SerializableField<AudioClip> fields[] = {
+        {
+            SerializableFieldKeyAudioAssetId,
+            SerializableFieldTypeUInt256,
+            [](AudioClip *audio_clip) -> void * {
+                return &audio_clip->audio_asset_id;
             },
             nullptr,
         },
@@ -925,6 +971,7 @@ int project_open(const char *path, GenesisContext *genesis_context,
         return GenesisErrorNoMem;
     }
 
+    project->path = path;
     project->active_user = user;
     project->genesis_context = genesis_context;
 
@@ -1006,18 +1053,19 @@ int project_create(const char *path, GenesisContext *genesis_context,
     ordered_map_file_done_reading(project->omf);
 
     project->id = id;
+    project->path = path;
     project->active_user = user;
     project->genesis_context = genesis_context;
 
     project->users.put(user->id, user);
     project->user_list_dirty = true;
 
-    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
-    ordered_map_file_batch_put(batch, create_basic_key(PropKeyProjectId), omf_buf_uint256(project->id));
-    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
-            omf_buf_uint32(project->undo_stack_index));
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyProjectId), omf_buf_uint256(project->id)));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index)));
 
-    ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user)));
     AddTrackCommand *add_track_cmd = project_insert_track_batch(project, batch, nullptr, nullptr);
     project_push_command(project, add_track_cmd);
 
@@ -1068,19 +1116,19 @@ static void add_undo_for_command(Project *project, OrderedMapFileBatch *batch, C
     project->undo_stack_index += 1;
     ok_or_panic(project->undo_stack.resize(project->undo_stack_index));
     project->undo_stack.at(this_undo_index) = command;
-    ordered_map_file_batch_put(batch, create_undo_stack_key(this_undo_index), omf_buf_uint256(command->id));
-    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
-            omf_buf_uint32(project->undo_stack_index));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_undo_stack_key(this_undo_index), omf_buf_uint256(command->id)));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index)));
 }
 
 void project_perform_command(Project *project, Command *command) {
-    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
 
     add_undo_for_command(project, batch, command);
 
     project_perform_command_batch(project, batch, command);
     project_push_command(project, command);
-    ordered_map_file_batch_put(batch, create_command_key(command->id), omf_buf_obj(command));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_command_key(command->id), omf_buf_obj(command)));
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
@@ -1100,13 +1148,13 @@ void project_perform_command_batch(Project *project, OrderedMapFileBatch *batch,
 }
 
 void project_insert_track(Project *project, const Track *before, const Track *after) {
-    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
     AddTrackCommand *add_track_cmd = project_insert_track_batch(project, batch, before, after);
     add_undo_for_command(project, batch, add_track_cmd);
 
     project_push_command(project, add_track_cmd);
 
-    ordered_map_file_batch_put(batch, create_command_key(add_track_cmd->id), omf_buf_obj((Command *)add_track_cmd));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_command_key(add_track_cmd->id), omf_buf_obj((Command *)add_track_cmd)));
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
@@ -1131,6 +1179,73 @@ void project_delete_track(Project *project, Track *track) {
     project_perform_command(project, delete_track);
 }
 
+static int ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset) {
+    if (audio_asset->audio_file)
+        return 0;
+
+    return genesis_audio_file_load(project->genesis_context, audio_asset->path.raw(), &audio_asset->audio_file);
+}
+
+int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **out_audio_asset) {
+    *out_audio_asset = nullptr;
+
+    AudioAsset *audio_asset = create_zero<AudioAsset>();
+    if (!audio_asset)
+        return GenesisErrorNoMem;
+
+    ByteBuffer ext = os_path_extension(full_path);
+    ByteBuffer project_dir = os_path_dirname(project->path);
+    ByteBuffer prefix = os_path_basename(full_path);
+
+    int err;
+    if ((err = os_copy_no_clobber(full_path.raw(), project_dir.raw(),
+                    prefix.raw(), ext.raw(), audio_asset->path)))
+    {
+        destroy(audio_asset, 1);
+        return err;
+    }
+
+    audio_asset->id = uint256::random();
+
+    // add to project file
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_id_key(PropKeyAudioAsset, audio_asset->id), omf_buf_obj(audio_asset)));
+    if ((err = ordered_map_file_batch_exec(batch))) {
+        destroy(audio_asset, 1);
+        return err;
+    }
+
+    trigger_event(project, EventProjectAudioAssetsChanged);
+    *out_audio_asset = audio_asset;
+    return 0;
+}
+
+int project_add_audio_clip(Project *project, AudioAsset *audio_asset,
+        AudioClip **out_audio_clip)
+{
+    *out_audio_clip = nullptr;
+
+    int err;
+    if ((err = ensure_audio_asset_loaded(project, audio_asset)))
+        return err;
+
+    AudioClip *audio_clip = create_zero<AudioClip>();
+    if (!audio_clip)
+        return GenesisErrorNoMem;
+
+    audio_clip->id = uint256::random();
+    audio_clip->audio_asset_id = audio_asset->id;
+    audio_clip->audio_asset = audio_asset;
+
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
+    ok_or_panic(ordered_map_file_batch_put(batch,
+                create_id_key(PropKeyAudioClip, audio_clip->id), omf_buf_obj(audio_clip)));
+    ok_or_panic(ordered_map_file_batch_exec(batch));
+
+    *out_audio_clip = audio_clip;
+    return 0;
+}
+
 User *user_create(const uint256 &id, const String &name) {
     User *user = ok_mem(create_zero<User>());
 
@@ -1148,18 +1263,18 @@ void project_undo(Project *project) {
     assert(project->undo_stack_index > 0);
     int this_cmd_index = project->undo_stack_index - 1;
 
-    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
 
     Command *other_command = project->undo_stack.at(this_cmd_index);
     UndoCommand *undo = create<UndoCommand>(project, other_command);
     project_perform_command_batch(project, batch, undo);
 
     project_push_command(project, undo);
-    ordered_map_file_batch_put(batch, create_command_key(undo->id), omf_buf_obj((Command *)undo));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_command_key(undo->id), omf_buf_obj((Command *)undo)));
 
     project->undo_stack_index -= 1;
-    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
-            omf_buf_uint32(project->undo_stack_index));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index)));
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
@@ -1170,18 +1285,18 @@ void project_redo(Project *project) {
     assert(project->undo_stack_index < project->undo_stack.length());
     int this_cmd_index = project->undo_stack_index;
 
-    OrderedMapFileBatch *batch = ordered_map_file_batch_create(project->omf);
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
 
     Command *other_command = project->undo_stack.at(this_cmd_index);
     RedoCommand *redo = create<RedoCommand>(project, other_command);
     project_perform_command_batch(project, batch, redo);
 
     project_push_command(project, redo);
-    ordered_map_file_batch_put(batch, create_command_key(redo->id), omf_buf_obj((Command *)redo));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_command_key(redo->id), omf_buf_obj((Command *)redo)));
 
     project->undo_stack_index += 1;
-    ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
-            omf_buf_uint32(project->undo_stack_index));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
+            omf_buf_uint32(project->undo_stack_index)));
 
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
@@ -1217,7 +1332,7 @@ void AddTrackCommand::redo(OrderedMapFileBatch *batch) {
     project->tracks.put(track->id, track);
     project->track_list_dirty = true;
 
-    ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_obj(track));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_obj(track)));
 }
 
 void AddTrackCommand::serialize(ByteBuffer &buf) {
@@ -1237,7 +1352,7 @@ DeleteTrackCommand::DeleteTrackCommand(Project *project, Track *track) :
 
 void DeleteTrackCommand::undo(OrderedMapFileBatch *batch) {
     ok_or_panic(deserialize_track_decoded_key(project, track_id, payload));
-    ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_byte_buffer(payload));
+    ok_or_panic(ordered_map_file_batch_put(batch, create_track_key(track_id), omf_buf_byte_buffer(payload)));
 }
 
 void DeleteTrackCommand::redo(OrderedMapFileBatch *batch) {

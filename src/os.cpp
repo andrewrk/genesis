@@ -207,6 +207,17 @@ ByteBuffer os_path_dirname(ByteBuffer path) {
     return result;
 }
 
+ByteBuffer os_path_basename(const ByteBuffer &path) {
+    int last_slash = path.index_of_rev('/');
+    assert(last_slash >= 0);
+
+    int start_index = last_slash + 1;
+    if (start_index < path.length())
+        return path.substring(start_index, path.length());
+    else
+        return "";
+}
+
 ByteBuffer os_path_join(ByteBuffer left, ByteBuffer right) {
     const char *fmt_str = (left.at(left.length() - 1) == '/') ? "%s%s" : "%s/%s";
     return ByteBuffer::format(fmt_str, left.raw(), right.raw());

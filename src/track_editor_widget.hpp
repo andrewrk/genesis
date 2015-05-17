@@ -30,6 +30,8 @@ public:
     int timeline_height;
     int track_head_width;
     int track_height;
+    int head_left;
+    int body_left;
 
     int track_name_label_padding_left;
     int track_name_label_padding_top;
@@ -67,8 +69,10 @@ public:
     void update_model();
     GuiTrack *create_gui_track();
     void destroy_gui_track(GuiTrack *gui_track);
-    void right_click_track(GuiTrack *gui_track, int x, int y);
+    void right_click_track_head(GuiTrack *gui_track, int x, int y);
     void clear_track_context_menu();
+    GuiTrack *get_track_body_at(int x, int y);
+    GuiTrack *get_track_head_at(int x, int y);
 };
 
 #endif
