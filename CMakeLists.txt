@@ -76,6 +76,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/tab_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/dockable_pane_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/mixer_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/piano_roll_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/scroll_bar_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/sunken_box.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"

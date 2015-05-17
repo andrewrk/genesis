@@ -13,6 +13,7 @@
 #include "text_widget.hpp"
 #include "tab_widget.hpp"
 #include "mixer_widget.hpp"
+#include "piano_roll_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -318,6 +319,9 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     MixerWidget *mixer = create<MixerWidget>(new_window, project);
     add_dock(editor_window, mixer, "Mixer");
+
+    PianoRollWidget *piano_roll = create<PianoRollWidget>(new_window, project);
+    add_dock(editor_window, piano_roll, "Piano Roll");
 
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
     editor_window->dock_area = dock_area;
