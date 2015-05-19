@@ -319,7 +319,7 @@ void os_dir_entry_unref(OsDirEntry *dir_entry) {
     }
 }
 
-static int copy_open_files(FILE *in_f, FILE *out_f) {
+static int copy_open_files(FILE *in_f, FILE *out_f, Sha256Hasher *hasher) {
     char *buf = allocate_safe<char>(BUFSIZ);
     if (!buf)
         return GenesisErrorNoMem;
@@ -327,6 +327,8 @@ static int copy_open_files(FILE *in_f, FILE *out_f) {
     for (;;) {
         size_t amt_read = fread(buf, 1, BUFSIZ, in_f);
         size_t amt_written = fwrite(buf, 1, amt_read, out_f);
+        if (hasher)
+            hasher->update(buf, amt_read);
         if (amt_read != BUFSIZ) {
             if (feof(in_f)) {
                 destroy(buf, 1);
@@ -346,7 +348,8 @@ static int copy_open_files(FILE *in_f, FILE *out_f) {
 }
 
 int os_copy_no_clobber(const char *source_path, const char *dest_dir,
-        const char *prefix, const char *dest_extension, ByteBuffer &out_path)
+        const char *prefix, const char *dest_extension,
+        ByteBuffer &out_path, Sha256Hasher *hasher)
 {
     ByteBuffer dir_plus_prefix = os_path_join(dest_dir, prefix);
     ByteBuffer full_path;
@@ -384,7 +387,7 @@ int os_copy_no_clobber(const char *source_path, const char *dest_dir,
     }
 
     int err;
-    if ((err = copy_open_files(in_f, out_f))) {
+    if ((err = copy_open_files(in_f, out_f, hasher))) {
         fclose(in_f);
         fclose(out_f);
         os_delete(full_path.raw());
@@ -395,7 +398,7 @@ int os_copy_no_clobber(const char *source_path, const char *dest_dir,
     return 0;
 }
 
-int os_copy(const char *source_path, const char *dest_path) {
+int os_copy(const char *source_path, const char *dest_path, Sha256Hasher *hasher) {
     FILE *in_f = fopen(source_path, "rb");
     if (!in_f)
         return GenesisErrorFileAccess;
@@ -407,7 +410,7 @@ int os_copy(const char *source_path, const char *dest_path) {
     }
 
     int err;
-    if ((err = copy_open_files(in_f, out_f))) {
+    if ((err = copy_open_files(in_f, out_f, hasher))) {
         fclose(in_f);
         fclose(out_f);
         os_delete(dest_path);

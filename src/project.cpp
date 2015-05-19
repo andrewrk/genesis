@@ -36,6 +36,7 @@ enum SerializableFieldKey {
     SerializableFieldKeyCommandChild,
     SerializableFieldKeyPath,
     SerializableFieldKeyAudioAssetId,
+    SerializableFieldKeySha256Sum,
 };
 
 // modifying this structure affects project file backward compatibility
@@ -116,6 +117,14 @@ static const SerializableField<AudioAsset> *get_serializable_fields(AudioAsset *
             SerializableFieldTypeByteBuffer,
             [](AudioAsset *audio_asset) -> void * {
                 return &audio_asset->path;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeySha256Sum,
+            SerializableFieldTypeByteBuffer,
+            [](AudioAsset *audio_asset) -> void * {
+                return &audio_asset->sha256sum;
             },
             nullptr,
         },
@@ -797,6 +806,12 @@ static int deserialize_user(Project *project, const ByteBuffer &key, const ByteB
     return 0;
 }
 
+static void project_put_audio_asset(Project *project, AudioAsset *audio_asset) {
+    project->audio_assets.put(audio_asset->id, audio_asset);
+    project->audio_assets_by_digest.put(audio_asset->sha256sum, audio_asset);
+    project->audio_asset_list_dirty = true;
+}
+
 static int deserialize_audio_asset(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
     AudioAsset *audio_asset = create_zero<AudioAsset>();
     if (!audio_asset)
@@ -814,8 +829,7 @@ static int deserialize_audio_asset(Project *project, const ByteBuffer &key, cons
         return err;
     }
 
-    project->audio_assets.put(audio_asset->id, audio_asset);
-    project->audio_asset_list_dirty = true;
+    project_put_audio_asset(project, audio_asset);
 
     return 0;
 }
@@ -1234,39 +1248,53 @@ int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset)
 int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **out_audio_asset) {
     *out_audio_asset = nullptr;
 
-    AudioAsset *audio_asset = create_zero<AudioAsset>();
-    if (!audio_asset)
-        return GenesisErrorNoMem;
-
     ByteBuffer ext = os_path_extension(full_path);
     ByteBuffer project_dir = os_path_dirname(project->path);
     ByteBuffer prefix = os_path_basename(full_path);
     prefix = prefix.substring(0, prefix.length() - ext.length());
 
     int err;
-    ByteBuffer full_project_local_path;
+    ByteBuffer full_dest_asset_path;
+    Sha256Hasher hasher;
     if ((err = os_copy_no_clobber(full_path.raw(), project_dir.raw(),
-                    prefix.raw(), ext.raw(), full_project_local_path)))
+                    prefix.raw(), ext.raw(), full_dest_asset_path, &hasher)))
     {
-        destroy(audio_asset, 1);
         return err;
+    }
+    ByteBuffer digest;
+    hasher.get_digest(digest);
+
+    // see if we have an audio asset that matches this digest already
+    auto entry = project->audio_assets_by_digest.maybe_get(digest);
+    if (entry) {
+        // oops, this file is already in the project.
+        os_delete(full_dest_asset_path.raw());
+        *out_audio_asset = entry->value;
+        return GenesisErrorAlreadyExists;
+    }
+
+    AudioAsset *audio_asset = create_zero<AudioAsset>();
+    if (!audio_asset) {
+        os_delete(full_dest_asset_path.raw());
+        return GenesisErrorNoMem;
     }
 
     audio_asset->id = uint256::random();
-    audio_asset->path = os_path_basename(full_project_local_path);
+    audio_asset->path = os_path_basename(full_dest_asset_path);
+    audio_asset->sha256sum = digest;
 
-    project->audio_assets.put(audio_asset->id, audio_asset);
-    project->audio_asset_list_dirty = true;
+    project_put_audio_asset(project, audio_asset);
 
     // add to project file
     OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
     ok_or_panic(ordered_map_file_batch_put(batch, create_id_key(PropKeyAudioAsset, audio_asset->id), omf_buf_obj(audio_asset)));
     if ((err = ordered_map_file_batch_exec(batch))) {
         destroy(audio_asset, 1);
+        os_delete(full_dest_asset_path.raw());
         return err;
     }
-
     project_compute_indexes(project);
+
     *out_audio_asset = audio_asset;
     return 0;
 }

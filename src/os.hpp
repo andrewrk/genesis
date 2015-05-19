@@ -3,6 +3,7 @@
 
 #include "byte_buffer.hpp"
 #include "string.hpp"
+#include "sha_256_hasher.hpp"
 
 #include <stdio.h>
 
@@ -55,8 +56,9 @@ ByteBuffer os_path_extension(ByteBuffer path);
 
 // call unref on each entry when done
 int os_copy_no_clobber(const char *source_path, const char *dest_dir,
-        const char *prefix, const char *dest_extension, ByteBuffer &out_path);
-int os_copy(const char *source_path, const char *dest_path);
+        const char *prefix, const char *dest_extension,
+        ByteBuffer &out_path, Sha256Hasher *hasher);
+int os_copy(const char *source_path, const char *dest_path, Sha256Hasher *hasher);
 int os_readdir(const char *dir, List<OsDirEntry*> &out_entries);
 void os_dir_entry_ref(OsDirEntry *dir_entry);
 void os_dir_entry_unref(OsDirEntry *dir_entry);

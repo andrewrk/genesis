@@ -720,7 +720,11 @@ void ResourcesTreeWidget::add_clicked_sample_to_project() {
     assert(selected_node->node_type == NodeTypeSampleFile);
 
     AudioAsset *audio_asset;
-    ok_or_panic(project_add_audio_asset(project, selected_node->full_path, &audio_asset));
+    int err;
+    if ((err = project_add_audio_asset(project, selected_node->full_path, &audio_asset))) {
+        if (err != GenesisErrorAlreadyExists)
+            ok_or_panic(err);
+    }
 }
 
 void ResourcesTreeWidget::refresh_audio_assets() {

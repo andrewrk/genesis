@@ -13,8 +13,12 @@ struct AudioClipSegment;
 struct Project;
 
 struct AudioAsset {
+    // canonical data
     uint256 id;
     ByteBuffer path;
+    ByteBuffer sha256sum;
+
+    // prepared view of data
     GenesisAudioFile *audio_file;
 };
 
@@ -99,6 +103,8 @@ struct Project {
 
     List<AudioAsset *> audio_asset_list;
     bool audio_asset_list_dirty;
+
+    HashMap<ByteBuffer, AudioAsset *, ByteBuffer::hash> audio_assets_by_digest;
 
 
     ////////// transient state

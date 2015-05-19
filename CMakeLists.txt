@@ -80,6 +80,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/scroll_bar_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/sunken_box.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -117,6 +118,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
 )
 
 find_package(Threads)

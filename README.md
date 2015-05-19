@@ -104,8 +104,6 @@ make
 
 ## Roadmap
 
- 0. if you add a duplicate external sample to project, it detects via sha512sum
-    that it's the same sample and uses that audio asset instead
  0. drag from audio asset in project tree to track editor
     - makes an audio clip
  0. drag from samples directly into track editor
