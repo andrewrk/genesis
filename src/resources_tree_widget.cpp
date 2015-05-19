@@ -26,6 +26,12 @@ static void add_to_project_handler(void *userdata) {
     resources_tree_widget->add_clicked_sample_to_project();
 }
 
+static void audio_assets_change_callback(Event, void *userdata) {
+    ResourcesTreeWidget *resources_tree_widget = (ResourcesTreeWidget *)userdata;
+    resources_tree_widget->refresh_audio_assets();
+    resources_tree_widget->update_model();
+}
+
 ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
         SettingsFile *settings_file, Project *the_project) :
     Widget(gui_window),
@@ -57,6 +63,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
     gui->events.attach_handler(EventAudioDeviceChange, device_change_callback, this);
     gui->events.attach_handler(EventMidiDeviceChange, device_change_callback, this);
     scroll_bar->events.attach_handler(EventScrollValueChange, scroll_change_callback, this);
+    project->events.attach_handler(EventProjectAudioAssetsChanged, audio_assets_change_callback, this);
 
     root_node = create_parent_node(nullptr, "");
     root_node->indent_level = -1;
@@ -65,9 +72,11 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
     playback_devices_root = create_parent_node(root_node, "Playback Devices");
     recording_devices_root = create_parent_node(root_node, "Recording Devices");
     midi_devices_root = create_parent_node(root_node, "MIDI Devices");
-    samples_root = create_parent_node(root_node, "Samples");
+    audio_assets_root = create_parent_node(root_node, "Audio Assets");
+    samples_root = create_parent_node(root_node, "External Samples");
 
     refresh_devices();
+    refresh_audio_assets();
     scan_sample_dirs();
 
     sample_context_menu = create<MenuWidgetItem>(gui_window);
@@ -172,12 +181,8 @@ void ResourcesTreeWidget::refresh_devices() {
             record_i += 1;
         }
     }
-    while (record_i < recording_devices_root->parent_data->children.length()) {
-        pop_destroy_child(recording_devices_root);
-    }
-    while (playback_i < playback_devices_root->parent_data->children.length()) {
-        pop_destroy_child(playback_devices_root);
-    }
+    trim_extra_children(recording_devices_root, record_i);
+    trim_extra_children(playback_devices_root, playback_i);
 
     int i;
     for (i = 0; i < midi_device_count; i += 1) {
@@ -195,9 +200,7 @@ void ResourcesTreeWidget::refresh_devices() {
             text.append(" (default)");
         node->text = text;
     }
-    while (i < midi_devices_root->parent_data->children.length()) {
-        pop_destroy_child(midi_devices_root);
-    }
+    trim_extra_children(midi_devices_root, i);
 }
 
 ResourcesTreeWidget::NodeDisplay * ResourcesTreeWidget::create_node_display(Node *node) {
@@ -346,6 +349,15 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::create_midi_node() {
     node->node_type = NodeTypeMidiDevice;
     node->parent_node = midi_devices_root;
     node->icon_img = gui->img_music;
+    ok_or_panic(node->parent_node->parent_data->children.append(node));
+    return node;
+}
+
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_audio_asset_node() {
+    Node *node = ok_mem(create_zero<Node>());
+    node->node_type = NodeTypeAudioAsset;
+    node->parent_node = audio_assets_root;
+    node->icon_img = gui->img_entry_file;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
 }
@@ -707,4 +719,25 @@ void ResourcesTreeWidget::add_clicked_sample_to_project() {
 
     AudioAsset *audio_asset;
     ok_or_panic(project_add_audio_asset(project, selected_node->full_path, &audio_asset));
+}
+
+void ResourcesTreeWidget::refresh_audio_assets() {
+    int i;
+    for (i = 0; i < project->audio_asset_list.length(); i += 1) {
+        Node *node;
+        if (i < audio_assets_root->parent_data->children.length()) {
+            node = audio_assets_root->parent_data->children.at(i);
+        } else {
+            node = create_audio_asset_node();
+        }
+        node->audio_asset = project->audio_asset_list.at(i);
+        node->text = node->audio_asset->path;
+    }
+    trim_extra_children(audio_assets_root, i);
+}
+
+void ResourcesTreeWidget::trim_extra_children(Node *parent, int desired_children_count) {
+    while (desired_children_count < parent->parent_data->children.length()) {
+        pop_destroy_child(parent);
+    }
 }

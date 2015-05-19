@@ -97,6 +97,9 @@ struct Project {
     List<Command *> command_list;
     bool command_list_dirty;
 
+    List<AudioAsset *> audio_asset_list;
+    bool audio_asset_list_dirty;
+
 
     ////////// transient state
     User *active_user; // the user that is running this instance of genesis

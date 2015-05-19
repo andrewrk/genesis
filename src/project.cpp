@@ -616,6 +616,10 @@ static int compare_commands(Command *a, Command *b) {
         return uint256::compare(a->id, b->id);
 }
 
+static int compare_audio_assets(AudioAsset *a, AudioAsset *b) {
+    return ByteBuffer::compare(a->path, b->path);
+}
+
 template<typename T, int (*compare)(T, T)>
 static void project_sort_item(List<T> &list, IdMap<T> &id_map) {
     list.clear();
@@ -642,6 +646,10 @@ static void project_sort_commands(Project *project) {
     project_sort_item<Command *, compare_commands>(project->command_list, project->commands);
 }
 
+static void project_sort_audio_assets(Project *project) {
+    project_sort_item<AudioAsset *, compare_audio_assets>(project->audio_asset_list, project->audio_assets);
+}
+
 static void trigger_event(Project *project, Event event) {
     project->events.trigger(event);
 }
@@ -650,6 +658,7 @@ static void project_compute_indexes(Project *project) {
     if (project->track_list_dirty) project_sort_tracks(project);
     if (project->user_list_dirty) project_sort_users(project);
     if (project->command_list_dirty) project_sort_commands(project);
+    if (project->audio_asset_list_dirty) project_sort_audio_assets(project);
 
     if (project->track_list_dirty) {
         project->track_list_dirty = false;
@@ -662,6 +671,10 @@ static void project_compute_indexes(Project *project) {
     if (project->command_list_dirty) {
         project->command_list_dirty = false;
         trigger_event(project, EventProjectCommandsChanged);
+    }
+    if (project->audio_asset_list_dirty) {
+        project->audio_asset_list_dirty = false;
+        trigger_event(project, EventProjectAudioAssetsChanged);
     }
 }
 
@@ -1199,14 +1212,19 @@ int project_add_audio_asset(Project *project, const ByteBuffer &full_path, Audio
     prefix = prefix.substring(0, prefix.length() - ext.length());
 
     int err;
+    ByteBuffer full_project_local_path;
     if ((err = os_copy_no_clobber(full_path.raw(), project_dir.raw(),
-                    prefix.raw(), ext.raw(), audio_asset->path)))
+                    prefix.raw(), ext.raw(), full_project_local_path)))
     {
         destroy(audio_asset, 1);
         return err;
     }
 
     audio_asset->id = uint256::random();
+    audio_asset->path = os_path_basename(full_project_local_path);
+
+    project->audio_assets.put(audio_asset->id, audio_asset);
+    project->audio_asset_list_dirty = true;
 
     // add to project file
     OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
@@ -1216,7 +1234,7 @@ int project_add_audio_asset(Project *project, const ByteBuffer &full_path, Audio
         return err;
     }
 
-    trigger_event(project, EventProjectAudioAssetsChanged);
+    project_compute_indexes(project);
     *out_audio_asset = audio_asset;
     return 0;
 }

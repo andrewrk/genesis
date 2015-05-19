@@ -14,6 +14,7 @@ class SettingsFile;
 class ScrollBarWidget;
 struct Project;
 class MenuWidgetItem;
+struct AudioAsset;
 
 class ResourcesTreeWidget : public Widget {
 public:
@@ -33,7 +34,8 @@ public:
         NodeTypePlaybackDevice,
         NodeTypeRecordingDevice,
         NodeTypeMidiDevice,
-        NodeTypeSampleFile,
+        NodeTypeSampleFile, // external
+        NodeTypeAudioAsset, // already added to project
     };
 
     struct Node;
@@ -60,6 +62,7 @@ public:
         ParentNode *parent_data;
         OsDirEntry *dir_entry;
         ByteBuffer full_path;
+        AudioAsset *audio_asset;
     };
 
     struct NodeDisplay {
@@ -95,6 +98,7 @@ public:
     Node *recording_devices_root;
     Node *midi_devices_root;
     Node *samples_root;
+    Node *audio_assets_root;
     List<Node *> update_model_stack;
     SettingsFile *settings_file;
     List<NodeDisplay *> display_nodes;
@@ -113,6 +117,7 @@ public:
     Node *create_playback_node();
     Node *create_record_node();
     Node *create_midi_node();
+    Node *create_audio_asset_node();
     Node *create_sample_file_node(Node *parent, OsDirEntry *entry, const ByteBuffer &full_path);
     void destroy_node(Node *node);
     void pop_destroy_child(Node *node);
@@ -142,6 +147,9 @@ public:
     void select_node(Node *node);
 
     void add_clicked_sample_to_project();
+
+    void refresh_audio_assets();
+    void trim_extra_children(Node *parent, int desired_children_count);
 };
 
 #endif
