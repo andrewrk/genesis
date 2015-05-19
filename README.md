@@ -107,9 +107,6 @@ make
  0. drag from audio asset in project tree to track editor
     - makes an audio clip
  0. drag from samples directly into track editor
-    - calculates shasum. if it matches existing audio asset,
-      just makes an audio clip based on that. otherwise,
-      adds as audio asset and then does it.
 
 ## Grand Plans
 

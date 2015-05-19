@@ -50,7 +50,6 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/label.cpp"
     "${CMAKE_SOURCE_DIR}/src/text_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/font_size.cpp"
-    "${CMAKE_SOURCE_DIR}/src/find_file_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/resource_bundle.cpp"
     "${CMAKE_SOURCE_DIR}/src/png_image.cpp"
     "${CMAKE_SOURCE_DIR}/src/spritesheet.cpp"
