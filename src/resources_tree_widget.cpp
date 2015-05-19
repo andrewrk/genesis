@@ -8,6 +8,7 @@
 #include "scroll_bar_widget.hpp"
 #include "audio_graph.hpp"
 #include "dragged_sample_file.hpp"
+#include "menu_widget.hpp"
 
 static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
@@ -18,6 +19,11 @@ static void device_change_callback(Event, void *userdata) {
 static void scroll_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
     resources_tree->update_model();
+}
+
+static void add_to_project_handler(void *userdata) {
+    ResourcesTreeWidget *resources_tree_widget = (ResourcesTreeWidget *)userdata;
+    resources_tree_widget->add_clicked_sample_to_project();
 }
 
 ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
@@ -63,6 +69,10 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
 
     refresh_devices();
     scan_sample_dirs();
+
+    sample_context_menu = create<MenuWidgetItem>(gui_window);
+    MenuWidgetItem *add_to_project_menu = sample_context_menu->add_menu("&Add to Project", shortcut(VirtKeyEnter));
+    add_to_project_menu->set_activate_handler(add_to_project_handler, this);
 }
 
 ResourcesTreeWidget::~ResourcesTreeWidget() {
@@ -416,10 +426,11 @@ void ResourcesTreeWidget::on_mouse_move(const MouseEvent *event) {
                    event->y >= node_display->top &&
                    event->y < node_display->bottom)
         {
-            if (event->dbl_click_count > 0 && node == last_click_node) {
+            if (event->button == MouseButtonRight) {
+                right_click_node(node, event);
+            } else if (event->dbl_click_count > 0 && node == last_click_node) {
                 double_click_node(node);
             } else {
-                last_click_node = node;
                 mouse_down_node(node, event);
             }
             break;
@@ -442,6 +453,7 @@ static void destruct_sample_file_drag(DragData *drag_data) {
 }
 
 void ResourcesTreeWidget::mouse_down_node(Node *node, const MouseEvent *event) {
+    last_click_node = node;
     select_node(node);
 
     if (node->node_type == NodeTypeSampleFile) {
@@ -453,6 +465,21 @@ void ResourcesTreeWidget::mouse_down_node(Node *node, const MouseEvent *event) {
         drag_data->ptr = dragged_sample_file;
         drag_data->destruct = destruct_sample_file_drag;
         gui_window->start_drag(event, drag_data);
+    }
+}
+
+static void on_context_menu_destroy(ContextMenuWidget *context_menu) {
+    ResourcesTreeWidget *resources_tree_widget = (ResourcesTreeWidget*)context_menu->userdata;
+    resources_tree_widget->last_click_node = nullptr;
+}
+
+void ResourcesTreeWidget::right_click_node(Node *node, const MouseEvent *event) {
+    last_click_node = node;
+    select_node(node);
+    if (node->node_type == NodeTypeSampleFile) {
+        ContextMenuWidget *context_menu = pop_context_menu(sample_context_menu, event->x, event->y, 1, 1);
+        context_menu->userdata = this;
+        context_menu->on_destroy = on_context_menu_destroy;
     }
 }
 
@@ -583,6 +610,15 @@ bool ResourcesTreeWidget::on_key_event(const KeyEvent *event) {
             nav_sel_x(1);
             return true;
     }
+
+    if (selected_node) {
+        if (selected_node->node_type == NodeTypeSampleFile) {
+            if (MenuWidget::dispatch_shortcut(sample_context_menu, event)) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 
@@ -663,4 +699,12 @@ void ResourcesTreeWidget::scan_sample_dirs() {
         Node *parent_node = create_parent_node(samples_root, dirs.at(i).raw());
         scan_dir_recursive(dirs.at(i), parent_node);
     }
+}
+
+void ResourcesTreeWidget::add_clicked_sample_to_project() {
+    assert(selected_node);
+    assert(selected_node->node_type == NodeTypeSampleFile);
+
+    AudioAsset *audio_asset;
+    ok_or_panic(project_add_audio_asset(project, selected_node->full_path, &audio_asset));
 }

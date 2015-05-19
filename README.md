@@ -104,8 +104,6 @@ make
 
 ## Roadmap
 
- 0. right click a sample to get a menu
-    - add to project
  0. resources tree widget has view for project samples
     - list all audio assets
  0. drag from audio asset in project tree to track editor

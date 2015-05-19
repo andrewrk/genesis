@@ -13,6 +13,7 @@ class SpritesheetImage;
 class SettingsFile;
 class ScrollBarWidget;
 struct Project;
+class MenuWidgetItem;
 
 class ResourcesTreeWidget : public Widget {
 public:
@@ -104,6 +105,7 @@ public:
     Node *selected_node;
     Project *project;
     Node *last_click_node;
+    MenuWidgetItem *sample_context_menu;
 
     void update_model();
 
@@ -133,10 +135,13 @@ public:
     Node * get_first_node();
     Node * get_last_node();
     void mouse_down_node(Node *node, const MouseEvent *event);
+    void right_click_node(Node *node, const MouseEvent *event);
     void double_click_node(Node *node);
     bool is_node_expanded(Node *node);
     int get_node_index(Node *node);
     void select_node(Node *node);
+
+    void add_clicked_sample_to_project();
 };
 
 #endif

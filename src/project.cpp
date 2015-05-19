@@ -1196,6 +1196,7 @@ int project_add_audio_asset(Project *project, const ByteBuffer &full_path, Audio
     ByteBuffer ext = os_path_extension(full_path);
     ByteBuffer project_dir = os_path_dirname(project->path);
     ByteBuffer prefix = os_path_basename(full_path);
+    prefix = prefix.substring(0, prefix.length() - ext.length());
 
     int err;
     if ((err = os_copy_no_clobber(full_path.raw(), project_dir.raw(),

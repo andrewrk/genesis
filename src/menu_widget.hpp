@@ -169,7 +169,7 @@ public:
     void pop_top_level(TopLevelMenu *child, bool select_first_item);
     TopLevelMenu *get_child_at(int x, int y);
     int get_item_index(TopLevelMenu *item);
-    bool dispatch_shortcut(MenuWidgetItem *parent, const KeyEvent *event);
+    static bool dispatch_shortcut(MenuWidgetItem *parent, const KeyEvent *event);
 };
 
 #endif
