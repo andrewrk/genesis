@@ -455,6 +455,8 @@ void ResourcesTreeWidget::select_node(Node *node) {
     if (selected_node) {
         if (selected_node->node_type == NodeTypeSampleFile) {
             project_play_sample_file(project, selected_node->full_path);
+        } else if (selected_node->node_type == NodeTypeAudioAsset) {
+            project_play_audio_asset(project, selected_node->audio_asset);
         }
     }
 }

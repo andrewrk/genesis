@@ -118,6 +118,7 @@ struct Project {
     long audio_file_frame_count;
     long audio_file_frame_index;
     PlayChannelContext audio_file_channel_context[GENESIS_MAX_CHANNELS];
+    bool preview_audio_file_is_asset;
 };
 
 int project_get_next_revision(Project *project);
@@ -281,5 +282,7 @@ int project_add_audio_asset(Project *project, const ByteBuffer &full_path, Audio
 int project_add_audio_clip(Project *project, AudioAsset *audio_asset, AudioClip **audio_clip);
 
 void project_delete_track(Project *project, Track *track);
+
+int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset);
 
 #endif

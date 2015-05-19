@@ -106,13 +106,7 @@ void project_tear_down_audio_graph(Project *project) {
     }
 }
 
-void project_play_sample_file(Project *project, const ByteBuffer &path) {
-    GenesisAudioFile *audio_file;
-    int err;
-    if ((err = genesis_audio_file_load(project->genesis_context, path.raw(), &audio_file))) {
-        fprintf(stderr, "unable to load audio file: %s\n", genesis_error_string(err));
-        return;
-    }
+static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool is_asset) {
     const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
     int sample_rate = genesis_audio_file_sample_rate(audio_file);
 
@@ -125,8 +119,11 @@ void project_play_sample_file(Project *project, const ByteBuffer &path) {
         project->resample_node = nullptr;
     }
 
-    genesis_audio_file_destroy(project->audio_file);
+    if (project->audio_file && !project->preview_audio_file_is_asset) {
+        genesis_audio_file_destroy(project->audio_file);
+    }
     project->audio_file = audio_file;
+    project->preview_audio_file_is_asset = is_asset;
 
     genesis_audio_port_descriptor_set_channel_layout(project->audio_file_port_descr, channel_layout, true, -1);
     genesis_audio_port_descriptor_set_sample_rate(project->audio_file_port_descr, sample_rate, true, -1);
@@ -145,6 +142,24 @@ void project_play_sample_file(Project *project, const ByteBuffer &path) {
 
     connect_audio_nodes(project, project->audio_file_node, project->playback_node);
 
+    int err;
     if ((err = genesis_start_pipeline(project->genesis_context)))
         panic("unable to start pipeline: %s", genesis_error_string(err));
+}
+
+void project_play_sample_file(Project *project, const ByteBuffer &path) {
+    GenesisAudioFile *audio_file;
+    int err;
+    if ((err = genesis_audio_file_load(project->genesis_context, path.raw(), &audio_file))) {
+        fprintf(stderr, "unable to load audio file: %s\n", genesis_error_string(err));
+        return;
+    }
+
+    play_audio_file(project, audio_file, false);
+}
+
+void project_play_audio_asset(Project *project, AudioAsset *audio_asset) {
+    ok_or_panic(project_ensure_audio_asset_loaded(project, audio_asset));
+
+    play_audio_file(project, audio_asset->audio_file, true);
 }

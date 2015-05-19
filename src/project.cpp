@@ -797,6 +797,29 @@ static int deserialize_user(Project *project, const ByteBuffer &key, const ByteB
     return 0;
 }
 
+static int deserialize_audio_asset(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
+    AudioAsset *audio_asset = create_zero<AudioAsset>();
+    if (!audio_asset)
+        return GenesisErrorNoMem;
+
+    int err;
+    if ((err = object_key_to_id(key, &audio_asset->id))) {
+        destroy(audio_asset, 1);
+        return err;
+    }
+
+    int offset = 0;
+    if ((err = deserialize_object(audio_asset, value, &offset))) {
+        destroy(audio_asset, 1);
+        return err;
+    }
+
+    project->audio_assets.put(audio_asset->id, audio_asset);
+    project->audio_asset_list_dirty = true;
+
+    return 0;
+}
+
 static int deserialize_command(Project *project, const ByteBuffer &key, const ByteBuffer &buffer) {
     int offset_data = 0;
     int *offset = &offset_data;
@@ -1014,6 +1037,13 @@ int project_open(const char *path, GenesisContext *genesis_context,
         return err;
     }
 
+    // read audio assets
+    err = iterate_prefix(project, PropKeyAudioAsset, deserialize_audio_asset);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+
     // read command history (depends on users)
     err = iterate_prefix(project, PropKeyCommand, deserialize_command);
     if (err) {
@@ -1192,11 +1222,13 @@ void project_delete_track(Project *project, Track *track) {
     project_perform_command(project, delete_track);
 }
 
-static int ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset) {
+int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset) {
     if (audio_asset->audio_file)
         return 0;
 
-    return genesis_audio_file_load(project->genesis_context, audio_asset->path.raw(), &audio_asset->audio_file);
+    ByteBuffer project_dir = os_path_dirname(project->path);
+    ByteBuffer full_path = os_path_join(project_dir, audio_asset->path);
+    return genesis_audio_file_load(project->genesis_context, full_path.raw(), &audio_asset->audio_file);
 }
 
 int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **out_audio_asset) {
@@ -1245,7 +1277,7 @@ int project_add_audio_clip(Project *project, AudioAsset *audio_asset,
     *out_audio_clip = nullptr;
 
     int err;
-    if ((err = ensure_audio_asset_loaded(project, audio_asset)))
+    if ((err = project_ensure_audio_asset_loaded(project, audio_asset)))
         return err;
 
     AudioClip *audio_clip = create_zero<AudioClip>();

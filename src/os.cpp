@@ -356,7 +356,7 @@ int os_copy_no_clobber(const char *source_path, const char *dest_dir,
         if (counter != 0)
             full_path.append(ByteBuffer::format("%d", counter));
         full_path.append(dest_extension);
-        out_fd = open(full_path.raw(), O_CREAT|O_WRONLY|O_EXCL);
+        out_fd = open(full_path.raw(), O_CREAT|O_WRONLY|O_EXCL, 0660);
         if (out_fd == -1) {
             if (errno == EEXIST) {
                 continue;
