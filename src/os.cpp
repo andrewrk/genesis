@@ -326,7 +326,7 @@ static int copy_open_files(FILE *in_f, FILE *out_f) {
 
     for (;;) {
         size_t amt_read = fread(buf, 1, BUFSIZ, in_f);
-        size_t amt_written = fwrite(buf, 1, BUFSIZ, out_f);
+        size_t amt_written = fwrite(buf, 1, amt_read, out_f);
         if (amt_read != BUFSIZ) {
             if (feof(in_f)) {
                 destroy(buf, 1);
