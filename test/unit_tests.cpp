@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
+#include <rhash.h>
 
 static void debug_print_bb_list(const List<ByteBuffer> &list) {
     fprintf(stderr, "\n");
@@ -503,6 +504,7 @@ static void exec_test(struct Test *test) {
 }
 
 int main(int argc, char *argv[]) {
+    rhash_library_init();
     os_init(OsRandomQualityPseudo);
 
     const char *match = nullptr;

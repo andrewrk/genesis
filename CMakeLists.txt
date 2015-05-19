@@ -193,6 +193,13 @@ else()
     set(STATUS_EPOXY "not found")
 endif()
 
+find_package(rhash)
+if(RHASH_FOUND)
+    set(STATUS_RHASH "OK")
+else()
+    set(STATUS_RHASH "not found")
+endif()
+
 if(APPLE)
     set(GENESIS_HAVE_ALSA false)
     set(STATUS_ALSA "OK")
@@ -349,6 +356,7 @@ include_directories(
     ${GLFW_INCLUDE_DIR}
     ${EPOXY_INCLUDE_DIR}
     ${LAXJSON_INCLUDE_DIR}
+    ${RHASH_INCLUDE_DIR}
 )
 target_link_libraries(genesis libgenesis_shared
     ${FREETYPE_LIBRARY}
@@ -357,6 +365,7 @@ target_link_libraries(genesis libgenesis_shared
     ${GLFW_LIBRARY}
     ${EPOXY_LIBRARY}
     ${LAXJSON_LIBRARY}
+    ${RHASH_LIBRARY}
     -lstdc++
 )
 install(TARGETS genesis DESTINATION bin)
@@ -370,6 +379,7 @@ target_link_libraries(unit_tests LINK_PUBLIC
     ${LIBAV_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
+    ${RHASH_LIBRARY}
     m
     -lstdc++
 )
@@ -416,4 +426,5 @@ message(
     "* GLFW                         : ${STATUS_GLFW}\n"
     "* libepoxy                     : ${STATUS_EPOXY}\n"
     "* ALSA                         : ${STATUS_ALSA}\n"
+    "* librhash                     : ${STATUS_RHASH}\n"
 )
