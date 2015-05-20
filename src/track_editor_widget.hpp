@@ -12,6 +12,7 @@ class ScrollBarWidget;
 struct DraggedSampleFile;
 struct AudioAsset;
 struct AudioClip;
+struct AudioClipSegment;
 
 class TrackEditorWidget : public Widget {
 public:
@@ -50,10 +51,37 @@ public:
     SunkenBox timeline_bg;
     glm::mat4 stencil_model;
 
+    double pixels_per_whole_note;
+
+    struct DisplayAudioClipSegment;
+    struct GuiAudioClipSegment {
+        AudioClipSegment *segment;
+        DisplayAudioClipSegment *display_segment;
+        int left;
+        int right;
+        int top;
+        int bottom;
+    };
+
+    struct DisplayAudioClipSegment {
+        GuiAudioClipSegment *gui_segment;
+        SunkenBox title_bar;
+        SunkenBox body;
+        Label *label;
+        glm::mat4 label_model;
+
+        // adjusted for scroll position
+        int left;
+        int right;
+        int top;
+        int bottom;
+    };
+
     struct DisplayTrack;
     struct GuiTrack {
         Track *track;
         DisplayTrack *display_track;
+        List<GuiAudioClipSegment *> gui_audio_clip_segments;
         int left;
         int right;
         int top;
@@ -68,6 +96,10 @@ public:
         glm::mat4 border_bottom_model;
         Label *track_name_label;
         glm::mat4 track_name_label_model;
+
+        List<DisplayAudioClipSegment *> display_audio_clip_segments;
+        int display_audio_clip_segment_count;
+
         // adjusted for scroll position
         int top;
         int bottom;
@@ -84,6 +116,10 @@ public:
 
     void update_model();
     GuiTrack *create_gui_track();
+    DisplayTrack * create_display_track(GuiTrack *gui_track);
+    DisplayAudioClipSegment * create_display_audio_clip_segment(
+            DisplayTrack *display_track, GuiAudioClipSegment *gui_audio_clip_segment);
+    GuiAudioClipSegment * create_gui_audio_clip_segment();
     void destroy_gui_track(GuiTrack *gui_track);
     void right_click_track_head(GuiTrack *gui_track, int x, int y);
     void clear_track_context_menu();
@@ -93,8 +129,10 @@ public:
     void on_drag_audio_asset(AudioAsset *audio_asset, const DragEvent *event);
     void on_drag_audio_clip(AudioClip *audio_clip, const DragEvent *event);
     void refresh_tracks();
-    DisplayTrack * create_display_track(GuiTrack *gui_track);
     void destroy_display_track(DisplayTrack *display_track);
+    void destroy_display_audio_clip_segment(DisplayAudioClipSegment *display_audio_clip_segment);
+    void destroy_gui_audio_clip_segment(GuiAudioClipSegment *gui_audio_clip_segment);
+    int whole_note_to_pixel(double whole_note_pos);
 };
 
 #endif

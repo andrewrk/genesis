@@ -513,6 +513,23 @@ bool GuiWindow::forward_drag_event(Widget *widget, const DragEvent *event) {
     return false;
 }
 
+bool GuiWindow::forward_mouse_wheel_event(Widget *widget, const MouseWheelEvent *event) {
+    int right = widget->left + widget->width;
+    int bottom = widget->top + widget->height;
+    if (event->x >= widget->left && event->y >= widget->top &&
+        event->x < right && event->y < bottom)
+    {
+        MouseWheelEvent mouse_wheel_event = *event;
+        mouse_wheel_event.x -= widget->left;
+        mouse_wheel_event.y -= widget->top;
+
+        widget->on_mouse_wheel(&mouse_wheel_event);
+        return true;
+    }
+
+    return false;
+}
+
 bool GuiWindow::try_mouse_move_event_on_widget(Widget *widget, const MouseEvent *event) {
     bool pressing_any_btn = (event->buttons.left || event->buttons.middle || event->buttons.right);
     int right = widget->left + widget->width;

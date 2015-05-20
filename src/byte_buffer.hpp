@@ -80,6 +80,7 @@ public:
     }
 
     inline void append_double(double value) {
+        static_assert(sizeof(double) == 8, "require double to be IEEE754 64-bit floating point");
         ok_or_panic(_buffer.resize(_buffer.length() + 8));
         double *ptr = (double *)(_buffer.raw() + _buffer.length() - 9);
         *ptr = value;

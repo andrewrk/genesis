@@ -60,6 +60,7 @@ public:
     ContextMenuWidget *pop_context_menu(MenuWidgetItem *menu_widget_item, int left, int top, int width, int height);
     bool forward_drag_event(Widget *widget, const DragEvent *event);
     bool forward_mouse_event(Widget *widget, const MouseEvent *event);
+    bool forward_mouse_wheel_event(Widget *widget, const MouseWheelEvent *event);
 };
 
 #endif

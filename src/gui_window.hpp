@@ -122,6 +122,7 @@ public:
     bool widget_is_menu(Widget *widget);
 
     bool forward_drag_event(Widget *widget, const DragEvent *event);
+    bool forward_mouse_wheel_event(Widget *widget, const MouseWheelEvent *event);
 
 };
 

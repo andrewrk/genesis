@@ -86,3 +86,10 @@ bool Widget::forward_mouse_event(Widget *widget, const MouseEvent *event) {
     mouse_event.y += top;
     return gui_window->try_mouse_move_event_on_widget(widget, &mouse_event);
 }
+
+bool Widget::forward_mouse_wheel_event(Widget *widget, const MouseWheelEvent *event) {
+    MouseWheelEvent mouse_wheel_event = *event;
+    mouse_wheel_event.x += left;
+    mouse_wheel_event.y += top;
+    return gui_window->forward_mouse_wheel_event(widget, &mouse_wheel_event);
+}

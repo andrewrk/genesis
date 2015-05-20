@@ -592,6 +592,16 @@ static void serialize_object(T *obj, ByteBuffer &buffer) {
     }
 }
 
+static int deserialize_double(double *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 8)
+        return GenesisErrorInvalidFormat;
+
+    const double *buffer_ptr = reinterpret_cast<const double*>(buffer.raw() + *offset);
+    *x = *buffer_ptr;
+    *offset += 8;
+    return 0;
+}
+
 static int deserialize_uint32be(uint32_t *x, const ByteBuffer &buffer, int *offset) {
     if (buffer.length() - *offset < 4)
         return GenesisErrorInvalidFormat;
@@ -792,8 +802,7 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
     case SerializableFieldTypeDouble:
         {
             double *value = static_cast<double *>(ptr);
-            offset += 8;
-            return *value;
+            return deserialize_double(value, buffer, offset);
         }
     }
     panic("unreachable");
@@ -1674,6 +1683,12 @@ long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip) {
     ok_or_panic(project_ensure_audio_asset_loaded(project, audio_clip->audio_asset));
     GenesisAudioFile *audio_file = audio_clip->audio_asset->audio_file;
     return genesis_audio_file_frame_count(audio_file);
+}
+
+int project_audio_clip_sample_rate(Project *project, AudioClip *audio_clip) {
+    ok_or_panic(project_ensure_audio_asset_loaded(project, audio_clip->audio_asset));
+    GenesisAudioFile *audio_file = audio_clip->audio_asset->audio_file;
+    return genesis_audio_file_sample_rate(audio_file);
 }
 
 User *user_create(const uint256 &id, const String &name) {

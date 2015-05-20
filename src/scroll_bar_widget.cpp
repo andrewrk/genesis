@@ -71,6 +71,11 @@ float ScrollBarWidget::get_pos_amt(int x, int y) {
     }
 }
 
+void ScrollBarWidget::on_mouse_wheel(const MouseWheelEvent *event) {
+    if (parent_widget)
+        forward_mouse_wheel_event(parent_widget, event);
+}
+
 void ScrollBarWidget::on_mouse_move(const MouseEvent *event) {
     switch (event->action) {
         case MouseActionDown:

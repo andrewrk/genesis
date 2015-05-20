@@ -355,5 +355,6 @@ void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip, Tra
 
 int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset);
 long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip);
+int project_audio_clip_sample_rate(Project *project, AudioClip *audio_clip);
 
 #endif
