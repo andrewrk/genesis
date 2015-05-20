@@ -28,10 +28,6 @@ public:
 
     Project *project;
 
-    int padding_top;
-    int padding_bottom;
-    int padding_left;
-    int padding_right;
     int timeline_height;
     int track_head_width;
     int track_height;

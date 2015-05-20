@@ -8,6 +8,7 @@
 #include "dragged_sample_file.hpp"
 
 static const int SEGMENT_PADDING = 2;
+static const int EXTRA_SCROLL_WIDTH = 200;
 
 static void insert_track_before_handler(void *userdata) {
     TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
@@ -30,7 +31,7 @@ static void on_tracks_changed(Event, void *userdata) {
     track_editor_widget->update_model();
 }
 
-static void vert_scroll_callback(Event, void *userdata) {
+static void scroll_callback(Event, void *userdata) {
     TrackEditorWidget *track_editor = (TrackEditorWidget *)userdata;
     track_editor->update_model();
 }
@@ -38,10 +39,6 @@ static void vert_scroll_callback(Event, void *userdata) {
 TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     Widget(gui_window),
     project(project),
-    padding_top(0),
-    padding_bottom(0),
-    padding_left(0),
-    padding_right(0),
     timeline_height(24),
     track_head_width(90),
     track_height(60),
@@ -76,7 +73,8 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
 
     project->events.attach_handler(EventProjectTracksChanged, on_tracks_changed, this);
     project->events.attach_handler(EventProjectAudioClipSegmentsChanged, on_tracks_changed, this);
-    vert_scroll_bar->events.attach_handler(EventScrollValueChange, vert_scroll_callback, this);
+    vert_scroll_bar->events.attach_handler(EventScrollValueChange, scroll_callback, this);
+    horiz_scroll_bar->events.attach_handler(EventScrollValueChange, scroll_callback, this);
 }
 
 TrackEditorWidget::~TrackEditorWidget() {
@@ -115,13 +113,8 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
 
     for (int track_i = 0; track_i < display_track_count; track_i += 1) {
         DisplayTrack *display_track = display_tracks.at(track_i);
-        display_track->head_bg.draw(gui_window, projection);
-        display_track->body_bg.draw(gui_window, projection);
-        display_track->track_name_label->draw(
-                projection * display_track->track_name_label_model, track_name_color);
 
-        gui_window->fill_rect(light_border_color, projection * display_track->border_top_model);
-        gui_window->fill_rect(dark_border_color, projection * display_track->border_bottom_model);
+        display_track->body_bg.draw(gui_window, projection);
 
         for (int segment_i = 0; segment_i < display_track->display_audio_clip_segment_count; segment_i += 1) {
             DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
@@ -129,10 +122,16 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
             segment->title_bar.draw(gui_window, projection);
             segment->label->draw(projection * segment->label_model, track_name_color);
         }
+
+        display_track->head_bg.draw(gui_window, projection);
+        display_track->track_name_label->draw(
+                projection * display_track->track_name_label_model, track_name_color);
+
+        gui_window->fill_rect(light_border_color, projection * display_track->border_top_model);
+        gui_window->fill_rect(dark_border_color, projection * display_track->border_bottom_model);
     }
 
     glDisable(GL_STENCIL_TEST);
-
 }
 
 TrackEditorWidget::DisplayTrack * TrackEditorWidget::create_display_track(GuiTrack *gui_track) {
@@ -182,31 +181,26 @@ int TrackEditorWidget::whole_note_to_pixel(double whole_note_pos) {
 }
 
 void TrackEditorWidget::update_model() {
-    horiz_scroll_bar->left = left;
-    horiz_scroll_bar->top = top;
-    horiz_scroll_bar->width = width;
-    horiz_scroll_bar->height = horiz_scroll_bar->min_height();
-    horiz_scroll_bar->on_resize();
-
     int timeline_top = horiz_scroll_bar->min_height();
     int timeline_bottom = timeline_top + timeline_height;
-    timeline_bg.update(this, padding_left, timeline_top,
-            width - padding_left - padding_right, timeline_height);
+    timeline_bg.update(this, 0, timeline_top, width, timeline_height);
 
     int track_area_top = timeline_bottom;
     int track_area_bottom = track_area_top + (height - track_area_top);
 
     int first_top = timeline_top + timeline_height;
     int next_top = first_top;
-    head_left = padding_left;
+    head_left = 0;
     body_left = head_left + track_head_width;
-    int body_width = width - vert_scroll_bar->min_width() - padding_right - body_left;
+    int track_width = width - vert_scroll_bar->min_width();
+    int body_width = track_width - body_left;
 
     // compute track positions
+    int max_right = 0;
     for (int track_i = 0; track_i < gui_tracks.length(); track_i += 1) {
         GuiTrack *gui_track = gui_tracks.at(track_i);
-        gui_track->left = padding_left;
-        gui_track->right = body_width;
+        gui_track->left = 0;
+        gui_track->right = body_left + body_width;
         gui_track->top = next_top;
         next_top += track_height;
         gui_track->bottom = next_top;
@@ -226,13 +220,15 @@ void TrackEditorWidget::update_model() {
             gui_audio_clip_segment->right = whole_note_to_pixel(whole_note_end);
             gui_audio_clip_segment->top = gui_track->top + SEGMENT_PADDING;
             gui_audio_clip_segment->bottom = gui_track->bottom - SEGMENT_PADDING;
+
+            max_right = max(max_right, gui_audio_clip_segment->right);
         }
     }
+    int full_width = max_right + EXTRA_SCROLL_WIDTH;
     int full_height = next_top - first_top;
-    int available_width = width - vert_scroll_bar->min_width();
     int available_height = track_area_bottom - track_area_top;
 
-    stencil_model = transform2d(0, track_area_top, available_width, available_height);
+    stencil_model = transform2d(0, track_area_top, track_width, available_height);
 
     vert_scroll_bar->left = left + width - vert_scroll_bar->min_width();
     vert_scroll_bar->top = top + timeline_bottom;
@@ -243,6 +239,17 @@ void TrackEditorWidget::update_model() {
     vert_scroll_bar->set_handle_ratio(available_height, full_height);
     vert_scroll_bar->set_value(vert_scroll_bar->value);
     vert_scroll_bar->on_resize();
+
+    horiz_scroll_bar->left = left;
+    horiz_scroll_bar->top = top;
+    horiz_scroll_bar->width = width;
+    horiz_scroll_bar->height = horiz_scroll_bar->min_height();
+    horiz_scroll_bar->min_value = 0;
+    horiz_scroll_bar->max_value = max(0, full_width - body_width);
+    horiz_scroll_bar->set_handle_ratio(body_width, full_width);
+    horiz_scroll_bar->set_value(horiz_scroll_bar->value);
+    horiz_scroll_bar->on_resize();
+
 
     // now consider scroll position and create display tracks for tracks that
     // are visible
@@ -269,7 +276,7 @@ void TrackEditorWidget::update_model() {
 
         int head_top = display_track->top;
         display_track->head_bg.set_scheme(SunkenBoxSchemeRaised);
-        display_track->head_bg.update(this, padding_left, head_top, track_head_width, track_height);
+        display_track->head_bg.update(this, 0, head_top, track_head_width, track_height);
         display_track->body_bg.update(this, body_left, head_top, body_width, track_height);
 
         display_track->track_name_label->set_text(gui_track->track->name);
@@ -280,14 +287,15 @@ void TrackEditorWidget::update_model() {
         display_track->track_name_label_model = transform2d(label_left, label_top);
 
         display_track->border_top_model = transform2d(
-                gui_track->left, display_track->top, available_width, 1.0f);
+                gui_track->left, display_track->top, track_width, 1.0f);
         display_track->border_bottom_model = transform2d(
-                gui_track->left, display_track->bottom, available_width, 1.0f);
+                gui_track->left, display_track->bottom, track_width, 1.0f);
 
         display_track->display_audio_clip_segment_count = 0;
         for (int segment_i = 0; segment_i < gui_track->gui_audio_clip_segments.length(); segment_i += 1) {
             GuiAudioClipSegment *gui_audio_clip_segment = gui_track->gui_audio_clip_segments.at(segment_i);
-            bool visible = true; // TODO compute left/right visibility
+            bool visible = (gui_audio_clip_segment->right - horiz_scroll_bar->value >= body_left &&
+                            gui_audio_clip_segment->left - horiz_scroll_bar->value < gui_track->right);
 
             if (!visible)
                 continue;
@@ -323,7 +331,6 @@ void TrackEditorWidget::update_model() {
 
             /*
              * TODO
-            SunkenBox body;
             SunkenBox title_bar;
             Label *label;
             glm::mat4 label_model;
@@ -502,6 +509,10 @@ void TrackEditorWidget::on_mouse_wheel(const MouseWheelEvent *event) {
     {
         float range = vert_scroll_bar->max_value - vert_scroll_bar->min_value;
         vert_scroll_bar->set_value(vert_scroll_bar->value - event->wheel_y * range * 0.18f * vert_scroll_bar->handle_ratio);
+    }
+    {
+        float range = horiz_scroll_bar->max_value - horiz_scroll_bar->min_value;
+        horiz_scroll_bar->set_value(horiz_scroll_bar->value - event->wheel_x * range * 0.18f * horiz_scroll_bar->handle_ratio);
     }
     update_model();
 }
