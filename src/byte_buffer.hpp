@@ -66,10 +66,23 @@ public:
     }
 
     inline void append_uint32be(uint32_t value) {
-        if (_buffer.resize(_buffer.length() + 4))
-            panic("out of memory");
+        ok_or_panic(_buffer.resize(_buffer.length() + 4));
         char *ptr = _buffer.raw() + _buffer.length() - 5;
         write_uint32be(ptr, value);
+        _buffer.at(_buffer.length() - 1) = 0;
+    }
+
+    inline void append_uint64be(uint64_t value) {
+        ok_or_panic(_buffer.resize(_buffer.length() + 8));
+        char *ptr = _buffer.raw() + _buffer.length() - 9;
+        write_uint64be(ptr, value);
+        _buffer.at(_buffer.length() - 1) = 0;
+    }
+
+    inline void append_double(double value) {
+        ok_or_panic(_buffer.resize(_buffer.length() + 8));
+        double *ptr = (double *)(_buffer.raw() + _buffer.length() - 9);
+        *ptr = value;
         _buffer.at(_buffer.length() - 1) = 0;
     }
 

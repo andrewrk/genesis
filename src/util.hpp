@@ -212,6 +212,33 @@ static inline void write_uint32be(void *buffer, uint32_t x) {
     buf[0] = x & 0xff;
 }
 
+static inline void write_uint64be(void *buffer, uint32_t x) {
+    uint8_t *buf = (uint8_t*) buffer;
+
+    buf[7] = x & 0xff;
+
+    x >>= 8;
+    buf[6] = x & 0xff;
+
+    x >>= 8;
+    buf[5] = x & 0xff;
+
+    x >>= 8;
+    buf[4] = x & 0xff;
+
+    x >>= 8;
+    buf[3] = x & 0xff;
+
+    x >>= 8;
+    buf[2] = x & 0xff;
+
+    x >>= 8;
+    buf[1] = x & 0xff;
+
+    x >>= 8;
+    buf[0] = x & 0xff;
+}
+
 static inline uint32_t read_uint32be(const void *buffer) {
     uint8_t *buf = (uint8_t*) buffer;
     uint32_t result = buf[0];
@@ -224,6 +251,34 @@ static inline uint32_t read_uint32be(const void *buffer) {
 
     result <<= 8;
     result |= buf[3];
+
+    return result;
+}
+
+static inline uint64_t read_uint64be(const void *buffer) {
+    uint8_t *buf = (uint8_t*) buffer;
+    uint64_t result = buf[0];
+
+    result <<= 8;
+    result |= buf[1];
+
+    result <<= 8;
+    result |= buf[2];
+
+    result <<= 8;
+    result |= buf[3];
+
+    result <<= 8;
+    result |= buf[4];
+
+    result <<= 8;
+    result |= buf[5];
+
+    result <<= 8;
+    result |= buf[6];
+
+    result <<= 8;
+    result |= buf[7];
 
     return result;
 }

@@ -112,6 +112,8 @@ struct Project {
     List<AudioClip *> audio_clip_list;
     bool audio_clip_list_dirty;
 
+    bool audio_clip_segments_dirty;
+
 
     ////////// transient state
     User *active_user; // the user that is running this instance of genesis
@@ -142,6 +144,7 @@ enum CommandType {
     CommandTypeAddTrack,
     CommandTypeDeleteTrack,
     CommandTypeAddAudioClip,
+    CommandTypeAddAudioClipSegment,
 };
 
 class Command {
@@ -244,6 +247,34 @@ public:
     String name;
 };
 
+class AddAudioClipSegmentCommand : public Command {
+public:
+    AddAudioClipSegmentCommand(Project *project, AudioClip *audio_clip, Track *track,
+            long start, long end, double pos);
+    AddAudioClipSegmentCommand() {}
+    ~AddAudioClipSegmentCommand() override {}
+
+    String description() const override {
+        return "Add Audio Clip Segment";
+    }
+    int allocated_size() const override {
+        return sizeof(AddAudioClipSegmentCommand);
+    }
+
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeAddAudioClipSegment; }
+
+    uint256 audio_clip_segment_id;
+    uint256 audio_clip_id;
+    uint256 track_id;
+    long start;
+    long end;
+    double pos;
+};
+
 class UndoCommand : public Command {
 public:
     UndoCommand(Project *project, Command *other_command);
@@ -319,7 +350,7 @@ void project_delete_track(Project *project, Track *track);
 
 int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **audio_asset);
 void project_add_audio_clip(Project *project, AudioAsset *audio_asset);
-void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip,
+void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip, Track *track,
         long start, long end, double pos);
 
 int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset);

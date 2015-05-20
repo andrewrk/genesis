@@ -16,6 +16,7 @@ enum PropKey {
     PropKeyUndoStackIndex,
     PropKeyAudioAsset,
     PropKeyAudioClip,
+    PropKeyAudioClipSegment,
 };
 
 static const int PROP_KEY_SIZE = 4;
@@ -38,6 +39,10 @@ enum SerializableFieldKey {
     SerializableFieldKeyAudioAssetId,
     SerializableFieldKeySha256Sum,
     SerializableFieldKeyAudioClipId,
+    SerializableFieldKeyAudioClipSegmentId,
+    SerializableFieldKeyStart,
+    SerializableFieldKeyEnd,
+    SerializableFieldKeyPos,
 };
 
 // modifying this structure affects project file backward compatibility
@@ -51,6 +56,8 @@ enum SerializableFieldType {
     SerializableFieldTypeSortKey,
     SerializableFieldTypeCmdType,
     SerializableFieldTypeCommandChild,
+    SerializableFieldTypeUInt64AsLong,
+    SerializableFieldTypeDouble,
 };
 
 template <typename T>
@@ -154,6 +161,66 @@ static const SerializableField<AudioClip> *get_serializable_fields(AudioClip *) 
             SerializableFieldTypeString,
             [](AudioClip *audio_clip) -> void * {
                 return &audio_clip->name;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<AudioClipSegment> *get_serializable_fields(AudioClipSegment *) {
+    static const SerializableField<AudioClipSegment> fields[] = {
+        {
+            SerializableFieldKeyId,
+            SerializableFieldTypeUInt256,
+            [](AudioClipSegment *segment) -> void * {
+                return &segment->id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyAudioClipId,
+            SerializableFieldTypeUInt256,
+            [](AudioClipSegment *segment) -> void * {
+                return &segment->audio_clip_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyTrackId,
+            SerializableFieldTypeUInt256,
+            [](AudioClipSegment *segment) -> void * {
+                return &segment->track_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyStart,
+            SerializableFieldTypeUInt64AsLong,
+            [](AudioClipSegment *segment) -> void * {
+                return &segment->start;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyEnd,
+            SerializableFieldTypeUInt64AsLong,
+            [](AudioClipSegment *segment) -> void * {
+                return &segment->end;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyPos,
+            SerializableFieldTypeDouble,
+            [](AudioClipSegment *segment) -> void * {
+                return &segment->pos;
             },
             nullptr,
         },
@@ -319,6 +386,66 @@ static const SerializableField<AddAudioClipCommand> *get_serializable_fields(Add
     return fields;
 }
 
+static const SerializableField<AddAudioClipSegmentCommand> *get_serializable_fields(AddAudioClipSegmentCommand *) {
+    static const SerializableField<AddAudioClipSegmentCommand> fields[] = {
+        {
+            SerializableFieldKeyAudioClipSegmentId,
+            SerializableFieldTypeUInt256,
+            [](AddAudioClipSegmentCommand *cmd) -> void * {
+                return &cmd->audio_clip_segment_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyAudioClipId,
+            SerializableFieldTypeUInt256,
+            [](AddAudioClipSegmentCommand *cmd) -> void * {
+                return &cmd->audio_clip_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyTrackId,
+            SerializableFieldTypeUInt256,
+            [](AddAudioClipSegmentCommand *cmd) -> void * {
+                return &cmd->track_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyStart,
+            SerializableFieldTypeUInt64AsLong,
+            [](AddAudioClipSegmentCommand *cmd) -> void * {
+                return &cmd->start;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyEnd,
+            SerializableFieldTypeUInt64AsLong,
+            [](AddAudioClipSegmentCommand *cmd) -> void * {
+                return &cmd->end;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyPos,
+            SerializableFieldTypeDouble,
+            [](AddAudioClipSegmentCommand *cmd) -> void * {
+                return &cmd->pos;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
 static const SerializableField<UndoCommand> *get_serializable_fields(UndoCommand *) {
     static const SerializableField<UndoCommand> fields[] = {
         {
@@ -380,6 +507,12 @@ static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffe
             buffer.append_uint32be(*value);
             break;
         }
+    case SerializableFieldTypeUInt64AsLong:
+        {
+            long *value = static_cast<long *>(ptr);
+            buffer.append_uint64be(*value);
+            break;
+        }
     case SerializableFieldTypeUInt256:
         {
             uint256 *value = static_cast<uint256 *>(ptr);
@@ -417,6 +550,12 @@ static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffe
         {
             Command *value = static_cast<Command *>(ptr);
             buffer.append_uint32be(value->command_type());
+            break;
+        }
+    case SerializableFieldTypeDouble:
+        {
+            double *value = static_cast<double *>(ptr);
+            buffer.append_double(*value);
             break;
         }
     }
@@ -462,11 +601,29 @@ static int deserialize_uint32be(uint32_t *x, const ByteBuffer &buffer, int *offs
     return 0;
 }
 
+static int deserialize_uint64be(uint64_t *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 8)
+        return GenesisErrorInvalidFormat;
+
+    *x = read_uint64be(buffer.raw() + *offset);
+    *offset += 8;
+    return 0;
+}
+
 static int deserialize_uint32be_as_int(int *x, const ByteBuffer &buffer, int *offset) {
     uint32_t unsigned_x;
     int err;
     if ((err = deserialize_uint32be(&unsigned_x, buffer, offset))) return err;
     if (unsigned_x > (uint32_t)INT_MAX) return GenesisErrorInvalidFormat;
+    *x = unsigned_x;
+    return 0;
+}
+
+static int deserialize_uint64be_as_long(long *x, const ByteBuffer &buffer, int *offset) {
+    uint64_t unsigned_x;
+    int err;
+    if ((err = deserialize_uint64be(&unsigned_x, buffer, offset))) return err;
+    if (unsigned_x > (uint64_t)LONG_MAX) return GenesisErrorInvalidFormat;
     *x = unsigned_x;
     return 0;
 }
@@ -582,6 +739,11 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
             int *value = static_cast<int *>(ptr);
             return deserialize_uint32be_as_int(value, buffer, offset);
         }
+    case SerializableFieldTypeUInt64AsLong:
+        {
+            long *value = static_cast<long *>(ptr);
+            return deserialize_uint64be_as_long(value, buffer, offset);
+        }
     case SerializableFieldTypeUInt256:
         {
             uint256 *value = static_cast<uint256 *>(ptr);
@@ -618,6 +780,8 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
                     return deserialize_object(reinterpret_cast<DeleteTrackCommand*>(cmd), buffer, offset);
                 case CommandTypeAddAudioClip:
                     return deserialize_object(reinterpret_cast<AddAudioClipCommand*>(cmd), buffer, offset);
+                case CommandTypeAddAudioClipSegment:
+                    return deserialize_object(reinterpret_cast<AddAudioClipSegmentCommand*>(cmd), buffer, offset);
             }
             panic("unreachable");
         }
@@ -625,6 +789,12 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
         // ignore
         *offset += 4;
         return 0;
+    case SerializableFieldTypeDouble:
+        {
+            double *value = static_cast<double *>(ptr);
+            offset += 8;
+            return *value;
+        }
     }
     panic("unreachable");
 }
@@ -684,6 +854,15 @@ static int compare_audio_clips(AudioClip *a, AudioClip *b) {
     return uint256::compare(a->id, b->id);
 }
 
+static int compare_audio_clip_segments(AudioClipSegment *a, AudioClipSegment *b) {
+    if (a->pos < b->pos)
+        return -1;
+    else if (a->pos > b->pos)
+        return 1;
+    else
+        return uint256::compare(a->id, b->id);
+}
+
 template<typename T, int (*compare)(T, T)>
 static void project_sort_item(List<T> &list, IdMap<T> &id_map) {
     list.clear();
@@ -718,6 +897,28 @@ static void project_sort_audio_clips(Project *project) {
     project_sort_item<AudioClip *, compare_audio_clips>(project->audio_clip_list, project->audio_clips);
 }
 
+static void project_sort_audio_clip_segments(Project *project) {
+    for (int i = 0; i < project->track_list.length(); i += 1) {
+        Track *track = project->track_list.at(i);
+        track->audio_clip_segments.clear();
+    }
+
+    auto it = project->audio_clip_segments.entry_iterator();
+    for (;;) {
+        auto *entry = it.next();
+        if (!entry)
+            break;
+
+        AudioClipSegment *segment = entry->value;
+        ok_or_panic(segment->track->audio_clip_segments.append(segment));
+    }
+
+    for (int i = 0; i < project->track_list.length(); i += 1) {
+        Track *track = project->track_list.at(i);
+        track->audio_clip_segments.sort<compare_audio_clip_segments>();
+    }
+}
+
 static void trigger_event(Project *project, Event event) {
     project->events.trigger(event);
 }
@@ -728,6 +929,8 @@ static void project_compute_indexes(Project *project) {
     if (project->command_list_dirty) project_sort_commands(project);
     if (project->audio_asset_list_dirty) project_sort_audio_assets(project);
     if (project->audio_clip_list_dirty) project_sort_audio_clips(project);
+    // depends on tracks being sorted
+    if (project->audio_clip_segments_dirty) project_sort_audio_clip_segments(project);
 
     if (project->track_list_dirty) {
         project->track_list_dirty = false;
@@ -748,6 +951,10 @@ static void project_compute_indexes(Project *project) {
     if (project->audio_clip_list_dirty) {
         project->audio_clip_list_dirty = false;
         trigger_event(project, EventProjectAudioClipsChanged);
+    }
+    if (project->audio_clip_segments_dirty) {
+        project->audio_clip_segments_dirty = false;
+        trigger_event(project, EventProjectAudioClipSegmentsChanged);
     }
 }
 
@@ -928,6 +1135,43 @@ static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const
     return 0;
 }
 
+static int deserialize_audio_clip_segment(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
+    AudioClipSegment *segment = create_zero<AudioClipSegment>();
+    if (!segment)
+        return GenesisErrorNoMem;
+
+    int err;
+    if ((err = object_key_to_id(key, &segment->id))) {
+        destroy(segment, 1);
+        return err;
+    }
+
+    int offset = 0;
+    if ((err = deserialize_object(segment, value, &offset))) {
+        destroy(segment, 1);
+        return err;
+    }
+
+    auto audio_clip_entry = project->audio_clips.maybe_get(segment->audio_clip_id);
+    if (!audio_clip_entry) {
+        destroy(segment, 1);
+        return GenesisErrorInvalidFormat;
+    }
+    segment->audio_clip = audio_clip_entry->value;
+
+    auto track_entry = project->tracks.maybe_get(segment->track_id);
+    if (!track_entry) {
+        destroy(segment, 1);
+        return GenesisErrorInvalidFormat;
+    }
+    segment->track = track_entry->value;
+
+    project->audio_clip_segments.put(segment->id, segment);
+    project->audio_clip_segments_dirty = true;
+
+    return 0;
+}
+
 static int deserialize_command(Project *project, const ByteBuffer &key, const ByteBuffer &buffer) {
     int offset_data = 0;
     int *offset = &offset_data;
@@ -973,6 +1217,9 @@ static int deserialize_command(Project *project, const ByteBuffer &key, const By
             break;
         case CommandTypeAddAudioClip:
             command = create_zero<AddAudioClipCommand>();
+            break;
+        case CommandTypeAddAudioClipSegment:
+            command = create_zero<AddAudioClipSegmentCommand>();
             break;
         case CommandTypeUndo:
             command = create_zero<UndoCommand>();
@@ -1157,6 +1404,13 @@ int project_open(const char *path, GenesisContext *genesis_context,
 
     // read audio clips
     err = iterate_prefix(project, PropKeyAudioClip, deserialize_audio_clip);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+
+    // read audio clip segments
+    err = iterate_prefix(project, PropKeyAudioClipSegment, deserialize_audio_clip_segment);
     if (err) {
         project_close(project);
         return err;
@@ -1410,10 +1664,10 @@ void project_add_audio_clip(Project *project, AudioAsset *audio_asset) {
     project_perform_command(create<AddAudioClipCommand>(project, audio_asset, name_from_path));
 }
 
-void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip,
+void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip, Track *track,
         long start, long end, double pos)
 {
-    panic("TODO");
+    project_perform_command(create<AddAudioClipSegmentCommand>(project, audio_clip, track, start, end, pos));
 }
 
 long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip) {
@@ -1592,6 +1846,55 @@ void AddAudioClipCommand::serialize(ByteBuffer &buf) {
 }
 
 int AddAudioClipCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    return deserialize_object(this, buffer, offset);
+}
+
+AddAudioClipSegmentCommand::AddAudioClipSegmentCommand(Project *project,
+        AudioClip *audio_clip, Track *track, long start, long end, double pos) :
+    Command(project)
+{
+    this->audio_clip_segment_id = uint256::random();
+    this->audio_clip_id = audio_clip->id;
+    this->track_id = track->id;
+    this->start = start;
+    this->end = end;
+    this->pos = pos;
+}
+
+void AddAudioClipSegmentCommand::undo(OrderedMapFileBatch *batch) {
+    AudioClipSegment *audio_clip_segment = project->audio_clip_segments.get(audio_clip_segment_id);
+
+    project->audio_clip_segments.remove(audio_clip_segment_id);
+    project->audio_clip_segments_dirty = true;
+
+    ordered_map_file_batch_del(batch, create_id_key(PropKeyAudioClipSegment, audio_clip_segment->id));
+
+    destroy(audio_clip_segment, 1);
+}
+
+void AddAudioClipSegmentCommand::redo(OrderedMapFileBatch *batch) {
+    AudioClipSegment *audio_clip_segment = ok_mem(create_zero<AudioClipSegment>());
+    audio_clip_segment->id = audio_clip_segment_id;
+    audio_clip_segment->start = start;
+    audio_clip_segment->end = end;
+    audio_clip_segment->pos = pos;
+    audio_clip_segment->track_id = track_id;
+    audio_clip_segment->track = project->tracks.get(track_id);
+    audio_clip_segment->audio_clip_id = audio_clip_id;
+    audio_clip_segment->audio_clip = project->audio_clips.get(audio_clip_id);
+
+    project->audio_clip_segments.put(audio_clip_segment->id, audio_clip_segment);
+    project->audio_clip_segments_dirty = true;
+
+    ok_or_panic(ordered_map_file_batch_put(batch,
+                create_id_key(PropKeyAudioClipSegment, audio_clip_segment->id), omf_buf_obj(audio_clip_segment)));
+}
+
+void AddAudioClipSegmentCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
+}
+
+int AddAudioClipSegmentCommand::deserialize(const ByteBuffer &buffer, int *offset) {
     return deserialize_object(this, buffer, offset);
 }
 

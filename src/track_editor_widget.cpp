@@ -337,7 +337,7 @@ void TrackEditorWidget::on_drag_audio_clip(AudioClip *audio_clip, const DragEven
 
         long end = project_audio_clip_frame_count(project, audio_clip);
         double pos = 0;
-        project_add_audio_clip_segment(project, audio_clip, 0, end, pos);
+        project_add_audio_clip_segment(project, audio_clip, gui_track->track, 0, end, pos);
     }
 }
 
