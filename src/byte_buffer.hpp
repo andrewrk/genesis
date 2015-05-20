@@ -107,10 +107,16 @@ public:
     }
 
     int cmp_prefix(const char *str, int len) const {
+        int smaller = min(len, _buffer.length());
+        int cmp = memcmp(_buffer.raw(), str, smaller);
+
+        if (cmp != 0)
+            return cmp;
+
         if (len > _buffer.length())
             return -1;
-
-        return memcmp(_buffer.raw(), str, len);
+        else
+            return 0;
     }
 
     char *raw() {
