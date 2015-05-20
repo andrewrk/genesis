@@ -141,6 +141,7 @@ enum CommandType {
     CommandTypeRedo,
     CommandTypeAddTrack,
     CommandTypeDeleteTrack,
+    CommandTypeAddAudioClip,
 };
 
 class Command {
@@ -219,6 +220,30 @@ public:
     ByteBuffer payload;
 };
 
+class AddAudioClipCommand : public Command {
+public:
+    AddAudioClipCommand(Project *project, AudioAsset *audio_asset, const String &name);
+    AddAudioClipCommand() {}
+    ~AddAudioClipCommand() override {}
+
+    String description() const override {
+        return "Add Audio Clip";
+    }
+    int allocated_size() const override {
+        return sizeof(AddAudioClipCommand) + name.allocated_size();
+    }
+
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeAddAudioClip; }
+
+    uint256 audio_clip_id;
+    uint256 audio_asset_id;
+    String name;
+};
+
 class UndoCommand : public Command {
 public:
     UndoCommand(Project *project, Command *other_command);
@@ -291,7 +316,7 @@ AddTrackCommand * project_insert_track_batch(Project *project, OrderedMapFileBat
         const Track *before, const Track *after);
 
 int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **audio_asset);
-int project_add_audio_clip(Project *project, AudioAsset *audio_asset, AudioClip **audio_clip);
+void project_add_audio_clip(Project *project, AudioAsset *audio_asset);
 
 void project_delete_track(Project *project, Track *track);
 

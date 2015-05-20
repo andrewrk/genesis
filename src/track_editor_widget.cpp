@@ -235,8 +235,7 @@ void TrackEditorWidget::on_drag_sample_file(DraggedSampleFile *dragged_sample_fi
                 ok_or_panic(err);
         }
 
-        AudioClip *audio_clip;
-        ok_or_panic(project_add_audio_clip(project, audio_asset, &audio_clip));
+        project_add_audio_clip(project, audio_asset);
     }
 }
 
@@ -246,7 +245,6 @@ void TrackEditorWidget::on_drag_audio_asset(AudioAsset *audio_asset, const DragE
         if (!gui_track)
             return;
 
-        AudioClip *audio_clip;
-        ok_or_panic(project_add_audio_clip(project, audio_asset, &audio_clip));
+        project_add_audio_clip(project, audio_asset);
     }
 }

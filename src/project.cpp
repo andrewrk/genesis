@@ -37,6 +37,7 @@ enum SerializableFieldKey {
     SerializableFieldKeyPath,
     SerializableFieldKeyAudioAssetId,
     SerializableFieldKeySha256Sum,
+    SerializableFieldKeyAudioClipId,
 };
 
 // modifying this structure affects project file backward compatibility
@@ -269,6 +270,42 @@ static const SerializableField<DeleteTrackCommand> *get_serializable_fields(Dele
             SerializableFieldTypeByteBuffer,
             [](DeleteTrackCommand *cmd) -> void * {
                 return &cmd->payload;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<AddAudioClipCommand> *get_serializable_fields(AddAudioClipCommand *) {
+    static const SerializableField<AddAudioClipCommand> fields[] = {
+        {
+            SerializableFieldKeyAudioClipId,
+            SerializableFieldTypeUInt256,
+            [](AddAudioClipCommand *cmd) -> void * {
+                return &cmd->audio_clip_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyAudioAssetId,
+            SerializableFieldTypeUInt256,
+            [](AddAudioClipCommand *cmd) -> void * {
+                return &cmd->audio_asset_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyName,
+            SerializableFieldTypeString,
+            [](AddAudioClipCommand *cmd) -> void * {
+                return &cmd->name;
             },
             nullptr,
         },
@@ -579,6 +616,8 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
                     return deserialize_object(reinterpret_cast<AddTrackCommand*>(cmd), buffer, offset);
                 case CommandTypeDeleteTrack:
                     return deserialize_object(reinterpret_cast<DeleteTrackCommand*>(cmd), buffer, offset);
+                case CommandTypeAddAudioClip:
+                    return deserialize_object(reinterpret_cast<AddAudioClipCommand*>(cmd), buffer, offset);
             }
             panic("unreachable");
         }
@@ -932,6 +971,9 @@ static int deserialize_command(Project *project, const ByteBuffer &key, const By
         case CommandTypeDeleteTrack:
             command = create_zero<DeleteTrackCommand>();
             break;
+        case CommandTypeAddAudioClip:
+            command = create_zero<AddAudioClipCommand>();
+            break;
         case CommandTypeUndo:
             command = create_zero<UndoCommand>();
             break;
@@ -1240,7 +1282,8 @@ static void add_undo_for_command(Project *project, OrderedMapFileBatch *batch, C
             omf_buf_uint32(project->undo_stack_index)));
 }
 
-void project_perform_command(Project *project, Command *command) {
+void project_perform_command(Command *command) {
+    Project *project = command->project;
     OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
 
     add_undo_for_command(project, batch, command);
@@ -1295,7 +1338,7 @@ AddTrackCommand *project_insert_track_batch(Project *project, OrderedMapFileBatc
 
 void project_delete_track(Project *project, Track *track) {
     DeleteTrackCommand *delete_track = create<DeleteTrackCommand>(project, track);
-    project_perform_command(project, delete_track);
+    project_perform_command(delete_track);
 }
 
 int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset) {
@@ -1361,39 +1404,10 @@ int project_add_audio_asset(Project *project, const ByteBuffer &full_path, Audio
     return 0;
 }
 
-int project_add_audio_clip(Project *project, AudioAsset *audio_asset,
-        AudioClip **out_audio_clip)
-{
-    *out_audio_clip = nullptr;
-
-    int err;
-    if ((err = project_ensure_audio_asset_loaded(project, audio_asset)))
-        return err;
-
-    AudioClip *audio_clip = create_zero<AudioClip>();
-    if (!audio_clip)
-        return GenesisErrorNoMem;
-
+void project_add_audio_clip(Project *project, AudioAsset *audio_asset) {
     ByteBuffer name_from_path = audio_asset->path;
     os_path_remove_extension(name_from_path);
-
-    audio_clip->id = uint256::random();
-    audio_clip->audio_asset_id = audio_asset->id;
-    audio_clip->name = name_from_path;
-    audio_clip->audio_asset = audio_asset;
-
-    project->audio_clips.put(audio_clip->id, audio_clip);
-    project->audio_clip_list_dirty = true;
-
-    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
-    ok_or_panic(ordered_map_file_batch_put(batch,
-                create_id_key(PropKeyAudioClip, audio_clip->id), omf_buf_obj(audio_clip)));
-    ok_or_panic(ordered_map_file_batch_exec(batch));
-
-    project_compute_indexes(project);
-
-    *out_audio_clip = audio_clip;
-    return 0;
+    project_perform_command(create<AddAudioClipCommand>(project, audio_asset, name_from_path));
 }
 
 User *user_create(const uint256 &id, const String &name) {
@@ -1522,6 +1536,50 @@ void DeleteTrackCommand::serialize(ByteBuffer &buf) {
 }
 
 int DeleteTrackCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    return deserialize_object(this, buffer, offset);
+}
+
+AddAudioClipCommand::AddAudioClipCommand(Project *project, AudioAsset *audio_asset, const String &name) :
+    Command(project),
+    audio_asset_id(audio_asset->id),
+    name(name)
+{
+    audio_clip_id = uint256::random();
+}
+
+void AddAudioClipCommand::undo(OrderedMapFileBatch *batch) {
+    AudioClip *audio_clip = project->audio_clips.get(audio_clip_id);
+
+    project->audio_clips.remove(audio_clip_id);
+    project->audio_clip_list_dirty = true;
+
+    ordered_map_file_batch_del(batch, create_id_key(PropKeyAudioClip, audio_clip->id));
+
+    destroy(audio_clip, 1);
+}
+
+void AddAudioClipCommand::redo(OrderedMapFileBatch *batch) {
+    AudioAsset *audio_asset = project->audio_assets.get(audio_asset_id);
+    ok_or_panic(project_ensure_audio_asset_loaded(project, audio_asset));
+
+    AudioClip *audio_clip = ok_mem(create_zero<AudioClip>());
+    audio_clip->id = audio_clip_id;
+    audio_clip->audio_asset_id = audio_asset->id;
+    audio_clip->name = name;
+    audio_clip->audio_asset = audio_asset;
+
+    project->audio_clips.put(audio_clip->id, audio_clip);
+    project->audio_clip_list_dirty = true;
+
+    ok_or_panic(ordered_map_file_batch_put(batch,
+                create_id_key(PropKeyAudioClip, audio_clip->id), omf_buf_obj(audio_clip)));
+}
+
+void AddAudioClipCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
+}
+
+int AddAudioClipCommand::deserialize(const ByteBuffer &buffer, int *offset) {
     return deserialize_object(this, buffer, offset);
 }
 
