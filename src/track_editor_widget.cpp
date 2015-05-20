@@ -296,6 +296,9 @@ void TrackEditorWidget::on_drag(const DragEvent *event) {
         case DragTypeAudioAsset:
             on_drag_audio_asset((AudioAsset *)event->drag_data->ptr, event);
             break;
+        case DragTypeAudioClip:
+            on_drag_audio_clip((AudioClip *)event->drag_data->ptr, event);
+            break;
     }
 }
 
@@ -323,6 +326,18 @@ void TrackEditorWidget::on_drag_audio_asset(AudioAsset *audio_asset, const DragE
             return;
 
         project_add_audio_clip(project, audio_asset);
+    }
+}
+
+void TrackEditorWidget::on_drag_audio_clip(AudioClip *audio_clip, const DragEvent *event) {
+    if (event->action == DragActionDrop) {
+        GuiTrack *gui_track = get_track_body_at(event->mouse_event.x, event->mouse_event.y);
+        if (!gui_track)
+            return;
+
+        long end = project_audio_clip_frame_count(project, audio_clip);
+        double pos = 0;
+        project_add_audio_clip_segment(project, audio_clip, 0, end, pos);
     }
 }
 

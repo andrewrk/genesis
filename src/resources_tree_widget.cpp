@@ -502,6 +502,11 @@ void ResourcesTreeWidget::mouse_down_node(Node *node, const MouseEvent *event) {
         drag_data->drag_type = DragTypeAudioAsset;
         drag_data->ptr = node->audio_asset;
         gui_window->start_drag(event, drag_data);
+    } else if (node->node_type == NodeTypeAudioClip) {
+        DragData *drag_data = ok_mem(create_zero<DragData>());
+        drag_data->drag_type = DragTypeAudioClip;
+        drag_data->ptr = node->audio_clip;
+        gui_window->start_drag(event, drag_data);
     }
 }
 

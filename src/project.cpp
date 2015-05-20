@@ -1410,6 +1410,18 @@ void project_add_audio_clip(Project *project, AudioAsset *audio_asset) {
     project_perform_command(create<AddAudioClipCommand>(project, audio_asset, name_from_path));
 }
 
+void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip,
+        long start, long end, double pos)
+{
+    panic("TODO");
+}
+
+long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip) {
+    ok_or_panic(project_ensure_audio_asset_loaded(project, audio_clip->audio_asset));
+    GenesisAudioFile *audio_file = audio_clip->audio_asset->audio_file;
+    return genesis_audio_file_frame_count(audio_file);
+}
+
 User *user_create(const uint256 &id, const String &name) {
     User *user = ok_mem(create_zero<User>());
 

@@ -315,11 +315,14 @@ void project_insert_track(Project *project, const Track *before, const Track *af
 AddTrackCommand * project_insert_track_batch(Project *project, OrderedMapFileBatch *batch,
         const Track *before, const Track *after);
 
-int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **audio_asset);
-void project_add_audio_clip(Project *project, AudioAsset *audio_asset);
-
 void project_delete_track(Project *project, Track *track);
 
+int project_add_audio_asset(Project *project, const ByteBuffer &full_path, AudioAsset **audio_asset);
+void project_add_audio_clip(Project *project, AudioAsset *audio_asset);
+void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip,
+        long start, long end, double pos);
+
 int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset);
+long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip);
 
 #endif
