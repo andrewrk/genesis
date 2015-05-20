@@ -231,6 +231,14 @@ ByteBuffer os_path_extension(ByteBuffer path) {
     return path.substring(dot_index, path.length());
 }
 
+void os_path_remove_extension(ByteBuffer &path) {
+    int dot_index = path.index_of_rev('.');
+    if (dot_index == -1)
+        return;
+
+    path.resize(dot_index);
+}
+
 int os_readdir(const char *dir, List<OsDirEntry*> &entries) {
     for (int i = 0; i < entries.length(); i += 1)
         os_dir_entry_unref(entries.at(i));

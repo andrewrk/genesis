@@ -9,6 +9,8 @@ struct Track;
 class Label;
 class MenuWidgetItem;
 class ScrollBarWidget;
+struct DraggedSampleFile;
+struct AudioAsset;
 
 class TrackEditorWidget : public Widget {
 public:
@@ -73,6 +75,8 @@ public:
     void clear_track_context_menu();
     GuiTrack *get_track_body_at(int x, int y);
     GuiTrack *get_track_head_at(int x, int y);
+    void on_drag_sample_file(DraggedSampleFile *dragged_sample_file, const DragEvent *event);
+    void on_drag_audio_asset(AudioAsset *audio_asset, const DragEvent *event);
 };
 
 #endif

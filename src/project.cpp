@@ -149,6 +149,14 @@ static const SerializableField<AudioClip> *get_serializable_fields(AudioClip *) 
             nullptr,
         },
         {
+            SerializableFieldKeyName,
+            SerializableFieldTypeString,
+            [](AudioClip *audio_clip) -> void * {
+                return &audio_clip->name;
+            },
+            nullptr,
+        },
+        {
             SerializableFieldKeyInvalid,
             SerializableFieldTypeInvalid,
             nullptr,
@@ -629,6 +637,14 @@ static int compare_audio_assets(AudioAsset *a, AudioAsset *b) {
     return ByteBuffer::compare(a->path, b->path);
 }
 
+static int compare_audio_clips(AudioClip *a, AudioClip *b) {
+    int cmp = String::compare(a->name, b->name);
+    if (cmp != 0)
+        return cmp;
+
+    return uint256::compare(a->id, b->id);
+}
+
 template<typename T, int (*compare)(T, T)>
 static void project_sort_item(List<T> &list, IdMap<T> &id_map) {
     list.clear();
@@ -659,6 +675,10 @@ static void project_sort_audio_assets(Project *project) {
     project_sort_item<AudioAsset *, compare_audio_assets>(project->audio_asset_list, project->audio_assets);
 }
 
+static void project_sort_audio_clips(Project *project) {
+    project_sort_item<AudioClip *, compare_audio_clips>(project->audio_clip_list, project->audio_clips);
+}
+
 static void trigger_event(Project *project, Event event) {
     project->events.trigger(event);
 }
@@ -668,6 +688,7 @@ static void project_compute_indexes(Project *project) {
     if (project->user_list_dirty) project_sort_users(project);
     if (project->command_list_dirty) project_sort_commands(project);
     if (project->audio_asset_list_dirty) project_sort_audio_assets(project);
+    if (project->audio_clip_list_dirty) project_sort_audio_clips(project);
 
     if (project->track_list_dirty) {
         project->track_list_dirty = false;
@@ -684,6 +705,10 @@ static void project_compute_indexes(Project *project) {
     if (project->audio_asset_list_dirty) {
         project->audio_asset_list_dirty = false;
         trigger_event(project, EventProjectAudioAssetsChanged);
+    }
+    if (project->audio_clip_list_dirty) {
+        project->audio_clip_list_dirty = false;
+        trigger_event(project, EventProjectAudioClipsChanged);
     }
 }
 
@@ -830,6 +855,36 @@ static int deserialize_audio_asset(Project *project, const ByteBuffer &key, cons
     }
 
     project_put_audio_asset(project, audio_asset);
+
+    return 0;
+}
+
+static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
+    AudioClip *audio_clip = create_zero<AudioClip>();
+    if (!audio_clip)
+        return GenesisErrorNoMem;
+
+    int err;
+    if ((err = object_key_to_id(key, &audio_clip->id))) {
+        destroy(audio_clip, 1);
+        return err;
+    }
+
+    int offset = 0;
+    if ((err = deserialize_object(audio_clip, value, &offset))) {
+        destroy(audio_clip, 1);
+        return err;
+    }
+
+    auto audio_asset_entry = project->audio_assets.maybe_get(audio_clip->audio_asset_id);
+    if (!audio_asset_entry) {
+        destroy(audio_clip, 1);
+        return GenesisErrorInvalidFormat;
+    }
+    audio_clip->audio_asset = audio_asset_entry->value;
+
+    project->audio_clips.put(audio_clip->id, audio_clip);
+    project->audio_clip_list_dirty = true;
 
     return 0;
 }
@@ -1058,6 +1113,13 @@ int project_open(const char *path, GenesisContext *genesis_context,
         return err;
     }
 
+    // read audio clips
+    err = iterate_prefix(project, PropKeyAudioClip, deserialize_audio_clip);
+    if (err) {
+        project_close(project);
+        return err;
+    }
+
     // read command history (depends on users)
     err = iterate_prefix(project, PropKeyCommand, deserialize_command);
     if (err) {
@@ -1251,7 +1313,7 @@ int project_add_audio_asset(Project *project, const ByteBuffer &full_path, Audio
     ByteBuffer ext = os_path_extension(full_path);
     ByteBuffer project_dir = os_path_dirname(project->path);
     ByteBuffer prefix = os_path_basename(full_path);
-    prefix = prefix.substring(0, prefix.length() - ext.length());
+    os_path_remove_extension(prefix);
 
     int err;
     ByteBuffer full_dest_asset_path;
@@ -1312,14 +1374,23 @@ int project_add_audio_clip(Project *project, AudioAsset *audio_asset,
     if (!audio_clip)
         return GenesisErrorNoMem;
 
+    ByteBuffer name_from_path = audio_asset->path;
+    os_path_remove_extension(name_from_path);
+
     audio_clip->id = uint256::random();
     audio_clip->audio_asset_id = audio_asset->id;
+    audio_clip->name = name_from_path;
     audio_clip->audio_asset = audio_asset;
+
+    project->audio_clips.put(audio_clip->id, audio_clip);
+    project->audio_clip_list_dirty = true;
 
     OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
     ok_or_panic(ordered_map_file_batch_put(batch,
                 create_id_key(PropKeyAudioClip, audio_clip->id), omf_buf_obj(audio_clip)));
     ok_or_panic(ordered_map_file_batch_exec(batch));
+
+    project_compute_indexes(project);
 
     *out_audio_clip = audio_clip;
     return 0;

@@ -92,6 +92,7 @@ public:
     const SpritesheetImage *img_arrow_left;
     const SpritesheetImage *img_arrow_right;
     const SpritesheetImage *img_music;
+    const SpritesheetImage *img_plug;
     const SpritesheetImage *img_null;
 
     GenesisContext *_genesis_context;

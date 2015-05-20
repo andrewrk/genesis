@@ -12,9 +12,10 @@ class Gui;
 class SpritesheetImage;
 class SettingsFile;
 class ScrollBarWidget;
-struct Project;
 class MenuWidgetItem;
+struct Project;
 struct AudioAsset;
+struct AudioClip;
 
 class ResourcesTreeWidget : public Widget {
 public:
@@ -36,6 +37,7 @@ public:
         NodeTypeMidiDevice,
         NodeTypeSampleFile, // external
         NodeTypeAudioAsset, // already added to project
+        NodeTypeAudioClip,
     };
 
     struct Node;
@@ -63,6 +65,7 @@ public:
         OsDirEntry *dir_entry;
         ByteBuffer full_path;
         AudioAsset *audio_asset;
+        AudioClip *audio_clip;
     };
 
     struct NodeDisplay {
@@ -99,6 +102,7 @@ public:
     Node *midi_devices_root;
     Node *samples_root;
     Node *audio_assets_root;
+    Node *audio_clips_root;
     List<Node *> update_model_stack;
     SettingsFile *settings_file;
     List<NodeDisplay *> display_nodes;
@@ -118,6 +122,7 @@ public:
     Node *create_record_node();
     Node *create_midi_node();
     Node *create_audio_asset_node();
+    Node *create_audio_clip_node();
     Node *create_sample_file_node(Node *parent, OsDirEntry *entry, const ByteBuffer &full_path);
     void destroy_node(Node *node);
     void pop_destroy_child(Node *node);
@@ -149,6 +154,7 @@ public:
     void add_clicked_sample_to_project();
 
     void refresh_audio_assets();
+    void refresh_audio_clips();
     void trim_extra_children(Node *parent, int desired_children_count);
 };
 

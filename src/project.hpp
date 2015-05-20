@@ -26,6 +26,7 @@ struct AudioClip {
     // canonical data
     uint256 id;
     uint256 audio_asset_id;
+    String name;
 
     // prepared view of the data
     AudioAsset *audio_asset;
@@ -42,14 +43,17 @@ struct Track {
 };
 
 struct AudioClipSegment {
+    // canonical data
     uint256 id;
-
-    AudioClip *audio_clip;
+    uint256 audio_clip_id;
+    uint256 track_id;
     long start;
     long end;
-
-    Track *track;
     double pos;
+
+    // prepared view of the data
+    AudioClip *audio_clip;
+    Track *track;
 };
 
 struct User {
@@ -102,9 +106,11 @@ struct Project {
     bool command_list_dirty;
 
     List<AudioAsset *> audio_asset_list;
+    HashMap<ByteBuffer, AudioAsset *, ByteBuffer::hash> audio_assets_by_digest;
     bool audio_asset_list_dirty;
 
-    HashMap<ByteBuffer, AudioAsset *, ByteBuffer::hash> audio_assets_by_digest;
+    List<AudioClip *> audio_clip_list;
+    bool audio_clip_list_dirty;
 
 
     ////////// transient state

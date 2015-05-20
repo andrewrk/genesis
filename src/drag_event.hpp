@@ -6,6 +6,7 @@
 enum DragType {
     DragTypeViewTab,
     DragTypeSampleFile,
+    DragTypeAudioAsset,
 };
 
 enum DragAction {

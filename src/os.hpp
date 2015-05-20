@@ -53,6 +53,7 @@ ByteBuffer os_path_dirname(ByteBuffer path);
 ByteBuffer os_path_basename(const ByteBuffer &path);
 ByteBuffer os_path_join(ByteBuffer left, ByteBuffer right);
 ByteBuffer os_path_extension(ByteBuffer path);
+void os_path_remove_extension(ByteBuffer &path);
 
 // call unref on each entry when done
 int os_copy_no_clobber(const char *source_path, const char *dest_dir,

@@ -32,6 +32,12 @@ static void audio_assets_change_callback(Event, void *userdata) {
     resources_tree_widget->update_model();
 }
 
+static void audio_clips_change_callback(Event, void *userdata) {
+    ResourcesTreeWidget *resources_tree_widget = (ResourcesTreeWidget *)userdata;
+    resources_tree_widget->refresh_audio_clips();
+    resources_tree_widget->update_model();
+}
+
 ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
         SettingsFile *settings_file, Project *the_project) :
     Widget(gui_window),
@@ -64,6 +70,7 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
     gui->events.attach_handler(EventMidiDeviceChange, device_change_callback, this);
     scroll_bar->events.attach_handler(EventScrollValueChange, scroll_change_callback, this);
     project->events.attach_handler(EventProjectAudioAssetsChanged, audio_assets_change_callback, this);
+    project->events.attach_handler(EventProjectAudioClipsChanged, audio_clips_change_callback, this);
 
     root_node = create_parent_node(nullptr, "");
     root_node->indent_level = -1;
@@ -72,11 +79,13 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
     playback_devices_root = create_parent_node(root_node, "Playback Devices");
     recording_devices_root = create_parent_node(root_node, "Recording Devices");
     midi_devices_root = create_parent_node(root_node, "MIDI Devices");
+    audio_clips_root = create_parent_node(root_node, "Audio Clips");
     audio_assets_root = create_parent_node(root_node, "Audio Assets");
     samples_root = create_parent_node(root_node, "External Samples");
 
     refresh_devices();
     refresh_audio_assets();
+    refresh_audio_clips();
     scan_sample_dirs();
 
     sample_context_menu = create<MenuWidgetItem>(gui_window);
@@ -362,6 +371,15 @@ ResourcesTreeWidget::Node *ResourcesTreeWidget::create_audio_asset_node() {
     return node;
 }
 
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_audio_clip_node() {
+    Node *node = ok_mem(create_zero<Node>());
+    node->node_type = NodeTypeAudioClip;
+    node->parent_node = audio_clips_root;
+    node->icon_img = gui->img_plug;
+    ok_or_panic(node->parent_node->parent_data->children.append(node));
+    return node;
+}
+
 ResourcesTreeWidget::Node *ResourcesTreeWidget::create_parent_node(Node *parent, const char *text) {
     Node *node = ok_mem(create_zero<Node>());
     node->text = text;
@@ -478,6 +496,11 @@ void ResourcesTreeWidget::mouse_down_node(Node *node, const MouseEvent *event) {
         drag_data->drag_type = DragTypeSampleFile;
         drag_data->ptr = dragged_sample_file;
         drag_data->destruct = destruct_sample_file_drag;
+        gui_window->start_drag(event, drag_data);
+    } else if (node->node_type == NodeTypeAudioAsset) {
+        DragData *drag_data = ok_mem(create_zero<DragData>());
+        drag_data->drag_type = DragTypeAudioAsset;
+        drag_data->ptr = node->audio_asset;
         gui_window->start_drag(event, drag_data);
     }
 }
@@ -740,6 +763,21 @@ void ResourcesTreeWidget::refresh_audio_assets() {
         node->text = node->audio_asset->path;
     }
     trim_extra_children(audio_assets_root, i);
+}
+
+void ResourcesTreeWidget::refresh_audio_clips() {
+    int i;
+    for (i = 0; i < project->audio_clip_list.length(); i += 1) {
+        Node *node;
+        if (i < audio_clips_root->parent_data->children.length()) {
+            node = audio_clips_root->parent_data->children.at(i);
+        } else {
+            node = create_audio_clip_node();
+        }
+        node->audio_clip = project->audio_clip_list.at(i);
+        node->text = node->audio_clip->name;
+    }
+    trim_extra_children(audio_clips_root, i);
 }
 
 void ResourcesTreeWidget::trim_extra_children(Node *parent, int desired_children_count) {

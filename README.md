@@ -106,6 +106,7 @@ make
 
  0. drag from audio asset in project tree to track editor
     - makes an audio clip
+ 0. making an audio clip should go through undo history framework
  0. drag from samples directly into track editor
 
 ## Grand Plans

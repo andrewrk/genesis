@@ -211,18 +211,42 @@ void TrackEditorWidget::clear_track_context_menu() {
 }
 
 void TrackEditorWidget::on_drag(const DragEvent *event) {
-    if (event->drag_data->drag_type == DragTypeSampleFile) {
-        if (event->action == DragActionDrop) {
-            GuiTrack *gui_track = get_track_body_at(event->mouse_event.x, event->mouse_event.y);
-            if (!gui_track)
-                return;
+    switch (event->drag_data->drag_type) {
+        default: break;
+        case DragTypeSampleFile:
+            on_drag_sample_file((DraggedSampleFile *)event->drag_data->ptr, event);
+            break;
+        case DragTypeAudioAsset:
+            on_drag_audio_asset((AudioAsset *)event->drag_data->ptr, event);
+            break;
+    }
+}
 
-            DraggedSampleFile *dragged_sample_file = (DraggedSampleFile *)event->drag_data->ptr;
-            AudioAsset *audio_asset;
-            ok_or_panic(project_add_audio_asset(project, dragged_sample_file->full_path, &audio_asset));
+void TrackEditorWidget::on_drag_sample_file(DraggedSampleFile *dragged_sample_file, const DragEvent *event) {
+    if (event->action == DragActionDrop) {
+        GuiTrack *gui_track = get_track_body_at(event->mouse_event.x, event->mouse_event.y);
+        if (!gui_track)
+            return;
 
-            AudioClip *audio_clip;
-            ok_or_panic(project_add_audio_clip(project, audio_asset, &audio_clip));
+        int err;
+        AudioAsset *audio_asset;
+        if ((err = project_add_audio_asset(project, dragged_sample_file->full_path, &audio_asset))) {
+            if (err != GenesisErrorAlreadyExists)
+                ok_or_panic(err);
         }
+
+        AudioClip *audio_clip;
+        ok_or_panic(project_add_audio_clip(project, audio_asset, &audio_clip));
+    }
+}
+
+void TrackEditorWidget::on_drag_audio_asset(AudioAsset *audio_asset, const DragEvent *event) {
+    if (event->action == DragActionDrop) {
+        GuiTrack *gui_track = get_track_body_at(event->mouse_event.x, event->mouse_event.y);
+        if (!gui_track)
+            return;
+
+        AudioClip *audio_clip;
+        ok_or_panic(project_add_audio_clip(project, audio_asset, &audio_clip));
     }
 }

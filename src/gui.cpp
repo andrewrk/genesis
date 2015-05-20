@@ -65,6 +65,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_arrow_left(_spritesheet.get_image_info("font-awesome/arrow-left.png")),
     img_arrow_right(_spritesheet.get_image_info("font-awesome/arrow-right.png")),
     img_music(_spritesheet.get_image_info("font-awesome/music.png")),
+    img_plug(_spritesheet.get_image_info("font-awesome/plug.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
     _genesis_context(context),
     dragging(false),
