@@ -9,6 +9,7 @@
 
 static const int SEGMENT_PADDING = 2;
 static const int EXTRA_SCROLL_WIDTH = 200;
+static const int SEGMENT_TITLE_PADDING = 2;
 
 static void insert_track_before_handler(void *userdata) {
     TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
@@ -257,7 +258,7 @@ void TrackEditorWidget::update_model() {
     for (int track_i = 0; track_i < gui_tracks.length(); track_i += 1) {
         GuiTrack *gui_track = gui_tracks.at(track_i);
         bool visible = (gui_track->bottom - vert_scroll_bar->value >= track_area_top &&
-                        gui_track->top - vert_scroll_bar->value < track_area_bottom);
+                gui_track->top - vert_scroll_bar->value < track_area_bottom);
         if (!visible)
             continue;
 
@@ -295,7 +296,7 @@ void TrackEditorWidget::update_model() {
         for (int segment_i = 0; segment_i < gui_track->gui_audio_clip_segments.length(); segment_i += 1) {
             GuiAudioClipSegment *gui_audio_clip_segment = gui_track->gui_audio_clip_segments.at(segment_i);
             bool visible = (gui_audio_clip_segment->right - horiz_scroll_bar->value >= body_left &&
-                            gui_audio_clip_segment->left - horiz_scroll_bar->value < gui_track->right);
+                    gui_audio_clip_segment->left - horiz_scroll_bar->value < gui_track->right);
 
             if (!visible)
                 continue;
@@ -329,12 +330,20 @@ void TrackEditorWidget::update_model() {
                     display_audio_clip_segment->left, display_audio_clip_segment->top,
                     segment_width, segment_height);
 
-            /*
-             * TODO
-            SunkenBox title_bar;
-            Label *label;
-            glm::mat4 label_model;
-            */
+            AudioClip *audio_clip = display_audio_clip_segment->gui_segment->segment->audio_clip;
+            display_audio_clip_segment->label->set_text(audio_clip->name);
+            display_audio_clip_segment->label->update();
+
+            int label_left = display_audio_clip_segment->left + segment_width / 2 -
+                display_audio_clip_segment->label->width() / 2;
+            int label_top = display_audio_clip_segment->top + SEGMENT_TITLE_PADDING;
+            display_audio_clip_segment->label_model = transform2d(label_left, label_top);
+
+            int title_bar_height = display_audio_clip_segment->label->height() + SEGMENT_TITLE_PADDING * 2;
+            display_audio_clip_segment->title_bar.set_scheme(SunkenBoxSchemeRaisedBorders);
+            display_audio_clip_segment->title_bar.update(this,
+                    display_audio_clip_segment->left, display_audio_clip_segment->top,
+                    segment_width, title_bar_height);
         }
     }
 }

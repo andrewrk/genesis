@@ -105,9 +105,7 @@ make
 
 ## Roadmap
 
- 0. drag audio clips to track editor to create audio clip segment
  0. drag samples directly to track editor
- 0. audio clip segment: display title bar
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move
 
