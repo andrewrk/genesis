@@ -20,6 +20,7 @@ public:
     void draw(const glm::mat4 &projection) override;
     void on_resize() override { update_model(); }
     void on_mouse_move(const MouseEvent *event) override;
+    void on_mouse_wheel(const MouseWheelEvent *event) override;
     void on_drag(const DragEvent *) override;
 
 
@@ -46,22 +47,34 @@ public:
     glm::vec4 light_border_color;
 
     SunkenBox timeline_bg;
+    glm::mat4 stencil_model;
 
+    struct DisplayTrack;
     struct GuiTrack {
         Track *track;
+        DisplayTrack *display_track;
+        int left;
+        int right;
+        int top;
+        int bottom;
+    };
+
+    struct DisplayTrack {
+        GuiTrack *gui_track;
         SunkenBox head_bg;
         SunkenBox body_bg;
         glm::mat4 border_top_model;
         glm::mat4 border_bottom_model;
-
         Label *track_name_label;
         glm::mat4 track_name_label_model;
-
-        int left;
+        // adjusted for scroll position
         int top;
         int bottom;
     };
-    List<GuiTrack *> tracks;
+
+    List<GuiTrack *> gui_tracks;
+    List<DisplayTrack *> display_tracks;
+    int display_track_count;
 
     MenuWidgetItem *track_context_menu;
     GuiTrack *menu_track;
@@ -77,6 +90,9 @@ public:
     GuiTrack *get_track_head_at(int x, int y);
     void on_drag_sample_file(DraggedSampleFile *dragged_sample_file, const DragEvent *event);
     void on_drag_audio_asset(AudioAsset *audio_asset, const DragEvent *event);
+    void refresh_tracks();
+    DisplayTrack * create_display_track(GuiTrack *gui_track);
+    void destroy_display_track(DisplayTrack *display_track);
 };
 
 #endif

@@ -232,7 +232,7 @@ void ResourcesTreeWidget::destroy_node_display(NodeDisplay *node_display) {
 
 void ResourcesTreeWidget::update_model() {
 
-    int available_width = width - scroll_bar->width - padding_left - padding_right;
+    int available_width = width - scroll_bar->min_width() - padding_left - padding_right;
     int available_height = height - padding_bottom - padding_top;
 
     stencil_model = transform2d(padding_left, padding_top, available_width, available_height);

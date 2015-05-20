@@ -105,7 +105,7 @@ make
 
 ## Roadmap
 
- 0. drag from samples directly into track editor
+ 0. drag audio clips to track editor to create audio clip segment
 
 ## Design
 
