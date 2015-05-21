@@ -129,6 +129,7 @@ public:
     void destroy_display_audio_clip_segment(DisplayAudioClipSegment *display_audio_clip_segment);
     void destroy_gui_audio_clip_segment(GuiAudioClipSegment *gui_audio_clip_segment);
     int whole_note_to_pixel(double whole_note_pos);
+    double pixel_to_whole_note(int pixel_x);
 };
 
 #endif

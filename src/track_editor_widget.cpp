@@ -181,6 +181,10 @@ int TrackEditorWidget::whole_note_to_pixel(double whole_note_pos) {
     return body_left + pixels_per_whole_note * whole_note_pos;
 }
 
+double TrackEditorWidget::pixel_to_whole_note(int pixel_x) {
+    return (pixel_x - body_left) / pixels_per_whole_note;
+}
+
 void TrackEditorWidget::update_model() {
     int timeline_top = horiz_scroll_bar->min_height();
     int timeline_bottom = timeline_top + timeline_height;
@@ -471,7 +475,7 @@ void TrackEditorWidget::on_drag_audio_clip(AudioClip *audio_clip, const DragEven
             return;
 
         long end = project_audio_clip_frame_count(project, audio_clip);
-        double pos = 0;
+        double pos = pixel_to_whole_note(event->mouse_event.x);
         project_add_audio_clip_segment(project, audio_clip, gui_track->track, 0, end, pos);
     }
 }
