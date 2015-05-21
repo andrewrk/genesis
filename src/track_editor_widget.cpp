@@ -121,7 +121,6 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
             DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
             segment->body.draw(gui_window, projection);
             segment->title_bar.draw(gui_window, projection);
-            segment->label->draw(projection * segment->label_model, track_name_color);
         }
 
         display_track->head_bg.draw(gui_window, projection);
@@ -130,6 +129,34 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
 
         gui_window->fill_rect(light_border_color, projection * display_track->border_top_model);
         gui_window->fill_rect(dark_border_color, projection * display_track->border_bottom_model);
+    }
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+    glStencilMask(0xFF);
+
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    for (int track_i = 0; track_i < display_track_count; track_i += 1) {
+        DisplayTrack *display_track = display_tracks.at(track_i);
+
+        for (int segment_i = 0; segment_i < display_track->display_audio_clip_segment_count; segment_i += 1) {
+            DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
+            segment->title_bar.draw(gui_window, projection);
+        }
+    }
+
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glStencilMask(0x00);
+
+    for (int track_i = 0; track_i < display_track_count; track_i += 1) {
+        DisplayTrack *display_track = display_tracks.at(track_i);
+
+        for (int segment_i = 0; segment_i < display_track->display_audio_clip_segment_count; segment_i += 1) {
+            DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
+
+            segment->label->draw(projection * segment->label_model, track_name_color);
+        }
     }
 
     glDisable(GL_STENCIL_TEST);
@@ -338,8 +365,13 @@ void TrackEditorWidget::update_model() {
             display_audio_clip_segment->label->set_text(audio_clip->name);
             display_audio_clip_segment->label->update();
 
-            int label_left = display_audio_clip_segment->left + segment_width / 2 -
-                display_audio_clip_segment->label->width() / 2;
+            int label_left;
+            if (display_audio_clip_segment->label->width() >= segment_width) {
+                label_left = display_audio_clip_segment->left;
+            } else {
+                label_left = display_audio_clip_segment->left + segment_width / 2 -
+                    display_audio_clip_segment->label->width() / 2;
+            }
             int label_top = display_audio_clip_segment->top + SEGMENT_TITLE_PADDING;
             display_audio_clip_segment->label_model = transform2d(label_left, label_top);
 
