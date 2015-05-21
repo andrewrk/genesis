@@ -27,7 +27,7 @@ GlobalGlfwContext::GlobalGlfwContext() {
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GENESIS_DEBUG_MODE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_DEPTH_BITS, 0);
-    glfwWindowHint(GLFW_STENCIL_BITS, 1);
+    glfwWindowHint(GLFW_STENCIL_BITS, 8);
 
 }
 

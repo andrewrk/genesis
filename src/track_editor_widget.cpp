@@ -93,6 +93,9 @@ TrackEditorWidget::~TrackEditorWidget() {
 }
 
 void TrackEditorWidget::draw(const glm::mat4 &projection) {
+    glm::vec4 white = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    glm::mat4 stencil_mvp = projection * stencil_model;
+
     timeline_bg.draw(gui_window, projection);
     horiz_scroll_bar->draw(projection);
     vert_scroll_bar->draw(projection);
@@ -106,7 +109,7 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glClear(GL_STENCIL_BUFFER_BIT);
 
-    gui_window->fill_rect(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), projection * stencil_model);
+    gui_window->fill_rect(white, stencil_mvp);
 
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilMask(0x00);
@@ -122,6 +125,38 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
             segment->body.draw(gui_window, projection);
             segment->title_bar.draw(gui_window, projection);
         }
+    }
+
+    glStencilMask(0xFF);
+    glStencilOp(GL_KEEP, GL_INCR, GL_INCR);
+
+    for (int track_i = 0; track_i < display_track_count; track_i += 1) {
+        DisplayTrack *display_track = display_tracks.at(track_i);
+
+        for (int segment_i = 0; segment_i < display_track->display_audio_clip_segment_count; segment_i += 1) {
+            DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
+
+            glClear(GL_STENCIL_BUFFER_BIT);
+            glStencilFunc(GL_ALWAYS, 1, 0xFF);
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+            gui_window->fill_rect(white, stencil_mvp);
+
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glStencilFunc(GL_LEQUAL, 1, 0xFF);
+
+            segment->title_bar.draw(gui_window, projection);
+
+            glStencilFunc(GL_LEQUAL, 2, 0xFF);
+
+            segment->label->draw(projection * segment->label_model, track_name_color);
+        }
+    }
+
+    glDisable(GL_STENCIL_TEST);
+
+    for (int track_i = 0; track_i < display_track_count; track_i += 1) {
+        DisplayTrack *display_track = display_tracks.at(track_i);
 
         display_track->head_bg.draw(gui_window, projection);
         display_track->track_name_label->draw(
@@ -130,36 +165,6 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
         gui_window->fill_rect(light_border_color, projection * display_track->border_top_model);
         gui_window->fill_rect(dark_border_color, projection * display_track->border_bottom_model);
     }
-
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
-    glStencilMask(0xFF);
-
-    glClear(GL_STENCIL_BUFFER_BIT);
-
-    for (int track_i = 0; track_i < display_track_count; track_i += 1) {
-        DisplayTrack *display_track = display_tracks.at(track_i);
-
-        for (int segment_i = 0; segment_i < display_track->display_audio_clip_segment_count; segment_i += 1) {
-            DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
-            segment->title_bar.draw(gui_window, projection);
-        }
-    }
-
-    glStencilFunc(GL_EQUAL, 1, 0xFF);
-    glStencilMask(0x00);
-
-    for (int track_i = 0; track_i < display_track_count; track_i += 1) {
-        DisplayTrack *display_track = display_tracks.at(track_i);
-
-        for (int segment_i = 0; segment_i < display_track->display_audio_clip_segment_count; segment_i += 1) {
-            DisplayAudioClipSegment *segment = display_track->display_audio_clip_segments.at(segment_i);
-
-            segment->label->draw(projection * segment->label_model, track_name_color);
-        }
-    }
-
-    glDisable(GL_STENCIL_TEST);
 }
 
 TrackEditorWidget::DisplayTrack * TrackEditorWidget::create_display_track(GuiTrack *gui_track) {
