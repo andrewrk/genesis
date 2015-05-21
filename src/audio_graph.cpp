@@ -159,7 +159,15 @@ void project_play_sample_file(Project *project, const ByteBuffer &path) {
 }
 
 void project_play_audio_asset(Project *project, AudioAsset *audio_asset) {
-    ok_or_panic(project_ensure_audio_asset_loaded(project, audio_asset));
+    int err;
+    if ((err = project_ensure_audio_asset_loaded(project, audio_asset))) {
+        if (err == GenesisErrorDecodingAudio) {
+            fprintf(stderr, "Error decoding audio\n");
+            return;
+        } else {
+            ok_or_panic(err);
+        }
+    }
 
     play_audio_file(project, audio_asset->audio_file, true);
 }

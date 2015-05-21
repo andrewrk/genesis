@@ -105,11 +105,13 @@ make
 
 ## Roadmap
 
+ 0. playback
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move
  0. right click to delete audio clip segments
  0. drag audio clip: display clip even while drag ongoing
+ 0. quantization when dragging (hold alt to disable)
 
 ## Design
 
