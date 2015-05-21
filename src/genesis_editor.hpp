@@ -32,6 +32,9 @@ struct EditorWindow {
     MenuWidgetItem *redo_menu;
     MenuWidgetItem *always_show_tabs_menu;
     MenuWidgetItem *show_view_menu;
+    MenuWidgetItem *toggle_playback_menu;
+    MenuWidgetItem *restart_playback_menu;
+    MenuWidgetItem *stop_playback_menu;
     bool always_show_tabs;
     DockAreaWidget* dock_area;
     TextWidget *fps_widget;
@@ -81,6 +84,10 @@ public:
 
     void show_view(EditorPane *editor_pane);
     DockablePaneWidget *find_pane(EditorPane *editor_pane, DockAreaWidget *dock_area);
+
+    void toggle_playback();
+    void restart_playback();
+    void stop_playback();
 
     GenesisEditor(const GenesisEditor &copy) = delete;
     GenesisEditor &operator=(const GenesisEditor &copy) = delete;

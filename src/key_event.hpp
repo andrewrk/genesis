@@ -202,6 +202,7 @@ static inline KeySequence make_shortcut(int modifiers, VirtKey key) {
 static inline KeySequence no_shortcut() { return make_shortcut(-1, VirtKeyUnknown); }
 static inline KeySequence alt_shortcut(VirtKey key) { return make_shortcut(KeyModAlt, key); }
 static inline KeySequence ctrl_shortcut(VirtKey key) { return make_shortcut(KeyModControl, key); }
+static inline KeySequence shift_shortcut(VirtKey key) { return make_shortcut(KeyModShift, key); }
 static inline KeySequence ctrl_shift_shortcut(VirtKey key) { return make_shortcut(KeyModControl|KeyModShift, key); }
 static inline KeySequence shortcut(VirtKey key) { return make_shortcut(0, key); }
 

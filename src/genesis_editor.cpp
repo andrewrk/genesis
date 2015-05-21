@@ -83,6 +83,21 @@ static void show_dock_handler(void *userdata) {
     genesis_editor->show_view(editor_pane);
 }
 
+static void toggle_playback_handler(void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->toggle_playback();
+}
+
+static void restart_playback_handler(void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->restart_playback();
+}
+
+static void stop_playback_handler(void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->stop_playback();
+}
+
 GenesisEditor::GenesisEditor() :
     project(nullptr)
 {
@@ -263,6 +278,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     MenuWidget *menu_widget = create<MenuWidget>(new_window);
     MenuWidgetItem *project_menu = menu_widget->add_menu("&Project");
     MenuWidgetItem *edit_menu = menu_widget->add_menu("&Edit");
+    MenuWidgetItem *playback_menu = menu_widget->add_menu("P&layback");
     MenuWidgetItem *window_menu = menu_widget->add_menu("&Window");
     MenuWidgetItem *help_menu = menu_widget->add_menu("&Help");
 
@@ -270,6 +286,10 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     MenuWidgetItem *undo_menu = edit_menu->add_menu("&Undo", ctrl_shortcut(VirtKeyZ));
     MenuWidgetItem *redo_menu = edit_menu->add_menu("&Redo", ctrl_shift_shortcut(VirtKeyZ));
+
+    MenuWidgetItem *toggle_playback_menu = playback_menu->add_menu("&Play", shortcut(VirtKeySpace));
+    MenuWidgetItem *restart_playback_menu = playback_menu->add_menu("&Restart", shortcut(VirtKeyEnter));
+    MenuWidgetItem *stop_playback_menu = playback_menu->add_menu("&Stop", shift_shortcut(VirtKeyEnter));
 
     MenuWidgetItem *new_window_menu = window_menu->add_menu("&New Window", no_shortcut());
     MenuWidgetItem *close_window_menu = window_menu->add_menu("&Close", alt_shortcut(VirtKeyF4));
@@ -285,6 +305,10 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     undo_menu->set_activate_handler(undo_handler, this);
     redo_menu->set_activate_handler(redo_handler, this);
 
+    toggle_playback_menu->set_activate_handler(toggle_playback_handler, this);
+    restart_playback_menu->set_activate_handler(restart_playback_handler, this);
+    stop_playback_menu->set_activate_handler(stop_playback_handler, this);
+
     new_window_menu->set_activate_handler(new_window_handler, this);
     close_window_menu->set_activate_handler(close_window_handler, editor_window);
     close_others_menu->set_activate_handler(close_others_handler, editor_window);
@@ -297,6 +321,9 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     editor_window->redo_menu = redo_menu;
     editor_window->always_show_tabs_menu = always_show_tabs_menu;
     editor_window->show_view_menu = show_view_menu;
+    editor_window->toggle_playback_menu = toggle_playback_menu;
+    editor_window->restart_playback_menu = restart_playback_menu;
+    editor_window->stop_playback_menu = stop_playback_menu;
 
     TextWidget *fps_widget = create<TextWidget>(new_window);
     fps_widget->set_text_interaction(false);
@@ -524,4 +551,16 @@ DockablePaneWidget *GenesisEditor::find_pane(EditorPane *editor_pane, DockAreaWi
             return pane;
     }
     panic("invalid dock area layout");
+}
+
+void GenesisEditor::toggle_playback() {
+    panic("TODO toggle playback");
+}
+
+void GenesisEditor::restart_playback() {
+    panic("TODO restart playback");
+}
+
+void GenesisEditor::stop_playback() {
+    panic("TODO stop playback");
 }
