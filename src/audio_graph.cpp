@@ -257,7 +257,10 @@ void project_set_play_head(Project *project, double pos) {
 }
 
 void project_pause(Project *project) {
-    // TODO
+    if (!project->is_playing)
+        return;
+    project->is_playing = false;
+    refresh_event_buffers();
 }
 
 void project_play(Project *project) {

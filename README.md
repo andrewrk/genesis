@@ -106,7 +106,6 @@ make
 ## Roadmap
 
  0. playback
-    - pausing
     - restart playback
     - add nodes in the graph for audio clips
  0. make a playback selection
