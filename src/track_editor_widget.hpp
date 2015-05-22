@@ -48,12 +48,15 @@ public:
     glm::vec4 light_border_color;
 
     SunkenBox timeline_bg;
-    glm::mat4 stencil_model;
+    glm::mat4 track_area_stencil;
+    glm::mat4 widget_stencil;
 
     const SpritesheetImage *play_head_icon;
     glm::vec4 play_head_color;
     glm::mat4 play_head_icon_model;
     glm::mat4 play_head_model;
+    glm::vec4 timeline_bottom_border_color;
+    glm::mat4 timeline_bottom_border_model;
 
     double pixels_per_whole_note;
 

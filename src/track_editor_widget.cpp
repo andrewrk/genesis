@@ -61,6 +61,7 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
 {
     play_head_color = parse_color("#F47A28AA");
     play_head_icon = gui->img_play_head;
+    timeline_bottom_border_color = color_light_border();
 
     display_track_count = 0;
     vert_scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
@@ -105,11 +106,8 @@ TrackEditorWidget::~TrackEditorWidget() {
 
 void TrackEditorWidget::draw(const glm::mat4 &projection) {
     glm::vec4 white = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    glm::mat4 stencil_mvp = projection * stencil_model;
-
-    timeline_bg.draw(gui_window, projection);
-    horiz_scroll_bar->draw(projection);
-    vert_scroll_bar->draw(projection);
+    glm::mat4 track_area_stencil_mvp = projection * track_area_stencil;
+    glm::mat4 widget_stencil_mvp = projection * widget_stencil;
 
     glEnable(GL_STENCIL_TEST);
 
@@ -120,7 +118,7 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glClear(GL_STENCIL_BUFFER_BIT);
 
-    gui_window->fill_rect(white, stencil_mvp);
+    gui_window->fill_rect(white, track_area_stencil_mvp);
 
     glStencilFunc(GL_EQUAL, 1, 0xFF);
     glStencilMask(0x00);
@@ -151,7 +149,7 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
             glStencilFunc(GL_ALWAYS, 1, 0xFF);
             glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-            gui_window->fill_rect(white, stencil_mvp);
+            gui_window->fill_rect(white, track_area_stencil_mvp);
 
             glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
             glStencilFunc(GL_LEQUAL, 1, 0xFF);
@@ -163,6 +161,20 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
             segment->label->draw(projection * segment->label_model, track_name_color);
         }
     }
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
+
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    gui_window->fill_rect(white, widget_stencil_mvp);
+
+    glStencilFunc(GL_EQUAL, 1, 0xFF);
+    glStencilMask(0x00);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    gui_window->fill_rect(play_head_color, projection * play_head_model);
 
     glDisable(GL_STENCIL_TEST);
 
@@ -177,8 +189,12 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
         gui_window->fill_rect(dark_border_color, projection * display_track->border_bottom_model);
     }
 
+    timeline_bg.draw(gui_window, projection);
+    gui_window->fill_rect(timeline_bottom_border_color, projection * timeline_bottom_border_model);
     gui->draw_image_color(gui_window, play_head_icon, projection * play_head_icon_model, play_head_color);
-    gui_window->fill_rect(play_head_color, projection * play_head_model);
+
+    horiz_scroll_bar->draw(projection);
+    vert_scroll_bar->draw(projection);
 }
 
 TrackEditorWidget::DisplayTrack * TrackEditorWidget::create_display_track(GuiTrack *gui_track) {
@@ -248,6 +264,7 @@ void TrackEditorWidget::update_model() {
     int timeline_top = horiz_scroll_bar->min_height();
     timeline_bottom = timeline_top + timeline_height;
     timeline_bg.update(this, 0, timeline_top, width, timeline_height);
+    timeline_bottom_border_model = transform2d(0, timeline_bottom - 1, width, 1);
 
     int track_area_top = timeline_bottom;
     track_area_bottom = track_area_top + (height - track_area_top);
@@ -292,7 +309,8 @@ void TrackEditorWidget::update_model() {
     int full_height = next_top - first_top;
     int available_height = track_area_bottom - track_area_top;
 
-    stencil_model = transform2d(0, track_area_top, track_width, available_height);
+    track_area_stencil = transform2d(0, track_area_top, track_width, available_height);
+    widget_stencil = transform2d(0, 0, width, height);
 
     vert_scroll_bar->left = left + width - vert_scroll_bar->min_width();
     vert_scroll_bar->top = top + timeline_bottom;

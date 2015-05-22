@@ -106,6 +106,8 @@ make
 ## Roadmap
 
  0. playback
+    - press play and play head should move according to sound card buffer
+    - add nodes in the graph for audio clips
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move
