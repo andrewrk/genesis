@@ -133,6 +133,8 @@ struct Project {
     long audio_file_frame_index;
     PlayChannelContext audio_file_channel_context[GENESIS_MAX_CHANNELS];
     bool preview_audio_file_is_asset;
+
+    double play_head_pos; // in whole notes
 };
 
 int project_get_next_revision(Project *project);

@@ -36,7 +36,7 @@ static void synth_run(struct GenesisNode *node) {
     struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) node->ports[0];
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
-    struct GenesisPort *audio_out_port = node->ports[1];
+    struct GenesisPort *audio_out_port = genesis_node_port(node, 1);
 
     int event_byte_count = events_out_port->event_buffer->fill_count();
     int event_count = event_byte_count / sizeof(GenesisMidiEvent);

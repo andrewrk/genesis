@@ -67,6 +67,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_music(_spritesheet.get_image_info("font-awesome/music.png")),
     img_plug(_spritesheet.get_image_info("font-awesome/plug.png")),
     img_null(_spritesheet.get_image_info("img/null.png")),
+    img_play_head(_spritesheet.get_image_info("img/play_head.png")),
     _genesis_context(context),
     dragging(false),
     drag_data(nullptr),

@@ -13,6 +13,7 @@ struct DraggedSampleFile;
 struct AudioAsset;
 struct AudioClip;
 struct AudioClipSegment;
+class SpritesheetImage;
 
 class TrackEditorWidget : public Widget {
 public:
@@ -28,11 +29,13 @@ public:
 
     Project *project;
 
+    int timeline_bottom;
     int timeline_height;
     int track_head_width;
     int track_height;
     int head_left;
     int body_left;
+    int track_area_bottom;
 
     int track_name_label_padding_left;
     int track_name_label_padding_top;
@@ -46,6 +49,11 @@ public:
 
     SunkenBox timeline_bg;
     glm::mat4 stencil_model;
+
+    const SpritesheetImage *play_head_icon;
+    glm::vec4 play_head_color;
+    glm::mat4 play_head_icon_model;
+    glm::mat4 play_head_model;
 
     double pixels_per_whole_note;
 
@@ -111,6 +119,7 @@ public:
     ScrollBarWidget *horiz_scroll_bar;
 
     void update_model();
+    void update_play_head_model();
     GuiTrack *create_gui_track();
     DisplayTrack * create_display_track(GuiTrack *gui_track);
     DisplayAudioClipSegment * create_display_audio_clip_segment(

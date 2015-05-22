@@ -1,5 +1,5 @@
-#ifndef SPRITESHEET_H
-#define SPRITESHEET_H
+#ifndef SPRITESHEET_HPP
+#define SPRITESHEET_HPP
 
 #include "shader_program.hpp"
 #include "byte_buffer.hpp"

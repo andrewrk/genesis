@@ -56,6 +56,8 @@ static void connect_audio_nodes(Project *project, GenesisNode *source, GenesisNo
 int project_set_up_audio_graph(Project *project) {
     int err;
 
+    project->play_head_pos = 0.0;
+
     project->resample_descr = genesis_node_descriptor_find(project->genesis_context, "resample");
     if (!project->resample_descr)
         panic("unable to find resampler");

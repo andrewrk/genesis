@@ -6,6 +6,7 @@
 #include "menu_widget.hpp"
 #include "scroll_bar_widget.hpp"
 #include "dragged_sample_file.hpp"
+#include "gui.hpp"
 
 static const int SEGMENT_PADDING = 2;
 static const int EXTRA_SCROLL_WIDTH = 200;
@@ -52,6 +53,9 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     light_border_color(color_light_border()),
     menu_track(nullptr)
 {
+    play_head_color = parse_color("#F47A28AA");
+    play_head_icon = gui->img_play_head;
+
     display_track_count = 0;
     vert_scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
     vert_scroll_bar->parent_widget = this;
@@ -165,6 +169,9 @@ void TrackEditorWidget::draw(const glm::mat4 &projection) {
         gui_window->fill_rect(light_border_color, projection * display_track->border_top_model);
         gui_window->fill_rect(dark_border_color, projection * display_track->border_bottom_model);
     }
+
+    gui->draw_image_color(gui_window, play_head_icon, projection * play_head_icon_model, play_head_color);
+    gui_window->fill_rect(play_head_color, projection * play_head_model);
 }
 
 TrackEditorWidget::DisplayTrack * TrackEditorWidget::create_display_track(GuiTrack *gui_track) {
@@ -209,6 +216,7 @@ void TrackEditorWidget::destroy_display_audio_clip_segment(
     }
 }
 
+// these do not take scroll into account
 int TrackEditorWidget::whole_note_to_pixel(double whole_note_pos) {
     return body_left + pixels_per_whole_note * whole_note_pos;
 }
@@ -217,13 +225,25 @@ double TrackEditorWidget::pixel_to_whole_note(int pixel_x) {
     return (pixel_x - body_left) / pixels_per_whole_note;
 }
 
+void TrackEditorWidget::update_play_head_model() {
+    static const int ICON_WIDTH = 12;
+    static const int ICON_HEIGHT = 12;
+    float icon_scale_width = ICON_WIDTH / (float)play_head_icon->width;
+    float icon_scale_height = ICON_HEIGHT / (float)play_head_icon->height;
+    int play_head_x = whole_note_to_pixel(project->play_head_pos) - horiz_scroll_bar->value;
+    int icon_left = play_head_x - ICON_WIDTH / 2;
+    int icon_top = timeline_bottom - ICON_HEIGHT;
+    play_head_icon_model = transform2d(icon_left, icon_top, icon_scale_width, icon_scale_height);
+    play_head_model = transform2d(play_head_x, timeline_bottom, 1, track_area_bottom - timeline_bottom);
+}
+
 void TrackEditorWidget::update_model() {
     int timeline_top = horiz_scroll_bar->min_height();
-    int timeline_bottom = timeline_top + timeline_height;
+    timeline_bottom = timeline_top + timeline_height;
     timeline_bg.update(this, 0, timeline_top, width, timeline_height);
 
     int track_area_top = timeline_bottom;
-    int track_area_bottom = track_area_top + (height - track_area_top);
+    track_area_bottom = track_area_top + (height - track_area_top);
 
     int first_top = timeline_top + timeline_height;
     int next_top = first_top;
@@ -387,6 +407,8 @@ void TrackEditorWidget::update_model() {
                     segment_width, title_bar_height);
         }
     }
+
+    update_play_head_model();
 }
 
 TrackEditorWidget::GuiTrack * TrackEditorWidget::create_gui_track() {
@@ -511,8 +533,9 @@ void TrackEditorWidget::on_drag_audio_clip(AudioClip *audio_clip, const DragEven
         if (!gui_track)
             return;
 
+        int x_with_scroll = event->mouse_event.x + horiz_scroll_bar->value;
         long end = project_audio_clip_frame_count(project, audio_clip);
-        double pos = pixel_to_whole_note(event->mouse_event.x);
+        double pos = pixel_to_whole_note(x_with_scroll);
         project_add_audio_clip_segment(project, audio_clip, gui_track->track, 0, end, pos);
     }
 }

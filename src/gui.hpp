@@ -95,6 +95,8 @@ public:
     const SpritesheetImage *img_plug;
     const SpritesheetImage *img_null;
 
+    const SpritesheetImage *img_play_head;
+
     GenesisContext *_genesis_context;
 
     EventDispatcher events;
