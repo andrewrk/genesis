@@ -106,8 +106,10 @@ make
 ## Roadmap
 
  0. playback
-    - don't have to play an asset preview to get play head to movve
+    - pausing
+    - restart playback
     - add nodes in the graph for audio clips
+ 0. make a playback selection
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move

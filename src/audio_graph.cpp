@@ -81,6 +81,60 @@ static void connect_audio_nodes(Project *project, GenesisNode *source, GenesisNo
     panic("unable to connect source to dest: %s", genesis_error_string(err));
 }
 
+static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool is_asset) {
+    const struct GenesisChannelLayout *channel_layout;
+    int sample_rate;
+    long audio_file_frame_count;
+    if (audio_file) {
+        channel_layout = genesis_audio_file_channel_layout(audio_file);
+        sample_rate = genesis_audio_file_sample_rate(audio_file);
+        audio_file_frame_count = genesis_audio_file_frame_count(audio_file);
+    } else {
+        channel_layout = genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
+        sample_rate = 48000;
+        audio_file_frame_count = 0;
+    }
+
+    genesis_stop_pipeline(project->genesis_context);
+
+    genesis_node_disconnect_all_ports(project->playback_node);
+
+    if (project->resample_node) {
+        genesis_node_destroy(project->resample_node);
+        project->resample_node = nullptr;
+    }
+
+    if (project->audio_file && !project->preview_audio_file_is_asset) {
+        genesis_audio_file_destroy(project->audio_file);
+    }
+    project->audio_file = audio_file;
+    project->preview_audio_file_is_asset = is_asset;
+
+    genesis_audio_port_descriptor_set_channel_layout(project->audio_file_port_descr, channel_layout, true, -1);
+    genesis_audio_port_descriptor_set_sample_rate(project->audio_file_port_descr, sample_rate, true, -1);
+
+    if (project->audio_file_node)
+        genesis_node_destroy(project->audio_file_node);
+    project->audio_file_node = genesis_node_descriptor_create_node(project->audio_file_descr);
+
+    project->audio_file_frame_count = audio_file_frame_count;
+    project->audio_file_frame_index = 0;
+    if (project->audio_file) {
+        for (int ch = 0; ch < channel_layout->channel_count; ch += 1) {
+            struct PlayChannelContext *channel_context = &project->audio_file_channel_context[ch];
+            channel_context->offset = 0;
+            channel_context->iter = genesis_audio_file_iterator(project->audio_file, ch, 0);
+        }
+    }
+
+    ok_or_panic(genesis_connect_audio_nodes(project->spy_node, project->playback_node));
+    connect_audio_nodes(project, project->audio_file_node, project->spy_node);
+
+    int err;
+    if ((err = genesis_start_pipeline(project->genesis_context)))
+        panic("unable to start pipeline: %s", genesis_error_string(err));
+}
+
 int project_set_up_audio_graph(Project *project) {
     int err;
 
@@ -151,6 +205,8 @@ int project_set_up_audio_graph(Project *project) {
 
     genesis_audio_device_unref(audio_device);
 
+    play_audio_file(project, nullptr, true);
+
     return 0;
 }
 
@@ -160,48 +216,6 @@ void project_tear_down_audio_graph(Project *project) {
         genesis_node_destroy(project->playback_node);
         project->playback_node = nullptr;
     }
-}
-
-static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool is_asset) {
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
-    int sample_rate = genesis_audio_file_sample_rate(audio_file);
-
-    genesis_stop_pipeline(project->genesis_context);
-
-    genesis_node_disconnect_all_ports(project->playback_node);
-
-    if (project->resample_node) {
-        genesis_node_destroy(project->resample_node);
-        project->resample_node = nullptr;
-    }
-
-    if (project->audio_file && !project->preview_audio_file_is_asset) {
-        genesis_audio_file_destroy(project->audio_file);
-    }
-    project->audio_file = audio_file;
-    project->preview_audio_file_is_asset = is_asset;
-
-    genesis_audio_port_descriptor_set_channel_layout(project->audio_file_port_descr, channel_layout, true, -1);
-    genesis_audio_port_descriptor_set_sample_rate(project->audio_file_port_descr, sample_rate, true, -1);
-
-    if (project->audio_file_node)
-        genesis_node_destroy(project->audio_file_node);
-    project->audio_file_node = genesis_node_descriptor_create_node(project->audio_file_descr);
-
-    project->audio_file_frame_count = genesis_audio_file_frame_count(project->audio_file);
-    project->audio_file_frame_index = 0;
-    for (int ch = 0; ch < channel_layout->channel_count; ch += 1) {
-        struct PlayChannelContext *channel_context = &project->audio_file_channel_context[ch];
-        channel_context->offset = 0;
-        channel_context->iter = genesis_audio_file_iterator(project->audio_file, ch, 0);
-    }
-
-    ok_or_panic(genesis_connect_audio_nodes(project->spy_node, project->playback_node));
-    connect_audio_nodes(project, project->audio_file_node, project->spy_node);
-
-    int err;
-    if ((err = genesis_start_pipeline(project->genesis_context)))
-        panic("unable to start pipeline: %s", genesis_error_string(err));
 }
 
 void project_play_sample_file(Project *project, const ByteBuffer &path) {
