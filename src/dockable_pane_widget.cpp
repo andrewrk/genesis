@@ -412,10 +412,6 @@ void DockAreaWidget::add_tab_pane(DockablePaneWidget *pane) {
 }
 
 void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
-    MouseEvent mouse_event = *event;
-    mouse_event.x += left;
-    mouse_event.y += top;
-
     if (resize_down) {
         if (event->action == MouseActionUp && event->button == MouseButtonLeft) {
             resize_down = false;
@@ -433,6 +429,7 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
             split_ratio = clamp(0.0f, (resize_down_ratio * available_height + delta) / (float)available_height, 1.0f);
             update_model();
         }
+        return;
     }
 
     bool mouse_over_resize = false;
@@ -467,13 +464,13 @@ void DockAreaWidget::on_mouse_move(const MouseEvent *event) {
         gui_window->set_cursor_default();
     }
 
-    if (tab_widget && gui_window->try_mouse_move_event_on_widget(tab_widget, &mouse_event))
+    if (tab_widget && forward_mouse_event(tab_widget, event))
         return;
 
-    if (child_a && gui_window->try_mouse_move_event_on_widget(child_a, &mouse_event))
+    if (child_a && forward_mouse_event(child_a, event))
         return;
 
-    if (child_b && gui_window->try_mouse_move_event_on_widget(child_b, &mouse_event))
+    if (child_b && forward_mouse_event(child_b, event))
         return;
 }
 
@@ -659,11 +656,7 @@ void DockablePaneWidget::on_drag(const DragEvent *event) {
 }
 
 void DockablePaneWidget::on_mouse_move(const MouseEvent *event) {
-    MouseEvent mouse_event = *event;
-    mouse_event.x += left;
-    mouse_event.y += top;
-
-    gui_window->try_mouse_move_event_on_widget(child, &mouse_event);
+    forward_mouse_event(child, event);
 }
 
 void DockablePaneWidget::on_resize() {
