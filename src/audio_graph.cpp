@@ -1,5 +1,15 @@
 #include "audio_graph.hpp"
 
+static_assert(sizeof(long) == 8, "require long to be 8 bytes");
+
+static long whole_notes_as_long(double whole_notes) {
+    return (whole_notes * 4294967296.0);
+}
+
+static double whole_notes_as_double(long whole_notes) {
+    return whole_notes / 4294967296.0;
+}
+
 static void spy_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
     struct Project *project = (struct Project *)genesis_node_descriptor_userdata(node_descriptor);
@@ -23,7 +33,7 @@ static void spy_node_run(struct GenesisNode *node) {
     if (project->is_playing) {
         int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
         double whole_notes = genesis_frames_to_whole_notes(context, frame_count, frame_rate);
-        project->play_head_pos += whole_notes;
+        project->play_head_pos += whole_notes_as_long(whole_notes);
         project->play_head_changed_flag.clear();
     }
 }
@@ -138,7 +148,7 @@ static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool
 int project_set_up_audio_graph(Project *project) {
     int err;
 
-    project->play_head_pos = 0.0;
+    project->play_head_pos = whole_notes_as_long(0.0);
     project->is_playing = false;
 
     project->resample_descr = genesis_node_descriptor_find(project->genesis_context, "resample");
@@ -248,7 +258,7 @@ bool project_is_playing(Project *project) {
 }
 
 void project_set_play_head(Project *project, double pos) {
-    project->play_head_pos = max(0.0, pos);
+    project->play_head_pos = whole_notes_as_long(max(0.0, pos));
     project->events.trigger(EventProjectPlayHeadChanged);
 }
 
@@ -261,19 +271,20 @@ void project_pause(Project *project) {
 void project_play(Project *project) {
     if (project->is_playing)
         return;
-    project->start_play_head_pos = project->play_head_pos;
+    project->start_play_head_pos = whole_notes_as_double(project->play_head_pos);
     project->is_playing = true;
 }
 
 void project_restart_playback(Project *project) {
-    project->play_head_pos = project->start_play_head_pos;
+    project->play_head_pos = whole_notes_as_long(project->start_play_head_pos);
     project->is_playing = true;
     project->events.trigger(EventProjectPlayHeadChanged);
 }
 
 void project_stop_playback(Project *project) {
     project->is_playing = false;
-    project->play_head_pos = 0.0;
+    project->play_head_pos = whole_notes_as_long(0.0);
+    project->start_play_head_pos = 0.0;
     project->events.trigger(EventProjectPlayHeadChanged);
 }
 
@@ -281,4 +292,8 @@ void project_flush_events(Project *project) {
     if (!project->play_head_changed_flag.test_and_set()) {
         project->events.trigger(EventProjectPlayHeadChanged);
     }
+}
+
+double project_play_head_pos(Project *project) {
+    return whole_notes_as_double(project->play_head_pos);
 }

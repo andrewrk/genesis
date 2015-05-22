@@ -17,5 +17,6 @@ void project_restart_playback(Project *project);
 void project_stop_playback(Project *project);
 
 void project_flush_events(Project *project);
+double project_play_head_pos(Project *project);
 
 #endif

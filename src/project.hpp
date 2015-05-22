@@ -11,6 +11,7 @@
 #include <atomic>
 using std::atomic_flag;
 using std::atomic_bool;
+using std::atomic_long;
 
 struct Command;
 struct AudioClipSegment;
@@ -141,7 +142,7 @@ struct Project {
     bool preview_audio_file_is_asset;
 
     double start_play_head_pos;
-    double play_head_pos; // in whole notes
+    atomic_long play_head_pos; // in whole notes multiplied by 2^24
     atomic_bool is_playing;
     atomic_flag play_head_changed_flag;
 };

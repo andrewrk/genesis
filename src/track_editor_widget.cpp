@@ -253,7 +253,8 @@ void TrackEditorWidget::update_play_head_model() {
     static const int ICON_HEIGHT = 12;
     float icon_scale_width = ICON_WIDTH / (float)play_head_icon->width;
     float icon_scale_height = ICON_HEIGHT / (float)play_head_icon->height;
-    int play_head_x = whole_note_to_pixel(project->play_head_pos) - horiz_scroll_bar->value;
+    double play_head_pos = project_play_head_pos(project);
+    int play_head_x = whole_note_to_pixel(play_head_pos) - horiz_scroll_bar->value;
     int icon_left = play_head_x - ICON_WIDTH / 2;
     int icon_top = timeline_bottom - ICON_HEIGHT;
     play_head_icon_model = transform2d(icon_left, icon_top, icon_scale_width, icon_scale_height);
