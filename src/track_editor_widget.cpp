@@ -467,6 +467,14 @@ void TrackEditorWidget::scrub(const MouseEvent *event) {
 }
 
 void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
+    if (scrub_mouse_down) {
+        if (event->button == MouseButtonLeft && event->action == MouseActionUp) {
+            scrub_mouse_down = false;
+        } else if (event->action == MouseActionMove) {
+            scrub(event);
+        }
+        return;
+    }
     if (forward_mouse_event(vert_scroll_bar, event))
         return;
     if (forward_mouse_event(horiz_scroll_bar, event))
@@ -480,14 +488,6 @@ void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
     if (event->button == MouseButtonLeft && event->action == MouseActionDown) {
         scrub_mouse_down = true;
         scrub(event);
-        return;
-    }
-    if (event->action == MouseActionMove && scrub_mouse_down) {
-        scrub(event);
-        return;
-    }
-    if (event->button == MouseButtonLeft && event->action == MouseActionUp && scrub_mouse_down) {
-        scrub_mouse_down = false;
         return;
     }
 }
