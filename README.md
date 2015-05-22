@@ -105,9 +105,7 @@ make
 
 ## Roadmap
 
- 0. playback
-    - restart playback
-    - add nodes in the graph for audio clips
+ 0. playback should play the audio clips
  0. make a playback selection
  0. drag samples directly to track editor
  0. audio clip segment: display waveform

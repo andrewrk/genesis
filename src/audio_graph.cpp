@@ -247,10 +247,6 @@ bool project_is_playing(Project *project) {
     return project->is_playing;
 }
 
-static void refresh_event_buffers() {
-    // TODO
-}
-
 void project_set_play_head(Project *project, double pos) {
     project->play_head_pos = max(0.0, pos);
     project->events.trigger(EventProjectPlayHeadChanged);
@@ -260,24 +256,25 @@ void project_pause(Project *project) {
     if (!project->is_playing)
         return;
     project->is_playing = false;
-    refresh_event_buffers();
 }
 
 void project_play(Project *project) {
     if (project->is_playing)
         return;
     project->start_play_head_pos = project->play_head_pos;
-    refresh_event_buffers();
     project->is_playing = true;
-    // TODO
 }
 
 void project_restart_playback(Project *project) {
-    // TODO
+    project->play_head_pos = project->start_play_head_pos;
+    project->is_playing = true;
+    project->events.trigger(EventProjectPlayHeadChanged);
 }
 
 void project_stop_playback(Project *project) {
-    // TODO
+    project->is_playing = false;
+    project->play_head_pos = 0.0;
+    project->events.trigger(EventProjectPlayHeadChanged);
 }
 
 void project_flush_events(Project *project) {
