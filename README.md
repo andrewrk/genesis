@@ -106,7 +106,7 @@ make
 ## Roadmap
 
  0. playback
-    - press play and play head should move according to sound card buffer
+    - don't have to play an asset preview to get play head to movve
     - add nodes in the graph for audio clips
  0. drag samples directly to track editor
  0. audio clip segment: display waveform

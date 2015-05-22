@@ -177,7 +177,6 @@ void GuiWindow::teardown_context() {
 }
 
 void GuiWindow::window_iconify_callback(int iconified) {
-    MutexLocker locker(&gui->gui_mutex);
     _is_iconified = iconified;
 }
 
@@ -210,8 +209,6 @@ void GuiWindow::layout_main_widget() {
 }
 
 void GuiWindow::framebuffer_size_callback(int width, int height) {
-    MutexLocker locker(&gui->gui_mutex);
-
     handle_new_size(this, width, height);
 
     layout_main_widget();
@@ -227,13 +224,11 @@ void GuiWindow::set_main_widget(Widget *widget) {
 }
 
 void GuiWindow::window_size_callback(int width, int height) {
-    MutexLocker locker(&gui->gui_mutex);
     got_window_size(width, height);
     events.trigger(EventWindowSizeChange);
 }
 
 void GuiWindow::window_pos_callback(int left, int top) {
-    MutexLocker locker(&gui->gui_mutex);
     got_window_pos(left, top);
     events.trigger(EventWindowPosChange);
 }
@@ -249,12 +244,10 @@ void GuiWindow::got_window_size(int width, int height) {
 }
 
 void GuiWindow::window_close_callback() {
-    MutexLocker locker(&gui->gui_mutex);
     events.trigger(EventWindowClose);
 }
 
 void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
-    MutexLocker locker(&gui->gui_mutex);
 
     KeyEvent key_event = {
         (action == GLFW_PRESS || action == GLFW_REPEAT) ? KeyActionDown : KeyActionUp,
@@ -276,8 +269,6 @@ void GuiWindow::key_callback(int key, int scancode, int action, int mods) {
 }
 
 void GuiWindow::charmods_callback(unsigned int codepoint, int mods) {
-    MutexLocker locker(&gui->gui_mutex);
-
 
     TextInputEvent text_event = {
         codepoint,
@@ -301,8 +292,6 @@ int GuiWindow::get_modifiers() {
 }
 
 void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
-    MutexLocker locker(&gui->gui_mutex);
-
     int x = (xpos / (double)_client_width) * _width;
     int y = (ypos / (double)_client_height) * _height;
 
@@ -322,8 +311,6 @@ void GuiWindow::cursor_pos_callback(double xpos, double ypos) {
 }
 
 void GuiWindow::mouse_button_callback(int button, int action, int mods) {
-    MutexLocker locker(&gui->gui_mutex);
-
     MouseButton btn;
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
@@ -368,8 +355,6 @@ void GuiWindow::mouse_button_callback(int button, int action, int mods) {
 }
 
 void GuiWindow::scroll_callback(double xoffset, double yoffset) {
-    MutexLocker locker(&gui->gui_mutex);
-
     if (!_mouse_over_widget)
         return;
 

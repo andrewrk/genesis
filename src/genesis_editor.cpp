@@ -14,6 +14,7 @@
 #include "tab_widget.hpp"
 #include "mixer_widget.hpp"
 #include "piano_roll_widget.hpp"
+#include "audio_graph.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -67,13 +68,17 @@ static void always_show_tabs_handler(void *userdata) {
     genesis_editor->save_window_config();
 }
 
-static void on_fps_change(Event, void *userdata) {
+static void on_flush_events(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+
+    // update FPS labels
     ByteBuffer fps_text = ByteBuffer::format("%.0f fps", genesis_editor->gui->fps);
     for (int i = 0; i < genesis_editor->windows.length(); i += 1) {
         EditorWindow *editor_window = genesis_editor->windows.at(i);
         editor_window->fps_widget->set_text(fps_text);
     }
+
+    project_flush_events(genesis_editor->project);
 }
 
 static void show_dock_handler(void *userdata) {
@@ -121,7 +126,7 @@ GenesisEditor::GenesisEditor() :
 
     gui = create<Gui>(genesis_context, resource_bundle);
 
-    gui->events.attach_handler(EventFpsChange, on_fps_change, this);
+    gui->events.attach_handler(EventFlushEvents, on_flush_events, this);
 
     bool settings_dirty = false;
     if (settings_file->user_name.length() == 0) {
@@ -554,13 +559,17 @@ DockablePaneWidget *GenesisEditor::find_pane(EditorPane *editor_pane, DockAreaWi
 }
 
 void GenesisEditor::toggle_playback() {
-    panic("TODO toggle playback");
+    if (project_is_playing(project)) {
+        project_pause(project);
+    } else {
+        project_play(project);
+    }
 }
 
 void GenesisEditor::restart_playback() {
-    panic("TODO restart playback");
+    project_restart_playback(project);
 }
 
 void GenesisEditor::stop_playback() {
-    panic("TODO stop playback");
+    project_stop_playback(project);
 }

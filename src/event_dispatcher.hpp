@@ -13,7 +13,7 @@ enum Event {
     EventWindowSizeChange,
     EventAudioDeviceChange,
     EventMidiDeviceChange,
-    EventFpsChange,
+    EventFlushEvents,
     EventPerspectiveChange,
     EventScrollValueChange,
     EventProjectAudioAssetsChanged,
@@ -50,17 +50,23 @@ public:
     }
 
     void trigger(Event event) {
-        List<EventHandler *> handlers;
+        // we use the stack here because we want to call this function in the main loop
+        // need the memory on the stack because calling a handler might destroy this class
+        static const int MAX_HANDLERS = 256;
+        EventHandler * handlers[MAX_HANDLERS];
+        int handler_index = 0;
+
         for (int i = 0; i < event_handlers.length(); i += 1) {
             EventHandler *handler = &event_handlers.at(i);
             if (handler->event == event) {
-                ok_or_panic(handlers.append(handler));
+                handlers[handler_index++] = handler;
+                assert(handler_index <= MAX_HANDLERS);
             }
         }
         // we use a deferred list like this in case any event handlers
         // destroy this EventDispatcher
-        for (int i = 0; i < handlers.length(); i += 1) {
-            EventHandler *handler = handlers.at(i);
+        for (int i = 0; i < handler_index; i += 1) {
+            EventHandler *handler = handlers[i];
             handler->fn(handler->event, handler->userdata);
         }
     }

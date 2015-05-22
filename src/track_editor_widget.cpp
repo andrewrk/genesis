@@ -261,7 +261,7 @@ void TrackEditorWidget::update_play_head_model() {
 }
 
 void TrackEditorWidget::update_model() {
-    int timeline_top = horiz_scroll_bar->min_height();
+    timeline_top = horiz_scroll_bar->min_height();
     timeline_bottom = timeline_top + timeline_height;
     timeline_bg.update(this, 0, timeline_top, width, timeline_height);
     timeline_bottom_border_model = transform2d(0, timeline_bottom - 1, width, 1);
@@ -486,8 +486,10 @@ void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
         return;
     }
     if (event->button == MouseButtonLeft && event->action == MouseActionDown) {
-        scrub_mouse_down = true;
-        scrub(event);
+        if (event->y >= timeline_top && event->y <= timeline_bottom) {
+            scrub_mouse_down = true;
+            scrub(event);
+        }
         return;
     }
 }

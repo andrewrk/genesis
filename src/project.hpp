@@ -8,6 +8,10 @@
 #include "ordered_map_file.hpp"
 #include "event_dispatcher.hpp"
 
+#include <atomic>
+using std::atomic_flag;
+using std::atomic_bool;
+
 struct Command;
 struct AudioClipSegment;
 struct Project;
@@ -124,8 +128,10 @@ struct Project {
     GenesisContext *genesis_context;
     GenesisNodeDescriptor *resample_descr;
     GenesisNodeDescriptor *audio_file_descr;
+    GenesisNodeDescriptor *spy_descr;
     GenesisNode *audio_file_node;
     GenesisNode *resample_node;
+    GenesisNode *spy_node;
     GenesisNode *playback_node;
     GenesisAudioFile *audio_file;
     GenesisPortDescriptor *audio_file_port_descr;
@@ -134,7 +140,10 @@ struct Project {
     PlayChannelContext audio_file_channel_context[GENESIS_MAX_CHANNELS];
     bool preview_audio_file_is_asset;
 
+    double start_play_head_pos;
     double play_head_pos; // in whole notes
+    atomic_bool is_playing;
+    atomic_flag play_head_changed_flag;
 };
 
 int project_get_next_revision(Project *project);

@@ -29,6 +29,7 @@ public:
 
     Project *project;
 
+    int timeline_top;
     int timeline_bottom;
     int timeline_height;
     int track_head_width;

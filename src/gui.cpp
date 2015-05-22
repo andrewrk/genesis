@@ -1,6 +1,7 @@
 #include "gui.hpp"
 #include "debug.hpp"
 #include "os.hpp"
+#include "audio_graph.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -117,8 +118,12 @@ void Gui::exec() {
     fps = 60.0;
     double last_time = os_get_time();
     while (_running) {
+        gui_mutex.lock();
         genesis_flush_events(_genesis_context);
         glfwPollEvents();
+        events.trigger(EventFlushEvents);
+        gui_mutex.unlock();
+
         _utility_window->draw();
 
         double this_time = os_get_time();
@@ -126,7 +131,6 @@ void Gui::exec() {
         last_time = this_time;
         double this_fps = 1.0 / delta;
         fps = fps * 0.90 + this_fps * 0.10;
-        events.trigger(EventFpsChange);
     }
     gui_mutex.lock();
 }
