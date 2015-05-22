@@ -19,6 +19,7 @@ enum Event {
     EventProjectAudioAssetsChanged,
     EventProjectAudioClipsChanged,
     EventProjectAudioClipSegmentsChanged,
+    EventProjectPlayHeadChanged,
 };
 
 struct EventHandler {

@@ -118,6 +118,8 @@ public:
     ScrollBarWidget *vert_scroll_bar;
     ScrollBarWidget *horiz_scroll_bar;
 
+    bool scrub_mouse_down;
+
     void update_model();
     void update_play_head_model();
     GuiTrack *create_gui_track();
@@ -139,6 +141,7 @@ public:
     void destroy_gui_audio_clip_segment(GuiAudioClipSegment *gui_audio_clip_segment);
     int whole_note_to_pixel(double whole_note_pos);
     double pixel_to_whole_note(int pixel_x);
+    void scrub(const MouseEvent *event);
 };
 
 #endif

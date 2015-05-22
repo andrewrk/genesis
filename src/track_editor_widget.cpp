@@ -7,6 +7,7 @@
 #include "scroll_bar_widget.hpp"
 #include "dragged_sample_file.hpp"
 #include "gui.hpp"
+#include "audio_graph.hpp"
 
 static const int SEGMENT_PADDING = 2;
 static const int EXTRA_SCROLL_WIDTH = 200;
@@ -31,6 +32,11 @@ static void on_tracks_changed(Event, void *userdata) {
     TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
     track_editor_widget->refresh_tracks();
     track_editor_widget->update_model();
+}
+
+static void on_play_head_changed(Event, void *userdata) {
+    TrackEditorWidget *track_editor_widget = (TrackEditorWidget *)userdata;
+    track_editor_widget->update_play_head_model();
 }
 
 static void scroll_callback(Event, void *userdata) {
@@ -78,6 +84,7 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
 
     project->events.attach_handler(EventProjectTracksChanged, on_tracks_changed, this);
     project->events.attach_handler(EventProjectAudioClipSegmentsChanged, on_tracks_changed, this);
+    project->events.attach_handler(EventProjectPlayHeadChanged, on_play_head_changed, this);
     vert_scroll_bar->events.attach_handler(EventScrollValueChange, scroll_callback, this);
     horiz_scroll_bar->events.attach_handler(EventScrollValueChange, scroll_callback, this);
 }
@@ -436,6 +443,11 @@ void TrackEditorWidget::destroy_gui_track(GuiTrack *gui_track) {
     }
 }
 
+void TrackEditorWidget::scrub(const MouseEvent *event) {
+    double whole_note = pixel_to_whole_note(event->x + horiz_scroll_bar->value);
+    project_set_play_head(project, whole_note);
+}
+
 void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
     if (forward_mouse_event(vert_scroll_bar, event))
         return;
@@ -445,6 +457,20 @@ void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {
         GuiTrack *gui_track = get_track_head_at(event->x, event->y);
         if (gui_track)
             right_click_track_head(gui_track, event->x, event->y);
+        return;
+    }
+    if (event->button == MouseButtonLeft && event->action == MouseActionDown) {
+        scrub_mouse_down = true;
+        scrub(event);
+        return;
+    }
+    if (event->action == MouseActionMove && scrub_mouse_down) {
+        scrub(event);
+        return;
+    }
+    if (event->button == MouseButtonLeft && event->action == MouseActionUp && scrub_mouse_down) {
+        scrub_mouse_down = false;
+        return;
     }
 }
 

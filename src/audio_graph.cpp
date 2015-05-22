@@ -173,3 +173,8 @@ void project_play_audio_asset(Project *project, AudioAsset *audio_asset) {
 
     play_audio_file(project, audio_asset->audio_file, true);
 }
+
+void project_set_play_head(Project *project, double pos) {
+    project->play_head_pos = max(0.0, pos);
+    project->events.trigger(EventProjectPlayHeadChanged);
+}
