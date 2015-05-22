@@ -1114,6 +1114,14 @@ static int deserialize_audio_asset(Project *project, const ByteBuffer &key, cons
     return 0;
 }
 
+static void destroy_audio_clip(Project *project, AudioClip *audio_clip) {
+    if (audio_clip) {
+        if (audio_clip->node)
+            project_remove_node_from_audio_clip(project, audio_clip);
+        destroy(audio_clip, 1);
+    }
+}
+
 static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
     AudioClip *audio_clip = create_zero<AudioClip>();
     if (!audio_clip)
@@ -1121,25 +1129,27 @@ static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const
 
     int err;
     if ((err = object_key_to_id(key, &audio_clip->id))) {
-        destroy(audio_clip, 1);
+        destroy_audio_clip(project, audio_clip);
         return err;
     }
 
     int offset = 0;
     if ((err = deserialize_object(audio_clip, value, &offset))) {
-        destroy(audio_clip, 1);
+        destroy_audio_clip(project, audio_clip);
         return err;
     }
 
     auto audio_asset_entry = project->audio_assets.maybe_get(audio_clip->audio_asset_id);
     if (!audio_asset_entry) {
-        destroy(audio_clip, 1);
+        destroy_audio_clip(project, audio_clip);
         return GenesisErrorInvalidFormat;
     }
     audio_clip->audio_asset = audio_asset_entry->value;
 
     project->audio_clips.put(audio_clip->id, audio_clip);
     project->audio_clip_list_dirty = true;
+
+    project_add_node_to_audio_clip(project, audio_clip);
 
     return 0;
 }
@@ -1836,7 +1846,7 @@ void AddAudioClipCommand::undo(OrderedMapFileBatch *batch) {
 
     ordered_map_file_batch_del(batch, create_id_key(PropKeyAudioClip, audio_clip->id));
 
-    destroy(audio_clip, 1);
+    destroy_audio_clip(project, audio_clip);
 }
 
 void AddAudioClipCommand::redo(OrderedMapFileBatch *batch) {
@@ -1854,6 +1864,8 @@ void AddAudioClipCommand::redo(OrderedMapFileBatch *batch) {
 
     ok_or_panic(ordered_map_file_batch_put(batch,
                 create_id_key(PropKeyAudioClip, audio_clip->id), omf_buf_obj(audio_clip)));
+
+    project_add_node_to_audio_clip(project, audio_clip);
 }
 
 void AddAudioClipCommand::serialize(ByteBuffer &buf) {

@@ -266,6 +266,7 @@ void project_pause(Project *project) {
     if (!project->is_playing)
         return;
     project->is_playing = false;
+    project->events.trigger(EventProjectPlayingChanged);
 }
 
 void project_play(Project *project) {
@@ -273,12 +274,14 @@ void project_play(Project *project) {
         return;
     project->start_play_head_pos = whole_notes_as_double(project->play_head_pos);
     project->is_playing = true;
+    project->events.trigger(EventProjectPlayingChanged);
 }
 
 void project_restart_playback(Project *project) {
     project->play_head_pos = whole_notes_as_long(project->start_play_head_pos);
     project->is_playing = true;
     project->events.trigger(EventProjectPlayHeadChanged);
+    project->events.trigger(EventProjectPlayingChanged);
 }
 
 void project_stop_playback(Project *project) {
@@ -286,6 +289,7 @@ void project_stop_playback(Project *project) {
     project->play_head_pos = whole_notes_as_long(0.0);
     project->start_play_head_pos = 0.0;
     project->events.trigger(EventProjectPlayHeadChanged);
+    project->events.trigger(EventProjectPlayingChanged);
 }
 
 void project_flush_events(Project *project) {
@@ -296,4 +300,14 @@ void project_flush_events(Project *project) {
 
 double project_play_head_pos(Project *project) {
     return whole_notes_as_double(project->play_head_pos);
+}
+
+void project_add_node_to_audio_clip(Project *project, AudioClip *audio_clip) {
+    assert(!audio_clip->node);
+    // TODO
+}
+
+void project_remove_node_from_audio_clip(Project *project, AudioClip *audio_clip) {
+    // TODO
+    audio_clip->node = nullptr;
 }

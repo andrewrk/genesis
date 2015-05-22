@@ -19,4 +19,7 @@ void project_stop_playback(Project *project);
 void project_flush_events(Project *project);
 double project_play_head_pos(Project *project);
 
+void project_add_node_to_audio_clip(Project *project, AudioClip *audio_clip);
+void project_remove_node_from_audio_clip(Project *project, AudioClip *audio_clip);
+
 #endif

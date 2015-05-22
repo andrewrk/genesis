@@ -80,6 +80,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/sunken_box.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
+    "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")

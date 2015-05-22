@@ -35,6 +35,9 @@ struct AudioClip {
 
     // prepared view of the data
     AudioAsset *audio_asset;
+
+    // transient state
+    GenesisNode *node;
 };
 
 struct Track {
@@ -142,7 +145,7 @@ struct Project {
     bool preview_audio_file_is_asset;
 
     double start_play_head_pos;
-    atomic_long play_head_pos; // in whole notes multiplied by 2^24
+    atomic_long play_head_pos; // in fixed point whole notes
     atomic_bool is_playing;
     atomic_flag play_head_changed_flag;
 };

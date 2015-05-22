@@ -59,6 +59,11 @@ static void on_undo_changed(Event, void *userdata) {
     genesis_editor->refresh_menu_state();
 }
 
+static void on_playing_changed(Event, void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    genesis_editor->refresh_menu_state();
+}
+
 static void always_show_tabs_handler(void *userdata) {
     EditorWindow *editor_window = (EditorWindow *)userdata;
     GenesisEditor *genesis_editor = editor_window->genesis_editor;
@@ -193,6 +198,7 @@ GenesisEditor::GenesisEditor() :
         settings_file_commit(settings_file);
 
     project->events.attach_handler(EventProjectUndoChanged, on_undo_changed, this);
+    project->events.attach_handler(EventProjectPlayingChanged, on_playing_changed, this);
 }
 
 GenesisEditor::~GenesisEditor() {
@@ -405,6 +411,8 @@ void GenesisEditor::refresh_menu_state() {
         redo_caption = "&Redo";
     }
 
+    bool is_playing = project_is_playing(project);
+
     for (int i = 0; i < windows.length(); i += 1) {
         EditorWindow *editor_window = windows.at(i);
         editor_window->undo_menu->set_enabled(undo_enabled);
@@ -415,6 +423,8 @@ void GenesisEditor::refresh_menu_state() {
 
         editor_window->always_show_tabs_menu->set_icon(
                 editor_window->always_show_tabs ? gui->img_check : nullptr);
+
+        editor_window->toggle_playback_menu->set_caption(is_playing ? "&Pause" : "&Play");
 
         editor_window->window->refresh_context_menu();
     }
