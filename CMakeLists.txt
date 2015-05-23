@@ -119,6 +119,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
+    "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
 )
 
 find_package(Threads)

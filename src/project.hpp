@@ -37,6 +37,7 @@ struct AudioClip {
     AudioAsset *audio_asset;
 
     // transient state
+    GenesisNodeDescriptor *node_descr;
     GenesisNode *node;
 };
 
@@ -133,8 +134,10 @@ struct Project {
     GenesisNodeDescriptor *resample_descr;
     GenesisNodeDescriptor *audio_file_descr;
     GenesisNodeDescriptor *spy_descr;
+    GenesisNodeDescriptor *mixer_descr;
     GenesisNode *audio_file_node;
     GenesisNode *resample_node;
+    GenesisNode *mixer_node;
     GenesisNode *spy_node;
     GenesisNode *playback_node;
     GenesisAudioFile *audio_file;

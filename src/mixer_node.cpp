@@ -83,7 +83,9 @@ static void mixer_run(struct GenesisNode *node) {
     }
 }
 
-int create_mixer_descriptor(GenesisContext *context, int input_port_count) {
+int create_mixer_descriptor(GenesisContext *context, int input_port_count, GenesisNodeDescriptor **out) {
+    *out = nullptr;
+
     GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(
             context, input_port_count + 1, "mixer", "Audio mixer.");
     if (!node_descr) {
@@ -131,6 +133,8 @@ int create_mixer_descriptor(GenesisContext *context, int input_port_count) {
 
         genesis_audio_port_descriptor_set_sample_rate(audio_in_port, 48000, true, 0);
     }
+
+    *out = node_descr;
 
     return 0;
 }
