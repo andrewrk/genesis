@@ -37,10 +37,11 @@ follow the <a href="http://genesisdaw.org/">development blog</a>.
 
  * Display recording and playback devices in a tree view.
  * Browse sample files in a tree widget and hear file previews.
+ * Drag audio clips into the track editor.
 
 #### Screenshots
 
-![](https://s3.amazonaws.com/genesisdaw.org/img/beginnings-of-track-editor.png)
+![](https://s3.amazonaws.com/genesisdaw.org/img/genesis-2015-05-22.png)
 
 ## Contributing
 
