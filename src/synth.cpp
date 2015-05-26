@@ -34,13 +34,11 @@ static void synth_seek(struct GenesisNode *node) {
 
 static void synth_run(struct GenesisNode *node) {
     struct SynthContext *synth_context = (struct SynthContext*)node->userdata;
-    struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) node->ports[0];
-    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    struct GenesisPort *events_in_port = genesis_node_port(node, 0);
     struct GenesisPort *audio_out_port = genesis_node_port(node, 1);
 
-    int event_byte_count = events_out_port->event_buffer->fill_count();
-    int event_count = event_byte_count / sizeof(GenesisMidiEvent);
-    GenesisMidiEvent *event = reinterpret_cast<GenesisMidiEvent *>(events_out_port->event_buffer->read_ptr());
+    int event_count = genesis_events_in_port_fill_count(events_in_port);
+    GenesisMidiEvent *event = genesis_events_in_port_read_ptr(events_in_port);
     for (int i = 0; i < event_count; i += 1) {
         switch (event->event_type) {
             case GenesisMidiEventTypeNoteOn:
@@ -59,7 +57,7 @@ static void synth_run(struct GenesisNode *node) {
         }
         event += 1;
     }
-    events_out_port->event_buffer->advance_read_ptr(event_byte_count);
+    genesis_events_in_port_advance_read_ptr(events_in_port, event_count);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
     int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);

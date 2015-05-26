@@ -248,6 +248,11 @@ int genesis_audio_port_bytes_per_frame(struct GenesisPort *port);
 int genesis_audio_port_sample_rate(struct GenesisPort *port);
 const struct GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort *port);
 
+// returns the number of events available to read
+int genesis_events_in_port_fill_count(struct GenesisPort *port);
+void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event_count);
+struct GenesisMidiEvent *genesis_events_in_port_read_ptr(struct GenesisPort *port);
+
 
 ////////////// Formats and Codecs
 struct GenesisAudioFileFormat;

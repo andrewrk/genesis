@@ -1361,6 +1361,27 @@ const GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort
     return &audio_port->channel_layout;
 }
 
+int genesis_events_in_port_fill_count(GenesisPort *port) {
+    struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    return events_out_port->event_buffer->fill_count() / sizeof(GenesisMidiEvent);
+}
+
+void genesis_events_in_port_advance_read_ptr(GenesisPort *port, int event_count) {
+    struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    events_out_port->event_buffer->advance_read_ptr(event_count * sizeof(GenesisMidiEvent));
+    struct GenesisNode *child_node = events_out_port->port.node;
+    child_node->data_ready = false;
+    queue_node_if_ready(child_node->descriptor->context, child_node, true);
+}
+
+GenesisMidiEvent *genesis_events_in_port_read_ptr(GenesisPort *port) {
+    struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    return (GenesisMidiEvent*)events_out_port->event_buffer->read_ptr();
+}
+
 void genesis_node_descriptor_set_run_callback(struct GenesisNodeDescriptor *node_descriptor,
         void (*run)(struct GenesisNode *node))
 {
