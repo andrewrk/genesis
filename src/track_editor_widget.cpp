@@ -59,6 +59,8 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
     light_border_color(color_light_border()),
     menu_track(nullptr)
 {
+    scrub_mouse_down = false;
+
     play_head_color = parse_color("#F47A28AA");
     play_head_icon = gui->img_play_head;
     timeline_bottom_border_color = color_light_border();
