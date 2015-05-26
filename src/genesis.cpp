@@ -1059,6 +1059,10 @@ struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index) 
     return node->ports[port_index];
 }
 
+struct GenesisContext *genesis_node_context(struct GenesisNode *node) {
+    return node->descriptor->context;
+}
+
 struct GenesisNode *genesis_port_node(struct GenesisPort *port) {
     return port->node;
 }
@@ -1364,12 +1368,14 @@ const GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort
 int genesis_events_in_port_fill_count(GenesisPort *port) {
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    assert(events_out_port); // assume it is connected
     return events_out_port->event_buffer->fill_count() / sizeof(GenesisMidiEvent);
 }
 
 void genesis_events_in_port_advance_read_ptr(GenesisPort *port, int event_count) {
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    assert(events_out_port); // assume it is connected
     events_out_port->event_buffer->advance_read_ptr(event_count * sizeof(GenesisMidiEvent));
     struct GenesisNode *child_node = events_out_port->port.node;
     child_node->data_ready = false;
@@ -1379,6 +1385,7 @@ void genesis_events_in_port_advance_read_ptr(GenesisPort *port, int event_count)
 GenesisMidiEvent *genesis_events_in_port_read_ptr(GenesisPort *port) {
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
+    assert(events_out_port); // assume it is connected
     return (GenesisMidiEvent*)events_out_port->event_buffer->read_ptr();
 }
 

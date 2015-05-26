@@ -1,7 +1,31 @@
 #include "audio_graph.hpp"
 #include "mixer_node.hpp"
 
+static const int AUDIO_CLIP_POLYPHONY = 32;
+
 static_assert(sizeof(long) == 8, "require long to be 8 bytes");
+
+struct AudioClipNodeChannel {
+    struct GenesisAudioFileIterator iter;
+    long offset;
+};
+
+struct AudioClipVoice {
+    bool active;
+    AudioClipNodeChannel channels[GENESIS_MAX_CHANNELS];
+    int frames_until_start;
+    long frame_index;
+    long frame_end;
+};
+
+struct AudioClipNodeContext {
+    AudioClip *audio_clip;
+    GenesisAudioFile *audio_file;
+    double pos;
+
+    AudioClipVoice voices[AUDIO_CLIP_POLYPHONY];
+    int next_note_index;
+};
 
 static long whole_notes_as_long(double whole_notes) {
     return (whole_notes * 4294967296.0);
@@ -11,23 +35,108 @@ static double whole_notes_as_double(long whole_notes) {
     return whole_notes / 4294967296.0;
 }
 
-static int audio_clip_node_create(struct GenesisNode *node) {
-    // TODO
-    return 0;
+static AudioClipVoice *find_next_voice(AudioClipNodeContext *context) {
+    for (int i = 0;; i += 1) {
+        AudioClipVoice *voice = &context->voices[context->next_note_index];
+        context->next_note_index = (context->next_note_index + 1) % AUDIO_CLIP_POLYPHONY;
+        if (!voice->active || i == AUDIO_CLIP_POLYPHONY)
+            return voice;
+    }
 }
 
 static void audio_clip_node_destroy(struct GenesisNode *node) {
-    // TODO
+    AudioClipNodeContext *audio_clip_context = (AudioClipNodeContext*)node->userdata;
+    destroy(audio_clip_context, 1);
+}
+
+static int audio_clip_node_create(struct GenesisNode *node) {
+    const GenesisNodeDescriptor *node_descr = genesis_node_descriptor(node);
+    AudioClipNodeContext *audio_clip_context = create_zero<AudioClipNodeContext>();
+    audio_clip_context->audio_clip = (AudioClip*)genesis_node_descriptor_userdata(node_descr);
+    audio_clip_context->audio_file = audio_clip_context->audio_clip->audio_asset->audio_file;
+    node->userdata = audio_clip_context;
+    if (!node->userdata) {
+        audio_clip_node_destroy(node);
+        return GenesisErrorNoMem;
+    }
+    return 0;
+}
+
+static void audio_clip_node_seek(struct GenesisNode *node) {
+    struct AudioClipNodeContext *context = (struct AudioClipNodeContext*)node->userdata;
+    context->pos = node->timestamp;
+    // TODO reset some state
 }
 
 static void audio_clip_node_run(struct GenesisNode *node) {
+    struct AudioClipNodeContext *context = (struct AudioClipNodeContext*)node->userdata;
+    struct GenesisContext *g_context = genesis_node_context(node);
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
+    struct GenesisPort *events_in_port = genesis_node_port(node, 1);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
+    const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
+    int channel_count = channel_layout->channel_count;
     int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
+    float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
 
-    memset(genesis_audio_out_port_write_ptr(audio_out_port), 0, output_frame_count * bytes_per_frame);
+    int event_count = genesis_events_in_port_fill_count(events_in_port);
+    GenesisMidiEvent *event = genesis_events_in_port_read_ptr(events_in_port);
+    int event_index;
+    for (event_index = 0; event_index < event_count; event_index += 1, event += 1) {
+        double whole_notes_until_start = max(0.0, event->start - context->pos);
+        int frames_until_start = genesis_whole_notes_to_frames(g_context, whole_notes_until_start, frame_rate);
+        if (frames_until_start >= output_frame_count)
+            break;
+        if (event->event_type == GenesisMidiEventTypeSegment) {
+            AudioClipVoice *voice = find_next_voice(context);
 
+            voice->active = true;
+            voice->frames_until_start = frames_until_start;
+            voice->frame_index = event->data.segment_data.start;
+            voice->frame_end = event->data.segment_data.end;
+            for (int ch = 0; ch < channel_count; ch += 1) {
+                struct AudioClipNodeChannel *channel = &voice->channels[ch];
+                channel->iter = genesis_audio_file_iterator(context->audio_file, ch, 0);
+                channel->offset = 0;
+            }
+        }
+    }
+    genesis_events_in_port_advance_read_ptr(events_in_port, event_index);
+
+    // set everything to silence and then we'll add samples in
+    memset(out_buf, 0, output_frame_count * bytes_per_frame);
+
+    for (int voice_i = 0; voice_i < GENESIS_NOTES_COUNT; voice_i += 1) {
+        AudioClipVoice *voice = &context->voices[voice_i];
+        if (!voice->active)
+            continue;
+
+        int out_frame_count = min(output_frame_count, output_frame_count - voice->frames_until_start);
+        int audio_file_frames_left = voice->frame_end - voice->frame_index;
+        int frames_to_advance = min(out_frame_count, audio_file_frames_left);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            struct AudioClipNodeChannel *channel = &voice->channels[ch];
+            for (int frame_offset = 0; frame_offset < frames_to_advance; frame_offset += 1) {
+                if (channel->offset >= channel->iter.end) {
+                    genesis_audio_file_iterator_next(&channel->iter);
+                    channel->offset = 0;
+                }
+
+                int out_frame_index = voice->frames_until_start + frame_offset;
+                int out_sample_index = out_frame_index * channel_count + ch;
+                out_buf[out_sample_index] += channel->iter.ptr[channel->offset];
+                channel->offset += 1;
+            }
+        }
+        voice->frame_index += frames_to_advance;
+        voice->frames_until_start = 0;
+        if (frames_to_advance == audio_file_frames_left)
+            voice->active = false;
+    }
+
+    context->pos += genesis_frames_to_whole_notes(g_context, output_frame_count, frame_rate);
     genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
 }
 
@@ -397,6 +506,7 @@ void project_add_node_to_audio_clip(Project *project, AudioClip *audio_clip) {
     genesis_audio_port_descriptor_set_sample_rate(audio_out_port, sample_rate, true, -1);
 
     genesis_node_descriptor_set_run_callback(node_descr, audio_clip_node_run);
+    genesis_node_descriptor_set_seek_callback(node_descr, audio_clip_node_seek);
     genesis_node_descriptor_set_create_callback(node_descr, audio_clip_node_create);
     genesis_node_descriptor_set_destroy_callback(node_descr, audio_clip_node_destroy);
 

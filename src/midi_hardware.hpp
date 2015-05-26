@@ -15,6 +15,7 @@ enum GenesisMidiEventType {
     GenesisMidiEventTypeNoteOn,
     GenesisMidiEventTypeNoteOff,
     GenesisMidiEventTypePitch,
+    GenesisMidiEventTypeSegment,
 };
 
 struct MidiEventNoteData {
@@ -26,12 +27,18 @@ struct MidiEventPitchData {
     float pitch;
 };
 
+struct MidiEventSegmentData {
+    long start;
+    long end;
+};
+
 struct GenesisMidiEvent {
     int event_type;
     double start; // in whole notes
     union {
         MidiEventNoteData note_data;
         MidiEventPitchData pitch_data;
+        MidiEventSegmentData segment_data;
     } data;
 };
 

@@ -183,6 +183,7 @@ void genesis_node_destroy(struct GenesisNode *node);
 
 struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
 const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node);
+struct GenesisContext *genesis_node_context(struct GenesisNode *node);
 void genesis_node_disconnect_all_ports(struct GenesisNode *node);
 
 int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
