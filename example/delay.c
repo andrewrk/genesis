@@ -1,6 +1,7 @@
 #include "genesis.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // adds a delay effect to the default recording device and plays it over
 // default playback device
@@ -16,7 +17,28 @@ static void connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *
     }
 }
 
+static int usage(char *exe) {
+    fprintf(stderr, "Usage: %s [--no-delay]\n", exe);
+    return 1;
+}
+
 int main(int argc, char **argv) {
+    bool no_delay = false;
+
+    for (int i = 1; i < argc; i += 1) {
+        char *arg = argv[i];
+        if (arg[0] == '-' && arg[1] == '-') {
+            arg += 2;
+            if (strcmp(arg, "no-delay") == 0) {
+                no_delay = true;
+            } else {
+                return usage(argv[0]);
+            }
+        } else {
+            return usage(argv[0]);
+        }
+    }
+
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
@@ -83,8 +105,12 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    connect_audio_nodes(recording_node, delay_node);
-    connect_audio_nodes(delay_node, playback_node);
+    if (no_delay) {
+        connect_audio_nodes(recording_node, playback_node);
+    } else {
+        connect_audio_nodes(recording_node, delay_node);
+        connect_audio_nodes(delay_node, playback_node);
+    }
 
     genesis_start_pipeline(context, 0.0);
 
