@@ -7,15 +7,22 @@
 #include "sort_key.hpp"
 #include "ordered_map_file.hpp"
 #include "event_dispatcher.hpp"
+#include "midi_hardware.hpp"
+#include "atomic_value.hpp"
 
 #include <atomic>
 using std::atomic_flag;
 using std::atomic_bool;
 using std::atomic_long;
+using std::atomic_int;
 
 struct Command;
 struct AudioClipSegment;
 struct Project;
+
+struct EventList {
+    List<GenesisMidiEvent> events;
+};
 
 struct AudioAsset {
     // canonical data
@@ -39,6 +46,9 @@ struct AudioClip {
     // transient state
     GenesisNodeDescriptor *node_descr;
     GenesisNode *node;
+    GenesisNodeDescriptor *event_node_descr;
+    GenesisNode *event_node;
+    AtomicValue<List<GenesisMidiEvent>> events;
 };
 
 struct Track {
@@ -148,7 +158,10 @@ struct Project {
     bool preview_audio_file_is_asset;
 
     double start_play_head_pos;
-    atomic_long play_head_pos; // in fixed point whole notes
+    AtomicValue<double> play_head_pos;
+    double *play_head_pos_ptr;
+    AtomicValue<double> requested_play_head_pos;
+    atomic_flag requested_play_head_pos_flag;
     atomic_bool is_playing;
     atomic_flag play_head_changed_flag;
 };

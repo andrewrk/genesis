@@ -37,7 +37,10 @@ static void synth_run(struct GenesisNode *node) {
     struct GenesisPort *events_in_port = genesis_node_port(node, 0);
     struct GenesisPort *audio_out_port = genesis_node_port(node, 1);
 
-    int event_count = genesis_events_in_port_fill_count(events_in_port);
+    int event_count;
+    double time_available;
+    // TODO compute time_requested instead of hardcoding 999.0
+    genesis_events_in_port_fill_count(events_in_port, 999.0, &event_count, &time_available);
     GenesisMidiEvent *event = genesis_events_in_port_read_ptr(events_in_port);
     for (int i = 0; i < event_count; i += 1) {
         switch (event->event_type) {
@@ -57,7 +60,7 @@ static void synth_run(struct GenesisNode *node) {
         }
         event += 1;
     }
-    genesis_events_in_port_advance_read_ptr(events_in_port, event_count);
+    genesis_events_in_port_advance_read_ptr(events_in_port, event_count, time_available);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
     int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);

@@ -8,6 +8,7 @@
 #include "threads.hpp"
 #include "thread_safe_queue.hpp"
 #include "ring_buffer.hpp"
+#include "atomic_double.hpp"
 
 #include <atomic>
 using std::atomic_bool;
@@ -106,6 +107,8 @@ struct GenesisAudioPort {
 struct GenesisEventsPort {
     struct GenesisPort port;
     RingBuffer *event_buffer;
+    AtomicDouble time_available; // in whole notes
+    AtomicDouble time_requested; // in whole notes
 };
 
 struct GenesisNode {

@@ -1365,18 +1365,24 @@ const GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort
     return &audio_port->channel_layout;
 }
 
-int genesis_events_in_port_fill_count(GenesisPort *port) {
+void genesis_events_in_port_fill_count(struct GenesisPort *port,
+        double time_requested, int *event_count, double *time_available)
+{
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     assert(events_out_port); // assume it is connected
-    return events_out_port->event_buffer->fill_count() / sizeof(GenesisMidiEvent);
+    *event_count = events_out_port->event_buffer->fill_count() / sizeof(GenesisMidiEvent);
+    *time_available = events_out_port->time_available.load();
+    events_out_port->time_requested.add(time_requested);
 }
 
-void genesis_events_in_port_advance_read_ptr(GenesisPort *port, int event_count) {
+void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event_count, double buf_size) {
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     assert(events_out_port); // assume it is connected
     events_out_port->event_buffer->advance_read_ptr(event_count * sizeof(GenesisMidiEvent));
+    events_out_port->time_available.add(-buf_size);
+
     struct GenesisNode *child_node = events_out_port->port.node;
     child_node->data_ready = false;
     queue_node_if_ready(child_node->descriptor->context, child_node, true);
@@ -1387,6 +1393,34 @@ GenesisMidiEvent *genesis_events_in_port_read_ptr(GenesisPort *port) {
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     assert(events_out_port); // assume it is connected
     return (GenesisMidiEvent*)events_out_port->event_buffer->read_ptr();
+}
+
+void genesis_events_out_port_free_count(struct GenesisPort *port,
+        int *event_count, double *time_requested)
+{
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
+    int bytes_free_count = events_out_port->event_buffer->capacity() - events_out_port->event_buffer->fill_count();
+    *event_count = bytes_free_count / sizeof(GenesisMidiEvent);
+    *time_requested = events_out_port->time_requested.load();
+}
+
+void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int event_count, double buf_size) {
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
+    events_out_port->event_buffer->advance_write_ptr(event_count * sizeof(GenesisMidiEvent));
+    events_out_port->time_requested.add(-buf_size);
+    events_out_port->time_available.add(buf_size);
+
+    port->node->data_ready = true;
+    GenesisEventsPort *events_in_port = (GenesisEventsPort *)events_out_port->port.output_to;
+    assert(events_in_port);
+    GenesisNode *other_node = events_in_port->port.node;
+    GenesisContext *context = port->node->descriptor->context;
+    queue_node_if_ready(context, other_node, false);
+}
+
+struct GenesisMidiEvent *genesis_events_out_port_write_ptr(struct GenesisPort *port) {
+    struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
+    return (GenesisMidiEvent*)events_out_port->event_buffer->write_ptr();
 }
 
 void genesis_node_descriptor_set_run_callback(struct GenesisNodeDescriptor *node_descriptor,

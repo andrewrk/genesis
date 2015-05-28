@@ -249,10 +249,23 @@ int genesis_audio_port_bytes_per_frame(struct GenesisPort *port);
 int genesis_audio_port_sample_rate(struct GenesisPort *port);
 const struct GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort *port);
 
-// returns the number of events available to read
-int genesis_events_in_port_fill_count(struct GenesisPort *port);
-void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event_count);
+// time_requested is how much time in whole notes you want to be available.
+// event_count is the number of events available to read.
+// time_available is how much time in whole notes is accounted for in the buffer.
+void genesis_events_in_port_fill_count(struct GenesisPort *port,
+        double time_requested, int *event_count, double *time_available);
+// event_count is how many events you consumed. buf_size is the amount of whole notes you consumed.
+void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event_count, double buf_size);
 struct GenesisMidiEvent *genesis_events_in_port_read_ptr(struct GenesisPort *port);
+
+// event_count is the number of events that can be written.
+// time_requested is how much time in whole notes you should account for if you can.
+void genesis_events_out_port_free_count(struct GenesisPort *port,
+        int *event_count, double *time_requested);
+// event_count is how many events you wrote to the buffer. buf_size is the amount of whole notes
+// you accounted for.
+void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int event_count, double buf_size);
+struct GenesisMidiEvent *genesis_events_out_port_write_ptr(struct GenesisPort *port);
 
 
 ////////////// Formats and Codecs
