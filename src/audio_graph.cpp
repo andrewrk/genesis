@@ -74,6 +74,10 @@ static void audio_clip_node_run(struct GenesisNode *node) {
     struct GenesisPort *events_in_port = genesis_node_port(node, 1);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
+    if (output_frame_count == 0) {
+        genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
+        return;
+    }
     const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
     int channel_count = channel_layout->channel_count;
@@ -84,6 +88,7 @@ static void audio_clip_node_run(struct GenesisNode *node) {
     int wanted_frame_at_end = frame_at_start + output_frame_count;
     double wanted_event_time_end = genesis_frames_to_whole_notes(g_context, wanted_frame_at_end, frame_rate);
     double event_time_requested = wanted_event_time_end - context->pos;
+    assert(event_time_requested >= 0.0);
 
     int event_count;
     double event_buf_size;
@@ -511,10 +516,8 @@ bool project_is_playing(Project *project) {
 }
 
 void project_set_play_head(Project *project, double pos) {
-    stop_pipeline(project);
     project->play_head_pos.store(max(0.0, pos));
     project->events.trigger(EventProjectPlayHeadChanged);
-    rebuild_and_start_pipeline(project);
 }
 
 void project_pause(Project *project) {
@@ -533,18 +536,22 @@ void project_play(Project *project) {
 }
 
 void project_restart_playback(Project *project) {
+    stop_pipeline(project);
     project->play_head_pos.store(project->start_play_head_pos);
     project->is_playing = true;
     project->events.trigger(EventProjectPlayHeadChanged);
     project->events.trigger(EventProjectPlayingChanged);
+    rebuild_and_start_pipeline(project);
 }
 
 void project_stop_playback(Project *project) {
+    stop_pipeline(project);
     project->is_playing = false;
     project->play_head_pos.store(0.0);
     project->start_play_head_pos = 0.0;
     project->events.trigger(EventProjectPlayHeadChanged);
     project->events.trigger(EventProjectPlayingChanged);
+    rebuild_and_start_pipeline(project);
 }
 
 void project_flush_events(Project *project) {

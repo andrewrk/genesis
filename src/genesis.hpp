@@ -118,7 +118,6 @@ struct GenesisNode {
     struct GenesisPort **ports;
     int set_index; // index into context->nodes
     atomic_bool being_processed;
-    atomic_bool data_ready;
     double timestamp; // in whole notes
     void *userdata;
     bool constructed;

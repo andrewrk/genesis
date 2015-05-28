@@ -87,7 +87,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
-    context->latency = 0.010; // 10ms
+    context->latency = 0.020; // 20ms
 
     if (context->events_cond.error() || context->events_mutex.error()) {
         genesis_destroy_context(context);
@@ -398,6 +398,32 @@ int genesis_audio_file_codec_sample_rate_index(
     return codec->prioritized_sample_rates.at(index);
 }
 
+static void get_audio_port_status(GenesisAudioPort *audio_out_port, bool *empty, bool *full) {
+    int fill_count = audio_out_port->sample_buffer->fill_count();
+    *empty = (fill_count == 0);
+    *full = (fill_count == audio_out_port->sample_buffer_size);
+}
+
+static void get_events_port_status(GenesisEventsPort *events_out_port, bool *empty, bool *full) {
+    *full = (events_out_port->time_requested.load() == 0.0);
+    *empty = (*full) ? false : (events_out_port->time_available.load() == 0.0);
+}
+
+static void get_port_status(GenesisPort *port, bool *empty, bool *full) {
+    switch (port->descriptor->port_type) {
+        case GenesisPortTypeAudioOut:
+            get_audio_port_status((GenesisAudioPort *)port, empty, full);
+            return;
+        case GenesisPortTypeEventsOut:
+            get_events_port_status((GenesisEventsPort *)port, empty, full);
+            return;
+        case GenesisPortTypeAudioIn:
+        case GenesisPortTypeEventsIn:
+            panic("expected out port");
+    }
+    panic("invalid port type");
+}
+
 static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool recursive) {
     if (node->being_processed) {
         // this node is already being processed; no point in
@@ -405,24 +431,37 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
         return;
     }
     // make sure all the children of this node are ready
-    for (int i = 0; i < node->port_count; i += 1) {
-        GenesisPort *port = node->ports[i];
-        GenesisPort *child_port = port->input_from;
-        if (!child_port || child_port == port)
-            continue;
+    bool waiting_for_any_children = false;
+    bool any_output_has_room = false;
+    for (int parent_port_i = 0; parent_port_i < node->port_count; parent_port_i += 1) {
+        GenesisPort *port = node->ports[parent_port_i];
 
-        GenesisNode *child_node = child_port->node;
-        if (!child_node->data_ready) {
-            if (recursive)
-                queue_node_if_ready(context, child_node, true);
-            return;
+        if (port->output_to) {
+            bool empty, full;
+            get_port_status(port, &empty, &full);
+            if (!full)
+                any_output_has_room = true;
+        } else {
+            GenesisPort *child_port = port->input_from;
+            if (child_port && child_port != port) {
+                bool empty, full;
+                get_port_status(child_port, &empty, &full);
+                waiting_for_any_children = waiting_for_any_children || empty;
+                if (!full) {
+                    GenesisNode *child_node = child_port->node;
+                    if (recursive)
+                        queue_node_if_ready(context, child_node, true);
+                }
+            }
         }
     }
-
-    // we know that we want it enqueued. now make sure it only happens once.
-    if (!node->being_processed.exchange(true))
-        context->task_queue.enqueue(node);
+    if (!waiting_for_any_children && any_output_has_room) {
+        // we know that we want it enqueued. now make sure it only happens once.
+        if (!node->being_processed.exchange(true))
+            context->task_queue.enqueue(node);
+    }
 }
+
 
 static void fill_playback_buffer(GenesisNode *node, PlaybackNodeContext *playback_node_context,
         OpenPlaybackDevice *open_playback_device, int requested_frame_count)
@@ -768,20 +807,26 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
 
 static void midi_node_on_event(struct GenesisMidiDevice *device, const struct GenesisMidiEvent *event) {
     GenesisNode *node = (GenesisNode *)device->userdata;
-    GenesisEventsPort *events_out_port = (GenesisEventsPort *)node->ports[0];
-    int free_count = events_out_port->event_buffer->free_count();
-    int midi_event_size = sizeof(GenesisMidiEvent);
-    if (free_count < midi_event_size) {
-        fprintf(stderr, "event buffer overflow\n");
-        return;
-    }
-    char *ptr = events_out_port->event_buffer->write_ptr();
-    memcpy(ptr, event, midi_event_size);
-    events_out_port->event_buffer->advance_write_ptr(midi_event_size);
+    GenesisPort *events_out_port = genesis_node_port(node, 0);
+
+    int event_count;
+    double time_requested;
+    genesis_events_out_port_free_count(events_out_port, &event_count, &time_requested);
+
+    assert(event_count >= 1); // TODO handle this error condition
+
+    GenesisMidiEvent *out_ptr = genesis_events_out_port_write_ptr(events_out_port);
+    memcpy(out_ptr, event, sizeof(GenesisMidiEvent));
+
+    genesis_events_out_port_advance_write_ptr(events_out_port, 1, time_requested);
 }
 
 static void midi_node_run(struct GenesisNode *node) {
-    // do nothing
+    GenesisPort *events_out_port = genesis_node_port(node, 0);
+    int event_count;
+    double time_requested;
+    genesis_events_out_port_free_count(events_out_port, &event_count, &time_requested);
+    genesis_events_out_port_advance_write_ptr(events_out_port, 0, time_requested);
 }
 
 static int midi_node_create(struct GenesisNode *node) {
@@ -1179,7 +1224,6 @@ static void pipeline_thread_run(void *userdata) {
 
         const GenesisNodeDescriptor *node_descriptor = node->descriptor;
         node_descriptor->run(node);
-        node->data_ready = true;
         node->being_processed = false;
     }
 }
@@ -1245,8 +1289,6 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 audio_port->sample_buffer_size = new_sample_buffer_size;
 
                 if (!audio_port->sample_buffer || different) {
-                    node->data_ready = false;
-
                     destroy(audio_port->sample_buffer, 1);
                     audio_port->sample_buffer = create_zero<RingBuffer>(audio_port->sample_buffer_size);
                     if (!audio_port->sample_buffer) {
@@ -1258,8 +1300,6 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
                 int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * context->latency;
                 if (!events_port->event_buffer || events_port->event_buffer->capacity() != min_event_buffer_size) {
-                    node->data_ready = false;
-
                     destroy(events_port->event_buffer, 1);
                     events_port->event_buffer = create_zero<RingBuffer>(min_event_buffer_size);
 
@@ -1329,7 +1369,6 @@ void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int frame_count) 
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
     audio_out_port->sample_buffer->advance_read_ptr(frame_count * audio_out_port->bytes_per_frame);
     struct GenesisNode *child_node = audio_out_port->port.node;
-    child_node->data_ready = false;
     queue_node_if_ready(child_node->descriptor->context, child_node, true);
 }
 
@@ -1347,7 +1386,6 @@ float *genesis_audio_out_port_write_ptr(GenesisPort *port) {
 void genesis_audio_out_port_advance_write_ptr(GenesisPort *port, int frame_count) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
     audio_out_port->sample_buffer->advance_write_ptr(frame_count * audio_out_port->bytes_per_frame);
-    port->node->data_ready = true;
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)audio_out_port->port.output_to;
     GenesisNode *other_node = audio_in_port->port.node;
     GenesisContext *context = port->node->descriptor->context;
@@ -1388,7 +1426,6 @@ void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event
     events_out_port->time_available.add(-buf_size);
 
     struct GenesisNode *child_node = events_out_port->port.node;
-    child_node->data_ready = false;
     queue_node_if_ready(child_node->descriptor->context, child_node, true);
 }
 
@@ -1414,7 +1451,6 @@ void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int eve
     events_out_port->time_requested.add(-buf_size);
     events_out_port->time_available.add(buf_size);
 
-    port->node->data_ready = true;
     GenesisEventsPort *events_in_port = (GenesisEventsPort *)events_out_port->port.output_to;
     assert(events_in_port);
     GenesisNode *other_node = events_in_port->port.node;
@@ -1527,5 +1563,5 @@ void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_
 }
 
 bool genesis_underrun_occurred(struct GenesisContext *context) {
-    return context->underrun_flag.test_and_set();
+    return !context->underrun_flag.test_and_set();
 }
