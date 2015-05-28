@@ -32,6 +32,8 @@ static int on_string(struct LaxJsonContext *json,
                     sf->state = SettingsFileStateOpenWindows;
                 } else if (ByteBuffer::compare(value, "sample_dirs") == 0) {
                     sf->state = SettingsFileStateExpectSampleDirs;
+                } else if (ByteBuffer::compare(value, "latency") == 0) {
+                    sf->state = SettingsFileStateLatency;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
@@ -165,6 +167,10 @@ static int on_number(struct LaxJsonContext *json, double x) {
         case SettingsFileStateOpenWindowPerspectiveIndex:
             sf->current_open_window->perspective_index = (int)x;
             sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
+        case SettingsFileStateLatency:
+            sf->latency = x;
+            sf->state = SettingsFileStateReadyForProp;
             break;
     }
     return 0;
@@ -379,6 +385,7 @@ static void json_line_str_list(FILE *f, int indent, const char *key, const List<
     fprintf(f, "%s: ", key);
     json_line_indent(f, &indent, "[");
     for (int i = 0; i < value.length(); i += 1) {
+        do_indent(f, indent);
         json_inline_str(f, value.at(i));
         fprintf(f, ",\n");
     }
@@ -395,6 +402,11 @@ static void json_line_str(FILE *f, int indent, const char *key, const ByteBuffer
 static void json_line_uint256(FILE *f, int indent, const char *key, const uint256 &value) {
     do_indent(f, indent);
     fprintf(f, "%s: \"%s\",\n", key, value.to_string().raw());
+}
+
+static void json_line_double(FILE *f, int indent, const char *key, double value) {
+    do_indent(f, indent);
+    fprintf(f, "%s: %f,\n", key, value);
 }
 
 static void json_line_int(FILE *f, int indent, const char *key, int value) {
@@ -640,6 +652,12 @@ int settings_file_commit(SettingsFile *sf) {
 
     json_line_comment(f, indent, "open these windows on startup");
     json_line_open_windows(f, indent, "open_windows", sf->open_windows);
+    fprintf(f, "\n");
+
+    json_line_comment(f, indent, "how many seconds long should audio buffers be");
+    json_line_comment(f, indent, "a shorter value makes genesis respond to events faster");
+    json_line_comment(f, indent, "a larger value guards against buffer underruns");
+    json_line_double(f, indent, "latency", sf->latency);
     fprintf(f, "\n");
 
     json_line_outdent(f, &indent, "}");

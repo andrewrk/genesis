@@ -106,7 +106,10 @@ make
 
 ## Roadmap
 
- 0. playback should play the audio clips
+ 0. buffer underrun bug
+ 0. user-configurable latency
+ 0. make seeking the play head work
+ 0. start playing in the middle of an audio clip segment
  0. make a playback selection
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
@@ -114,6 +117,8 @@ make
  0. right click to delete audio clip segments
  0. drag audio clip: display clip even while drag ongoing
  0. quantization when dragging (hold alt to disable)
+ 0. resample node needed for audio clip nodes
+ 0. undo/redo crash
 
 ## Design
 

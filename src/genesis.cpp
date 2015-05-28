@@ -87,7 +87,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
-    context->latency = 0.020; // 20ms
+    context->latency = 0.010; // 10ms
 
     if (context->events_cond.error() || context->events_mutex.error()) {
         genesis_destroy_context(context);

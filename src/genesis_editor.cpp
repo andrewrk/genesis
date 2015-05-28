@@ -142,6 +142,11 @@ GenesisEditor::GenesisEditor() :
         settings_file->user_id = uint256::random();
         settings_dirty = true;
     }
+    if (settings_file->latency == 0.0) {
+        settings_file->latency = 0.010; // 10 ms
+        settings_dirty = true;
+    }
+    genesis_set_latency(genesis_context, settings_file->latency);
     user = user_create(settings_file->user_id, settings_file->user_name);
 
     bool create_new = true;
