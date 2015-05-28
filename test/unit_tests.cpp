@@ -16,6 +16,8 @@
 #include "settings_file.hpp"
 #include "project.hpp"
 #include "genesis.h"
+#include "atomic_value.hpp"
+#include "atomic_double.hpp"
 
 #include <stdio.h>
 #include <assert.h>
@@ -464,6 +466,34 @@ static void test_path_extension(void) {
     assert(ByteBuffer::compare(os_path_extension("foo.ogg.flac"), ".flac") == 0);
 }
 
+static void test_atomic_value(void) {
+    AtomicValue<int> av;
+
+    int *x = av.write_begin();
+    *x = 900;
+    av.write_end();
+    int *y = av.get_read_ptr();
+    assert(*y == 900);
+
+    x = av.write_begin();
+    *x = 1234;
+    av.write_end();
+    y = av.get_read_ptr();
+    assert(*y == 1234);
+}
+
+static void test_atomic_double(void) {
+    AtomicDouble x;
+
+    x.store(3.0);
+
+    assert(x.load() == 3.0);
+    x.add(10.0);
+    assert(x.load() == 13.0);
+    x.add(0.0);
+    assert(x.load() == 13.0);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
@@ -493,6 +523,8 @@ static struct Test tests[] = {
     {"String::compare", test_string_compare},
     {"basic audio file loading and saving", test_audio_file},
     {"os_path_extension", test_path_extension},
+    {"AtomicValue", test_atomic_value},
+    {"AtomicDouble", test_atomic_double},
     {NULL, NULL},
 };
 
