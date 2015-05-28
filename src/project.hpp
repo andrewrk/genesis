@@ -49,6 +49,7 @@ struct AudioClip {
     GenesisNodeDescriptor *event_node_descr;
     GenesisNode *event_node;
     AtomicValue<List<GenesisMidiEvent>> events;
+    List<GenesisMidiEvent> *events_write_ptr;
 };
 
 struct Track {

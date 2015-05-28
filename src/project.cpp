@@ -912,6 +912,12 @@ static void project_sort_audio_clip_segments(Project *project) {
         track->audio_clip_segments.clear();
     }
 
+    for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
+        AudioClip *audio_clip = project->audio_clip_list.at(i);
+        audio_clip->events_write_ptr = audio_clip->events.write_begin();
+        audio_clip->events_write_ptr->clear();
+    }
+
     auto it = project->audio_clip_segments.entry_iterator();
     for (;;) {
         auto *entry = it.next();
@@ -920,6 +926,20 @@ static void project_sort_audio_clip_segments(Project *project) {
 
         AudioClipSegment *segment = entry->value;
         ok_or_panic(segment->track->audio_clip_segments.append(segment));
+
+        AudioClip *audio_clip = segment->audio_clip;
+        ok_or_panic(audio_clip->events_write_ptr->add_one());
+        GenesisMidiEvent *event = &audio_clip->events_write_ptr->last();
+        event->event_type = GenesisMidiEventTypeSegment;
+        event->start = segment->pos;
+        event->data.segment_data.start = segment->start;
+        event->data.segment_data.end = segment->end;
+    }
+
+    for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
+        AudioClip *audio_clip = project->audio_clip_list.at(i);
+        audio_clip->events.write_end();
+        audio_clip->events_write_ptr = nullptr;
     }
 
     for (int i = 0; i < project->track_list.length(); i += 1) {
