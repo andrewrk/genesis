@@ -9,6 +9,7 @@
 #include "event_dispatcher.hpp"
 #include "midi_hardware.hpp"
 #include "atomic_value.hpp"
+#include "atomic_double.hpp"
 
 #include <atomic>
 using std::atomic_flag;
@@ -44,6 +45,7 @@ struct AudioClip {
     AudioAsset *audio_asset;
 
     // transient state
+    Project *project;
     GenesisNodeDescriptor *node_descr;
     GenesisNode *node;
     GenesisNodeDescriptor *event_node_descr;
@@ -159,10 +161,7 @@ struct Project {
     bool preview_audio_file_is_asset;
 
     double start_play_head_pos;
-    AtomicValue<double> play_head_pos;
-    double *play_head_pos_ptr;
-    AtomicValue<double> requested_play_head_pos;
-    atomic_flag requested_play_head_pos_flag;
+    AtomicDouble play_head_pos;
     atomic_bool is_playing;
     atomic_flag play_head_changed_flag;
 };

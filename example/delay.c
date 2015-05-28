@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     connect_audio_nodes(recording_node, delay_node);
     connect_audio_nodes(delay_node, playback_node);
 
-    genesis_start_pipeline(context);
+    genesis_start_pipeline(context, 0.0);
 
     for (;;)
         genesis_wait_events(context);

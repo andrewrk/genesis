@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    genesis_start_pipeline(context);
+    genesis_start_pipeline(context, 0.0);
 
     for (;;)
         genesis_wait_events(context);

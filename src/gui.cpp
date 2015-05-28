@@ -120,6 +120,8 @@ void Gui::exec() {
     while (_running) {
         gui_mutex.lock();
         genesis_flush_events(_genesis_context);
+        if (genesis_underrun_occurred(_genesis_context))
+            fprintf(stderr, "buffer underrun\n");
         glfwPollEvents();
         events.trigger(EventFlushEvents);
         gui_mutex.unlock();

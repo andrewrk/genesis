@@ -39,6 +39,7 @@ struct GenesisContext {
     ThreadSafeQueue<GenesisNode *> task_queue;
 
     double latency;
+    atomic_flag underrun_flag;
 };
 
 struct GenesisPortDescriptor {

@@ -138,6 +138,8 @@ int genesis_create_context(struct GenesisContext **out_context) {
         }
     }
 
+    context->underrun_flag.test_and_set();
+
     *out_context = context;
     return 0;
 }
@@ -515,6 +517,9 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
 }
 
 static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_device) {
+    GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
+    GenesisContext *context = node->descriptor->context;
+    context->underrun_flag.clear();
     fill_playback_device_with_silence(open_playback_device, open_playback_device_free_count(open_playback_device));
 }
 
@@ -1179,8 +1184,7 @@ static void pipeline_thread_run(void *userdata) {
     }
 }
 
-int genesis_start_pipeline(struct GenesisContext *context) {
-    // initialize nodes
+int genesis_start_pipeline(struct GenesisContext *context, double time) {
     for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
         GenesisNode *node = context->nodes.at(node_index);
         for (int port_i = 0; port_i < node->port_count; port_i += 1) {
@@ -1195,7 +1199,7 @@ int genesis_start_pipeline(struct GenesisContext *context) {
                     events_port->event_buffer->clear();
             }
         }
-        node->timestamp = 0.0;
+        node->timestamp = time;
         if (node->descriptor->seek)
             node->descriptor->seek(node);
     }
@@ -1520,4 +1524,8 @@ void genesis_port_descriptor_set_disconnect_callback(
 
 void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_descriptor) {
     return node_descriptor->userdata;
+}
+
+bool genesis_underrun_occurred(struct GenesisContext *context) {
+    return context->underrun_flag.test_and_set();
 }

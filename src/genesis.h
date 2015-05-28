@@ -35,6 +35,8 @@ void genesis_wakeup(struct GenesisContext *context);
 void genesis_set_event_callback(struct GenesisContext *context,
         void (*callback)(void *userdata), void *userdata);
 
+bool genesis_underrun_occurred(struct GenesisContext *context);
+
 
 double genesis_frames_to_whole_notes(struct GenesisContext *context, int frames, int frame_rate);
 int genesis_whole_notes_to_frames(struct GenesisContext *context, double whole_notes, int frame_rate);
@@ -226,7 +228,7 @@ void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descript
 
 void genesis_debug_print_port_config(struct GenesisPort *port);
 
-int genesis_start_pipeline(struct GenesisContext *context);
+int genesis_start_pipeline(struct GenesisContext *context, double time);
 void genesis_stop_pipeline(struct GenesisContext *context);
 int genesis_resume_pipeline(struct GenesisContext *context);
 

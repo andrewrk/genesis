@@ -225,7 +225,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    err = genesis_start_pipeline(context);
+    err = genesis_start_pipeline(context, 0.0);
     if (err) {
         fprintf(stderr, "unable to start pipeline: %s\n", genesis_error_string(err));
         return 1;

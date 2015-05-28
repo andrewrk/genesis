@@ -178,6 +178,7 @@ static void audio_clip_event_node_seek(struct GenesisNode *node) {
 static void audio_clip_event_node_run(struct GenesisNode *node) {
     AudioClipEventNodeContext *context = (AudioClipEventNodeContext*)node->userdata;
     AudioClip *audio_clip = context->audio_clip;
+    Project *project = audio_clip->project;
     struct GenesisPort *events_out_port = genesis_node_port(node, 0);
 
     int event_count;
@@ -187,18 +188,20 @@ static void audio_clip_event_node_run(struct GenesisNode *node) {
 
     double end_pos = context->pos + event_time_requested;
 
-    List<GenesisMidiEvent> *event_list = audio_clip->events.get_read_ptr();
     int event_index = 0;
-    for (int i = 0; i < event_list->length(); i += 1) {
-        GenesisMidiEvent *event = &event_list->at(i);
-        if (event->start >= context->pos && event->start < end_pos) {
-            *event_buf = *event;
-            event_buf += 1;
-            event_index += 1;
+    if (project->is_playing) {
+        List<GenesisMidiEvent> *event_list = audio_clip->events.get_read_ptr();
+        for (int i = 0; i < event_list->length(); i += 1) {
+            GenesisMidiEvent *event = &event_list->at(i);
+            if (event->start >= context->pos && event->start < end_pos) {
+                *event_buf = *event;
+                event_buf += 1;
+                event_index += 1;
 
-            if (event_index >= event_count) {
-                event_time_requested = event->start - context->pos;
-                break;
+                if (event_index >= event_count) {
+                    event_time_requested = event->start - context->pos;
+                    break;
+                }
             }
         }
     }
@@ -228,20 +231,12 @@ static void spy_node_run(struct GenesisNode *node) {
 
     if (project->is_playing) {
         int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
-        double prev_play_head_pos;
-        if (!project->requested_play_head_pos_flag.test_and_set()) {
-            prev_play_head_pos = *project->requested_play_head_pos.get_read_ptr();
-        } else {
-            prev_play_head_pos = *project->play_head_pos_ptr;
-        }
+        double prev_play_head_pos = project->play_head_pos.load();
         int frame_at_start = genesis_whole_notes_to_frames(context, prev_play_head_pos, frame_rate);
         int frame_at_end = frame_at_start + frame_count;
-        project->play_head_pos_ptr = project->play_head_pos.write(
-                genesis_frames_to_whole_notes(context, frame_at_end, frame_rate));
-        project->play_head_changed_flag.clear();
-    } else if (!project->requested_play_head_pos_flag.test_and_set()) {
-        double new_play_head_pos = *project->requested_play_head_pos.get_read_ptr();
-        project->play_head_pos_ptr = project->play_head_pos.write(new_play_head_pos);
+        double new_play_head_pos = genesis_frames_to_whole_notes(context, frame_at_end, frame_rate);
+        double delta = new_play_head_pos - prev_play_head_pos;
+        project->play_head_pos.add(delta);
         project->play_head_changed_flag.clear();
     }
 }
@@ -275,9 +270,8 @@ static void audio_file_node_run(struct GenesisNode *node) {
     int silent_frames = output_frame_count - frames_to_advance;
     memset(&out_samples[channel_count * frames_to_advance], 0, silent_frames * 4 * channel_count);
 
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
-
     project->audio_file_frame_index += frames_to_advance;
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
 }
 
 static void stop_pipeline(Project *project) {
@@ -355,8 +349,10 @@ static void rebuild_and_start_pipeline(Project *project) {
         }
     }
 
+    double start_time = project->play_head_pos.load();
+
     assert(next_mixer_port == mix_port_count + 1);
-    if ((err = genesis_start_pipeline(project->genesis_context)))
+    if ((err = genesis_start_pipeline(project->genesis_context, start_time)))
         panic("unable to start pipeline: %s", genesis_error_string(err));
 }
 
@@ -404,8 +400,7 @@ static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool
 int project_set_up_audio_graph(Project *project) {
     int err;
 
-    project->play_head_pos_ptr = project->play_head_pos.write(0.0);
-    project->requested_play_head_pos_flag.test_and_set();
+    project->play_head_pos.store(0.0);
 
     project->is_playing = false;
 
@@ -516,9 +511,10 @@ bool project_is_playing(Project *project) {
 }
 
 void project_set_play_head(Project *project, double pos) {
-    project->requested_play_head_pos.write(max(0.0, pos));
-    project->requested_play_head_pos_flag.clear();
+    stop_pipeline(project);
+    project->play_head_pos.store(max(0.0, pos));
     project->events.trigger(EventProjectPlayHeadChanged);
+    rebuild_and_start_pipeline(project);
 }
 
 void project_pause(Project *project) {
@@ -531,14 +527,13 @@ void project_pause(Project *project) {
 void project_play(Project *project) {
     if (project->is_playing)
         return;
-    project->start_play_head_pos = *project->play_head_pos.get_read_ptr();
+    project->start_play_head_pos = project->play_head_pos.load();
     project->is_playing = true;
     project->events.trigger(EventProjectPlayingChanged);
 }
 
 void project_restart_playback(Project *project) {
-    project->requested_play_head_pos.write(project->start_play_head_pos);
-    project->requested_play_head_pos_flag.clear();
+    project->play_head_pos.store(project->start_play_head_pos);
     project->is_playing = true;
     project->events.trigger(EventProjectPlayHeadChanged);
     project->events.trigger(EventProjectPlayingChanged);
@@ -546,8 +541,7 @@ void project_restart_playback(Project *project) {
 
 void project_stop_playback(Project *project) {
     project->is_playing = false;
-    project->requested_play_head_pos.write(0.0);
-    project->requested_play_head_pos_flag.clear();
+    project->play_head_pos.store(0.0);
     project->start_play_head_pos = 0.0;
     project->events.trigger(EventProjectPlayHeadChanged);
     project->events.trigger(EventProjectPlayingChanged);
@@ -560,7 +554,7 @@ void project_flush_events(Project *project) {
 }
 
 double project_play_head_pos(Project *project) {
-    return *project->play_head_pos.get_read_ptr();
+    return project->play_head_pos.load();
 }
 
 static void add_audio_node_to_audio_clip(Project *project, AudioClip *audio_clip) {

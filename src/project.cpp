@@ -1165,6 +1165,7 @@ static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const
         return GenesisErrorInvalidFormat;
     }
     audio_clip->audio_asset = audio_asset_entry->value;
+    audio_clip->project = project;
 
     project->audio_clips.put(audio_clip->id, audio_clip);
     project->audio_clip_list_dirty = true;
@@ -1878,6 +1879,7 @@ void AddAudioClipCommand::redo(OrderedMapFileBatch *batch) {
     audio_clip->audio_asset_id = audio_asset->id;
     audio_clip->name = name;
     audio_clip->audio_asset = audio_asset;
+    audio_clip->project = project;
 
     project->audio_clips.put(audio_clip->id, audio_clip);
     project->audio_clip_list_dirty = true;
