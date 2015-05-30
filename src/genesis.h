@@ -35,7 +35,10 @@ void genesis_wakeup(struct GenesisContext *context);
 void genesis_set_event_callback(struct GenesisContext *context,
         void (*callback)(void *userdata), void *userdata);
 
-bool genesis_underrun_occurred(struct GenesisContext *context);
+// set callback to be called when a buffer underrun occurs.
+// callback is always called from genesis_flush_events or genesis_wait_events
+void genesis_set_underrun_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata);
 
 
 double genesis_frames_to_whole_notes(struct GenesisContext *context, int frames, int frame_rate);

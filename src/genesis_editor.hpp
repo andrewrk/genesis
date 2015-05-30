@@ -59,6 +59,8 @@ public:
     User *user;
     SettingsFile *settings_file;
 
+    int underrun_count;
+
     bool on_key_event(GuiWindow *window, const KeyEvent *event);
     bool on_text_event(GuiWindow *window, const TextInputEvent *event);
 

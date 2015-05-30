@@ -86,6 +86,13 @@ static void on_flush_events(Event, void *userdata) {
     project_flush_events(genesis_editor->project);
 }
 
+static void on_buffer_underrun(Event, void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+
+    genesis_editor->underrun_count += 1;
+    fprintf(stderr, "buffer underrun %d\n", genesis_editor->underrun_count);
+}
+
 static void show_dock_handler(void *userdata) {
     EditorPane *editor_pane = (EditorPane *)userdata;
     EditorWindow *editor_window = editor_pane->editor_window;
@@ -111,6 +118,8 @@ static void stop_playback_handler(void *userdata) {
 GenesisEditor::GenesisEditor() :
     project(nullptr)
 {
+    underrun_count = 0;
+
     int err;
 
     ByteBuffer config_dir = os_get_app_config_dir();
@@ -132,6 +141,7 @@ GenesisEditor::GenesisEditor() :
     gui = create<Gui>(genesis_context, resource_bundle);
 
     gui->events.attach_handler(EventFlushEvents, on_flush_events, this);
+    gui->events.attach_handler(EventBufferUnderrun, on_buffer_underrun, this);
 
     bool settings_dirty = false;
     if (settings_file->user_name.length() == 0) {

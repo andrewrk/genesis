@@ -28,6 +28,10 @@ struct GenesisContext {
     void (*event_callback)(void *userdata);
     void *event_callback_userdata;
 
+    void (*underrun_callback)(void *userdata);
+    void *underrun_callback_userdata;
+    atomic_flag underrun_flag;
+
     List<GenesisAudioFileFormat*> out_formats;
     List<GenesisAudioFileFormat*> in_formats;
 
@@ -39,7 +43,6 @@ struct GenesisContext {
     ThreadSafeQueue<GenesisNode *> task_queue;
 
     double latency;
-    atomic_flag underrun_flag;
 };
 
 struct GenesisPortDescriptor {

@@ -22,6 +22,11 @@ static int usage(char *exe) {
     return 1;
 }
 
+static void on_underrun(void *userdata) {
+    static int underrun_count = 0;
+    fprintf(stderr, "buffer underrun %d\n", ++underrun_count);
+}
+
 int main(int argc, char **argv) {
     bool no_delay = false;
 
@@ -45,6 +50,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
         return 1;
     }
+
+    genesis_set_underrun_callback(context, on_underrun, NULL);
 
     // block until we have audio devices list
     genesis_refresh_audio_devices(context);

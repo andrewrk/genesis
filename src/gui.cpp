@@ -46,6 +46,11 @@ static void midi_device_callback(void *userdata) {
     gui->events.trigger(EventMidiDeviceChange);
 }
 
+static void underrun_callback(void *userdata) {
+    Gui *gui = (Gui *)userdata;
+    gui->events.trigger(EventBufferUnderrun);
+}
+
 Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _running(true),
     _focus_window(nullptr),
@@ -87,6 +92,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
 
     genesis_set_audio_device_callback(_genesis_context, audio_device_callback, this);
     genesis_set_midi_device_callback(_genesis_context, midi_device_callback, this);
+    genesis_set_underrun_callback(_genesis_context, underrun_callback, this);
 
     genesis_refresh_audio_devices(_genesis_context);
     genesis_refresh_midi_devices(_genesis_context);
@@ -120,8 +126,6 @@ void Gui::exec() {
     while (_running) {
         gui_mutex.lock();
         genesis_flush_events(_genesis_context);
-        if (genesis_underrun_occurred(_genesis_context))
-            fprintf(stderr, "buffer underrun\n");
         glfwPollEvents();
         events.trigger(EventFlushEvents);
         gui_mutex.unlock();

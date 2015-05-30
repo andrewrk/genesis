@@ -177,6 +177,10 @@ void genesis_destroy_context(struct GenesisContext *context) {
 void genesis_flush_events(struct GenesisContext *context) {
     audio_hardware_flush_events(context->audio_hardware);
     midi_hardware_flush_events(context->midi_hardware);
+    if (!context->underrun_flag.test_and_set()) {
+        if (context->underrun_callback)
+            context->underrun_callback(context->underrun_callback_userdata);
+    }
 }
 
 void genesis_wait_events(struct GenesisContext *context) {
@@ -556,9 +560,13 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
 }
 
 static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_device) {
+    // it's okay to make a syscall here which might block even though we're in
+    // the realtime thread, because this only happens in the failure case.
     GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
     GenesisContext *context = node->descriptor->context;
     context->underrun_flag.clear();
+    emit_event_ready(context);
+
     fill_playback_device_with_silence(open_playback_device, open_playback_device_free_count(open_playback_device));
 }
 
@@ -1562,6 +1570,9 @@ void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_
     return node_descriptor->userdata;
 }
 
-bool genesis_underrun_occurred(struct GenesisContext *context) {
-    return !context->underrun_flag.test_and_set();
+void genesis_set_underrun_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata)
+{
+    context->underrun_callback_userdata = userdata;
+    context->underrun_callback = callback;
 }

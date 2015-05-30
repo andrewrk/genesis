@@ -106,8 +106,6 @@ make
 
 ## Roadmap
 
- 0. buffer underrun bug
- 0. user-configurable latency
  0. make seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection
