@@ -2,7 +2,6 @@
 #include "util.hpp"
 #include "random.hpp"
 #include "error.h"
-#include "glfw.hpp"
 
 #include <unistd.h>
 #include <sys/stat.h>
