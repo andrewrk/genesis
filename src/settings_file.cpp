@@ -626,6 +626,7 @@ int settings_file_commit(SettingsFile *sf) {
     json_line_comment(f, indent, "Genesis DAW configuration file");
     json_line_comment(f, indent, "This config file format is a superset of JSON. See");
     json_line_comment(f, indent, "https://github.com/andrewrk/liblaxjson for more details.");
+    json_line_comment(f, indent, "WARNING: This file is sporadically overwritten while Genesis is running.");
     do_indent(f, indent);
     json_line_indent(f, &indent, "{");
 
