@@ -91,7 +91,7 @@ public:
         int count = _write_offset - _read_offset;
         // since we subtract read_offset before write_offset in
         // advance_read_ptr, it's possible for count to be too big by _capacity
-        return (count > _capacity) ? (count - _capacity) : count;
+        return (count >= _capacity) ? (count - _capacity) : count;
 
     }
 

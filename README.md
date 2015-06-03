@@ -106,7 +106,7 @@ make
 
 ## Roadmap
 
- 0. make seeking the play head work
+ 0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection
  0. drag samples directly to track editor

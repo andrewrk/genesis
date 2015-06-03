@@ -4,7 +4,7 @@
 #include "list.hpp"
 #include "string.hpp"
 #include "color.hpp"
-#include "ring_buffer.hpp"
+#include "ring_buffer_test.hpp"
 #include "error.h"
 #include "thread_safe_queue_test.hpp"
 #include "sort_key.hpp"
@@ -104,42 +104,6 @@ static void test_parse_color(void) {
     assert_floats_close(color[1], 0.3137254901960784);
     assert_floats_close(color[2], 0.3607843137254902);
     assert_floats_close(color[3], 1.0f);
-}
-
-static void test_ring_buffer(void) {
-    RingBuffer rb(10);
-
-    assert(rb.capacity() == 4096);
-
-    char *write_ptr = rb.write_ptr();
-    int amt = sprintf(write_ptr, "hello") + 1;
-    rb.advance_write_ptr(amt);
-
-    assert(rb.fill_count() == amt);
-    assert(rb.free_count() == 4096 - amt);
-
-    char *read_ptr = rb.read_ptr();
-
-    assert(strcmp(read_ptr, "hello") == 0);
-
-    rb.advance_read_ptr(amt);
-
-    assert(rb.fill_count() == 0);
-    assert(rb.free_count() == rb.capacity());
-
-    rb.advance_write_ptr(4094);
-    rb.advance_read_ptr(4094);
-    amt = sprintf(rb.write_ptr(), "writing past the end") + 1;
-    rb.advance_write_ptr(amt);
-
-    assert(rb.fill_count() == amt);
-
-    assert(strcmp(rb.read_ptr(), "writing past the end") == 0);
-
-    rb.advance_read_ptr(amt);
-
-    assert(rb.fill_count() == 0);
-    assert(rb.free_count() == rb.capacity());
 }
 
 static void test_euclidean_mod(void) {

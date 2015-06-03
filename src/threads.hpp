@@ -2,6 +2,7 @@
 #define THREADS_HPP
 
 #include "util.hpp"
+#include "error.h"
 
 #include <unistd.h>
 #include <pthread.h>

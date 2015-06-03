@@ -96,6 +96,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/test/unit_tests.cpp"
     "${CMAKE_SOURCE_DIR}/test/thread_safe_queue_test.cpp"
     "${CMAKE_SOURCE_DIR}/test/ordered_map_file_test.cpp"
+    "${CMAKE_SOURCE_DIR}/test/ring_buffer_test.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
