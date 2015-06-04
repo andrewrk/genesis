@@ -94,7 +94,11 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return context->events_cond.error() || context->events_mutex.error();
     }
 
-    if (context->thread_pool.resize(Thread::concurrency())) {
+    int concurrency = Thread::concurrency();
+    // subtract one because we utilize the audio hardware callback
+    // also make room for GUI thread etc
+    int thread_pool_size = max(1, concurrency - 1);
+    if (context->thread_pool.resize(thread_pool_size)) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
@@ -428,6 +432,13 @@ static void get_port_status(GenesisPort *port, bool *empty, bool *full) {
     panic("invalid port type");
 }
 
+static void run_node(GenesisNode *node) {
+    const GenesisNodeDescriptor *node_descriptor = node->descriptor;
+    //fprintf(stderr, "run %s\n", node_descriptor->name);
+    node_descriptor->run(node);
+    node->being_processed = false;
+}
+
 static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool recursive) {
     if (node->being_processed) {
         // this node is already being processed; no point in queueing it again
@@ -510,43 +521,57 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
         return;
     }
 
-    GenesisPort *audio_in_port = genesis_node_port(node, 0);
-    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
-    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
-    float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
+    while (requested_frame_count > 0) {
+        GenesisPort *audio_in_port = genesis_node_port(node, 0);
+        int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
+        int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+        float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
 
 
-    int frames_to_process_total = min(requested_frame_count, input_frame_count);
-    int frames_to_process_counter = frames_to_process_total;
+        int frames_to_process_total = min(requested_frame_count, input_frame_count);
+        int frames_to_process_counter = frames_to_process_total;
 
-    int input_frames_read = 0;
-    char *buffer;
-    while (frames_to_process_counter > 0) {
-        int frame_count = frames_to_process_counter;
+        int input_frames_read = 0;
+        char *buffer;
+        while (frames_to_process_counter > 0) {
+            int frame_count = frames_to_process_counter;
 
-        open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
-        assert(frame_count > 0);
-        memcpy(buffer, in_buf, frame_count * bytes_per_frame);
-        open_playback_device_write(open_playback_device, buffer, frame_count);
+            open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
+            assert(frame_count > 0);
+            memcpy(buffer, in_buf, frame_count * bytes_per_frame);
+            open_playback_device_write(open_playback_device, buffer, frame_count);
 
-        assert(frame_count <= frames_to_process_counter);
-        input_frames_read += frame_count;
-        frames_to_process_counter -= frame_count;
-        assert(frames_to_process_counter >= 0);
+            assert(frame_count <= frames_to_process_counter);
+            input_frames_read += frame_count;
+            frames_to_process_counter -= frame_count;
+            assert(frames_to_process_counter >= 0);
+        }
+
+        assert(frames_to_process_total == input_frames_read);
+        genesis_audio_in_port_advance_read_ptr(audio_in_port, frames_to_process_total);
+
+        // act as a realtime processing thread
+        for (;;) {
+            GenesisNode *node;
+            context->task_queue.try_dequeue(&node);
+            if (!node)
+                break;
+            run_node(node);
+        }
+
+        requested_frame_count = open_playback_device_free_count(open_playback_device);
     }
-
-    assert(frames_to_process_total == input_frames_read);
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, frames_to_process_total);
 }
 
 static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_device) {
-    // it's okay to make a syscall here which might block even though we're in
-    // the realtime thread, because this only happens in the failure case.
     GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
     GenesisContext *context = node->descriptor->context;
-    context->underrun_flag.clear();
-    emit_event_ready(context);
-
+    if (context->pipeline_running) {
+        // it's okay to make a syscall here which might block even though we're in
+        // the realtime thread, because this only happens in the failure case.
+        context->underrun_flag.clear();
+        emit_event_ready(context);
+    }
     int free_count = open_playback_device_free_count(open_playback_device);
     fill_playback_device_with_silence(open_playback_device, free_count);
 }
@@ -1092,9 +1117,8 @@ int genesis_node_descriptor_find_port_index(
 }
 
 struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index) {
-    if (port_index < 0 || port_index >= node->port_count)
-        return nullptr;
-
+    assert(port_index >= 0);
+    assert(port_index < node->port_count);
     return node->ports[port_index];
 }
 
@@ -1211,9 +1235,7 @@ static void pipeline_thread_run(void *userdata) {
         if (!context->pipeline_running)
             break;
 
-        const GenesisNodeDescriptor *node_descriptor = node->descriptor;
-        node_descriptor->run(node);
-        node->being_processed = false;
+        run_node(node);
     }
 }
 
@@ -1356,15 +1378,21 @@ float *genesis_audio_in_port_read_ptr(GenesisPort *port) {
 void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int frame_count) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
-    audio_out_port->sample_buffer->advance_read_ptr(frame_count * audio_out_port->bytes_per_frame);
+    int byte_count = frame_count * audio_out_port->bytes_per_frame;
+    assert(byte_count >= 0);
+    assert(byte_count <= audio_out_port->sample_buffer_size);
+    audio_out_port->sample_buffer->advance_read_ptr(byte_count);
     struct GenesisNode *child_node = audio_out_port->port.node;
     queue_node_if_ready(child_node->descriptor->context, child_node, true);
 }
 
 int genesis_audio_out_port_free_count(GenesisPort *port) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    int bytes_free_count = audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count();
-    return bytes_free_count / audio_out_port->bytes_per_frame;
+    int fill_count = audio_out_port->sample_buffer->fill_count();
+    int bytes_free_count = audio_out_port->sample_buffer_size - fill_count;
+    int result = bytes_free_count / audio_out_port->bytes_per_frame;
+    assert(result >= 0);
+    return result;
 }
 
 float *genesis_audio_out_port_write_ptr(GenesisPort *port) {
@@ -1374,7 +1402,10 @@ float *genesis_audio_out_port_write_ptr(GenesisPort *port) {
 
 void genesis_audio_out_port_advance_write_ptr(GenesisPort *port, int frame_count) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    audio_out_port->sample_buffer->advance_write_ptr(frame_count * audio_out_port->bytes_per_frame);
+    int byte_count = frame_count * audio_out_port->bytes_per_frame;
+    assert(byte_count >= 0);
+    assert(byte_count <= (audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count()));
+    audio_out_port->sample_buffer->advance_write_ptr(byte_count);
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)audio_out_port->port.output_to;
     GenesisNode *other_node = audio_in_port->port.node;
     GenesisContext *context = port->node->descriptor->context;
@@ -1556,4 +1587,22 @@ void genesis_set_underrun_callback(struct GenesisContext *context,
 {
     context->underrun_callback_userdata = userdata;
     context->underrun_callback = callback;
+}
+
+void genesis_debug_print_pipeline(struct GenesisContext *context) {
+    fprintf(stderr, "\n");
+    for (int node_i = 0; node_i < context->nodes.length(); node_i += 1) {
+        GenesisNode *node = context->nodes.at(node_i);
+        const GenesisNodeDescriptor *descriptor = node->descriptor;
+        fprintf(stderr, "%s:\n", descriptor->name);
+        for (int port_i = 0; port_i < node->port_count; port_i += 1) {
+            GenesisPortDescriptor *port_descr = descriptor->port_descriptors.at(port_i);
+            GenesisPort *port = node->ports[port_i];
+            if (!port->output_to)
+                continue;
+            bool empty, full;
+            get_port_status(port, &empty, &full);
+            fprintf(stderr, " - %s: empty: %d full: %d\n", port_descr->name, (int)empty, (int)full);
+        }
+    }
 }

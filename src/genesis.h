@@ -230,6 +230,7 @@ int genesis_audio_port_descriptor_set_sample_rate(
 void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descriptor);
 
 void genesis_debug_print_port_config(struct GenesisPort *port);
+void genesis_debug_print_pipeline(struct GenesisContext *context);
 
 int genesis_start_pipeline(struct GenesisContext *context, double time);
 void genesis_stop_pipeline(struct GenesisContext *context);

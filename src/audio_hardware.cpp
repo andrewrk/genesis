@@ -332,6 +332,7 @@ static void source_info_callback(pa_context *pulse_context, const pa_source_info
 
 static void server_info_callback(pa_context *pulse_context, const pa_server_info *info, void *userdata) {
     AudioHardware *audio_hardware = (AudioHardware *)userdata;
+    assert(audio_hardware);
 
     free(audio_hardware->default_sink_name);
     free(audio_hardware->default_source_name);
@@ -639,6 +640,18 @@ int open_playback_device_start(OpenPlaybackDevice *open_playback_device) {
 
     while (!open_playback_device->stream_ready)
         pa_threaded_mainloop_wait(audio_hardware->main_loop);
+
+    {
+        // fill with silence
+        char *buffer;
+        int requested_frame_count = open_playback_device_free_count(open_playback_device);
+        while (requested_frame_count > 0) {
+            int frame_count = requested_frame_count;
+            open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
+            memset(buffer, 0, frame_count * open_playback_device->bytes_per_frame);
+            open_playback_device_write(open_playback_device, buffer, frame_count);
+        }
+    }
 
     pa_threaded_mainloop_unlock(audio_hardware->main_loop);
 
