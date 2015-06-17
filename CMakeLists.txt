@@ -340,10 +340,10 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-set(ASSETS_JSON_FILE "${CMAKE_SOURCE_DIR}/assets.json")
+set(ASSETS_JSON_FILE "${CMAKE_SOURCE_DIR}/src/assets.json")
 set(RESOURCES_FILE "${CMAKE_BINARY_DIR}/resources.bundle")
 add_custom_target(rucksack_bundle ALL
-    ${RUCKSACK_BINARY} bundle ${ASSETS_JSON_FILE} ${RESOURCES_FILE}
+    ${RUCKSACK_BINARY} bundle --prefix ${CMAKE_SOURCE_DIR} ${ASSETS_JSON_FILE} ${RESOURCES_FILE}
     DEPENDS ${ASSETS_JSON_FILE}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
