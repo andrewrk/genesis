@@ -331,7 +331,7 @@ set(UNICODE_DATA_TXT "/usr/share/unicode/UnicodeData.txt")
 if(NOT EXISTS ${UNICODE_DATA_TXT})
     set(UNICODE_DATA_TXT "${CMAKE_BINARY_DIR}/UnicodeData.txt")
     file(DOWNLOAD ${UNICODE_DATA_URL} ${UNICODE_DATA_TXT}
-        EXPECTED_HASH SHA1=499651b9370fec97517c17c256375c9f19d18234)
+        EXPECTED_HASH SHA1=5d4b8269e0b86b01c049613aca50cfa5ee410957)
 endif()
 add_custom_command(
     OUTPUT ${UNICODE_HPP}
