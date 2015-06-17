@@ -55,7 +55,11 @@ libgenesis is programmed in a tiny subset of C++:
  * All fields and methods in structs and classes are `public`.
  * Avoid constructor initialization lists.
 
-### Building and Running
+### Dependencies
+
+On NixOS, see `default.nix` for a list of dependencies.
+
+On Ubuntu:
 
 ```
 sudo apt-add-repository ppa:andrewrk/rucksack
@@ -64,6 +68,11 @@ sudo apt-get install libglfw3-dev libepoxy-dev libglm-dev \
     libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
     libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack cmake \
     libasound2-dev liblaxjson-dev librhash-dev
+```
+
+### Building and Running
+
+```
 mkdir build
 cd build
 cmake ..
