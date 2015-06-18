@@ -9,8 +9,8 @@
 
 class GuiWindow;
 class Gui;
-class SpritesheetImage;
-class SettingsFile;
+struct SpritesheetImage;
+struct SettingsFile;
 class ScrollBarWidget;
 class MenuWidgetItem;
 struct Project;

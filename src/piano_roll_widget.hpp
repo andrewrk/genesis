@@ -4,7 +4,7 @@
 #include "widget.hpp"
 
 class GuiWindow;
-class Project;
+struct Project;
 
 class PianoRollWidget : public Widget {
 public:

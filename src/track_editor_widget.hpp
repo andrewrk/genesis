@@ -13,7 +13,7 @@ struct DraggedSampleFile;
 struct AudioAsset;
 struct AudioClip;
 struct AudioClipSegment;
-class SpritesheetImage;
+struct SpritesheetImage;
 
 class TrackEditorWidget : public Widget {
 public:

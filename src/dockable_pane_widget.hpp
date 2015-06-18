@@ -8,7 +8,7 @@
 class DockablePaneWidget;
 class TabWidget;
 class Label;
-class SpritesheetImage;
+struct SpritesheetImage;
 
 struct DockablePaneTab {
     DockablePaneWidget *pane;

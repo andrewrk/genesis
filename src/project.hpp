@@ -17,7 +17,7 @@ using std::atomic_bool;
 using std::atomic_long;
 using std::atomic_int;
 
-struct Command;
+class Command;
 struct AudioClipSegment;
 struct Project;
 

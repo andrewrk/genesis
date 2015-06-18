@@ -47,7 +47,7 @@ static void context_state_callback(pa_context *context, void *userdata) {
         pa_threaded_mainloop_signal(audio_hardware->main_loop, 0);
         return;
     case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
-        panic("pulsaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
+        panic("pulseaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
     }
 }
 

@@ -5,7 +5,7 @@
 #include "project.hpp"
 
 class GuiWindow;
-class Project;
+struct Project;
 
 struct GuiMixerLine {
     MixerLine *mixer_line;

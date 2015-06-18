@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 cmake_policy(SET CMP0042 NEW)
 cmake_policy(SET CMP0046 NEW)
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
@@ -225,7 +226,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wno-unused-variable")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-unused-variable")
 
 
-set(LIB_CFLAGS "-std=c++11 -nodefaultlibs -fno-exceptions -fno-rtti -Werror -Wall")
+set(LIB_CFLAGS "-std=c++11 -fno-exceptions -fno-rtti -Werror -Wall")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
 set(TEST_CFLAGS "${LIB_CFLAGS} -fprofile-arcs -ftest-coverage")
