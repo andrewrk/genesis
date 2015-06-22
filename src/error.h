@@ -34,6 +34,7 @@ enum GenesisError {
     GenesisErrorNotDir,
     GenesisErrorNoDecoderFound,
     GenesisErrorAlreadyExists,
+    GenesisErrorConnectionRefused,
 };
 
 const char *genesis_error_string(int error);

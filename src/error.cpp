@@ -30,6 +30,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorNotDir: return "not a directory";
         case GenesisErrorNoDecoderFound: return "no decoder found";
         case GenesisErrorAlreadyExists: return "already exists";
+        case GenesisErrorConnectionRefused: return "connection refused";
     }
     panic("invalid error enum value");
 }

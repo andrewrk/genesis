@@ -21,7 +21,6 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
     "${CMAKE_SOURCE_DIR}/src/channel_layout.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
@@ -30,6 +29,9 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
     "${CMAKE_SOURCE_DIR}/src/resample.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_backend_pulseaudio.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_backend_dummy.cpp"
 )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
@@ -112,7 +114,6 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
     "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
     "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/channel_layout.cpp"
     "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
@@ -122,6 +123,9 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_backend_pulseaudio.cpp"
+    "${CMAKE_SOURCE_DIR}/src/audio_backend_dummy.cpp"
 )
 
 find_package(Threads)
@@ -226,7 +230,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wno-unused-variable")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-unused-variable")
 
 
-set(LIB_CFLAGS "-std=c++11 -fno-exceptions -fno-rtti -Werror -Wall")
+set(LIB_CFLAGS "-std=c++11 -fno-exceptions -fno-rtti -Werror -Wall -fdiagnostics-color=auto")
 set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall")
 set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
 set(TEST_CFLAGS "${LIB_CFLAGS} -fprofile-arcs -ftest-coverage")
