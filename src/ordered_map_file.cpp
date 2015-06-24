@@ -5,6 +5,7 @@ static const int UUID_SIZE = 16;
 static const char *UUID = "\xca\x2f\x5e\xf5\x00\xd8\xef\x0b\x80\x74\x18\xd0\xe4\x0b\x7a\x4f";
 
 static const int TRANSACTION_METADATA_SIZE = 16;
+static const int MAX_TRANSACTION_SIZE = 2147483640;
 
 static int get_transaction_size(OrderedMapFileBatch *batch) {
     int total = TRANSACTION_METADATA_SIZE;
@@ -169,16 +170,25 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
     }
 
     // read everything into list
+    bool partial_transaction = false;
     omf->write_buffer.resize(TRANSACTION_METADATA_SIZE);
     omf->transaction_offset = UUID_SIZE;
     for (;;) {
         size_t amt_read = fread(omf->write_buffer.raw(), 1, TRANSACTION_METADATA_SIZE, omf->file);
         if (amt_read != TRANSACTION_METADATA_SIZE) {
             // partial transaction. ignore it and we're done.
+            partial_transaction = true;
             break;
         }
         uint8_t *transaction_ptr = (uint8_t*)omf->write_buffer.raw();
         int transaction_size = read_uint32be(&transaction_ptr[4]);
+        if (transaction_size < TRANSACTION_METADATA_SIZE ||
+            transaction_size > MAX_TRANSACTION_SIZE)
+        {
+            // invalid value
+            partial_transaction = true;
+            break;
+        }
 
         omf->write_buffer.resize(transaction_size);
         transaction_ptr = (uint8_t*)omf->write_buffer.raw();
@@ -187,12 +197,14 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         amt_read = fread(&transaction_ptr[TRANSACTION_METADATA_SIZE], 1, amt_to_read, omf->file);
         if (amt_read != amt_to_read) {
             // partial transaction. ignore it and we're done.
+            partial_transaction = true;
             break;
         }
         uint32_t computed_crc = crc32(0, &transaction_ptr[4], transaction_size - 4);
         uint32_t crc_from_file = read_uint32be(&transaction_ptr[0]);
         if (computed_crc != crc_from_file) {
             // crc check failed. ignore this transaction and we're done.
+            partial_transaction = true;
             break;
         }
 
@@ -238,6 +250,9 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         omf->transaction_offset += transaction_size;
 
     }
+
+    if (partial_transaction)
+        fprintf(stderr, "Warning: Partial transaction found in project file.\n");
 
     // transfer map to list and sort
     auto it = omf->map->entry_iterator();
