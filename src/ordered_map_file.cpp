@@ -177,7 +177,8 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         size_t amt_read = fread(omf->write_buffer.raw(), 1, TRANSACTION_METADATA_SIZE, omf->file);
         if (amt_read != TRANSACTION_METADATA_SIZE) {
             // partial transaction. ignore it and we're done.
-            partial_transaction = true;
+            if (amt_read > 0)
+                partial_transaction = true;
             break;
         }
         uint8_t *transaction_ptr = (uint8_t*)omf->write_buffer.raw();
