@@ -2,21 +2,22 @@ with import <nixpkgs> {}; {
   genesisEnv = stdenv.mkDerivation {
     name = "genesis";
     buildInputs = [
+      alsaLib
       cmake
+      epoxy
+      freetype
       gcc49
       glfw
-      epoxy
       glm
-      freetype
-      libpng
       libav
-      alsaLib
+      libjack2
       liblaxjson
-      rucksack
+      libpng
       libpulseaudio
-      rhash
-      xlibs.libX11
       mesa_noglu
+      rhash
+      rucksack
+      xlibs.libX11
     ];
   };
 }

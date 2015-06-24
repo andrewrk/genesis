@@ -14,6 +14,14 @@ void destroy_audio_hardware(struct AudioHardware *audio_hardware) {
     if (audio_hardware->destroy)
         audio_hardware->destroy(audio_hardware);
 
+    if (audio_hardware->safe_devices_info) {
+        for (int i = 0; i < audio_hardware->safe_devices_info->devices.length(); i += 1) {
+            genesis_audio_device_unref(audio_hardware->safe_devices_info->devices.at(i));
+        }
+        destroy(audio_hardware->safe_devices_info, 1);
+    }
+
+
     destroy(audio_hardware, 1);
 }
 
@@ -37,7 +45,7 @@ int create_audio_hardware(GenesisContext *context, void *userdata,
     int err;
     // first try pulseaudio
     err = audio_hardware_init_pulseaudio(audio_hardware);
-    if (err != GenesisErrorConnectionRefused) {
+    if (err != GenesisErrorOpeningAudioHardware) {
         destroy_audio_hardware(audio_hardware);
         return err;
     }
@@ -129,6 +137,18 @@ void open_playback_device_write(OpenPlaybackDevice *open_playback_device, char *
 void open_playback_device_clear_buffer(OpenPlaybackDevice *open_playback_device) {
     AudioHardware *audio_hardware = open_playback_device->audio_device->audio_hardware;
     audio_hardware->open_playback_device_clear_buffer(audio_hardware, open_playback_device);
+}
+
+void open_playback_device_fill_with_silence(OpenPlaybackDevice *open_playback_device) {
+    char *buffer;
+    int requested_frame_count = open_playback_device_free_count(open_playback_device);
+    while (requested_frame_count > 0) {
+        int frame_count = requested_frame_count;
+        open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
+        memset(buffer, 0, frame_count * open_playback_device->bytes_per_frame);
+        open_playback_device_write(open_playback_device, buffer, frame_count);
+        requested_frame_count -= frame_count;
+    }
 }
 
 int open_recording_device_create(GenesisAudioDevice *audio_device,

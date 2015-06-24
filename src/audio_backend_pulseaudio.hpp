@@ -21,6 +21,8 @@ struct OpenRecordingDevicePulseAudio {
 };
 
 struct AudioHardwarePulseAudio {
+    bool connection_refused;
+
     pa_context *pulse_context;
     atomic_bool device_scan_queued;
 

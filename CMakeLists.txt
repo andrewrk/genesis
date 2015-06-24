@@ -32,6 +32,10 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_backend_pulseaudio.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_backend_dummy.cpp"
+    "${CMAKE_SOURCE_DIR}/src/os.cpp"
+    "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
+    "${CMAKE_SOURCE_DIR}/src/string.cpp"
 )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
@@ -260,6 +264,7 @@ target_link_libraries(libgenesis_shared LINK_PRIVATE
     ${LIBAV_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
+    ${RHASH_LIBRARY}
     m
 )
 target_link_libraries(libgenesis_shared LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT})

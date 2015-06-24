@@ -24,6 +24,7 @@ struct PlaybackNodeContext {
     Mutex mutex;
     MutexCond cond;
     atomic_bool done_flag;
+    atomic_flag seek_flag;
 };
 
 struct RecordingNodeContext {
@@ -490,25 +491,13 @@ static void playback_node_destroy(struct GenesisNode *node) {
     }
 }
 
-static void fill_playback_device_with_silence(OpenPlaybackDevice *playback_device, int requested_frame_count) {
-    while (requested_frame_count > 0) {
-        int frame_count = requested_frame_count;
-
-        char *buffer;
-        open_playback_device_begin_write(playback_device, &buffer, &frame_count);
-        memset(buffer, 0, frame_count * playback_device->bytes_per_frame);
-        open_playback_device_write(playback_device, buffer, frame_count);
-
-        requested_frame_count -= frame_count;
-    }
-}
-
 static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int requested_frame_count) {
     GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
     GenesisContext *context = node->descriptor->context;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
 
     if (!context->pipeline_running) {
+pipeline_not_running:
         // signal that we are no longer calling fill_playback_buffer
         if (!playback_node_context->done_flag) {
             playback_node_context->done_flag = true;
@@ -517,7 +506,13 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
             playback_node_context->mutex.unlock();
         }
 
-        fill_playback_device_with_silence(open_playback_device, requested_frame_count);
+        open_playback_device_fill_with_silence(open_playback_device);
+        return;
+    }
+
+    if (!playback_node_context->seek_flag.test_and_set()) {
+        open_playback_device_clear_buffer(playback_node_context->playback_device);
+        open_playback_device_fill_with_silence(playback_node_context->playback_device);
         return;
     }
 
@@ -554,6 +549,8 @@ static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int
         for (;;) {
             GenesisNode *node;
             context->task_queue.try_dequeue(&node);
+            if (!context->pipeline_running)
+                goto pipeline_not_running;
             if (!node)
                 break;
             run_node(node);
@@ -572,8 +569,7 @@ static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_de
         context->underrun_flag.clear();
         emit_event_ready(context);
     }
-    int free_count = open_playback_device_free_count(open_playback_device);
-    fill_playback_device_with_silence(open_playback_device, free_count);
+    open_playback_device_fill_with_silence(open_playback_device);
 }
 
 static void playback_node_deactivate(struct GenesisNode *node) {
@@ -582,6 +578,7 @@ static void playback_node_deactivate(struct GenesisNode *node) {
     while (!playback_node_context->done_flag)
         playback_node_context->cond.wait(&playback_node_context->mutex);
     playback_node_context->mutex.unlock();
+    playback_node_context->seek_flag.test_and_set();
 }
 
 static void playback_node_activate(struct GenesisNode *node) {
@@ -614,6 +611,8 @@ static int playback_node_create(struct GenesisNode *node) {
         return err;
     }
 
+    playback_node_context->seek_flag.test_and_set();
+
     if ((err = open_playback_device_start(playback_node_context->playback_device))) {
         playback_node_destroy(node);
         return err;
@@ -624,7 +623,7 @@ static int playback_node_create(struct GenesisNode *node) {
 
 static void playback_node_seek(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    open_playback_device_clear_buffer(playback_node_context->playback_device);
+    playback_node_context->seek_flag.clear();
 }
 
 static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {

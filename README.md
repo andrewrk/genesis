@@ -115,6 +115,7 @@ make
 
 ## Roadmap
 
+ 0. poll instead of callback for audio hardware
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection

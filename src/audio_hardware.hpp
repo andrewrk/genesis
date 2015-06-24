@@ -122,6 +122,8 @@ void open_playback_device_destroy(OpenPlaybackDevice *open_playback_device);
 
 int open_playback_device_start(OpenPlaybackDevice *open_playback_device);
 
+void open_playback_device_fill_with_silence(OpenPlaybackDevice *open_playback_device);
+
 
 // number of frames available to write
 int open_playback_device_free_count(OpenPlaybackDevice *open_playback_device);

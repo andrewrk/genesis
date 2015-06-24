@@ -9,10 +9,10 @@
 #include <math.h>
 #include <atomic>
 
-using std::atomic_int;
+using std::atomic_long;
 
-#ifndef ATOMIC_INT_LOCK_FREE
-#error "require atomic int to be lock free"
+#ifndef ATOMIC_LONG_LOCK_FREE
+#error "require atomic long to be lock free"
 #endif
 
 class RingBuffer {
@@ -55,7 +55,7 @@ public:
     }
 
     ~RingBuffer() {
-        if (munmap(_address, _capacity * 2))
+        if (munmap(_address, 2 * _capacity))
             panic("munmap failed");
     }
 
@@ -65,7 +65,7 @@ public:
 
     // don't write more than `size()`
     char *write_ptr() const {
-        return _address + _write_offset;
+        return _address + (_write_offset % _capacity);
     }
 
     void advance_write_ptr(int count) {
@@ -74,25 +74,19 @@ public:
 
     // don't read more than `size()`
     char *read_ptr() const {
-        return _address + _read_offset;
+        return _address + (_read_offset % _capacity);
     }
 
     void advance_read_ptr(int count) {
         _read_offset += count;
-
-        if (_read_offset >= _capacity) {
-            _read_offset -= _capacity;
-            _write_offset -= _capacity;
-        }
     }
 
     // how much of the buffer is used, ready for reading
     int fill_count() const {
         int count = _write_offset - _read_offset;
-        // since we subtract read_offset before write_offset in
-        // advance_read_ptr, it's possible for count to be too big by _capacity
-        return (count >= _capacity) ? (count - _capacity) : count;
-
+        assert(count >= 0);
+        assert(count <= _capacity);
+        return count;
     }
 
     // how much is available, ready for writing
@@ -100,16 +94,16 @@ public:
         return _capacity - fill_count();
     }
  
+    // must be called by the writer
     void clear() {
-        _write_offset = 0;
-        _read_offset = 0;
+        _write_offset.store(_read_offset.load());
     }
 
 private:
     char *_address;
-    int _capacity;
-    atomic_int _write_offset;
-    atomic_int _read_offset;
+    long _capacity;
+    atomic_long _write_offset;
+    atomic_long _read_offset;
 
     RingBuffer(const RingBuffer &copy) = delete;
     RingBuffer &operator=(const RingBuffer &copy) = delete;

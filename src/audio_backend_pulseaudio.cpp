@@ -46,7 +46,15 @@ static void context_state_callback(pa_context *context, void *userdata) {
         pa_threaded_mainloop_signal(ah->main_loop, 0);
         return;
     case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
-        panic("pulseaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
+        {
+            int errno = pa_context_errno(context);
+            if (errno == PA_ERR_CONNECTIONREFUSED) {
+                ah->connection_refused = true;
+            } else {
+                panic("pulseaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
+            }
+            return;
+        }
     }
 }
 
@@ -79,13 +87,6 @@ static void destroy_audio_hardware_pa(AudioHardware *audio_hardware) {
 
     destroy_current_audio_devices_info(audio_hardware);
     destroy_ready_audio_devices_info(audio_hardware);
-
-    if (audio_hardware->safe_devices_info) {
-        for (int i = 0; i < audio_hardware->safe_devices_info->devices.length(); i += 1) {
-            genesis_audio_device_unref(audio_hardware->safe_devices_info->devices.at(i));
-        }
-        destroy(audio_hardware->safe_devices_info, 1);
-    }
 
     pa_context_disconnect(ah->pulse_context);
     pa_context_unref(ah->pulse_context);
@@ -570,17 +571,7 @@ static int open_playback_device_start_pa(AudioHardware *audio_hardware,
     while (!opd->stream_ready)
         pa_threaded_mainloop_wait(ah->main_loop);
 
-    {
-        // fill with silence
-        char *buffer;
-        int requested_frame_count = open_playback_device_free_count(open_playback_device);
-        while (requested_frame_count > 0) {
-            int frame_count = requested_frame_count;
-            open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
-            memset(buffer, 0, frame_count * open_playback_device->bytes_per_frame);
-            open_playback_device_write(open_playback_device, buffer, frame_count);
-        }
-    }
+    open_playback_device_fill_with_silence(open_playback_device);
 
     pa_threaded_mainloop_unlock(ah->main_loop);
 
@@ -799,6 +790,7 @@ static void refresh_audio_devices(AudioHardware *audio_hardware) {
 int audio_hardware_init_pulseaudio(AudioHardware *audio_hardware) {
     AudioHardwarePulseAudio *ah = &audio_hardware->backend.pulse_audio;
 
+    ah->connection_refused = false;
     ah->device_scan_queued = false;
     ah->ready_flag = false;
     ah->have_devices_flag = false;
@@ -821,8 +813,7 @@ int audio_hardware_init_pulseaudio(AudioHardware *audio_hardware) {
     pa_proplist_sets(ah->props, PA_PROP_APPLICATION_VERSION, GENESIS_VERSION_STRING);
     pa_proplist_sets(ah->props, PA_PROP_APPLICATION_ID, "me.andrewkelley.genesis");
 
-    ah->pulse_context = pa_context_new_with_proplist(main_loop_api, "Genesis",
-            ah->props);
+    ah->pulse_context = pa_context_new_with_proplist(main_loop_api, "Genesis", ah->props);
     if (!ah->pulse_context) {
         destroy_audio_hardware_pa(audio_hardware);
         return GenesisErrorNoMem;
@@ -833,6 +824,11 @@ int audio_hardware_init_pulseaudio(AudioHardware *audio_hardware) {
 
     int err = pa_context_connect(ah->pulse_context, NULL, (pa_context_flags_t)0, NULL);
     if (err) {
+        destroy_audio_hardware_pa(audio_hardware);
+        return GenesisErrorOpeningAudioHardware;
+    }
+
+    if (ah->connection_refused) {
         destroy_audio_hardware_pa(audio_hardware);
         return GenesisErrorOpeningAudioHardware;
     }
