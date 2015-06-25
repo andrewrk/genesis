@@ -115,7 +115,11 @@ make
 
 ## Roadmap
 
+ 0. why so much CPU usage?
  0. poll instead of callback for audio hardware
+ 0. instead of the buffer being on the audio out port, it should be on the
+    audio in port. exception is playback node, which uses the audio device
+    buffer instead.
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection

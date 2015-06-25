@@ -23,7 +23,8 @@ static void playback_thread_run(void *arg) {
         double total_time = now - start_time;
         long total_frames = total_time / time_per_frame;
         int frames_to_kill = total_frames - frames_consumed;
-        int read_count = min(frames_to_kill, opd->ring_buffer->fill_count());
+        int frames_in_buffer = opd->ring_buffer->fill_count() / open_playback_device->bytes_per_frame;
+        int read_count = min(frames_to_kill, frames_in_buffer);
         int frames_left = frames_to_kill - read_count;
         int byte_count = read_count * open_playback_device->bytes_per_frame;
         opd->ring_buffer->advance_read_ptr(byte_count);
