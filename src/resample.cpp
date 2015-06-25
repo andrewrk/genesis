@@ -358,6 +358,16 @@ static int port_connected(struct GenesisNode *node) {
         }
     }
 
+    // mix front left/right to front center
+    if (unaccounted[GenesisChannelIdFrontLeft] && unaccounted[GenesisChannelIdFrontRight]) {
+        if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontLeft]] += 0.5;
+            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontRight]] += 0.5;
+            unaccounted[GenesisChannelIdFrontLeft] = false;
+            unaccounted[GenesisChannelIdFrontRight] = false;
+        }
+    }
+
     // make sure all input channels are accounted for
     for (int id = 0; id < GenesisChannelIdCount; id += 1) {
         if (unaccounted[id]) {
