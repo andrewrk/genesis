@@ -297,11 +297,17 @@ static void stop_pipeline(Project *project) {
     for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
         AudioClip *audio_clip = project->audio_clip_list.at(i);
         genesis_node_disconnect_all_ports(audio_clip->node);
+
+        genesis_node_destroy(audio_clip->resample_node);
+        audio_clip->resample_node = nullptr;
     }
 }
 
 static void rebuild_and_start_pipeline(Project *project) {
     int err;
+
+    int resample_audio_out_index = genesis_node_descriptor_find_port_index(project->resample_descr, "audio_out");
+    assert(resample_audio_out_index >= 0);
 
     // one for each of the audio clips and one for the sample file preview node
     int mix_port_count = 1 + project->audio_clip_list.length();
@@ -323,7 +329,18 @@ static void rebuild_and_start_pipeline(Project *project) {
         GenesisPort *audio_out_port = genesis_node_port(audio_clip->node, audio_out_port_index);
         GenesisPort *audio_in_port = genesis_node_port(project->mixer_node, next_mixer_port++);
 
-        ok_or_panic(genesis_connect_ports(audio_out_port, audio_in_port));
+        if ((err = genesis_connect_ports(audio_out_port, audio_in_port))) {
+            if (err == GenesisErrorIncompatibleChannelLayouts || err == GenesisErrorIncompatibleSampleRates) {
+                audio_clip->resample_node = ok_mem(genesis_node_descriptor_create_node(project->resample_descr));
+                ok_or_panic(genesis_connect_audio_nodes(audio_clip->node, audio_clip->resample_node));
+
+                GenesisPort *audio_out_port = genesis_node_port(audio_clip->resample_node,
+                        resample_audio_out_index);
+                ok_or_panic(genesis_connect_ports(audio_out_port, audio_in_port));
+            } else {
+                ok_or_panic(err);
+            }
+        }
 
         GenesisPort *events_in_port = genesis_node_port(audio_clip->node, 1);
         GenesisPort *events_out_port = genesis_node_port(audio_clip->event_node, 0);
@@ -344,11 +361,7 @@ static void rebuild_and_start_pipeline(Project *project) {
                 project->resample_node = ok_mem(genesis_node_descriptor_create_node(project->resample_descr));
                 ok_or_panic(genesis_connect_audio_nodes(project->audio_file_node, project->resample_node));
 
-                int audio_out_port_index = genesis_node_descriptor_find_port_index(
-                        project->resample_descr, "audio_out");
-                if (audio_out_port_index < 0)
-                    panic("port not found");
-                GenesisPort *audio_out_port = genesis_node_port(project->resample_node, audio_out_port_index);
+                GenesisPort *audio_out_port = genesis_node_port(project->resample_node, resample_audio_out_index);
                 ok_or_panic(genesis_connect_ports(audio_out_port, audio_in_port));
             } else {
                 ok_or_panic(err);
