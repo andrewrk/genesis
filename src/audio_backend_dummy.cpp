@@ -31,11 +31,7 @@ static void playback_thread_run(void *arg) {
 
         if (frames_left > 0) {
             open_playback_device->underrun_callback(open_playback_device);
-            opd->mutex->unlock();
-            continue;
-        }
-
-        if (read_count > 0) {
+        } else if (read_count > 0) {
             open_playback_device->write_callback(open_playback_device, read_count);
         }
     }

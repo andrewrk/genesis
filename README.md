@@ -115,7 +115,6 @@ make
 
 ## Roadmap
 
- 0. weird mouse pointer issue
  0. poll instead of callback for audio hardware
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
