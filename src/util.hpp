@@ -48,12 +48,6 @@ __attribute__((malloc)) static inline T * allocate(size_t count) {
 template<typename T>
 __attribute__((malloc)) static inline T *allocate_zero(size_t count) {
     return reinterpret_cast<T*>(calloc(count, sizeof(T)));
-    T * ptr = reinterpret_cast<T*>(calloc(count, sizeof(T)));
-    if (ptr) {
-        for (size_t i = 0; i < count; i++)
-            new (&ptr[i]) T;
-    }
-    return ptr;
 }
 
 // allocate memory and return NULL instead of panicking. do not run constructors.
