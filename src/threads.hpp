@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <assert.h>
+#include <stdio.h>
+#include <string.h>
 
 class Thread {
 public:
@@ -24,18 +26,19 @@ public:
         _run = run;
         _userdata = userdata;
         if (pthread_create(&_thread_id, NULL, static_start, this)) {
-            if (high_priority) {
-                int max_priority = sched_get_priority_max(SCHED_FIFO);
-                assert(max_priority != -1);
-                sched_param param;
-                param.sched_priority = max_priority;
-                int err = pthread_setschedparam(_thread_id, SCHED_FIFO, &param);
-                assert(err == 0);
-            }
-
             _run = nullptr;
             _userdata = nullptr;
             return GenesisErrorNoMem;
+        }
+        if (high_priority) {
+            int max_priority = sched_get_priority_max(SCHED_FIFO);
+            assert(max_priority != -1);
+            sched_param param;
+            param.sched_priority = max_priority;
+            int err;
+            if ((err = pthread_setschedparam(_thread_id, SCHED_FIFO, &param))) {
+                fprintf(stderr, "warning: unable to set high priority thread: %s\n", strerror(err));
+            }
         }
         return 0;
     }
