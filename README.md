@@ -115,6 +115,7 @@ make
 
 ## Roadmap
 
+ 0. assertion failure: advance write ptr
  0. why so much CPU usage?
  0. poll instead of callback for audio hardware
  0. instead of the buffer being on the audio out port, it should be on the

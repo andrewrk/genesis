@@ -70,6 +70,7 @@ public:
 
     void advance_write_ptr(int count) {
         _write_offset += count;
+        assert(fill_count() >= 0);
     }
 
     // don't read more than `size()`
@@ -79,6 +80,7 @@ public:
 
     void advance_read_ptr(int count) {
         _read_offset += count;
+        assert(fill_count() >= 0);
     }
 
     // how much of the buffer is used, ready for reading
