@@ -36,6 +36,7 @@ set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
+    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
 )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
@@ -130,6 +131,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_backend_pulseaudio.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_backend_dummy.cpp"
+    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
 )
 
 find_package(Threads)

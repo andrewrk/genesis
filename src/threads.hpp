@@ -3,12 +3,13 @@
 
 #include "util.hpp"
 #include "error.h"
+#include "warning.hpp"
 
 #include <unistd.h>
 #include <pthread.h>
 #include <assert.h>
-#include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 class Thread {
 public:
@@ -37,7 +38,11 @@ public:
             param.sched_priority = max_priority;
             int err;
             if ((err = pthread_setschedparam(_thread_id, SCHED_FIFO, &param))) {
-                fprintf(stderr, "warning: unable to set high priority thread: %s\n", strerror(err));
+                if (err == EPERM) {
+                    emit_warning(WarningHighPriorityThread);
+                } else {
+                    panic("Error setting high priority: %s", strerror(err));
+                }
             }
         }
         return 0;

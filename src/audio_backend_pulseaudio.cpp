@@ -47,8 +47,8 @@ static void context_state_callback(pa_context *context, void *userdata) {
         return;
     case PA_CONTEXT_FAILED: // The connection failed or was disconnected.
         {
-            int errno = pa_context_errno(context);
-            if (errno == PA_ERR_CONNECTIONREFUSED) {
+            int err_number = pa_context_errno(context);
+            if (err_number == PA_ERR_CONNECTIONREFUSED) {
                 ah->connection_refused = true;
             } else {
                 panic("pulseaudio connect failure: %s", pa_strerror(pa_context_errno(context)));
