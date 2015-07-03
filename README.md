@@ -57,8 +57,6 @@ libgenesis is programmed in a tiny subset of C++:
 
 ### Dependencies
 
-On NixOS, see `default.nix` for a list of dependencies.
-
 On Ubuntu:
 
 ```
