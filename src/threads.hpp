@@ -172,7 +172,13 @@ public:
         struct timespec tms;
         clock_gettime(CLOCK_MONOTONIC, &tms);
         tms.tv_nsec += (seconds * 1000000000L);
-        pthread_cond_timedwait(&_cond, &mutex->_mutex, &tms);
+        tms.tv_sec += tms.tv_nsec / 1000000000L;
+        tms.tv_nsec = tms.tv_nsec % 1000000000L;
+        int err;
+        if ((err = pthread_cond_timedwait(&_cond, &mutex->_mutex, &tms))) {
+            assert(err != EINVAL);
+            assert(err != EPERM);
+        }
     }
 
     void wait(Mutex *mutex) {
