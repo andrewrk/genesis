@@ -27,31 +27,19 @@ public:
         _write_offset = 0;
         _read_offset = 0;
 
-        char shm_path[] = "/dev/shm/ring-buffer-XXXXXX";
-        int fd = mkstemp(shm_path);
-        if (fd < 0)
-            panic("unable to open shared memory");
-
-        if (unlink(shm_path))
-            panic("unable to unlink shared memory path");
-
-        if (ftruncate(fd, _capacity))
-            panic("unable to allocate shared memory");
-
         _address = (char*)mmap(NULL, _capacity * 2, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
         if (_address == MAP_FAILED)
             panic("mmap init failed");
 
-        char *other_address = (char*)mmap(_address, _capacity, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, 0);
+        char *other_address = (char*)mmap(_address, _capacity, PROT_READ|PROT_WRITE,
+                MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
         if (other_address != _address)
             panic("first mmap failed");
 
-        other_address = (char*)mmap(_address + _capacity, _capacity, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, 0);
+        other_address = (char*)mmap(_address + _capacity, _capacity, PROT_READ|PROT_WRITE,
+                MAP_ANONYMOUS|MAP_FIXED|MAP_SHARED, -1, 0);
         if (other_address != _address + _capacity)
             panic("second mmap failed");
-
-        if (close(fd))
-            panic("unable to close fd");
     }
 
     ~RingBuffer() {
