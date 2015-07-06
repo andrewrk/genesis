@@ -16,6 +16,7 @@ public:
     Thread() :
         _run(nullptr)
     {
+        high_priority = false;
     }
     ~Thread() {
         join();
