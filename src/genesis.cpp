@@ -675,6 +675,7 @@ static void recording_node_callback(OpenRecordingDevice *open_recording_device) 
         if (input_frame_count <= 0)
             break;
 
+        // TODO: this is broken. we must read all of input_frame_count or we lose the recorded data.
         int write_frame_count = min(input_frame_count, output_frame_count);
 
         if (write_frame_count > 0) {
