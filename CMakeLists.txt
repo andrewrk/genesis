@@ -247,7 +247,27 @@ configure_file (
     ${CONFIGURE_OUT_FILE}
 )
 
-add_library(libgenesis_shared SHARED ${LIBGENESIS_SOURCES})
+add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})
+set_target_properties(generate_unicode_data PROPERTIES
+    LINKER_LANGUAGE C
+    COMPILE_FLAGS ${LIB_CFLAGS}
+)
+
+set(UNICODE_DATA_URL "ftp://ftp.unicode.org/Public/UNIDATA/UnicodeData.txt")
+set(UNICODE_DATA_TXT "/usr/share/unicode/UnicodeData.txt")
+if(NOT EXISTS ${UNICODE_DATA_TXT})
+    set(UNICODE_DATA_TXT "${CMAKE_BINARY_DIR}/UnicodeData.txt")
+    file(DOWNLOAD ${UNICODE_DATA_URL} ${UNICODE_DATA_TXT}
+        EXPECTED_HASH SHA1=5d4b8269e0b86b01c049613aca50cfa5ee410957)
+endif()
+add_custom_command(
+    OUTPUT ${UNICODE_HPP}
+    COMMAND generate_unicode_data ARGS ${UNICODE_DATA_TXT} ${UNICODE_HPP}
+    DEPENDS ${UNICODE_DATA_TXT}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_library(libgenesis_shared SHARED ${LIBGENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(libgenesis_shared PROPERTIES
     OUTPUT_NAME genesis
     SOVERSION ${LIBGENESIS_VERSION_MAJOR}
@@ -273,7 +293,7 @@ include_directories(${FFMPEG_INCLUDE_DIRS})
 install(TARGETS libgenesis_shared DESTINATION lib)
 
 
-add_library(libgenesis_static STATIC ${LIBGENESIS_SOURCES})
+add_library(libgenesis_static STATIC ${LIBGENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(libgenesis_static PROPERTIES
     OUTPUT_NAME genesis
     COMPILE_FLAGS ${LIB_CFLAGS}
@@ -330,26 +350,6 @@ set_target_properties(play PROPERTIES
 include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(play libgenesis_shared)
 
-
-add_executable(generate_unicode_data ${GENERATE_UNICODE_DATA_SOURCES})
-set_target_properties(generate_unicode_data PROPERTIES
-    LINKER_LANGUAGE C
-    COMPILE_FLAGS ${LIB_CFLAGS}
-)
-
-set(UNICODE_DATA_URL "ftp://ftp.unicode.org/Public/UNIDATA/UnicodeData.txt")
-set(UNICODE_DATA_TXT "/usr/share/unicode/UnicodeData.txt")
-if(NOT EXISTS ${UNICODE_DATA_TXT})
-    set(UNICODE_DATA_TXT "${CMAKE_BINARY_DIR}/UnicodeData.txt")
-    file(DOWNLOAD ${UNICODE_DATA_URL} ${UNICODE_DATA_TXT}
-        EXPECTED_HASH SHA1=5d4b8269e0b86b01c049613aca50cfa5ee410957)
-endif()
-add_custom_command(
-    OUTPUT ${UNICODE_HPP}
-    COMMAND generate_unicode_data ARGS ${UNICODE_DATA_TXT} ${UNICODE_HPP}
-    DEPENDS ${UNICODE_DATA_TXT}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
 
 set(ASSETS_JSON_FILE "${CMAKE_SOURCE_DIR}/src/assets.json")
 set(RESOURCES_FILE "${CMAKE_BINARY_DIR}/resources.bundle")
