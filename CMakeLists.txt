@@ -141,7 +141,7 @@ else(Threads_FOUND)
 endif(Threads_FOUND)
 
 
-find_package(LibAV)
+find_package(ffmpeg)
 if(AVCODEC_FOUND)
     set(STATUS_LIBAVCODEC "OK")
 else()
@@ -262,14 +262,14 @@ include_directories(
     ${ALSA_INCLUDE_DIRS}
 )
 target_link_libraries(libgenesis_shared LINK_PRIVATE
-    ${LIBAV_LIBRARIES}
+    ${FFMPEG_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     ${RHASH_LIBRARY}
     m
 )
 target_link_libraries(libgenesis_shared LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT})
-include_directories(${LIBAV_INCLUDE_DIRS})
+include_directories(${FFMPEG_INCLUDE_DIRS})
 install(TARGETS libgenesis_shared DESTINATION lib)
 
 
@@ -391,7 +391,7 @@ add_executable(unit_tests ${TEST_SOURCES} ${UNICODE_HPP})
 target_link_libraries(unit_tests LINK_PUBLIC
     ${CMAKE_THREAD_LIBS_INIT}
     ${LAXJSON_LIBRARY}
-    ${LIBAV_LIBRARIES}
+    ${FFMPEG_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     ${RHASH_LIBRARY}

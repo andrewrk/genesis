@@ -5,7 +5,7 @@
 #include "list.hpp"
 #include "hash_map.hpp"
 #include "byte_buffer.hpp"
-#include "libav.hpp"
+#include "ffmpeg.hpp"
 
 struct Channel {
     List<float> samples;

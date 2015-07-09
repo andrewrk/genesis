@@ -1,5 +1,5 @@
-#ifndef LIBAV_HPP
-#define LIBAV_HPP
+#ifndef FFMPEG_HPP
+#define FFMPEG_HPP
 
 extern "C" {
 

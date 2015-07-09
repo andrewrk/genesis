@@ -225,8 +225,8 @@ static int decode_frame(GenesisAudioFile *audio_file, AVPacket *pkt,
     return decoded_byte_count;
 }
 
-static GenesisChannelId from_libav_channel_id(uint64_t libav_channel_id) {
-    switch (libav_channel_id) {
+static GenesisChannelId from_ffmpeg_channel_id(uint64_t ffmpeg_channel_id) {
+    switch (ffmpeg_channel_id) {
         case AV_CH_FRONT_LEFT:            return GenesisChannelIdFrontLeft;
         case AV_CH_FRONT_RIGHT:           return GenesisChannelIdFrontRight;
         case AV_CH_FRONT_CENTER:          return GenesisChannelIdFrontCenter;
@@ -250,17 +250,17 @@ static GenesisChannelId from_libav_channel_id(uint64_t libav_channel_id) {
     }
 }
 
-static int channel_layout_init_from_libav(uint64_t libav_channel_layout,
+static int channel_layout_init_from_ffmpeg(uint64_t ffmpeg_channel_layout,
         GenesisChannelLayout *layout)
 {
-    int channel_count = av_get_channel_layout_nb_channels(libav_channel_layout);
+    int channel_count = av_get_channel_layout_nb_channels(ffmpeg_channel_layout);
     if (layout->channel_count > GENESIS_MAX_CHANNELS)
         return GenesisErrorMaxChannelsExceeded;
 
     layout->channel_count = channel_count;
     for (int i = 0; i < layout->channel_count; i += 1) {
-        uint64_t libav_channel_id = av_channel_layout_extract_channel(libav_channel_layout, i);
-        GenesisChannelId channel_id = from_libav_channel_id(libav_channel_id);
+        uint64_t ffmpeg_channel_id = av_channel_layout_extract_channel(ffmpeg_channel_layout, i);
+        GenesisChannelId channel_id = from_ffmpeg_channel_id(ffmpeg_channel_id);
         layout->channels[i] = channel_id;
     }
 
@@ -357,7 +357,7 @@ int genesis_audio_file_load(struct GenesisContext *context,
         audio_file->tags.put(tag->key, tag->value);
     }
 
-    int genesis_err = channel_layout_init_from_libav(audio_file->codec_ctx->channel_layout,
+    int genesis_err = channel_layout_init_from_ffmpeg(audio_file->codec_ctx->channel_layout,
            &audio_file->channel_layout);
     if (genesis_err) {
         genesis_audio_file_destroy(audio_file);
@@ -645,7 +645,7 @@ static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
             float sample = audio_file->channels.at(ch).samples.at(i);
-            // libav looks at the most significant bytes
+            // ffmpeg looks at the most significant bytes
             *ch_buf = ((int32_t)(sample * 8388607.0)) << 8;
             ch_buf += 1;
         }
@@ -730,7 +730,7 @@ static void write_frames_int24(const GenesisAudioFile *audio_file,
             float sample = audio_file->channels.at(ch).samples.at(i);
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
-            // libav looks at the most significant bytes
+            // ffmpeg looks at the most significant bytes
             *int_ptr = ((int32_t)(sample * 8388607.0) << 8);
 
             buffer += 4;
@@ -766,7 +766,7 @@ static void write_frames_double(const GenesisAudioFile *audio_file,
     }
 }
 
-static uint64_t to_libav_channel_id(enum GenesisChannelId channel_id) {
+static uint64_t to_ffmpeg_channel_id(enum GenesisChannelId channel_id) {
     switch (channel_id) {
     case GenesisChannelIdInvalid: panic("invalid channel id");
     case GenesisChannelIdCount: panic("invalid channel id");
@@ -793,11 +793,11 @@ static uint64_t to_libav_channel_id(enum GenesisChannelId channel_id) {
 }
 
 
-uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layout) {
+uint64_t channel_layout_to_ffmpeg(const GenesisChannelLayout *channel_layout) {
     uint64_t result = 0;
     for (int i = 0; i < channel_layout->channel_count; i += 1) {
         GenesisChannelId channel_id = channel_layout->channels[i];
-        result |= to_libav_channel_id(channel_id);
+        result |= to_ffmpeg_channel_id(channel_id);
     }
     return result;
 }
@@ -811,7 +811,7 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     if (!av_codec_is_encoder(codec))
         panic("not encoder: %s\n", codec->name);
 
-    uint64_t target_channel_layout = channel_layout_to_libav(&audio_file->channel_layout);
+    uint64_t target_channel_layout = channel_layout_to_ffmpeg(&audio_file->channel_layout);
     uint64_t out_channel_layout = closest_supported_channel_layout(codec, target_channel_layout);
 
     AVFormatContext *fmt_ctx = avformat_alloc_context();

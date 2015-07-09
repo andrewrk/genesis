@@ -57,16 +57,19 @@ libgenesis is programmed in a tiny subset of C++:
 
 ### Dependencies
 
-On Ubuntu:
-
-```
-sudo apt-add-repository ppa:andrewrk/rucksack
-sudo apt-get update
-sudo apt-get install libglfw3-dev libepoxy-dev libglm-dev \
-    libfreetype6-dev libpng12-dev librucksack-dev unicode-data libavcodec-dev \
-    libavformat-dev libavutil-dev libavfilter-dev libpulse-dev rucksack cmake \
-    libasound2-dev liblaxjson-dev librhash-dev
-```
+ * [ALSA Library](http://www.alsa-project.org/)
+ * [cmake](http://www.cmake.org/)
+ * [libepoxy](https://github.com/anholt/libepoxy)
+ * [freetype](http://www.freetype.org/)
+ * [GLFW](http://www.glfw.org/)
+ * [glm](http://glm.g-truc.net/0.9.6/index.html)
+ * [FFmpeg](http://ffmpeg.org/)
+ * [libjack2](http://jackaudio.org/)
+ * [liblaxjson](https://github.com/andrewrk/liblaxjson)
+ * [libpng](http://www.libpng.org/pub/png/libpng.html)
+ * [libpulseaudio](http://www.freedesktop.org/wiki/Software/PulseAudio/)
+ * [rhash](http://rhash.anz.ru/)
+ * [rucksack](https://github.com/andrewrk/rucksack)
 
 ### Building and Running
 
