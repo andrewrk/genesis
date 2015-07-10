@@ -8,7 +8,11 @@
 // open an audio file, normalize it, and save it
 
 static int usage(char *exe) {
-    fprintf(stderr, "Usage: %s inputfile outputfile\n", exe);
+    fprintf(stderr, "Usage: %s inputfile outputfile\n"
+            "Options:\n"
+            "--bitrate      bit rate in kbps\n"
+            "--format       format of outputfile\n"
+            "--codec        codec of outputfile\n", exe);
     return 1;
 }
 
