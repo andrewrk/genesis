@@ -7,9 +7,7 @@ using std::atomic;
 
 class AtomicDouble {
 public:
-    AtomicDouble() {
-        assert(_value.is_lock_free());
-    }
+    AtomicDouble() { }
 
     void add(double x) {
         double current_value = _value.load();
