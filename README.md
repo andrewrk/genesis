@@ -242,13 +242,12 @@ the new project file over the old one.
 
 ## License
 
-Genesis is licensed with the Lesser General Public License. A full copy of the
+Genesis is licensed with the General Public License. A full copy of the
 license text is included in the LICENSE file, but here's a non-normative
 summary:
 
 As a user you have access to the source code, and if you are willing to compile
 from source yourself, you can get the software for free.
 
-As a company you may freely use the source code in your software; the only
-restriction is that if you modify Genesis source code, you must contribute those
-modifications back to the Genesis project.
+As a company you may use the source code in your software as long as you
+publish your software's source code under a free software license.
