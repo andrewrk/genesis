@@ -1,5 +1,5 @@
-#ifndef FFMPEG_HPP
-#define FFMPEG_HPP
+#ifndef GENESIS_FFMPEG_HPP
+#define GENESIS_FFMPEG_HPP
 
 extern "C" {
 
