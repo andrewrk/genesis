@@ -122,9 +122,11 @@ GuiWindow::GuiWindow(Gui *gui, bool is_normal_window, int left, int top, int wid
     glfwSetScrollCallback(window, static_scroll_callback);
 
 
+    int err;
     if (is_normal_window) {
-        if (thread.start(run, this))
-            panic("unable to start thread");
+        if ((err = os_thread_create(run, this, false, &thread))) {
+            panic("unable to start thread: %s", genesis_strerror(err));
+        }
     } else {
         setup_context();
     }
@@ -138,9 +140,9 @@ GuiWindow::~GuiWindow() {
     } else {
         running = false;
 
-        gui->gui_mutex.unlock();
-        thread.join();
-        gui->gui_mutex.lock();
+        os_mutex_unlock(gui->gui_mutex);
+        os_thread_destroy(thread);
+        os_mutex_lock(gui->gui_mutex);
     }
 
     if (main_widget)
@@ -187,7 +189,7 @@ void GuiWindow::draw() {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
 
     {
-        MutexLocker locker(&gui->gui_mutex);
+        OsMutexLocker locker(gui->gui_mutex);
 
         if (main_widget && main_widget->is_visible)
             main_widget->draw(_projection);

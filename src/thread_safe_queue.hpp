@@ -3,6 +3,7 @@
 
 #include "error.h"
 #include "util.hpp"
+#include "atomics.hpp"
 
 #include <linux/futex.h>
 #include <sys/time.h>
@@ -10,13 +11,6 @@
 #include <sys/syscall.h>
 #include <sys/errno.h>
 #include <assert.h>
-
-#include <atomic>
-using std::atomic_int;
-using std::atomic_flag;
-#ifndef ATOMIC_INT_LOCK_FREE
-#error "require atomic int to be lock free"
-#endif
 
 // if this is true then we can send the address of an atomic int to the futex syscall
 static_assert(sizeof(int) == sizeof(atomic_int), "require atomic_int to be same size as int");

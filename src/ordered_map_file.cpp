@@ -64,9 +64,9 @@ static void run_write(void *userdata) {
         if (amt_written != (size_t)transaction_size)
             panic("write to disk failed");
 
-        omf->mutex.lock();
-        omf->cond.signal();
-        omf->mutex.unlock();
+        os_mutex_lock(omf->mutex);
+        os_cond_signal(omf->cond, omf->mutex);
+        os_mutex_unlock(omf->mutex);
     }
 }
 
@@ -120,9 +120,17 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
         ordered_map_file_close(omf);
         return GenesisErrorNoMem;
     }
-    if (omf->queue.error() || omf->cond.error() || omf->mutex.error()) {
+    if (!(omf->cond = os_cond_create())) {
         ordered_map_file_close(omf);
-        return omf->queue.error() || omf->cond.error() || omf->mutex.error();
+        return GenesisErrorNoMem;
+    }
+    if (!(omf->mutex = os_mutex_create())) {
+        ordered_map_file_close(omf);
+        return GenesisErrorNoMem;
+    }
+    if (omf->queue.error()) {
+        ordered_map_file_close(omf);
+        return omf->queue.error();
     }
     omf->list = create_zero<List<OrderedMapFileEntry *>>();
     if (!omf->list) {
@@ -137,8 +145,8 @@ int ordered_map_file_open(const char *path, OrderedMapFile **out_omf) {
     }
 
     omf->running = true;
-    int err = omf->write_thread.start(run_write, omf);
-    if (err) {
+    int err;
+    if ((err = os_thread_create(run_write, omf, false, &omf->write_thread))) {
         ordered_map_file_close(omf);
         return err;
     }
@@ -290,12 +298,12 @@ static void destroy_list(OrderedMapFile *omf) {
 
 void ordered_map_file_close(OrderedMapFile *omf) {
     if (omf) {
-        if (!omf->mutex.error() && !omf->cond.error() && !omf->queue.error()) {
+        if (omf->mutex && omf->cond && !omf->queue.error()) {
             ordered_map_file_flush(omf);
             omf->running = false;
             omf->queue.wakeup_all();
         }
-        omf->write_thread.join();
+        os_thread_destroy(omf->write_thread);
         if (omf->file)
             fclose(omf->file);
         destroy_list(omf);
@@ -341,7 +349,7 @@ OrderedMapFileBuffer *ordered_map_file_buffer_create(int size) {
     }
 
     buffer->size = size;
-    buffer->data = allocate_safe<char>(size);
+    buffer->data = allocate_nonzero<char>(size);
     if (!buffer->data) {
         ordered_map_file_buffer_destroy(buffer);
         return nullptr;
@@ -442,13 +450,15 @@ int ordered_map_file_count(OrderedMapFile *omf) {
 
 void ordered_map_file_flush(OrderedMapFile *omf) {
     {
-        MutexLocker locker(&omf->mutex);
+        OsMutexLocker locker(omf->mutex);
         while (omf->queue.length())
-            omf->cond.wait(&omf->mutex);
+            os_cond_wait(omf->cond, omf->mutex);
     }
 
+    int err;
     if (omf->file) {
-        if (fsync(fileno(omf->file)))
-            panic("fsync fail");
+        if ((err = os_flush_file(omf->file))) {
+            panic("flush file fail: %s", genesis_strerror(err));
+        }
     }
 }

@@ -2,12 +2,11 @@
 #define MIDI_CONTROLLER_HPP
 
 #include "list.hpp"
-#include "threads.hpp"
+#include "os.hpp"
 #include "genesis.h"
+#include "atomics.hpp"
 
 #include <alsa/asoundlib.h>
-#include <atomic>
-using std::atomic_bool;
 
 struct MidiHardware;
 
@@ -73,9 +72,9 @@ struct MidiHardware {
     GenesisMidiDevice *system_announce_device;
     GenesisMidiDevice *system_timer_device;
 
-    Thread thread;
+    OsThread *thread;
     atomic_bool quit_flag;
-    Mutex mutex;
+    OsMutex *mutex;
 
     void *userdata;
     void (*on_buffer_overrun)(struct MidiHardware *);

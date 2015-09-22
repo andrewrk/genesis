@@ -2,7 +2,6 @@
 #include "gui_window.hpp"
 #include "gui.hpp"
 #include "color.hpp"
-#include "debug.hpp"
 #include "spritesheet.hpp"
 #include "settings_file.hpp"
 #include "scroll_bar_widget.hpp"
@@ -149,48 +148,56 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
 }
 
 void ResourcesTreeWidget::refresh_devices() {
-    int audio_device_count = genesis_get_audio_device_count(context);
+    int input_device_count = genesis_input_device_count(context);
+    int output_device_count = genesis_output_device_count(context);
+
     int midi_device_count = genesis_get_midi_device_count(context);
-    int default_playback_index = genesis_get_default_playback_device_index(context);
-    int default_recording_index = genesis_get_default_recording_device_index(context);
+    int default_playback_index = genesis_default_output_device_index(context);
+    int default_recording_index = genesis_default_input_device_index(context);
     int default_midi_index = genesis_get_default_midi_device_index(context);
 
     int record_i = 0;
-    int playback_i = 0;
-    for (int i = 0; i < audio_device_count; i += 1) {
-        GenesisAudioDevice *audio_device = genesis_get_audio_device(context, i);
-        bool playback = (genesis_audio_device_purpose(audio_device) == GenesisAudioDevicePurposePlayback);
+    for (int i = 0; i < input_device_count; i += 1) {
+        SoundIoDevice *audio_device = genesis_get_input_device(context, i);
+
         Node *node;
-        if (playback) {
-            if (playback_i < playback_devices_root->parent_data->children.length()) {
-                node = playback_devices_root->parent_data->children.at(playback_i);
-            } else {
-                node = create_playback_node();
-            }
+        if (record_i < recording_devices_root->parent_data->children.length()) {
+            node = recording_devices_root->parent_data->children.at(record_i);
         } else {
-            if (record_i < recording_devices_root->parent_data->children.length()) {
-                node = recording_devices_root->parent_data->children.at(record_i);
-            } else {
-                node = create_record_node();
-            }
+            node = create_record_node();
         }
-        genesis_audio_device_unref(node->audio_device);
+
+        soundio_device_unref(node->audio_device);
         node->audio_device = audio_device;
-        String text = genesis_audio_device_description(audio_device);
-        if (playback && i == default_playback_index) {
-            text.append(" (default)");
-        } else if (!playback && i == default_recording_index) {
+        String text = audio_device->name;
+        if (i == default_recording_index) {
             text.append(" (default)");
         }
         node->text = text;
 
-        if (playback) {
-            playback_i += 1;
-        } else {
-            record_i += 1;
-        }
+        record_i += 1;
     }
     trim_extra_children(recording_devices_root, record_i);
+
+    int playback_i = 0;
+    for (int i = 0; i < output_device_count; i += 1) {
+        SoundIoDevice *audio_device = genesis_get_output_device(context, i);
+        Node *node;
+        if (playback_i < playback_devices_root->parent_data->children.length()) {
+            node = playback_devices_root->parent_data->children.at(playback_i);
+        } else {
+            node = create_playback_node();
+        }
+        soundio_device_unref(node->audio_device);
+        node->audio_device = audio_device;
+        String text = audio_device->name;
+        if (i == default_playback_index) {
+            text.append(" (default)");
+        }
+        node->text = text;
+
+        playback_i += 1;
+    }
     trim_extra_children(playback_devices_root, playback_i);
 
     int i;
@@ -420,7 +427,7 @@ void ResourcesTreeWidget::destroy_node(Node *node) {
         if (node == last_click_node)
             last_click_node = nullptr;
         destroy(node->parent_data, 1);
-        genesis_audio_device_unref(node->audio_device);
+        soundio_device_unref(node->audio_device);
         genesis_midi_device_unref(node->midi_device);
         os_dir_entry_unref(node->dir_entry);
         destroy(node, 1);
@@ -713,7 +720,7 @@ void ResourcesTreeWidget::scan_dir_recursive(const ByteBuffer &dir, Node *parent
     List<OsDirEntry *> entries;
     int err = os_readdir(dir.raw(), entries);
     if (err)
-        fprintf(stderr, "Error reading %s: %s\n", dir.raw(), genesis_error_string(err));
+        fprintf(stderr, "Error reading %s: %s\n", dir.raw(), genesis_strerror(err));
     entries.sort<compare_is_dir_then_name>();
     for (int i = 0; i < entries.length(); i += 1) {
         OsDirEntry *dir_entry = entries.at(i);

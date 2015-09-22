@@ -7,10 +7,17 @@
 #include <math.h>
 #include <new>
 
+#include "genesis.h"
+
 void panic(const char *format, ...)
     __attribute__((cold))
     __attribute__ ((noreturn))
     __attribute__ ((format (printf, 1, 2)));
+
+template<typename T>
+__attribute__((malloc)) static inline T *allocate_nonzero(size_t count) {
+    return reinterpret_cast<T*>(malloc(count * sizeof(T)));
+}
 
 // create<MyClass>(a, b) is equivalent to: new MyClass(a, b)
 template<typename T, typename... Args>
@@ -35,7 +42,7 @@ __attribute__((malloc)) static inline T * create_zero(Args... args) {
 // allocate<MyClass>(10) is equivalent to: new MyClass[10]
 // calls the default constructor for each item in the array.
 template<typename T>
-__attribute__((malloc)) static inline T * allocate(size_t count) {
+__attribute__((malloc)) static inline T * allocate_class(size_t count) {
     T * ptr = reinterpret_cast<T*>(malloc(count * sizeof(T)));
     if (!ptr)
         panic("allocate: out of memory");
@@ -48,12 +55,6 @@ __attribute__((malloc)) static inline T * allocate(size_t count) {
 template<typename T>
 __attribute__((malloc)) static inline T *allocate_zero(size_t count) {
     return reinterpret_cast<T*>(calloc(count, sizeof(T)));
-}
-
-// allocate memory and return NULL instead of panicking. do not run constructors.
-template<typename T>
-__attribute__((malloc)) static inline T *allocate_safe(size_t count) {
-    return reinterpret_cast<T*>(malloc(count * sizeof(T)));
 }
 
 // Pass in a pointer to an array of old_count items.
@@ -280,5 +281,25 @@ static inline uint64_t read_uint64be(const void *buffer) {
 char * create_formatted_str(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
 unsigned int greatest_common_denominator(unsigned int u, unsigned int v);
+
+static inline void ok_or_panic(int err) {
+    if (err)
+        panic("%s", genesis_strerror(err));
+}
+
+template<typename T>
+static inline T *ok_mem(T *ptr) {
+    if (!ptr)
+        panic("out of memory");
+    return ptr;
+}
+
+#ifdef NDEBUG
+static const bool GENESIS_DEBUG_MODE = false;
+#else
+static const bool GENESIS_DEBUG_MODE = true;
+#endif
+
+#define BREAKPOINT __asm("int $0x03")
 
 #endif

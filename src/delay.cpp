@@ -112,13 +112,13 @@ int create_delay_descriptor(GenesisContext *context) {
     genesis_port_descriptor_set_connect_callback(audio_in_port, delay_port_connect);
 
     genesis_audio_port_descriptor_set_channel_layout(audio_in_port,
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), false, -1);
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
 
     genesis_audio_port_descriptor_set_sample_rate(audio_in_port, 48000, false, -1);
 
 
     genesis_audio_port_descriptor_set_channel_layout(audio_out_port,
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), true, 0);
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), true, 0);
 
     genesis_audio_port_descriptor_set_sample_rate(audio_out_port, 48000, true, 0);
 

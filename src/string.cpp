@@ -3,7 +3,7 @@
 
 static void assert_no_err(int err) {
     if (err)
-        panic("%s", genesis_error_string(err));
+        panic("%s", genesis_strerror(err));
 }
 
 String::String(const ByteBuffer &bytes) {

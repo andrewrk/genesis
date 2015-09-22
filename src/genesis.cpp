@@ -4,6 +4,7 @@
 #include "synth.hpp"
 #include "delay.hpp"
 #include "resample.hpp"
+#include "config.h"
 
 static atomic_flag lib_init_flag = ATOMIC_FLAG_INIT;
 
@@ -20,18 +21,325 @@ static int (*plugin_create_list[])(GenesisContext *context) = {
 static_assert(GENESIS_NOTES_COUNT == array_length(midi_note_to_pitch), "");
 
 struct PlaybackNodeContext {
-    OpenPlaybackDevice *playback_device;
-    Mutex mutex;
-    MutexCond cond;
-    atomic_bool done_flag;
-    atomic_flag seek_flag;
+    SoundIoOutStream *outstream;
+    void (*write_sample)(char *ptr, float sample);
 };
 
 struct RecordingNodeContext {
-    OpenRecordingDevice *recording_device;
-    Mutex mutex;
-    MutexCond cond;
-    atomic_bool done_flag;
+    SoundIoInStream *instream;
+    void (*read_sample)(char *ptr, float *sample);
+};
+
+struct SampleFormatInfo {
+    SoundIoFormat format;
+    void (*write_sample)(char *ptr, float sample);
+    void (*read_sample)(char *ptr, float *sample);
+};
+
+template<int byte_count>
+static void swap_endian(char *ptr) {
+    for (int i = 0; i < byte_count / 2; i += 1) {
+        char value = ptr[i];
+        ptr[i] = ptr[byte_count - i - 1];
+        ptr[byte_count - i - 1] = value;
+    }
+}
+
+static void write_sample_s16ne(char *ptr, float sample) {
+    int16_t *buf = (int16_t *)ptr;
+    float range = (float)INT16_MAX - (float)INT16_MIN;
+    float val = sample * range / 2.0;
+    *buf = val;
+}
+
+static void read_sample_s16ne(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_s16fe(char *ptr, float sample) {
+    write_sample_s16ne(ptr, sample);
+    swap_endian<2>(ptr);
+}
+
+static void read_sample_s16fe(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_u16ne(char *ptr, float sample) {
+    uint32_t *buf = (uint32_t *)ptr;
+    float val = sample * (1.0f + (float)UINT32_MAX);
+    *buf = val;
+}
+
+static void read_sample_u16ne(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_u16fe(char *ptr, float sample) {
+    write_sample_u16ne(ptr, sample);
+    swap_endian<2>(ptr);
+}
+
+static void read_sample_u16fe(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_s32ne(char *ptr, float sample) {
+    int32_t *buf = (int32_t *)ptr;
+    float range = (float)INT32_MAX - (float)INT32_MIN;
+    float val = sample * range / 2.0;
+    *buf = val;
+}
+
+static void read_sample_s32ne(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_s32fe(char *ptr, float sample) {
+    write_sample_s32ne(ptr, sample);
+    swap_endian<4>(ptr);
+}
+
+static void read_sample_s32fe(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_float32ne(char *ptr, float sample) {
+    float *buf = (float *)ptr;
+    *buf = sample;
+}
+
+static void read_sample_float32ne(char *ptr, float *sample) {
+    float *buf = (float *)ptr;
+    *sample = *buf;
+}
+
+static void write_sample_float32fe(char *ptr, float sample) {
+    write_sample_float32ne(ptr, sample);
+    swap_endian<4>(ptr);
+}
+
+static void read_sample_float32fe(char *ptr, float *sample) {
+    read_sample_float32ne(ptr, sample);
+    swap_endian<4>((char*)sample);
+}
+
+static void write_sample_float64ne(char *ptr, float sample) {
+    float *buf = (float *)ptr;
+    *buf = sample;
+}
+
+static void read_sample_float64ne(char *ptr, float *sample) {
+    double *buf = (double *)ptr;
+    *sample = *buf;
+}
+
+static void write_sample_float64fe(char *ptr, float sample) {
+    write_sample_float64ne(ptr, sample);
+    swap_endian<8>(ptr);
+}
+
+static void read_sample_float64fe(char *ptr, float *sample) {
+    read_sample_float64ne(ptr, sample);
+    swap_endian<8>((char*)sample);
+}
+
+static void write_sample_u32ne(char *ptr, float sample) {
+    uint32_t *buf = (uint32_t *)ptr;
+    float val = sample * (1.0f + (float)UINT32_MAX);
+    *buf = val;
+}
+
+static void read_sample_u32ne(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_u32fe(char *ptr, float sample) {
+    write_sample_u32ne(ptr, sample);
+    swap_endian<4>(ptr);
+}
+
+static void read_sample_u32fe(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_s24ne(char *ptr, float sample) {
+    int32_t *buf = (int32_t *)ptr;
+    float range = 16777216.0f;
+    float val = sample * range / 2.0;
+    *buf = val;
+}
+
+static void read_sample_s24ne(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_s24fe(char *ptr, float sample) {
+    write_sample_s24ne(ptr, sample);
+    swap_endian<4>(ptr);
+}
+
+static void read_sample_s24fe(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_u24ne(char *ptr, float sample) {
+    uint32_t *buf = (uint32_t *)ptr;
+    float val = sample * 16777217.0f;
+    *buf = val;
+}
+
+static void read_sample_u24ne(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_u24fe(char *ptr, float sample) {
+    write_sample_u24ne(ptr, sample);
+    swap_endian<4>(ptr);
+}
+
+static void read_sample_u24fe(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_s8(char *ptr, float sample) {
+    int8_t *buf = (int8_t *)ptr;
+    float range = (float)INT8_MAX - (float)INT8_MIN;
+    float val = sample * range / 2.0;
+    *buf = val;
+}
+
+static void read_sample_s8(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static void write_sample_u8(char *ptr, float sample) {
+    uint8_t *buf = (uint8_t *)ptr;
+    float val = sample * (1.0f + (float)UINT8_MAX);
+    *buf = val;
+}
+
+static void read_sample_u8(char *ptr, float *sample) {
+    panic("TODO");
+}
+
+static SampleFormatInfo prioritized_sample_format_infos[] = {
+    {
+        SoundIoFormatFloat32NE,
+        write_sample_float32ne,
+        read_sample_float32ne
+    },
+    {
+        SoundIoFormatFloat32FE,
+        write_sample_float32fe,
+        read_sample_float32fe
+    },
+    {
+        SoundIoFormatFloat64NE,
+        write_sample_float64ne,
+        read_sample_float64ne,
+    },
+    {
+        SoundIoFormatFloat64FE,
+        write_sample_float64fe,
+        read_sample_float64fe,
+    },
+    {
+        SoundIoFormatS32NE,
+        write_sample_s32ne,
+        read_sample_s32ne,
+    },
+    {
+        SoundIoFormatS32FE,
+        write_sample_s32fe,
+        read_sample_s32fe,
+    },
+    {
+        SoundIoFormatU32NE,
+        write_sample_u32ne,
+        read_sample_u32ne,
+    },
+    {
+        SoundIoFormatU32FE,
+        write_sample_u32fe,
+        read_sample_u32fe,
+    },
+    {
+        SoundIoFormatS24NE,
+        write_sample_s24ne,
+        read_sample_s24ne,
+    },
+    {
+        SoundIoFormatS24FE,
+        write_sample_s24fe,
+        read_sample_s24fe,
+    },
+    {
+        SoundIoFormatU24NE,
+        write_sample_u24ne,
+        read_sample_u24ne,
+    },
+    {
+        SoundIoFormatU24FE,
+        write_sample_u24fe,
+        read_sample_u24fe,
+    },
+    {
+        SoundIoFormatS16NE,
+        write_sample_s16ne,
+        read_sample_s16ne,
+    },
+    {
+        SoundIoFormatS16FE,
+        write_sample_s16fe,
+        read_sample_s16fe,
+    },
+    {
+        SoundIoFormatU16NE,
+        write_sample_u16ne,
+        read_sample_u16ne,
+    },
+    {
+        SoundIoFormatU16FE,
+        write_sample_u16fe,
+        read_sample_u16fe,
+    },
+    {
+        SoundIoFormatS8,
+        write_sample_s8,
+        read_sample_s8,
+    },
+    {
+        SoundIoFormatU8,
+        write_sample_u8,
+        read_sample_u8,
+    },
+};
+
+static enum SoundIoChannelLayoutId prioritized_layouts[] = {
+    SoundIoChannelLayoutIdOctagonal,
+    SoundIoChannelLayoutId7Point1WideBack,
+    SoundIoChannelLayoutId7Point1Wide,
+    SoundIoChannelLayoutId7Point1,
+    SoundIoChannelLayoutId7Point0Front,
+    SoundIoChannelLayoutId7Point0,
+    SoundIoChannelLayoutId6Point1Front,
+    SoundIoChannelLayoutId6Point1Back,
+    SoundIoChannelLayoutId6Point1,
+    SoundIoChannelLayoutIdHexagonal,
+    SoundIoChannelLayoutId6Point0Front,
+    SoundIoChannelLayoutId6Point0Side,
+    SoundIoChannelLayoutId5Point1Back,
+    SoundIoChannelLayoutId5Point0Back,
+    SoundIoChannelLayoutId5Point1,
+    SoundIoChannelLayoutId5Point0Side,
+    SoundIoChannelLayoutId4Point1,
+    SoundIoChannelLayoutIdQuad,
+    SoundIoChannelLayoutId4Point0,
+    SoundIoChannelLayoutId3Point1,
+    SoundIoChannelLayoutId2Point1,
+    SoundIoChannelLayoutIdStereo,
+    SoundIoChannelLayoutIdMono,
 };
 
 static void emit_event_ready(struct GenesisContext *context) {
@@ -51,14 +359,14 @@ static void midi_events_signal(MidiHardware *midi_hardware) {
     emit_event_ready(context);
 }
 
-static void on_devices_change(AudioHardware *audio_hardware) {
-    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->userdata);
+static void on_devices_change(SoundIo *soundio) {
+    GenesisContext *context = reinterpret_cast<GenesisContext *>(soundio->userdata);
     if (context->devices_change_callback)
         context->devices_change_callback(context->devices_change_callback_userdata);
 }
 
-static void on_audio_hardware_events_signal(AudioHardware *audio_hardware) {
-    GenesisContext *context = reinterpret_cast<GenesisContext *>(audio_hardware->userdata);
+static void on_audio_hardware_events_signal(SoundIo *soundio) {
+    GenesisContext *context = reinterpret_cast<GenesisContext *>(soundio->userdata);
     emit_event_ready(context);
 }
 
@@ -88,24 +396,27 @@ int genesis_create_context(struct GenesisContext **out_context) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
-    context->latency = 0.030; // 30ms
+    context->latency = 0.020; // 20ms
+    context->target_sample_rate = 48000;
 
-    if (context->events_cond.error() || context->events_mutex.error()) {
-        genesis_destroy_context(context);
-        return context->events_cond.error() || context->events_mutex.error();
-    }
-
-    int concurrency = Thread::concurrency();
-    // subtract one because we utilize the audio hardware callback
-    // also make room for GUI thread etc
-    int thread_pool_size = max(1, concurrency - 1);
-    if (context->thread_pool.resize(thread_pool_size)) {
+    if (!(context->events_cond = os_cond_create())) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
-    for (int i = 0; i < context->thread_pool.length(); i += 1) {
-        Thread *thread = &context->thread_pool.at(i);
-        thread->set_high_priority();
+
+    if (!(context->events_mutex = os_mutex_create())) {
+        genesis_destroy_context(context);
+        return GenesisErrorNoMem;
+    }
+
+    int concurrency = os_concurrency();
+    // subtract one to make room for GUI thread, OS, and other miscellaneous
+    // interruptions.
+    context->thread_pool_size = max(1, concurrency - 1);
+    context->thread_pool = allocate_zero<OsThread *>(context->thread_pool_size);
+    if (!context->thread_pool) {
+        genesis_destroy_context(context);
+        return GenesisErrorNoMem;
     }
 
     int err = create_midi_hardware(context, "genesis", midi_events_signal, on_midi_devices_change,
@@ -115,11 +426,20 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return err;
     }
 
-    err = create_audio_hardware(context, context, on_devices_change,
-            on_audio_hardware_events_signal, &context->audio_hardware);
-    if (err) {
+    context->soundio = soundio_create();
+    if (!context->soundio) {
         genesis_destroy_context(context);
-        return err;
+        return GenesisErrorNoMem;
+    }
+    context->soundio->userdata = context;
+    context->soundio->on_devices_change = on_devices_change;
+    context->soundio->on_events_signal = on_audio_hardware_events_signal;
+    // TODO handle on_backend_disconnect
+    context->soundio->app_name = "Genesis";
+
+    if ((err = soundio_connect(context->soundio))) {
+        genesis_destroy_context(context);
+        return GenesisErrorOpeningAudioHardware;
     }
 
     err = audio_file_get_out_formats(context->out_formats);
@@ -173,14 +493,14 @@ void genesis_destroy_context(struct GenesisContext *context) {
     if (context->midi_hardware)
         destroy_midi_hardware(context->midi_hardware);
 
-    if (context->audio_hardware)
-        destroy_audio_hardware(context->audio_hardware);
+    if (context->soundio)
+        soundio_destroy(context->soundio);
 
     destroy(context, 1);
 }
 
 void genesis_flush_events(struct GenesisContext *context) {
-    audio_hardware_flush_events(context->audio_hardware);
+    soundio_flush_events(context->soundio);
     midi_hardware_flush_events(context->midi_hardware);
     if (!context->underrun_flag.test_and_set()) {
         if (context->underrun_callback)
@@ -190,15 +510,15 @@ void genesis_flush_events(struct GenesisContext *context) {
 
 void genesis_wait_events(struct GenesisContext *context) {
     genesis_flush_events(context);
-    context->events_mutex.lock();
-    context->events_cond.wait(&context->events_mutex);
-    context->events_mutex.unlock();
+    os_mutex_lock(context->events_mutex);
+    os_cond_wait(context->events_cond, context->events_mutex);
+    os_mutex_unlock(context->events_mutex);
 }
 
 void genesis_wakeup(struct GenesisContext *context) {
-    context->events_mutex.lock();
-    context->events_cond.signal();
-    context->events_mutex.unlock();
+    os_mutex_lock(context->events_mutex);
+    os_cond_signal(context->events_cond, context->events_mutex);
+    os_mutex_unlock(context->events_mutex);
 }
 
 void genesis_set_event_callback(struct GenesisContext *context,
@@ -232,17 +552,26 @@ static GenesisPort *create_port_from_descriptor(GenesisPortDescriptor *port_desc
     switch (port_descriptor->port_type) {
         case GenesisPortTypeAudioIn:
         case GenesisPortTypeAudioOut:
-            port = (GenesisPort*)create_zero<GenesisAudioPort>();
-            break;
-
+            {
+                GenesisAudioPort *audio_port = create_zero<GenesisAudioPort>();
+                if (!audio_port)
+                    return nullptr;
+                audio_port->sample_buffer_err = GenesisErrorInvalidState;
+                port = (GenesisPort*)audio_port;
+                break;
+            }
         case GenesisPortTypeEventsIn:
         case GenesisPortTypeEventsOut:
-            port = (GenesisPort*)create_zero<GenesisEventsPort>();
-            break;
+            {
+                GenesisEventsPort *events_port = create_zero<GenesisEventsPort>();
+                if (!events_port)
+                    return nullptr;
+                events_port->event_buffer_err = GenesisErrorInvalidState;
+                port = (GenesisPort*)events_port;
+                break;
+            }
 
     }
-    if (!port)
-        return nullptr;
     port->descriptor = port_descriptor;
     return port;
 }
@@ -289,12 +618,14 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
 }
 
 static void destroy_audio_port(GenesisAudioPort *audio_port) {
-    destroy(audio_port->sample_buffer, 1);
+    if (!audio_port->sample_buffer_err)
+        ring_buffer_deinit(&audio_port->sample_buffer);
     destroy(audio_port, 1);
 }
 
 static void destroy_events_port(GenesisEventsPort *events_port) {
-    destroy(events_port->event_buffer, 1);
+    if (!events_port->event_buffer_err)
+        ring_buffer_deinit(&events_port->event_buffer);
     destroy(events_port, 1);
 }
 
@@ -391,7 +722,7 @@ int genesis_audio_file_codec_sample_format_count(const struct GenesisAudioFileCo
     return codec ? codec->prioritized_sample_formats.length() : 0;
 }
 
-enum GenesisSampleFormat genesis_audio_file_codec_sample_format_index(
+enum SoundIoFormat genesis_audio_file_codec_sample_format_index(
         const struct GenesisAudioFileCodec *codec, int index)
 {
     return codec->prioritized_sample_formats.at(index);
@@ -408,7 +739,7 @@ int genesis_audio_file_codec_sample_rate_index(
 }
 
 static void get_audio_port_status(GenesisAudioPort *audio_out_port, bool *empty, bool *full) {
-    int fill_count = audio_out_port->sample_buffer->fill_count();
+    int fill_count = ring_buffer_fill_count(&audio_out_port->sample_buffer);
     *empty = (fill_count == 0);
     *full = (fill_count == audio_out_port->sample_buffer_size);
 }
@@ -484,84 +815,69 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
 static void playback_node_destroy(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     if (playback_node_context) {
-        if (playback_node_context->playback_device) {
-            open_playback_device_destroy(playback_node_context->playback_device);
-        }
+        soundio_outstream_destroy(playback_node_context->outstream);
         destroy(playback_node_context, 1);
     }
 }
 
-static void playback_node_callback(OpenPlaybackDevice *open_playback_device, int requested_frame_count) {
-    GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
-    GenesisContext *context = node->descriptor->context;
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-
-    if (!context->pipeline_running) {
-pipeline_not_running:
-        // signal that we are no longer calling fill_playback_buffer
-        if (!playback_node_context->done_flag) {
-            playback_node_context->done_flag = true;
-            playback_node_context->mutex.lock();
-            playback_node_context->cond.signal();
-            playback_node_context->mutex.unlock();
-        }
-
-        open_playback_device_fill_with_silence(open_playback_device);
-        return;
-    }
-
-    if (!playback_node_context->seek_flag.test_and_set()) {
-        open_playback_device_clear_buffer(playback_node_context->playback_device);
-        open_playback_device_fill_with_silence(playback_node_context->playback_device);
-        return;
-    }
-
-    while (requested_frame_count > 0) {
-        GenesisPort *audio_in_port = genesis_node_port(node, 0);
-        int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
-        int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
-        float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
-
-
-        int frames_to_process_total = min(requested_frame_count, input_frame_count);
-        int frames_to_process_counter = frames_to_process_total;
-
-        int input_frames_read = 0;
-        char *buffer;
-        while (frames_to_process_counter > 0) {
-            int frame_count = frames_to_process_counter;
-
-            open_playback_device_begin_write(open_playback_device, &buffer, &frame_count);
-            assert(frame_count > 0);
-            memcpy(buffer, in_buf, frame_count * bytes_per_frame);
-            open_playback_device_write(open_playback_device, buffer, frame_count);
-
-            assert(frame_count <= frames_to_process_counter);
-            input_frames_read += frame_count;
-            frames_to_process_counter -= frame_count;
-            assert(frames_to_process_counter >= 0);
-        }
-
-        assert(frames_to_process_total == input_frames_read);
-        genesis_audio_in_port_advance_read_ptr(audio_in_port, frames_to_process_total);
-
-        // act as a realtime processing thread
-        for (;;) {
-            GenesisNode *node;
-            context->task_queue.try_dequeue(&node);
-            if (!context->pipeline_running)
-                goto pipeline_not_running;
-            if (!node)
-                break;
-            run_node(node);
-        }
-
-        requested_frame_count = open_playback_device_free_count(open_playback_device);
-    }
+static void playback_node_error_callback(SoundIoOutStream *outstream, int err) {
+    panic("TODO playback_node_error_callback");
 }
 
-static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_device) {
-    GenesisNode *node = (GenesisNode *)open_playback_device->userdata;
+static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_min, int frame_count_max) {
+    GenesisNode *node = (GenesisNode *)outstream->userdata;
+    GenesisContext *context = node->descriptor->context;
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    struct SoundIoChannelArea *areas;
+    int err;
+
+    assert(context->pipeline_running);
+
+    GenesisPort *audio_in_port = genesis_node_port(node, 0);
+    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+    float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
+    const struct SoundIoChannelLayout *layout = &outstream->layout;
+
+    if (frame_count_max > input_frame_count) {
+        panic("TODO turn prebuffering back on");
+        return;
+    }
+
+    int frames_left = frame_count_max;
+    while (frames_left > 0) {
+        int frame_count = frames_left;
+        if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count))) {
+            playback_node_error_callback(outstream, err);
+            return;
+        }
+
+        if (!frame_count)
+            break;
+
+        for (int frame = 0; frame < frame_count; frame += 1) {
+            for (int channel = 0; channel < layout->channel_count; channel += 1) {
+                playback_node_context->write_sample(areas[channel].ptr, *in_buf);
+                memcpy(areas[channel].ptr, in_buf, outstream->bytes_per_sample);
+                areas[channel].ptr += areas[channel].step;
+                in_buf += 1;
+            }
+        }
+
+        if ((err = soundio_outstream_end_write(outstream))) {
+            playback_node_error_callback(outstream, err);
+            return;
+        }
+
+        frames_left -= frame_count;
+    }
+
+    genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count_max);
+}
+
+static void playback_node_underrun_callback(SoundIoOutStream *outstream) {
+    panic("TODO underrun callback - turn prebuffering back on");
+    /*
+    GenesisNode *node = (GenesisNode *)outstream->userdata;
     GenesisContext *context = node->descriptor->context;
     if (context->pipeline_running) {
         // it's okay to make a syscall here which might block even though we're in
@@ -569,21 +885,33 @@ static void playback_node_underrun_callback(OpenPlaybackDevice *open_playback_de
         context->underrun_flag.clear();
         emit_event_ready(context);
     }
-    open_playback_device_fill_with_silence(open_playback_device);
+    open_playback_device_fill_with_silence(outstream);
+    */
 }
 
 static void playback_node_deactivate(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    playback_node_context->mutex.lock();
-    while (!playback_node_context->done_flag)
-        playback_node_context->cond.wait(&playback_node_context->mutex);
-    playback_node_context->mutex.unlock();
-    playback_node_context->seek_flag.test_and_set();
+    soundio_outstream_destroy(playback_node_context->outstream);
+    playback_node_context->outstream = nullptr;
 }
 
 static void playback_node_activate(struct GenesisNode *node) {
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    playback_node_context->done_flag = false;
+    //PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    // TODO we probably want to have the stream destroyed when deactivated which means
+    // we need stream creation in activate
+    panic("TODO playback_node_activate");
+}
+
+static int playback_choose_best_format(PlaybackNodeContext *playback_node_context, SoundIoDevice *device) {
+    for (int i = 0; i < array_length(prioritized_sample_format_infos); i += 1) {
+        struct SampleFormatInfo *sample_format_info = &prioritized_sample_format_infos[i];
+        if (soundio_device_supports_format(device, sample_format_info->format)) {
+            playback_node_context->write_sample = sample_format_info->write_sample;
+            playback_node_context->outstream->format = sample_format_info->format;
+            return 0;
+        }
+    }
+    return GenesisErrorIncompatibleDevice;
 }
 
 static int playback_node_create(struct GenesisNode *node) {
@@ -596,130 +924,152 @@ static int playback_node_create(struct GenesisNode *node) {
     }
     node->userdata = playback_node_context;
 
-    if (playback_node_context->mutex.error() || playback_node_context->cond.error()) {
+    SoundIoDevice *device = (SoundIoDevice*)node->descriptor->userdata;
+
+    if (!(playback_node_context->outstream = soundio_outstream_create(device))) {
         playback_node_destroy(node);
-        return playback_node_context->mutex.error() || playback_node_context->cond.error();
+        return GenesisErrorNoMem;
     }
 
-    GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
-
-    int err = open_playback_device_create(device, GenesisSampleFormatFloat,
-            context->latency, node, playback_node_callback, playback_node_underrun_callback,
-            &playback_node_context->playback_device);
-    if (err) {
+    int err;
+    if ((err = playback_choose_best_format(playback_node_context, device))) {
         playback_node_destroy(node);
         return err;
     }
 
-    playback_node_context->seek_flag.test_and_set();
 
-    if ((err = open_playback_device_start(playback_node_context->playback_device))) {
+    playback_node_context->outstream->name = "Genesis";
+    playback_node_context->outstream->userdata = playback_node_context;
+    playback_node_context->outstream->underflow_callback = playback_node_underrun_callback;
+    playback_node_context->outstream->error_callback = playback_node_error_callback;
+    playback_node_context->outstream->write_callback = playback_node_callback;
+    playback_node_context->outstream->sample_rate = 48000; // TODO
+    playback_node_context->outstream->layout =
+        *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo); // TODO;
+    // Spend 1/4 of the latency on the device buffer and 3/4 of the latency in ring buffers for
+    // nodes in the audio pipeline.
+    playback_node_context->outstream->software_latency = context->latency * 0.25;
+
+    if ((err = soundio_outstream_open(playback_node_context->outstream))) {
         playback_node_destroy(node);
-        return err;
+        return GenesisErrorOpeningAudioHardware;
     }
+
+
+    panic("TODO: start prebuffering. figure out when to call soundio_outstream_start");
 
     return 0;
 }
 
 static void playback_node_seek(struct GenesisNode *node) {
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    playback_node_context->seek_flag.clear();
+    //PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    panic("TODO playback_node_seek");
 }
 
 static void destroy_audio_device_node_descriptor(struct GenesisNodeDescriptor *node_descriptor) {
-    GenesisAudioDevice *audio_device = (GenesisAudioDevice*)node_descriptor->userdata;
-    genesis_audio_device_unref(audio_device);
+    SoundIoDevice *audio_device = (SoundIoDevice*)node_descriptor->userdata;
+    soundio_device_unref(audio_device);
 }
 
-static void recording_node_callback(OpenRecordingDevice *open_recording_device) {
-    GenesisNode *node = (GenesisNode *)open_recording_device->userdata;
+static void recording_node_error_callback(SoundIoInStream *instream, int err) {
+    panic("TODO recording_node_error_callback");
+}
+
+static void recording_node_overflow_callback(SoundIoInStream *instream) {
+    panic("TODO handle data dropped; recording_node_overflow_callback");
+}
+
+static void recording_node_callback(SoundIoInStream *instream, int frame_count_min, int frame_count_max) {
+    GenesisNode *node = (GenesisNode *)instream->userdata;
     GenesisContext *context = node->descriptor->context;
     RecordingNodeContext *recording_node_context = (RecordingNodeContext *)node->userdata;
+    struct SoundIoChannelArea *areas;
+    int err;
 
-    if (!context->pipeline_running) {
-        // signal that we are no longer accessing ports etc
-        if (!recording_node_context->done_flag) {
-            recording_node_context->done_flag = true;
-            recording_node_context->mutex.lock();
-            recording_node_context->cond.signal();
-            recording_node_context->mutex.unlock();
-        }
-
-        for (;;) {
-            const char *in_buf;
-            int frame_count;
-
-            open_recording_device_peek(open_recording_device, &in_buf, &frame_count);
-
-            if (frame_count <= 0)
-                break;
-
-            open_recording_device_drop(open_recording_device);
-        }
-
-        return;
-    }
+    assert(context->pipeline_running);
 
     GenesisPort *audio_out_port = genesis_node_port(node, 0);
-    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
     float *out_buf = genesis_audio_out_port_write_ptr(audio_out_port);
-    int total_frames_written = 0;
 
-    for (;;) {
-        const char *in_buf;
-        int input_frame_count;
+    int write_frames = min(output_frame_count, frame_count_max);
+    int read_frames = clamp(frame_count_min, output_frame_count, frame_count_max);
+    int read_frames_left = read_frames;
+    int write_frames_left = write_frames;
 
-        open_recording_device_peek(open_recording_device, &in_buf, &input_frame_count);
-
-        if (input_frame_count <= 0)
-            break;
-
-        // TODO: this is broken. we must read all of input_frame_count or we lose the recorded data.
-        int write_frame_count = min(input_frame_count, output_frame_count);
-
-        if (write_frame_count > 0) {
-            if (in_buf) {
-                memcpy(out_buf, in_buf, write_frame_count * bytes_per_frame);
-            } else {
-                // there's a hole. fill it with silence
-                memset(out_buf, 0, write_frame_count * bytes_per_frame);
-            }
-
-            total_frames_written += write_frame_count;
-            output_frame_count -= write_frame_count;
-        }
-
-        open_recording_device_drop(open_recording_device);
+    if (read_frames > write_frames) {
+        panic("TODO handle data dropped; read_frames > write_frames");
     }
 
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, total_frames_written);
+    while (read_frames_left > 0) {
+        int read_frame_count = read_frames_left;
+        if ((err = soundio_instream_begin_read(instream, &areas, &read_frame_count))) {
+            recording_node_error_callback(instream, err);
+            return;
+        }
+
+        if (!read_frame_count)
+            break;
+
+        int write_frame_count = min(read_frame_count, write_frames_left);
+        if (!areas) {
+            panic("TODO handle data dropped; hole");
+        } else {
+            for (int frame = 0; frame < write_frame_count; frame += 1) {
+                for (int ch = 0; ch < instream->layout.channel_count; ch += 1) {
+                    recording_node_context->read_sample(areas[ch].ptr, out_buf);
+                    areas[ch].ptr += areas[ch].step;
+                    out_buf += 1;
+                }
+            }
+        }
+
+        if ((err = soundio_instream_end_read(instream))) {
+            recording_node_error_callback(instream, err);
+            return;
+        }
+
+        read_frames_left -= read_frame_count;
+        write_frames_left -= write_frame_count;
+    }
+
+    genesis_audio_out_port_advance_write_ptr(audio_out_port, write_frames);
 }
 
 static void recording_node_seek(struct GenesisNode *node) {
-    RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
-    open_recording_device_clear_buffer(recording_node_context->recording_device);
+    //RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
+    panic("TODO recording_node_seek");
 }
 
 static void recording_node_destroy(struct GenesisNode *node) {
     RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
-    if (recording_node_context->recording_device) {
-        open_recording_device_destroy(recording_node_context->recording_device);
+    if (recording_node_context) {
+        soundio_instream_destroy(recording_node_context->instream);
+        destroy(recording_node_context, 1);
     }
-    destroy(recording_node_context, 1);
 }
 
 static void recording_node_deactivate(struct GenesisNode *node) {
     RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
-    recording_node_context->mutex.lock();
-    while (!recording_node_context->done_flag)
-        recording_node_context->cond.wait(&recording_node_context->mutex);
-    recording_node_context->mutex.unlock();
+    soundio_instream_destroy(recording_node_context->instream);
+    recording_node_context->instream = nullptr;
 }
 
 static void recording_node_activate(struct GenesisNode *node) {
-    RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
-    recording_node_context->done_flag = false;
+    //RecordingNodeContext *recording_node_context = (RecordingNodeContext*)node->userdata;
+    panic("TODO recording_node_activate");
+}
+
+static int recording_choose_best_format(RecordingNodeContext *recording_node_context, SoundIoDevice *device) {
+    for (int i = 0; i < array_length(prioritized_sample_format_infos); i += 1) {
+        struct SampleFormatInfo *sample_format_info = &prioritized_sample_format_infos[i];
+        if (soundio_device_supports_format(device, sample_format_info->format)) {
+            recording_node_context->read_sample = sample_format_info->read_sample;
+            recording_node_context->instream->format = sample_format_info->format;
+            return 0;
+        }
+    }
+    return GenesisErrorIncompatibleDevice;
 }
 
 static int recording_node_create(struct GenesisNode *node) {
@@ -731,21 +1081,32 @@ static int recording_node_create(struct GenesisNode *node) {
     }
     node->userdata = recording_node_context;
 
-    if (recording_node_context->mutex.error() || recording_node_context->cond.error()) {
+    SoundIoDevice *device = (SoundIoDevice*)node->descriptor->userdata;
+
+    if (!(recording_node_context->instream = soundio_instream_create(device))) {
         recording_node_destroy(node);
-        return (recording_node_context->mutex.error() || recording_node_context->cond.error());
+        return GenesisErrorNoMem;
     }
 
-    GenesisAudioDevice *device = (GenesisAudioDevice*)node->descriptor->userdata;
-
-    int err = open_recording_device_create(device, GenesisSampleFormatFloat,
-            context->latency * 0.90, node, recording_node_callback, &recording_node_context->recording_device);
-    if (err) {
+    int err;
+    if ((err = recording_choose_best_format(recording_node_context, device))) {
         recording_node_destroy(node);
         return err;
     }
 
-    if ((err = open_recording_device_start(recording_node_context->recording_device))) {
+    recording_node_context->instream->name = "Genesis";
+    recording_node_context->instream->userdata = recording_node_context;
+    recording_node_context->instream->read_callback = recording_node_callback;
+    recording_node_context->instream->error_callback = recording_node_error_callback;
+    recording_node_context->instream->overflow_callback = recording_node_overflow_callback;
+    recording_node_context->instream->sample_rate = 48000; // TODO
+    recording_node_context->instream->layout =
+        *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo); // TODO
+    // Spend 1/4 of the latency on the device buffer and 3/4 of the latency in ring buffers for
+    // nodes in the audio pipeline.
+    recording_node_context->instream->software_latency = context->latency * 0.25;
+
+    if ((err = soundio_instream_open(recording_node_context->instream))) {
         recording_node_destroy(node);
         return err;
     }
@@ -753,19 +1114,32 @@ static int recording_node_create(struct GenesisNode *node) {
     return 0;
 }
 
-int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio_device,
+static void get_best_supported_layout(SoundIoDevice *device, SoundIoChannelLayout *out_layout) {
+    for (int i = 0; i < array_length(prioritized_layouts); i += 1) {
+        enum SoundIoChannelLayoutId layout_id = prioritized_layouts[i];
+        const struct SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(layout_id);
+        if (soundio_device_supports_layout(device, layout)) {
+            *out_layout = *layout;
+            return;
+        }
+    }
+
+    *out_layout = device->layouts[0];
+}
+
+int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
+        struct SoundIoDevice *audio_device,
         struct GenesisNodeDescriptor **out)
 {
-    GenesisContext *context = audio_device->audio_hardware->genesis_context;
 
     *out = nullptr;
 
-    const char *name_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+    const char *name_fmt_str = (audio_device->aim == SoundIoDeviceAimOutput) ?
         "playback-device-%s" : "recording-device-%s";
-    const char *description_fmt_str = (audio_device->purpose == GenesisAudioDevicePurposePlayback) ?
+    const char *description_fmt_str = (audio_device->aim == SoundIoDeviceAimOutput) ?
         "Playback Device: %s" : "Recording Device: %s";
-    char *name = create_formatted_str(name_fmt_str, audio_device->name);
-    char *description = create_formatted_str(description_fmt_str, audio_device->description);
+    char *name = create_formatted_str(name_fmt_str, audio_device->id);
+    char *description = create_formatted_str(description_fmt_str, audio_device->name);
     if (!name || !description) {
         free(name);
         free(description);
@@ -781,12 +1155,12 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         return GenesisErrorNoMem;
     }
 
-    genesis_audio_device_ref(audio_device);
+    soundio_device_ref(audio_device);
     node_descr->userdata = audio_device;
     node_descr->destroy_descriptor = destroy_audio_device_node_descriptor;
 
     struct GenesisPortDescriptor *audio_port;
-    if (audio_device->purpose == GenesisAudioDevicePurposePlayback) {
+    if (audio_device->aim == SoundIoDeviceAimOutput) {
         audio_port = genesis_node_descriptor_create_port(node_descr, 0, GenesisPortTypeAudioIn, "audio_in");
     } else {
         audio_port = genesis_node_descriptor_create_port(node_descr, 0, GenesisPortTypeAudioOut, "audio_out");
@@ -796,10 +1170,10 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         return GenesisErrorNoMem;
     }
 
-    if (audio_device->purpose == GenesisAudioDevicePurposePlayback) {
+    if (audio_device->aim == SoundIoDeviceAimOutput) {
         node_descr->activate = playback_node_activate;
         node_descr->deactivate = playback_node_deactivate;
-        node_descr->run = nullptr;
+        node_descr->run = nullptr; // TODO this would be a great place to call soundio_outstream_start
         node_descr->create = playback_node_create;
         node_descr->destroy = playback_node_destroy;
         node_descr->seek = playback_node_seek;
@@ -812,8 +1186,12 @@ int genesis_audio_device_create_node_descriptor(struct GenesisAudioDevice *audio
         node_descr->seek = recording_node_seek;
     }
 
-    genesis_audio_port_descriptor_set_channel_layout(audio_port, &audio_device->channel_layout, true, -1);
-    genesis_audio_port_descriptor_set_sample_rate(audio_port, audio_device->default_sample_rate, true, -1);
+    int chosen_sample_rate = soundio_device_nearest_sample_rate(audio_device, context->target_sample_rate);
+    genesis_audio_port_descriptor_set_sample_rate(audio_port, chosen_sample_rate, true, -1);
+
+    SoundIoChannelLayout layout;
+    get_best_supported_layout(audio_device, &layout);
+    genesis_audio_port_descriptor_set_channel_layout(audio_port, &layout, true, -1);
 
     *out = node_descr;
     return 0;
@@ -1005,14 +1383,14 @@ static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest)
         dest_audio_descr->channel_layout_fixed)
     {
         // both fixed. they better match up
-        if (!genesis_channel_layout_equal(&source->channel_layout, &dest->channel_layout)) {
+        if (!soundio_channel_layout_equal(&source->channel_layout, &dest->channel_layout)) {
             return GenesisErrorIncompatibleChannelLayouts;
         }
     } else if (!source_audio_descr->channel_layout_fixed &&
                !dest_audio_descr->channel_layout_fixed)
     {
         // anything goes. default to mono
-        source->channel_layout = *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
+        source->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
         dest->channel_layout = source->channel_layout;
     } else if (source_audio_descr->channel_layout_fixed) {
         // source is fixed, use that one
@@ -1196,6 +1574,18 @@ struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
     return port_descr;
 }
 
+static void genesis_debug_print_channel_layout(const struct SoundIoChannelLayout *layout) {
+    if (layout->name) {
+        fprintf(stderr, "%s\n", layout->name);
+    } else {
+        fprintf(stderr, "%s", soundio_get_channel_name(layout->channels[0]));
+        for (int i = 1; i < layout->channel_count; i += 1) {
+            fprintf(stderr, ", %s", soundio_get_channel_name(layout->channels[i]));
+        }
+        fprintf(stderr, "\n");
+    }
+}
+
 static void debug_print_audio_port_config(GenesisAudioPort *port) {
     resolve_channel_layout(port);
     resolve_sample_rate(port);
@@ -1246,12 +1636,12 @@ int genesis_start_pipeline(struct GenesisContext *context, double time) {
             GenesisPort *port = node->ports[port_i];
             if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
                 GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
-                if (audio_port->sample_buffer)
-                    audio_port->sample_buffer->clear();
+                if (!audio_port->sample_buffer_err)
+                    ring_buffer_clear(&audio_port->sample_buffer);
             } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
                 GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
-                if (events_port->event_buffer)
-                    events_port->event_buffer->clear();
+                if (!events_port->event_buffer_err)
+                    ring_buffer_clear(&events_port->event_buffer);
             }
         }
         node->timestamp = time;
@@ -1265,9 +1655,10 @@ int genesis_start_pipeline(struct GenesisContext *context, double time) {
 void genesis_stop_pipeline(struct GenesisContext *context) {
     context->pipeline_running = false;
     context->task_queue.wakeup_all();
-    for (int i = 0; i < context->thread_pool.length(); i += 1) {
-        Thread *thread = &context->thread_pool.at(i);
-        thread->join();
+    for (int i = 0; i < context->thread_pool_size; i += 1) {
+        OsThread *thread = context->thread_pool[i];
+        os_thread_destroy(thread);
+        context->thread_pool[i] = nullptr;
     }
     for (int i = 0; i < context->nodes.length(); i += 1) {
         GenesisNode *node = context->nodes.at(i);
@@ -1277,7 +1668,7 @@ void genesis_stop_pipeline(struct GenesisContext *context) {
 }
 
 int genesis_resume_pipeline(struct GenesisContext *context) {
-    int err = context->task_queue.resize(context->nodes.length() + context->thread_pool.length());
+    int err = context->task_queue.resize(context->nodes.length() + context->thread_pool_size);
     if (err) {
         genesis_stop_pipeline(context);
         return err;
@@ -1293,28 +1684,33 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
             } else if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
                 GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
-                int sample_buffer_frame_count = ceil(context->latency * audio_port->sample_rate);
+                // the 0.75 is because the outstream software_latency is context->latency * 0.25
+                int sample_buffer_frame_count = ceil(context->latency * audio_port->sample_rate * 0.75);
                 audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
                 int new_sample_buffer_size = sample_buffer_frame_count * audio_port->bytes_per_frame;
                 bool different = new_sample_buffer_size != audio_port->sample_buffer_size;
                 audio_port->sample_buffer_size = new_sample_buffer_size;
 
-                if (!audio_port->sample_buffer || different) {
-                    destroy(audio_port->sample_buffer, 1);
-                    audio_port->sample_buffer = create_zero<RingBuffer>(audio_port->sample_buffer_size);
-                    if (!audio_port->sample_buffer) {
+                if (audio_port->sample_buffer_err || different) {
+                    ring_buffer_deinit(&audio_port->sample_buffer);
+                    if ((audio_port->sample_buffer_err =
+                            ring_buffer_init(&audio_port->sample_buffer, audio_port->sample_buffer_size)))
+                    {
                         genesis_stop_pipeline(context);
                         return GenesisErrorNoMem;
                     }
                 }
             } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
                 GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
-                int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * context->latency;
-                if (!events_port->event_buffer || events_port->event_buffer->capacity() != min_event_buffer_size) {
-                    destroy(events_port->event_buffer, 1);
-                    events_port->event_buffer = create_zero<RingBuffer>(min_event_buffer_size);
-
-                    if (!events_port->event_buffer) {
+                // 0.75 to match audio ports
+                int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * context->latency * 0.75;
+                if (events_port->event_buffer_err ||
+                    events_port->event_buffer.capacity != min_event_buffer_size)
+                {
+                    ring_buffer_deinit(&events_port->event_buffer);
+                    if ((events_port->event_buffer_err = ring_buffer_init(&events_port->event_buffer,
+                                    min_event_buffer_size)))
+                    {
                         genesis_stop_pipeline(context);
                         return GenesisErrorNoMem;
                     }
@@ -1331,10 +1727,8 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
             node->descriptor->activate(node);
     }
 
-    for (int i = 0; i < context->thread_pool.length(); i += 1) {
-        Thread *thread = &context->thread_pool.at(i);
-        int err = thread->start(pipeline_thread_run, context);
-        if (err) {
+    for (int i = 0; i < context->thread_pool_size; i += 1) {
+        if ((err = os_thread_create(pipeline_thread_run, context, true, &context->thread_pool[i]))) {
             genesis_stop_pipeline(context);
             return err;
         }
@@ -1366,13 +1760,13 @@ float genesis_midi_note_to_pitch(int note) {
 int genesis_audio_in_port_fill_count(GenesisPort *port) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
-    return audio_out_port->sample_buffer->fill_count() / audio_out_port->bytes_per_frame;
+    return ring_buffer_fill_count(&audio_out_port->sample_buffer) / audio_out_port->bytes_per_frame;
 }
 
 float *genesis_audio_in_port_read_ptr(GenesisPort *port) {
     struct GenesisAudioPort *audio_in_port = (struct GenesisAudioPort *) port;
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) audio_in_port->port.input_from;
-    return (float*)audio_out_port->sample_buffer->read_ptr();
+    return (float*)ring_buffer_read_ptr(&audio_out_port->sample_buffer);
 }
 
 void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int frame_count) {
@@ -1381,14 +1775,14 @@ void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int frame_count) 
     int byte_count = frame_count * audio_out_port->bytes_per_frame;
     assert(byte_count >= 0);
     assert(byte_count <= audio_out_port->sample_buffer_size);
-    audio_out_port->sample_buffer->advance_read_ptr(byte_count);
+    ring_buffer_advance_read_ptr(&audio_out_port->sample_buffer, byte_count);
     struct GenesisNode *child_node = audio_out_port->port.node;
     queue_node_if_ready(child_node->descriptor->context, child_node, true);
 }
 
 int genesis_audio_out_port_free_count(GenesisPort *port) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    int fill_count = audio_out_port->sample_buffer->fill_count();
+    int fill_count = ring_buffer_fill_count(&audio_out_port->sample_buffer);
     int bytes_free_count = audio_out_port->sample_buffer_size - fill_count;
     int result = bytes_free_count / audio_out_port->bytes_per_frame;
     assert(result >= 0);
@@ -1397,15 +1791,15 @@ int genesis_audio_out_port_free_count(GenesisPort *port) {
 
 float *genesis_audio_out_port_write_ptr(GenesisPort *port) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
-    return (float*)audio_out_port->sample_buffer->write_ptr();
+    return (float*)ring_buffer_write_ptr(&audio_out_port->sample_buffer);
 }
 
 void genesis_audio_out_port_advance_write_ptr(GenesisPort *port, int frame_count) {
     struct GenesisAudioPort *audio_out_port = (struct GenesisAudioPort *) port;
     int byte_count = frame_count * audio_out_port->bytes_per_frame;
     assert(byte_count >= 0);
-    assert(byte_count <= (audio_out_port->sample_buffer_size - audio_out_port->sample_buffer->fill_count()));
-    audio_out_port->sample_buffer->advance_write_ptr(byte_count);
+    assert(byte_count <= (audio_out_port->sample_buffer_size - ring_buffer_fill_count(&audio_out_port->sample_buffer)));
+    ring_buffer_advance_write_ptr(&audio_out_port->sample_buffer, byte_count);
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)audio_out_port->port.output_to;
     GenesisNode *other_node = audio_in_port->port.node;
     GenesisContext *context = port->node->descriptor->context;
@@ -1422,7 +1816,7 @@ int genesis_audio_port_sample_rate(struct GenesisPort *port) {
     return audio_port->sample_rate;
 }
 
-const GenesisChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort *port) {
+const SoundIoChannelLayout *genesis_audio_port_channel_layout(struct GenesisPort *port) {
     struct GenesisAudioPort *audio_port = (struct GenesisAudioPort *)port;
     return &audio_port->channel_layout;
 }
@@ -1433,7 +1827,7 @@ void genesis_events_in_port_fill_count(struct GenesisPort *port,
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     assert(events_out_port); // assume it is connected
-    *event_count = events_out_port->event_buffer->fill_count() / sizeof(GenesisMidiEvent);
+    *event_count = ring_buffer_fill_count(&events_out_port->event_buffer) / sizeof(GenesisMidiEvent);
     *time_available = events_out_port->time_available.load();
     events_out_port->time_requested.add(time_requested);
 }
@@ -1442,7 +1836,7 @@ void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     assert(events_out_port); // assume it is connected
-    events_out_port->event_buffer->advance_read_ptr(event_count * sizeof(GenesisMidiEvent));
+    ring_buffer_advance_read_ptr(&events_out_port->event_buffer, event_count * sizeof(GenesisMidiEvent));
     events_out_port->time_available.add(-buf_size);
 
     struct GenesisNode *child_node = events_out_port->port.node;
@@ -1453,21 +1847,22 @@ GenesisMidiEvent *genesis_events_in_port_read_ptr(GenesisPort *port) {
     struct GenesisEventsPort *events_in_port = (struct GenesisEventsPort *) port;
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) events_in_port->port.input_from;
     assert(events_out_port); // assume it is connected
-    return (GenesisMidiEvent*)events_out_port->event_buffer->read_ptr();
+    return (GenesisMidiEvent*)ring_buffer_read_ptr(&events_out_port->event_buffer);
 }
 
 void genesis_events_out_port_free_count(struct GenesisPort *port,
         int *event_count, double *time_requested)
 {
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
-    int bytes_free_count = events_out_port->event_buffer->capacity() - events_out_port->event_buffer->fill_count();
+    int bytes_free_count = events_out_port->event_buffer.capacity -
+        ring_buffer_fill_count(&events_out_port->event_buffer);
     *event_count = bytes_free_count / sizeof(GenesisMidiEvent);
     *time_requested = events_out_port->time_requested.load();
 }
 
 void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int event_count, double buf_size) {
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
-    events_out_port->event_buffer->advance_write_ptr(event_count * sizeof(GenesisMidiEvent));
+    ring_buffer_advance_write_ptr(&events_out_port->event_buffer, event_count * sizeof(GenesisMidiEvent));
     events_out_port->time_requested.add(-buf_size);
     events_out_port->time_available.add(buf_size);
 
@@ -1480,7 +1875,7 @@ void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int eve
 
 struct GenesisMidiEvent *genesis_events_out_port_write_ptr(struct GenesisPort *port) {
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
-    return (GenesisMidiEvent*)events_out_port->event_buffer->write_ptr();
+    return (GenesisMidiEvent*)ring_buffer_write_ptr(&events_out_port->event_buffer);
 }
 
 void genesis_node_descriptor_set_run_callback(struct GenesisNodeDescriptor *node_descriptor,
@@ -1513,7 +1908,7 @@ void genesis_node_descriptor_set_userdata(struct GenesisNodeDescriptor *node_des
 
 int genesis_audio_port_descriptor_set_channel_layout(
         struct GenesisPortDescriptor *port_descr,
-        const GenesisChannelLayout *channel_layout, bool fixed, int other_port_index)
+        const SoundIoChannelLayout *channel_layout, bool fixed, int other_port_index)
 {
     if (port_descr->port_type != GenesisPortTypeAudioIn &&
         port_descr->port_type != GenesisPortTypeAudioOut)
@@ -1605,4 +2000,39 @@ void genesis_debug_print_pipeline(struct GenesisContext *context) {
             fprintf(stderr, " - %s: empty: %d full: %d\n", port_descr->name, (int)empty, (int)full);
         }
     }
+}
+
+int genesis_default_input_device_index(struct GenesisContext *context) {
+    return soundio_default_input_device_index(context->soundio);
+}
+
+int genesis_default_output_device_index(struct GenesisContext *context) {
+    return soundio_default_output_device_index(context->soundio);
+}
+
+struct SoundIoDevice *genesis_get_input_device(struct GenesisContext *context, int index) {
+    return soundio_get_input_device(context->soundio, index);
+}
+
+struct SoundIoDevice *genesis_get_output_device(struct GenesisContext *context, int index) {
+    return soundio_get_output_device(context->soundio, index);
+}
+
+void genesis_set_audio_device_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata)
+{
+    context->devices_change_callback_userdata = userdata;
+    context->devices_change_callback = callback;
+}
+
+int genesis_input_device_count(struct GenesisContext *context) {
+    return soundio_input_device_count(context->soundio);
+}
+
+int genesis_output_device_count(struct GenesisContext *context) {
+    return soundio_output_device_count(context->soundio);
+}
+
+const char *genesis_version_string(void) {
+    return GENESIS_VERSION_STRING;
 }

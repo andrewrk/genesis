@@ -2,13 +2,13 @@
 
 #include <stdint.h>
 
-static const GenesisSampleFormat prioritized_sample_formats[] = {
-    GenesisSampleFormatInt24,
-    GenesisSampleFormatFloat,
-    GenesisSampleFormatInt32,
-    GenesisSampleFormatInt16,
-    GenesisSampleFormatDouble,
-    GenesisSampleFormatUInt8,
+static const SoundIoFormat prioritized_sample_formats[] = {
+    SoundIoFormatS24NE,
+    SoundIoFormatFloat32NE,
+    SoundIoFormatS32NE,
+    SoundIoFormatS16NE,
+    SoundIoFormatFloat64NE,
+    SoundIoFormatU8,
 };
 
 static const int prioritized_sample_rates[] = {
@@ -225,34 +225,32 @@ static int decode_frame(GenesisAudioFile *audio_file, AVPacket *pkt,
     return decoded_byte_count;
 }
 
-static GenesisChannelId from_ffmpeg_channel_id(uint64_t ffmpeg_channel_id) {
+static SoundIoChannelId from_ffmpeg_channel_id(uint64_t ffmpeg_channel_id) {
     switch (ffmpeg_channel_id) {
-        case AV_CH_FRONT_LEFT:            return GenesisChannelIdFrontLeft;
-        case AV_CH_FRONT_RIGHT:           return GenesisChannelIdFrontRight;
-        case AV_CH_FRONT_CENTER:          return GenesisChannelIdFrontCenter;
-        case AV_CH_LOW_FREQUENCY:         return GenesisChannelIdLowFrequency;
-        case AV_CH_BACK_LEFT:             return GenesisChannelIdBackLeft;
-        case AV_CH_BACK_RIGHT:            return GenesisChannelIdBackRight;
-        case AV_CH_FRONT_LEFT_OF_CENTER:  return GenesisChannelIdFrontLeftOfCenter;
-        case AV_CH_FRONT_RIGHT_OF_CENTER: return GenesisChannelIdFrontRightOfCenter;
-        case AV_CH_BACK_CENTER:           return GenesisChannelIdBackCenter;
-        case AV_CH_SIDE_LEFT:             return GenesisChannelIdSideLeft;
-        case AV_CH_SIDE_RIGHT:            return GenesisChannelIdSideRight;
-        case AV_CH_TOP_CENTER:            return GenesisChannelIdTopCenter;
-        case AV_CH_TOP_FRONT_LEFT:        return GenesisChannelIdTopFrontLeft;
-        case AV_CH_TOP_FRONT_CENTER:      return GenesisChannelIdTopFrontCenter;
-        case AV_CH_TOP_FRONT_RIGHT:       return GenesisChannelIdTopFrontRight;
-        case AV_CH_TOP_BACK_LEFT:         return GenesisChannelIdTopBackLeft;
-        case AV_CH_TOP_BACK_CENTER:       return GenesisChannelIdTopBackCenter;
-        case AV_CH_TOP_BACK_RIGHT:        return GenesisChannelIdTopBackRight;
+        case AV_CH_FRONT_LEFT:            return SoundIoChannelIdFrontLeft;
+        case AV_CH_FRONT_RIGHT:           return SoundIoChannelIdFrontRight;
+        case AV_CH_FRONT_CENTER:          return SoundIoChannelIdFrontCenter;
+        case AV_CH_LOW_FREQUENCY:         return SoundIoChannelIdLfe;
+        case AV_CH_BACK_LEFT:             return SoundIoChannelIdBackLeft;
+        case AV_CH_BACK_RIGHT:            return SoundIoChannelIdBackRight;
+        case AV_CH_FRONT_LEFT_OF_CENTER:  return SoundIoChannelIdFrontLeftCenter;
+        case AV_CH_FRONT_RIGHT_OF_CENTER: return SoundIoChannelIdFrontRightCenter;
+        case AV_CH_BACK_CENTER:           return SoundIoChannelIdBackCenter;
+        case AV_CH_SIDE_LEFT:             return SoundIoChannelIdSideLeft;
+        case AV_CH_SIDE_RIGHT:            return SoundIoChannelIdSideRight;
+        case AV_CH_TOP_CENTER:            return SoundIoChannelIdTopCenter;
+        case AV_CH_TOP_FRONT_LEFT:        return SoundIoChannelIdTopFrontLeft;
+        case AV_CH_TOP_FRONT_CENTER:      return SoundIoChannelIdTopFrontCenter;
+        case AV_CH_TOP_FRONT_RIGHT:       return SoundIoChannelIdTopFrontRight;
+        case AV_CH_TOP_BACK_LEFT:         return SoundIoChannelIdTopBackLeft;
+        case AV_CH_TOP_BACK_CENTER:       return SoundIoChannelIdTopBackCenter;
+        case AV_CH_TOP_BACK_RIGHT:        return SoundIoChannelIdTopBackRight;
 
-        default: return GenesisChannelIdInvalid;
+        default: return SoundIoChannelIdInvalid;
     }
 }
 
-static int channel_layout_init_from_ffmpeg(uint64_t ffmpeg_channel_layout,
-        GenesisChannelLayout *layout)
-{
+static int channel_layout_init_from_ffmpeg(uint64_t ffmpeg_channel_layout, SoundIoChannelLayout *layout) {
     int channel_count = av_get_channel_layout_nb_channels(ffmpeg_channel_layout);
     if (layout->channel_count > GENESIS_MAX_CHANNELS)
         return GenesisErrorMaxChannelsExceeded;
@@ -260,14 +258,14 @@ static int channel_layout_init_from_ffmpeg(uint64_t ffmpeg_channel_layout,
     layout->channel_count = channel_count;
     for (int i = 0; i < layout->channel_count; i += 1) {
         uint64_t ffmpeg_channel_id = av_channel_layout_extract_channel(ffmpeg_channel_layout, i);
-        GenesisChannelId channel_id = from_ffmpeg_channel_id(ffmpeg_channel_id);
+        SoundIoChannelId channel_id = from_ffmpeg_channel_id(ffmpeg_channel_id);
         layout->channels[i] = channel_id;
     }
 
-    int builtin_layout_count = genesis_channel_layout_builtin_count();
+    int builtin_layout_count = soundio_channel_layout_builtin_count();
     for (int i = 0; i < builtin_layout_count; i += 1) {
-        const GenesisChannelLayout *builtin_layout = genesis_channel_layout_get_builtin(i);
-        if (genesis_channel_layout_equal(builtin_layout, layout)) {
+        const SoundIoChannelLayout *builtin_layout = soundio_channel_layout_get_builtin(i);
+        if (soundio_channel_layout_equal(builtin_layout, layout)) {
             layout->name = builtin_layout->name;
             return 0;
         }
@@ -521,23 +519,23 @@ static uint64_t closest_supported_channel_layout(AVCodec *codec, uint64_t target
     return best;
 }
 
-static bool get_is_planar(const AVCodec *codec, GenesisSampleFormat sample_format) {
+static bool get_is_planar(const AVCodec *codec, SoundIoFormat sample_format) {
     if (!codec->sample_fmts)
         return false;
 
     const enum AVSampleFormat *p = (enum AVSampleFormat*) codec->sample_fmts;
     while (*p != AV_SAMPLE_FMT_NONE) {
-        if (sample_format == GenesisSampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8)
+        if (sample_format == SoundIoFormatU8 && *p == AV_SAMPLE_FMT_U8)
             return false;
-        if (sample_format == GenesisSampleFormatInt16 && *p == AV_SAMPLE_FMT_S16)
+        if (sample_format == SoundIoFormatS16NE && *p == AV_SAMPLE_FMT_S16)
             return false;
-        if (sample_format == GenesisSampleFormatInt24 && *p == AV_SAMPLE_FMT_S32)
+        if (sample_format == SoundIoFormatS24NE && *p == AV_SAMPLE_FMT_S32)
             return false;
-        if (sample_format == GenesisSampleFormatInt32 && *p == AV_SAMPLE_FMT_S32)
+        if (sample_format == SoundIoFormatS32NE && *p == AV_SAMPLE_FMT_S32)
             return false;
-        if (sample_format == GenesisSampleFormatFloat && *p == AV_SAMPLE_FMT_FLT)
+        if (sample_format == SoundIoFormatFloat32NE && *p == AV_SAMPLE_FMT_FLT)
             return false;
-        if (sample_format == GenesisSampleFormatDouble && *p == AV_SAMPLE_FMT_DBL)
+        if (sample_format == SoundIoFormatFloat64NE && *p == AV_SAMPLE_FMT_DBL)
             return false;
 
         p += 1;
@@ -545,17 +543,17 @@ static bool get_is_planar(const AVCodec *codec, GenesisSampleFormat sample_forma
 
     p = (enum AVSampleFormat*) codec->sample_fmts;
     while (*p != AV_SAMPLE_FMT_NONE) {
-        if (sample_format == GenesisSampleFormatUInt8 && *p == AV_SAMPLE_FMT_U8P)
+        if (sample_format == SoundIoFormatU8 && *p == AV_SAMPLE_FMT_U8P)
             return true;
-        if (sample_format == GenesisSampleFormatInt16 && *p == AV_SAMPLE_FMT_S16P)
+        if (sample_format == SoundIoFormatS16NE && *p == AV_SAMPLE_FMT_S16P)
             return true;
-        if (sample_format == GenesisSampleFormatInt24 && *p == AV_SAMPLE_FMT_S32P)
+        if (sample_format == SoundIoFormatS24NE && *p == AV_SAMPLE_FMT_S32P)
             return true;
-        if (sample_format == GenesisSampleFormatInt32 && *p == AV_SAMPLE_FMT_S32P)
+        if (sample_format == SoundIoFormatS32NE && *p == AV_SAMPLE_FMT_S32P)
             return true;
-        if (sample_format == GenesisSampleFormatFloat && *p == AV_SAMPLE_FMT_FLTP)
+        if (sample_format == SoundIoFormatFloat32NE && *p == AV_SAMPLE_FMT_FLTP)
             return true;
-        if (sample_format == GenesisSampleFormatDouble && *p == AV_SAMPLE_FMT_DBLP)
+        if (sample_format == SoundIoFormatFloat64NE && *p == AV_SAMPLE_FMT_DBLP)
             return true;
 
         p += 1;
@@ -569,34 +567,33 @@ static void set_codec_ctx_format(AVCodecContext *codec_ctx, GenesisExportFormat 
 {
     *is_planar = get_is_planar(codec_ctx->codec, format->sample_format);
     switch (format->sample_format) {
-        case GenesisSampleFormatUInt8:
+        case SoundIoFormatU8:
             codec_ctx->bits_per_raw_sample = 8;
             codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_U8P : AV_SAMPLE_FMT_U8;
             return;
-        case GenesisSampleFormatInt16:
+        case SoundIoFormatS16NE:
             codec_ctx->bits_per_raw_sample = 16;
             codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_S16P : AV_SAMPLE_FMT_S16;
             return;
-        case GenesisSampleFormatInt24:
+        case SoundIoFormatS24NE:
             codec_ctx->bits_per_raw_sample = 24;
             codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_S32P : AV_SAMPLE_FMT_S32;
             return;
-        case GenesisSampleFormatInt32:
+        case SoundIoFormatS32NE:
             codec_ctx->bits_per_raw_sample = 32;
             codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_S32P : AV_SAMPLE_FMT_S32;
             return;
-        case GenesisSampleFormatFloat:
+        case SoundIoFormatFloat32NE:
             codec_ctx->bits_per_raw_sample = 32;
             codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_FLTP : AV_SAMPLE_FMT_FLT;
             return;
-        case GenesisSampleFormatDouble:
+        case SoundIoFormatFloat64NE:
             codec_ctx->bits_per_raw_sample = 64;
             codec_ctx->sample_fmt = *is_planar ? AV_SAMPLE_FMT_DBLP : AV_SAMPLE_FMT_DBL;
             return;
-        case GenesisSampleFormatInvalid:
+        default:
             panic("invalid sample format");
     }
-    panic("invalid sample format");
 }
 
 static void write_frames_uint8_planar(const GenesisAudioFile *audio_file,
@@ -766,37 +763,36 @@ static void write_frames_double(const GenesisAudioFile *audio_file,
     }
 }
 
-static uint64_t to_ffmpeg_channel_id(enum GenesisChannelId channel_id) {
+static uint64_t to_ffmpeg_channel_id(enum SoundIoChannelId channel_id) {
     switch (channel_id) {
-    case GenesisChannelIdInvalid: panic("invalid channel id");
-    case GenesisChannelIdCount: panic("invalid channel id");
-    case GenesisChannelIdFrontLeft: return AV_CH_FRONT_LEFT;
-    case GenesisChannelIdFrontRight: return AV_CH_FRONT_RIGHT;
-    case GenesisChannelIdFrontCenter: return AV_CH_FRONT_CENTER;
-    case GenesisChannelIdLowFrequency: return AV_CH_LOW_FREQUENCY;
-    case GenesisChannelIdBackLeft: return AV_CH_BACK_LEFT;
-    case GenesisChannelIdBackRight: return AV_CH_BACK_RIGHT;
-    case GenesisChannelIdFrontLeftOfCenter: return AV_CH_FRONT_LEFT_OF_CENTER;
-    case GenesisChannelIdFrontRightOfCenter: return AV_CH_FRONT_RIGHT_OF_CENTER;
-    case GenesisChannelIdBackCenter: return AV_CH_BACK_CENTER;
-    case GenesisChannelIdSideLeft: return AV_CH_SIDE_LEFT;
-    case GenesisChannelIdSideRight: return AV_CH_SIDE_RIGHT;
-    case GenesisChannelIdTopCenter: return AV_CH_TOP_CENTER;
-    case GenesisChannelIdTopFrontLeft: return AV_CH_TOP_FRONT_LEFT;
-    case GenesisChannelIdTopFrontCenter: return AV_CH_TOP_FRONT_CENTER;
-    case GenesisChannelIdTopFrontRight: return AV_CH_TOP_FRONT_RIGHT;
-    case GenesisChannelIdTopBackLeft: return AV_CH_TOP_BACK_LEFT;
-    case GenesisChannelIdTopBackCenter: return AV_CH_TOP_BACK_CENTER;
-    case GenesisChannelIdTopBackRight: return AV_CH_TOP_BACK_RIGHT;
+    case SoundIoChannelIdInvalid: panic("invalid channel id");
+    case SoundIoChannelIdFrontLeft: return AV_CH_FRONT_LEFT;
+    case SoundIoChannelIdFrontRight: return AV_CH_FRONT_RIGHT;
+    case SoundIoChannelIdFrontCenter: return AV_CH_FRONT_CENTER;
+    case SoundIoChannelIdLfe: return AV_CH_LOW_FREQUENCY;
+    case SoundIoChannelIdBackLeft: return AV_CH_BACK_LEFT;
+    case SoundIoChannelIdBackRight: return AV_CH_BACK_RIGHT;
+    case SoundIoChannelIdFrontLeftCenter: return AV_CH_FRONT_LEFT_OF_CENTER;
+    case SoundIoChannelIdFrontRightCenter: return AV_CH_FRONT_RIGHT_OF_CENTER;
+    case SoundIoChannelIdBackCenter: return AV_CH_BACK_CENTER;
+    case SoundIoChannelIdSideLeft: return AV_CH_SIDE_LEFT;
+    case SoundIoChannelIdSideRight: return AV_CH_SIDE_RIGHT;
+    case SoundIoChannelIdTopCenter: return AV_CH_TOP_CENTER;
+    case SoundIoChannelIdTopFrontLeft: return AV_CH_TOP_FRONT_LEFT;
+    case SoundIoChannelIdTopFrontCenter: return AV_CH_TOP_FRONT_CENTER;
+    case SoundIoChannelIdTopFrontRight: return AV_CH_TOP_FRONT_RIGHT;
+    case SoundIoChannelIdTopBackLeft: return AV_CH_TOP_BACK_LEFT;
+    case SoundIoChannelIdTopBackCenter: return AV_CH_TOP_BACK_CENTER;
+    case SoundIoChannelIdTopBackRight: return AV_CH_TOP_BACK_RIGHT;
+    default:
+        panic("invalid channel id");
     }
-    panic("invalid channel id");
 }
 
-
-uint64_t channel_layout_to_ffmpeg(const GenesisChannelLayout *channel_layout) {
+uint64_t channel_layout_to_ffmpeg(const SoundIoChannelLayout *channel_layout) {
     uint64_t result = 0;
     for (int i = 0; i < channel_layout->channel_count; i += 1) {
-        GenesisChannelId channel_id = channel_layout->channels[i];
+        SoundIoChannelId channel_id = channel_layout->channels[i];
         result |= to_ffmpeg_channel_id(channel_id);
     }
     return result;
@@ -895,7 +891,7 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     frame->format = codec_ctx->sample_fmt;
     frame->channel_layout = codec_ctx->channel_layout;
 
-    uint8_t *buffer = allocate<uint8_t>(buffer_size);
+    uint8_t *buffer = ok_mem(allocate_nonzero<uint8_t>(buffer_size));
 
     err = avcodec_fill_audio_frame(frame, codec_ctx->channels, codec_ctx->sample_fmt,
             buffer, buffer_size, 0);
@@ -909,48 +905,48 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
 
     if (is_planar) {
         switch (export_format->sample_format) {
-            case GenesisSampleFormatUInt8:
+            case SoundIoFormatU8:
                 write_frames = write_frames_uint8_planar;
                 break;
-            case GenesisSampleFormatInt16:
+            case SoundIoFormatS16NE:
                 write_frames = write_frames_int16_planar;
                 break;
-            case GenesisSampleFormatInt24:
+            case SoundIoFormatS24NE:
                 write_frames = write_frames_int24_planar;
                 break;
-            case GenesisSampleFormatInt32:
+            case SoundIoFormatS32NE:
                 write_frames = write_frames_int32_planar;
                 break;
-            case GenesisSampleFormatFloat:
+            case SoundIoFormatFloat32NE:
                 write_frames = write_frames_float_planar;
                 break;
-            case GenesisSampleFormatDouble:
+            case SoundIoFormatFloat64NE:
                 write_frames = write_frames_double_planar;
                 break;
-            case GenesisSampleFormatInvalid:
+            default:
                 panic("invalid sample format");
         }
     } else {
         switch (export_format->sample_format) {
-            case GenesisSampleFormatUInt8:
+            case SoundIoFormatU8:
                 write_frames = write_frames_uint8;
                 break;
-            case GenesisSampleFormatInt16:
+            case SoundIoFormatS16NE:
                 write_frames = write_frames_int16;
                 break;
-            case GenesisSampleFormatInt24:
+            case SoundIoFormatS24NE:
                 write_frames = write_frames_int24;
                 break;
-            case GenesisSampleFormatInt32:
+            case SoundIoFormatS32NE:
                 write_frames = write_frames_int32;
                 break;
-            case GenesisSampleFormatFloat:
+            case SoundIoFormatFloat32NE:
                 write_frames = write_frames_float;
                 break;
-            case GenesisSampleFormatDouble:
+            case SoundIoFormatFloat64NE:
                 write_frames = write_frames_double;
                 break;
-            case GenesisSampleFormatInvalid:
+            default:
                 panic("invalid sample format");
         }
     }
@@ -1179,7 +1175,7 @@ const char *genesis_audio_file_codec_description(const struct GenesisAudioFileCo
     return audio_file_codec->codec->long_name;
 }
 
-const struct GenesisChannelLayout *genesis_audio_file_channel_layout(const struct GenesisAudioFile *audio_file) {
+const struct SoundIoChannelLayout *genesis_audio_file_channel_layout(const struct GenesisAudioFile *audio_file) {
     return &audio_file->channel_layout;
 }
 
@@ -1212,7 +1208,7 @@ void genesis_audio_file_iterator_next(struct GenesisAudioFileIterator *it) {
 
 bool genesis_audio_file_codec_supports_sample_format(
         const struct GenesisAudioFileCodec *audio_file_codec,
-        enum GenesisSampleFormat sample_format)
+        enum SoundIoFormat sample_format)
 {
     AVCodec *codec = audio_file_codec->codec;
 
@@ -1221,17 +1217,17 @@ bool genesis_audio_file_codec_supports_sample_format(
 
     const enum AVSampleFormat *p = (enum AVSampleFormat*) codec->sample_fmts;
     while (*p != AV_SAMPLE_FMT_NONE) {
-        if (sample_format == GenesisSampleFormatUInt8 && (*p == AV_SAMPLE_FMT_U8P || *p == AV_SAMPLE_FMT_U8))
+        if (sample_format == SoundIoFormatU8 && (*p == AV_SAMPLE_FMT_U8P || *p == AV_SAMPLE_FMT_U8))
             return true;
-        if (sample_format == GenesisSampleFormatInt16 && (*p == AV_SAMPLE_FMT_S16P || *p == AV_SAMPLE_FMT_S16))
+        if (sample_format == SoundIoFormatS16NE && (*p == AV_SAMPLE_FMT_S16P || *p == AV_SAMPLE_FMT_S16))
             return true;
-        if (sample_format == GenesisSampleFormatInt24 && (*p == AV_SAMPLE_FMT_S32P || *p == AV_SAMPLE_FMT_S32))
+        if (sample_format == SoundIoFormatS24NE && (*p == AV_SAMPLE_FMT_S32P || *p == AV_SAMPLE_FMT_S32))
             return true;
-        if (sample_format == GenesisSampleFormatInt32 && (*p == AV_SAMPLE_FMT_S32P || *p == AV_SAMPLE_FMT_S32))
+        if (sample_format == SoundIoFormatS32NE && (*p == AV_SAMPLE_FMT_S32P || *p == AV_SAMPLE_FMT_S32))
             return true;
-        if (sample_format == GenesisSampleFormatFloat && (*p == AV_SAMPLE_FMT_FLTP || *p == AV_SAMPLE_FMT_FLT))
+        if (sample_format == SoundIoFormatFloat32NE && (*p == AV_SAMPLE_FMT_FLTP || *p == AV_SAMPLE_FMT_FLT))
             return true;
-        if (sample_format == GenesisSampleFormatDouble && (*p == AV_SAMPLE_FMT_DBLP || *p == AV_SAMPLE_FMT_DBL))
+        if (sample_format == SoundIoFormatFloat64NE && (*p == AV_SAMPLE_FMT_DBLP || *p == AV_SAMPLE_FMT_DBL))
             return true;
 
         p += 1;
@@ -1266,7 +1262,7 @@ struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *contex
     }
 
     audio_file->sample_rate = 48000;
-    audio_file->channel_layout = *genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
+    audio_file->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
     if (audio_file->channels.resize(1)) {
         genesis_audio_file_destroy(audio_file);
         return nullptr;
@@ -1282,7 +1278,7 @@ void genesis_audio_file_set_sample_rate(struct GenesisAudioFile *audio_file,
 }
 
 int genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
-        const GenesisChannelLayout *channel_layout)
+        const SoundIoChannelLayout *channel_layout)
 {
     int err = audio_file->channels.resize(audio_file->channel_layout.channel_count);
     if (err)

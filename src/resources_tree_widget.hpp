@@ -59,7 +59,7 @@ public:
         int bottom;
 
         // these depend on node_type
-        GenesisAudioDevice *audio_device;
+        SoundIoDevice *audio_device;
         GenesisMidiDevice *midi_device;
         ParentNode *parent_data;
         OsDirEntry *dir_entry;

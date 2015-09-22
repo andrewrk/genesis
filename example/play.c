@@ -26,7 +26,7 @@ static void audio_file_node_run(struct GenesisNode *node) {
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct SoundIoChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int channel_count = channel_layout->channel_count;
     float *out_samples = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
 
@@ -65,7 +65,7 @@ static int usage(char *exe) {
     return 1;
 }
 
-static void print_channel_and_rate(const struct GenesisChannelLayout *layout, int sample_rate) {
+static void print_channel_and_rate(const struct SoundIoChannelLayout *layout, int sample_rate) {
     if (layout->name)
         fprintf(stderr, "%d Hz (%s)", sample_rate, layout->name);
     else
@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
-        fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 
@@ -104,31 +104,31 @@ int main(int argc, char **argv) {
     struct GenesisAudioFile *audio_file;
     err = genesis_audio_file_load(context, input_filename, &audio_file);
     if (err) {
-        fprintf(stderr, "unable to load audio file: %s", genesis_error_string(err));
+        fprintf(stderr, "unable to load audio file: %s", genesis_strerror(err));
         return 1;
     }
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
+    const struct SoundIoChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
     int sample_rate = genesis_audio_file_sample_rate(audio_file);
 
     // block until we have audio devices list
-    genesis_refresh_audio_devices(context);
+    genesis_flush_events(context);
 
-    int playback_device_index = genesis_get_default_playback_device_index(context);
+    int playback_device_index = genesis_default_output_device_index(context);
     if (playback_device_index < 0) {
         fprintf(stderr, "error getting audio device list\n");
         return 1;
     }
 
-    struct GenesisAudioDevice *audio_device = genesis_get_audio_device(context, playback_device_index);
+    struct SoundIoDevice *audio_device = genesis_get_output_device(context, playback_device_index);
     if (!audio_device) {
         fprintf(stderr, "error getting playback device\n");
         return 1;
     }
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(audio_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(context, audio_device, &playback_node_descr);
     if (err) {
-        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
     }
 
@@ -177,15 +177,16 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    int device_rate = genesis_audio_device_sample_rate(audio_device);
-    const struct GenesisChannelLayout *device_layout = genesis_audio_device_channel_layout(audio_device);
+    int device_rate = soundio_device_nearest_sample_rate(audio_device, 44100);
+    soundio_sort_channel_layouts(audio_device->layouts, audio_device->layout_count);
+    const struct SoundIoChannelLayout *device_layout = &audio_device->layouts[0];
 
     struct GenesisNode *target_node;
-    if (!force_resample && (sample_rate == device_rate && genesis_channel_layout_equal(channel_layout, device_layout))) {
+    if (!force_resample && (sample_rate == device_rate && soundio_channel_layout_equal(channel_layout, device_layout))) {
         target_node = playback_node;
         fprintf(stderr, "%s ", input_filename);
         print_channel_and_rate(channel_layout, sample_rate);
-        fprintf(stderr, " -> %s ", genesis_audio_device_description(audio_device));
+        fprintf(stderr, " -> %s ", audio_device->name);
         print_channel_and_rate(device_layout, device_rate);
         fprintf(stderr, "\n");
     } else {
@@ -203,7 +204,7 @@ int main(int argc, char **argv) {
 
         int err = genesis_connect_audio_nodes(resample_node, playback_node);
         if (err) {
-            fprintf(stderr, "error connecting resampler to playback device: %s\n", genesis_error_string(err));
+            fprintf(stderr, "error connecting resampler to playback device: %s\n", genesis_strerror(err));
             return 1;
         }
 
@@ -212,22 +213,22 @@ int main(int argc, char **argv) {
         print_channel_and_rate(channel_layout, sample_rate);
         fprintf(stderr, " -> %s -> %s ",
                 genesis_node_descriptor_name(resample_descr),
-                genesis_audio_device_description(audio_device));
+                audio_device->name);
         print_channel_and_rate(device_layout, device_rate);
         fprintf(stderr, "\n");
     }
 
-    genesis_audio_device_unref(audio_device);
+    soundio_device_unref(audio_device);
 
     err = genesis_connect_audio_nodes(audio_file_node, target_node);
     if (err) {
-        fprintf(stderr, "unable to connect audio nodes: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to connect audio nodes: %s\n", genesis_strerror(err));
         return 1;
     }
 
     err = genesis_start_pipeline(context, 0.0);
     if (err) {
-        fprintf(stderr, "unable to start pipeline: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to start pipeline: %s\n", genesis_strerror(err));
         return 1;
     }
 

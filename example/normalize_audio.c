@@ -17,7 +17,7 @@ static int usage(char *exe) {
 }
 
 static int report_error(enum GenesisError err) {
-    fprintf(stderr, "Error: %s\n", genesis_error_string(err));
+    fprintf(stderr, "Error: %s\n", genesis_strerror(err));
     return 1;
 }
 
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     if (err)
         return report_error(err);
 
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
+    const struct SoundIoChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
     if (channel_layout->name)
         fprintf(stderr, "Channels: %d (%s)\n", channel_layout->channel_count, channel_layout->name);
     else
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     export_format.sample_format = genesis_audio_file_codec_sample_format_index(export_format.codec, 0);
-    fprintf(stderr, "out sample format: %s\n", genesis_sample_format_string(export_format.sample_format));
+    fprintf(stderr, "out sample format: %s\n", soundio_format_string(export_format.sample_format));
 
     if (!genesis_audio_file_codec_supports_sample_rate(export_format.codec, sample_rate)) {
         fprintf(stderr, "unsupported sample rate\n");

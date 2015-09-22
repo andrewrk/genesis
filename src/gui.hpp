@@ -26,7 +26,6 @@ private:
     GlobalGlfwContext &operator=(const GlobalGlfwContext &copy) = delete;
 };
 
-class AudioHardware;
 class Gui {
 public:
     Gui(GenesisContext *context, ResourceBundle *resource_bundle);
@@ -46,7 +45,7 @@ public:
     void start_drag(GuiWindow *gui_window, const MouseEvent *event, DragData *drag_data);
     void end_drag();
 
-    Mutex gui_mutex;
+    OsMutex *gui_mutex;
 
 
     bool _running;

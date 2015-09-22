@@ -124,11 +124,11 @@ GenesisEditor::GenesisEditor() :
 
     ByteBuffer config_dir = os_get_app_config_dir();
     if ((err = os_mkdirp(config_dir)))
-        panic("unable to make genesis path: %s", genesis_error_string(err));
+        panic("unable to make genesis path: %s", genesis_strerror(err));
 
     ByteBuffer samples_dir = os_get_samples_dir();
     if ((err = os_mkdirp(samples_dir)))
-        panic("unable to make samples path: %s", genesis_error_string(err));
+        panic("unable to make samples path: %s", genesis_strerror(err));
 
     ByteBuffer config_path = os_get_app_config_path();
     settings_file = settings_file_open(config_path);
@@ -136,7 +136,7 @@ GenesisEditor::GenesisEditor() :
     resource_bundle = create<ResourceBundle>("resources.bundle");
 
     if ((err = genesis_create_context(&genesis_context)))
-        panic("unable to create genesis context: %s", genesis_error_string(err));
+        panic("unable to create genesis context: %s", genesis_strerror(err));
 
     gui = create<Gui>(genesis_context, resource_bundle);
 
@@ -165,7 +165,7 @@ GenesisEditor::GenesisEditor() :
         ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
         int err = project_open(proj_path.raw(), genesis_context, user, &project);
         if (err) {
-            fprintf(stderr, "Unable to load project: %s\n", genesis_error_string(err));
+            fprintf(stderr, "Unable to load project: %s\n", genesis_strerror(err));
         } else {
             create_new = false;
         }

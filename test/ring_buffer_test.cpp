@@ -1,6 +1,5 @@
 #include "ring_buffer_test.hpp"
 #include "ring_buffer.hpp"
-#include "threads.hpp"
 #include "os.hpp"
 
 #include <stdio.h>
@@ -13,43 +12,44 @@ using std::atomic_bool;
 
 static void assert_no_err(int err) {
     if (err)
-        panic("Error: %s", genesis_error_string(err));
+        panic("Error: %s", genesis_strerror(err));
 }
 
 static void basic_test(void) {
-    RingBuffer rb(10);
+    RingBuffer rb;
+    assert_no_err(ring_buffer_init(&rb, 10));
 
-    assert(rb.capacity() == 4096);
+    assert(rb.capacity == 4096);
 
-    char *write_ptr = rb.write_ptr();
+    char *write_ptr = ring_buffer_write_ptr(&rb);
     int amt = sprintf(write_ptr, "hello") + 1;
-    rb.advance_write_ptr(amt);
+    ring_buffer_advance_write_ptr(&rb, amt);
 
-    assert(rb.fill_count() == amt);
-    assert(rb.free_count() == 4096 - amt);
+    assert(ring_buffer_fill_count(&rb) == amt);
+    assert(ring_buffer_free_count(&rb) == 4096 - amt);
 
-    char *read_ptr = rb.read_ptr();
+    char *read_ptr = ring_buffer_read_ptr(&rb);
 
     assert(strcmp(read_ptr, "hello") == 0);
 
-    rb.advance_read_ptr(amt);
+    ring_buffer_advance_read_ptr(&rb, amt);
 
-    assert(rb.fill_count() == 0);
-    assert(rb.free_count() == rb.capacity());
+    assert(ring_buffer_fill_count(&rb) == 0);
+    assert(ring_buffer_free_count(&rb) == rb.capacity);
 
-    rb.advance_write_ptr(4094);
-    rb.advance_read_ptr(4094);
-    amt = sprintf(rb.write_ptr(), "writing past the end") + 1;
-    rb.advance_write_ptr(amt);
+    ring_buffer_advance_write_ptr(&rb, 4094);
+    ring_buffer_advance_read_ptr(&rb, 4094);
+    amt = sprintf(ring_buffer_write_ptr(&rb), "writing past the end") + 1;
+    ring_buffer_advance_write_ptr(&rb, amt);
 
-    assert(rb.fill_count() == amt);
+    assert(ring_buffer_fill_count(&rb) == amt);
 
-    assert(strcmp(rb.read_ptr(), "writing past the end") == 0);
+    assert(strcmp(ring_buffer_read_ptr(&rb), "writing past the end") == 0);
 
-    rb.advance_read_ptr(amt);
+    ring_buffer_advance_read_ptr(&rb, amt);
 
-    assert(rb.fill_count() == 0);
-    assert(rb.free_count() == rb.capacity());
+    assert(ring_buffer_fill_count(&rb) == 0);
+    assert(ring_buffer_free_count(&rb) == rb.capacity);
 }
 
 static RingBuffer *rb = nullptr;
@@ -63,11 +63,11 @@ static atomic_int read_it;
 static void reader_thread_run(void *) {
     while (!done) {
         read_it += 1;
-        int fill_count = rb->fill_count();
+        int fill_count = ring_buffer_fill_count(rb);
         assert(fill_count >= 0);
         assert(fill_count <= size);
         int amount_to_read = min(os_random_double() * 2.0 * fill_count, fill_count);
-        rb->advance_read_ptr(amount_to_read);
+        ring_buffer_advance_read_ptr(rb, amount_to_read);
         expected_read_head += amount_to_read;
     }
 }
@@ -75,39 +75,40 @@ static void reader_thread_run(void *) {
 static void writer_thread_run(void *) {
     while (!done) {
         write_it += 1;
-        int fill_count = rb->fill_count();
+        int fill_count = ring_buffer_fill_count(rb);
         assert(fill_count >= 0);
         assert(fill_count <= size);
         int free_count = size - fill_count;
         assert(free_count >= 0);
         assert(free_count <= size);
         int value = min(os_random_double() * 2.0 * free_count, free_count);
-        rb->advance_write_ptr(value);
+        ring_buffer_advance_write_ptr(rb, value);
         expected_write_head += value;
     }
 }
 
 static void threaded_test(void) {
-    rb = create<RingBuffer>(size);
+    rb = ok_mem(allocate_zero<RingBuffer>(1));
+    assert_no_err(ring_buffer_init(rb, size));
     expected_write_head = 0;
     expected_read_head = 0;
     read_it = 0;
     write_it = 0;
     done = false;
 
-    Thread reader_thread;
-    assert_no_err(reader_thread.start(reader_thread_run, nullptr));
+    OsThread *reader_thread;
+    assert_no_err(os_thread_create(reader_thread_run, nullptr, false, &reader_thread));
 
-    Thread writer_thread;
-    assert_no_err(writer_thread.start(writer_thread_run, nullptr));
+    OsThread *writer_thread;
+    assert_no_err(os_thread_create(writer_thread_run, nullptr, false, &writer_thread));
 
     while (read_it < 100000 || write_it < 100000) {}
     done = true;
 
-    reader_thread.join();
-    writer_thread.join();
+    os_thread_destroy(reader_thread);
+    os_thread_destroy(writer_thread);
 
-    int fill_count = rb->fill_count();
+    int fill_count = ring_buffer_fill_count(rb);
     int expected_fill_count = expected_write_head - expected_read_head;
     assert(fill_count == expected_fill_count);
 }

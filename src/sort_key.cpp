@@ -1,5 +1,4 @@
 #include "sort_key.hpp"
-#include "debug.hpp"
 #include "error.h"
 
 #include <string.h>

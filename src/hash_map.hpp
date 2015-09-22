@@ -147,7 +147,7 @@ private:
 
     void init_capacity(int capacity) {
         _capacity = capacity;
-        _entries = allocate<Entry>(_capacity);
+        _entries = allocate_class<Entry>(_capacity);
         _size = 0;
         _max_distance_from_start_index = 0;
         for (int i = 0; i < _capacity; i += 1) {

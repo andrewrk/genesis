@@ -13,7 +13,7 @@ struct Channel {
 
 struct GenesisAudioFile {
     List<Channel> channels;
-    GenesisChannelLayout channel_layout;
+    SoundIoChannelLayout channel_layout;
     int sample_rate;
     HashMap<ByteBuffer, ByteBuffer, ByteBuffer::hash> tags;
 
@@ -26,7 +26,7 @@ struct GenesisAudioFile {
 struct GenesisAudioFileCodec {
     GenesisAudioFileFormat *format;
     AVCodec *codec;
-    List<GenesisSampleFormat> prioritized_sample_formats;
+    List<SoundIoFormat> prioritized_sample_formats;
     List<int> prioritized_sample_rates;
 };
 
@@ -43,6 +43,6 @@ GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
         List<GenesisAudioFileFormat*> &out_formats, const char *filename_hint,
         const char *format_name, const char *codec_name);
 
-uint64_t channel_layout_to_libav(const GenesisChannelLayout *channel_layout);
+uint64_t channel_layout_to_libav(const SoundIoChannelLayout *channel_layout);
 
 #endif

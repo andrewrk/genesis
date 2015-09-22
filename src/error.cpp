@@ -1,7 +1,7 @@
 #include "error.h"
 #include "util.hpp"
 
-const char *genesis_error_string(int error) {
+const char *genesis_strerror(int error) {
     switch ((GenesisError)error) {
         case GenesisErrorNone: return "(no error)";
         case GenesisErrorNoMem: return "out of memory";
@@ -31,6 +31,7 @@ const char *genesis_error_string(int error) {
         case GenesisErrorNoDecoderFound: return "no decoder found";
         case GenesisErrorAlreadyExists: return "already exists";
         case GenesisErrorConnectionRefused: return "connection refused";
+        case GenesisErrorIncompatibleDevice: return "incompatible device";
     }
     panic("invalid error enum value");
 }

@@ -7,12 +7,12 @@
 // print the list of supported input and export formats, codecs, sample formats, and sample rates
 
 int main(int argc, char **argv) {
-    fprintf(stderr, "libgenesis version %s\n", GENESIS_VERSION_STRING);
+    fprintf(stderr, "libgenesis version %s\n", genesis_version_string());
 
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
-        fprintf(stderr, "unable to create genesis context: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to create genesis context: %s\n", genesis_strerror(err));
         return 1;
     }
     fprintf(stderr, "\nImport:\n");

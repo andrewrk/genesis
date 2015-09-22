@@ -10,12 +10,7 @@
 #include "midi_hardware.hpp"
 #include "atomic_value.hpp"
 #include "atomic_double.hpp"
-
-#include <atomic>
-using std::atomic_flag;
-using std::atomic_bool;
-using std::atomic_long;
-using std::atomic_int;
+#include "atomics.hpp"
 
 class Command;
 struct AudioClipSegment;

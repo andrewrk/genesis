@@ -78,7 +78,7 @@ static void synth_run(struct GenesisNode *node) {
             divisor += 1.0f;
     }
     float one_over_notes_count = 1.0f / divisor;
-    const GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const SoundIoChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     for (int note = 0; note < GENESIS_NOTES_COUNT; note += 1) {
         SynthNoteState *note_state = &synth_context->notes_on[note];
         float note_value = note_state->velocity;
@@ -128,7 +128,7 @@ int create_synth_descriptor(GenesisContext *context) {
     }
 
     genesis_audio_port_descriptor_set_channel_layout(audio_port,
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), false, -1);
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
 
     genesis_audio_port_descriptor_set_sample_rate(audio_port, 48000, false, -1);
 

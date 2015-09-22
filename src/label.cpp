@@ -1,6 +1,5 @@
 #include "label.hpp"
 #include "gui.hpp"
-#include "debug.hpp"
 #include "debug_gl.hpp"
 
 static void ft_ok(FT_Error err) {

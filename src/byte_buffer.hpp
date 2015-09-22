@@ -2,7 +2,6 @@
 #define BYTE_BUFFER_HPP
 
 #include "list.hpp"
-#include "debug.hpp"
 
 #include <stdio.h>
 #include <string.h>

@@ -9,7 +9,7 @@
 static void connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest) {
     int err = genesis_connect_audio_nodes(source, dest);
     if (err) {
-        fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to connect audio ports: %s\n", genesis_strerror(err));
         fprintf(stderr, "%s -> %s\n",
                 genesis_node_descriptor_name(genesis_node_descriptor(source)),
                 genesis_node_descriptor_name(genesis_node_descriptor(dest)));
@@ -47,33 +47,33 @@ int main(int argc, char **argv) {
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
-        fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 
     genesis_set_underrun_callback(context, on_underrun, NULL);
 
     // block until we have audio devices list
-    genesis_refresh_audio_devices(context);
+    genesis_flush_events(context);
 
-    int playback_device_index = genesis_get_default_playback_device_index(context);
-    int recording_device_index = genesis_get_default_recording_device_index(context);
+    int playback_device_index = genesis_default_output_device_index(context);
+    int recording_device_index = genesis_default_input_device_index(context);
     if (playback_device_index < 0 || recording_device_index < 0) {
         fprintf(stderr, "error getting audio device list\n");
         return 1;
     }
 
-    struct GenesisAudioDevice *out_device = genesis_get_audio_device(context, playback_device_index);
-    struct GenesisAudioDevice *in_device = genesis_get_audio_device(context, recording_device_index);
+    struct SoundIoDevice *out_device = genesis_get_output_device(context, playback_device_index);
+    struct SoundIoDevice *in_device = genesis_get_input_device(context, recording_device_index);
     if (!out_device || !in_device) {
         fprintf(stderr, "error getting playback or recording device\n");
         return 1;
     }
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(out_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
     if (err) {
-        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
     }
 
@@ -84,14 +84,14 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisNodeDescriptor *recording_node_descr;
-    err = genesis_audio_device_create_node_descriptor(in_device, &recording_node_descr);
+    err = genesis_audio_device_create_node_descriptor(context, in_device, &recording_node_descr);
     if (err) {
-        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
     }
 
-    genesis_audio_device_unref(in_device);
-    genesis_audio_device_unref(out_device);
+    soundio_device_unref(in_device);
+    soundio_device_unref(out_device);
 
     struct GenesisNode *recording_node = genesis_node_descriptor_create_node(recording_node_descr);
     if (!recording_node) {

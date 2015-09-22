@@ -49,7 +49,7 @@ static void mixer_run(struct GenesisNode *node) {
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
-    const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct SoundIoChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int channel_count = out_channel_layout->channel_count;
 
     int min_frame_count = output_frame_count;
@@ -115,7 +115,7 @@ int create_mixer_descriptor(GenesisContext *context, int input_port_count, Genes
     }
 
     genesis_audio_port_descriptor_set_channel_layout(audio_out_port,
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), false, -1);
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
 
     genesis_audio_port_descriptor_set_sample_rate(audio_out_port, 48000, false, -1);
 
@@ -129,7 +129,7 @@ int create_mixer_descriptor(GenesisContext *context, int input_port_count, Genes
             return GenesisErrorNoMem;
         }
         genesis_audio_port_descriptor_set_channel_layout(audio_in_port,
-            genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), true, 0);
+            soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), true, 0);
 
         genesis_audio_port_descriptor_set_sample_rate(audio_in_port, 48000, true, 0);
     }

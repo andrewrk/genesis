@@ -8,6 +8,9 @@ static const double transition_band_hz = 800.0;
 static const double lfe_mix_level = 1.0;
 static const double surround_mix_level = 1.0;
 
+// equal to the number of enum values in SoundIoChannelId
+static const int channel_id_count = 70;
+
 struct ResampleContext {
     bool in_connected;
     bool out_connected;
@@ -23,7 +26,7 @@ struct ResampleContext {
 
     long oversampled_rate;
 
-    float channel_matrix[GenesisChannelIdCount][GenesisChannelIdCount];
+    float channel_matrix[channel_id_count][channel_id_count];
 };
 
 static double sinc(double x) {
@@ -61,8 +64,8 @@ static void resample_seek(struct GenesisNode *node) {
 }
 
 static inline float get_channel_value(float *samples, ResampleContext *resample_context,
-        const struct GenesisChannelLayout *in_layout,
-        const struct GenesisChannelLayout *out_layout,
+        const struct SoundIoChannelLayout *in_layout,
+        const struct SoundIoChannelLayout *out_layout,
         int in_frame_index, int out_channel_index)
 {
     float sum = 0.0f;
@@ -81,8 +84,8 @@ static void resample_run(struct GenesisNode *node) {
     int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
 
-    const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
-    const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct SoundIoChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
+    const struct SoundIoChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
 
     int out_channel_count = out_channel_layout->channel_count;
 
@@ -222,156 +225,156 @@ static int port_connected(struct GenesisNode *node) {
     }
 
     // set up channel matrix
-    const struct GenesisChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
-    const struct GenesisChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct SoundIoChannelLayout * in_channel_layout = genesis_audio_port_channel_layout(audio_in_port);
+    const struct SoundIoChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     memset(resample_context->channel_matrix, 0, sizeof(resample_context->channel_matrix));
 
-    int in_contains[GenesisChannelIdCount];
-    int out_contains[GenesisChannelIdCount];
-    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
-        in_contains[id] = genesis_channel_layout_find_channel(in_channel_layout, (GenesisChannelId)id);
-        out_contains[id] = genesis_channel_layout_find_channel(out_channel_layout, (GenesisChannelId)id);
+    int in_contains[channel_id_count];
+    int out_contains[channel_id_count];
+    for (int id = 0; id < channel_id_count; id += 1) {
+        in_contains[id] = soundio_channel_layout_find_channel(in_channel_layout, (SoundIoChannelId)id);
+        out_contains[id] = soundio_channel_layout_find_channel(out_channel_layout, (SoundIoChannelId)id);
     }
 
-    bool unaccounted[GenesisChannelIdCount];
-    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+    bool unaccounted[channel_id_count];
+    for (int id = 0; id < channel_id_count; id += 1) {
         unaccounted[id] = in_contains[id] >= 0 && out_contains[id] == -1;
     }
 
     // route matching channel ids
-    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+    for (int id = 0; id < channel_id_count; id += 1) {
         if (in_contains[id] >= 0 && out_contains[id] >= 0)
             resample_context->channel_matrix[out_contains[id]][in_contains[id]] = 1.0;
     }
 
     // mix front center to left/right
-    if (unaccounted[GenesisChannelIdFrontCenter]) {
-        if (out_contains[GenesisChannelIdFrontLeft] >= 0 && out_contains[GenesisChannelIdFrontRight] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdFrontCenter]] += M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdFrontCenter]] += M_SQRT1_2;
-            unaccounted[GenesisChannelIdFrontCenter] = false;
+    if (unaccounted[SoundIoChannelIdFrontCenter]) {
+        if (out_contains[SoundIoChannelIdFrontLeft] >= 0 && out_contains[SoundIoChannelIdFrontRight] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontLeft]][in_contains[SoundIoChannelIdFrontCenter]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontRight]][in_contains[SoundIoChannelIdFrontCenter]] += M_SQRT1_2;
+            unaccounted[SoundIoChannelIdFrontCenter] = false;
         }
     }
 
     // mix back left/right to back center, side or front
-    if (unaccounted[GenesisChannelIdBackLeft] && unaccounted[GenesisChannelIdBackRight]) {
-        if (out_contains[GenesisChannelIdBackCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdBackCenter]][in_contains[GenesisChannelIdBackLeft]] += M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdBackCenter]][in_contains[GenesisChannelIdBackRight]] += M_SQRT1_2;
-            unaccounted[GenesisChannelIdBackLeft] = false;
-            unaccounted[GenesisChannelIdBackRight] = false;
-        } else if (out_contains[GenesisChannelIdSideLeft] >= 0 &&
-                   out_contains[GenesisChannelIdSideRight] >= 0)
+    if (unaccounted[SoundIoChannelIdBackLeft] && unaccounted[SoundIoChannelIdBackRight]) {
+        if (out_contains[SoundIoChannelIdBackCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdBackCenter]][in_contains[SoundIoChannelIdBackLeft]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdBackCenter]][in_contains[SoundIoChannelIdBackRight]] += M_SQRT1_2;
+            unaccounted[SoundIoChannelIdBackLeft] = false;
+            unaccounted[SoundIoChannelIdBackRight] = false;
+        } else if (out_contains[SoundIoChannelIdSideLeft] >= 0 &&
+                   out_contains[SoundIoChannelIdSideRight] >= 0)
         {
-            if (in_contains[GenesisChannelIdSideLeft] >= 0 &&
-                in_contains[GenesisChannelIdSideRight] >= 0)
+            if (in_contains[SoundIoChannelIdSideLeft] >= 0 &&
+                in_contains[SoundIoChannelIdSideRight] >= 0)
             {
-                resample_context->channel_matrix[out_contains[GenesisChannelIdSideLeft]][in_contains[GenesisChannelIdBackLeft]] += M_SQRT1_2;
-                resample_context->channel_matrix[out_contains[GenesisChannelIdSideRight]][in_contains[GenesisChannelIdBackRight]] += M_SQRT1_2;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdSideLeft]][in_contains[SoundIoChannelIdBackLeft]] += M_SQRT1_2;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdSideRight]][in_contains[SoundIoChannelIdBackRight]] += M_SQRT1_2;
             } else {
-                resample_context->channel_matrix[out_contains[GenesisChannelIdSideLeft]][in_contains[GenesisChannelIdBackLeft]] += 1.0;
-                resample_context->channel_matrix[out_contains[GenesisChannelIdSideRight]][in_contains[GenesisChannelIdBackRight]] += 1.0;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdSideLeft]][in_contains[SoundIoChannelIdBackLeft]] += 1.0;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdSideRight]][in_contains[SoundIoChannelIdBackRight]] += 1.0;
             }
-            unaccounted[GenesisChannelIdBackLeft] = false;
-            unaccounted[GenesisChannelIdBackRight] = false;
-        } else if (out_contains[GenesisChannelIdFrontLeft] >= 0 &&
-                   out_contains[GenesisChannelIdFrontRight] >= 0)
+            unaccounted[SoundIoChannelIdBackLeft] = false;
+            unaccounted[SoundIoChannelIdBackRight] = false;
+        } else if (out_contains[SoundIoChannelIdFrontLeft] >= 0 &&
+                   out_contains[SoundIoChannelIdFrontRight] >= 0)
         {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdBackLeft]] += surround_mix_level * M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdBackRight]] += surround_mix_level * M_SQRT1_2;
-            unaccounted[GenesisChannelIdBackLeft] = false;
-            unaccounted[GenesisChannelIdBackRight] = false;
-        } else if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdBackLeft]] += surround_mix_level * M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdBackRight]] += surround_mix_level * M_SQRT1_2;
-            unaccounted[GenesisChannelIdBackLeft] = false;
-            unaccounted[GenesisChannelIdBackRight] = false;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontLeft]][in_contains[SoundIoChannelIdBackLeft]] += surround_mix_level * M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontRight]][in_contains[SoundIoChannelIdBackRight]] += surround_mix_level * M_SQRT1_2;
+            unaccounted[SoundIoChannelIdBackLeft] = false;
+            unaccounted[SoundIoChannelIdBackRight] = false;
+        } else if (out_contains[SoundIoChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdBackLeft]] += surround_mix_level * M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdBackRight]] += surround_mix_level * M_SQRT1_2;
+            unaccounted[SoundIoChannelIdBackLeft] = false;
+            unaccounted[SoundIoChannelIdBackRight] = false;
         }
     }
 
     // mix side left/right into back or front
-    if (unaccounted[GenesisChannelIdSideLeft] && unaccounted[GenesisChannelIdSideRight]) {
-        if (out_contains[GenesisChannelIdBackLeft] >= 0 &&
-            out_contains[GenesisChannelIdBackRight] >= 0)
+    if (unaccounted[SoundIoChannelIdSideLeft] && unaccounted[SoundIoChannelIdSideRight]) {
+        if (out_contains[SoundIoChannelIdBackLeft] >= 0 &&
+            out_contains[SoundIoChannelIdBackRight] >= 0)
         {
             // if back channels do not exist in the input, just copy side
             // channels to back channels, otherwise mix side into back
-            if (in_contains[GenesisChannelIdBackLeft] >= 0 &&
-                in_contains[GenesisChannelIdBackRight] >= 0)
+            if (in_contains[SoundIoChannelIdBackLeft] >= 0 &&
+                in_contains[SoundIoChannelIdBackRight] >= 0)
             {
-                resample_context->channel_matrix[out_contains[GenesisChannelIdBackLeft]][in_contains[GenesisChannelIdSideLeft]] += M_SQRT1_2;
-                resample_context->channel_matrix[out_contains[GenesisChannelIdBackRight]][in_contains[GenesisChannelIdSideRight]] += M_SQRT1_2;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdBackLeft]][in_contains[SoundIoChannelIdSideLeft]] += M_SQRT1_2;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdBackRight]][in_contains[SoundIoChannelIdSideRight]] += M_SQRT1_2;
             } else {
-                resample_context->channel_matrix[out_contains[GenesisChannelIdBackLeft]][in_contains[GenesisChannelIdSideLeft]] += 1.0;
-                resample_context->channel_matrix[out_contains[GenesisChannelIdBackRight]][in_contains[GenesisChannelIdSideRight]] += 1.0;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdBackLeft]][in_contains[SoundIoChannelIdSideLeft]] += 1.0;
+                resample_context->channel_matrix[out_contains[SoundIoChannelIdBackRight]][in_contains[SoundIoChannelIdSideRight]] += 1.0;
             }
-            unaccounted[GenesisChannelIdSideLeft] = false;
-            unaccounted[GenesisChannelIdSideRight] = false;
-        } else if (out_contains[GenesisChannelIdBackCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdBackCenter]][in_contains[GenesisChannelIdSideLeft]] += M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdBackCenter]][in_contains[GenesisChannelIdSideRight]] += M_SQRT1_2;
-            unaccounted[GenesisChannelIdSideLeft] = false;
-            unaccounted[GenesisChannelIdSideRight] = false;
-        } else if (out_contains[GenesisChannelIdFrontLeft] >= 0 &&
-                   out_contains[GenesisChannelIdFrontRight] >= 0)
+            unaccounted[SoundIoChannelIdSideLeft] = false;
+            unaccounted[SoundIoChannelIdSideRight] = false;
+        } else if (out_contains[SoundIoChannelIdBackCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdBackCenter]][in_contains[SoundIoChannelIdSideLeft]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdBackCenter]][in_contains[SoundIoChannelIdSideRight]] += M_SQRT1_2;
+            unaccounted[SoundIoChannelIdSideLeft] = false;
+            unaccounted[SoundIoChannelIdSideRight] = false;
+        } else if (out_contains[SoundIoChannelIdFrontLeft] >= 0 &&
+                   out_contains[SoundIoChannelIdFrontRight] >= 0)
         {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdSideLeft]] += surround_mix_level;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdSideRight]] += surround_mix_level;
-            unaccounted[GenesisChannelIdSideLeft] = false;
-            unaccounted[GenesisChannelIdSideRight] = false;
-        } else if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdSideLeft]] += surround_mix_level;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdSideRight]] += surround_mix_level;
-            unaccounted[GenesisChannelIdSideLeft] = false;
-            unaccounted[GenesisChannelIdSideRight] = false;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontLeft]][in_contains[SoundIoChannelIdSideLeft]] += surround_mix_level;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontRight]][in_contains[SoundIoChannelIdSideRight]] += surround_mix_level;
+            unaccounted[SoundIoChannelIdSideLeft] = false;
+            unaccounted[SoundIoChannelIdSideRight] = false;
+        } else if (out_contains[SoundIoChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdSideLeft]] += surround_mix_level;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdSideRight]] += surround_mix_level;
+            unaccounted[SoundIoChannelIdSideLeft] = false;
+            unaccounted[SoundIoChannelIdSideRight] = false;
         }
     }
 
     // mix left of center/right of center into front left/right or center
-    if (unaccounted[GenesisChannelIdFrontLeftOfCenter] &&
-        unaccounted[GenesisChannelIdFrontRightOfCenter])
+    if (unaccounted[SoundIoChannelIdFrontLeftCenter] &&
+        unaccounted[SoundIoChannelIdFrontRightCenter])
     {
-        if (out_contains[GenesisChannelIdFrontLeft] >= 0 && out_contains[GenesisChannelIdFrontRight] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdFrontLeftOfCenter]] += 1.0;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdFrontRightOfCenter]] += 1.0;
-            unaccounted[GenesisChannelIdFrontLeftOfCenter] = false;
-            unaccounted[GenesisChannelIdFrontRightOfCenter] = false;
-        } else if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontLeftOfCenter]] += M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontRightOfCenter]] += M_SQRT1_2;
-            unaccounted[GenesisChannelIdFrontLeftOfCenter] = false;
-            unaccounted[GenesisChannelIdFrontRightOfCenter] = false;
+        if (out_contains[SoundIoChannelIdFrontLeft] >= 0 && out_contains[SoundIoChannelIdFrontRight] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontLeft]][in_contains[SoundIoChannelIdFrontLeftCenter]] += 1.0;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontRight]][in_contains[SoundIoChannelIdFrontRightCenter]] += 1.0;
+            unaccounted[SoundIoChannelIdFrontLeftCenter] = false;
+            unaccounted[SoundIoChannelIdFrontRightCenter] = false;
+        } else if (out_contains[SoundIoChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdFrontLeftCenter]] += M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdFrontRightCenter]] += M_SQRT1_2;
+            unaccounted[SoundIoChannelIdFrontLeftCenter] = false;
+            unaccounted[SoundIoChannelIdFrontRightCenter] = false;
         }
     }
 
     // mix LFE into front left/right or center
-    if (unaccounted[GenesisChannelIdLowFrequency]) {
-        if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdLowFrequency]] += lfe_mix_level;
-            unaccounted[GenesisChannelIdLowFrequency] = false;
-        } else if (out_contains[GenesisChannelIdFrontLeft] >= 0 &&
-                out_contains[GenesisChannelIdFrontRight] >= 0)
+    if (unaccounted[SoundIoChannelIdLfe]) {
+        if (out_contains[SoundIoChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdLfe]] += lfe_mix_level;
+            unaccounted[SoundIoChannelIdLfe] = false;
+        } else if (out_contains[SoundIoChannelIdFrontLeft] >= 0 &&
+                out_contains[SoundIoChannelIdFrontRight] >= 0)
         {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontLeft]][in_contains[GenesisChannelIdLowFrequency]] += lfe_mix_level * M_SQRT1_2;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontRight]][in_contains[GenesisChannelIdLowFrequency]] += lfe_mix_level * M_SQRT1_2;
-            unaccounted[GenesisChannelIdLowFrequency] = false;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontLeft]][in_contains[SoundIoChannelIdLfe]] += lfe_mix_level * M_SQRT1_2;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontRight]][in_contains[SoundIoChannelIdLfe]] += lfe_mix_level * M_SQRT1_2;
+            unaccounted[SoundIoChannelIdLfe] = false;
         }
     }
 
     // mix front left/right to front center
-    if (unaccounted[GenesisChannelIdFrontLeft] && unaccounted[GenesisChannelIdFrontRight]) {
-        if (out_contains[GenesisChannelIdFrontCenter] >= 0) {
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontLeft]] += 0.5;
-            resample_context->channel_matrix[out_contains[GenesisChannelIdFrontCenter]][in_contains[GenesisChannelIdFrontRight]] += 0.5;
-            unaccounted[GenesisChannelIdFrontLeft] = false;
-            unaccounted[GenesisChannelIdFrontRight] = false;
+    if (unaccounted[SoundIoChannelIdFrontLeft] && unaccounted[SoundIoChannelIdFrontRight]) {
+        if (out_contains[SoundIoChannelIdFrontCenter] >= 0) {
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdFrontLeft]] += 0.5;
+            resample_context->channel_matrix[out_contains[SoundIoChannelIdFrontCenter]][in_contains[SoundIoChannelIdFrontRight]] += 0.5;
+            unaccounted[SoundIoChannelIdFrontLeft] = false;
+            unaccounted[SoundIoChannelIdFrontRight] = false;
         }
     }
 
     // make sure all input channels are accounted for
-    for (int id = 0; id < GenesisChannelIdCount; id += 1) {
+    for (int id = 0; id < channel_id_count; id += 1) {
         if (unaccounted[id]) {
-            fprintf(stderr, "unaccounted: %s\n", genesis_get_channel_name((GenesisChannelId)id));
+            fprintf(stderr, "unaccounted: %s\n", soundio_get_channel_name((SoundIoChannelId)id));
             return GenesisErrorUnimplemented;
         }
     }
@@ -447,8 +450,8 @@ int create_resample_descriptor(GenesisContext *context) {
     genesis_port_descriptor_set_disconnect_callback(audio_in_port, in_disconnect);
     genesis_port_descriptor_set_disconnect_callback(audio_out_port, out_disconnect);
 
-    const struct GenesisChannelLayout *mono_layout =
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
+    const struct SoundIoChannelLayout *mono_layout =
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
 
     genesis_audio_port_descriptor_set_channel_layout(audio_in_port, mono_layout, false, -1);
     genesis_audio_port_descriptor_set_sample_rate(audio_in_port, 48000, false, -1);

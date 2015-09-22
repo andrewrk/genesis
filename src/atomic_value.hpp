@@ -1,12 +1,7 @@
 #ifndef ATOMIC_VALUE_HPP
 #define ATOMIC_VALUE_HPP
 
-#include <atomic>
-using std::atomic_int;
-
-#ifndef ATOMIC_INT_LOCK_FREE
-#error "require atomic int to be lock free"
-#endif
+#include "atomics.hpp"
 
 // single reader, single writer atomic value
 

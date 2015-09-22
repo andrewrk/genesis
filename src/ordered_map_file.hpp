@@ -2,14 +2,12 @@
 #define ORDERED_MAP_FILE_HPP
 
 #include "genesis.h"
-#include "threads.hpp"
+#include "os.hpp"
 #include "list.hpp"
 #include "byte_buffer.hpp"
 #include "locked_queue.hpp"
 #include "hash_map.hpp"
-
-#include <atomic>
-using std::atomic_bool;
+#include "atomics.hpp"
 
 struct OrderedMapFile;
 
@@ -40,9 +38,9 @@ struct OrderedMapFileBatch {
 };
 
 struct OrderedMapFile {
-    Thread write_thread;
-    Mutex mutex;
-    MutexCond cond;
+    OsThread *write_thread;
+    OsMutex *mutex;
+    OsCond *cond;
     ByteBuffer write_buffer;
     atomic_bool running;
     LockedQueue<OrderedMapFileBatch *> queue;

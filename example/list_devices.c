@@ -11,37 +11,35 @@ static int usage(char *exe) {
 }
 
 static int list_devices(struct GenesisContext *context) {
-    genesis_refresh_audio_devices(context);
+    genesis_flush_events(context);
     genesis_refresh_midi_devices(context);
-    int audio_count = genesis_get_audio_device_count(context);
-    if (audio_count < 0) {
-        fprintf(stderr, "unable to find audio devices\n");
-        return 1;
-    }
+    int input_count = genesis_input_device_count(context);
+    int output_count = genesis_output_device_count(context);
+
     int midi_count = genesis_get_midi_device_count(context);
     if (midi_count < 0) {
         fprintf(stderr, "unable to find midi devices\n");
         return 1;
     }
 
-    int default_playback = genesis_get_default_playback_device_index(context);
-    int default_recording = genesis_get_default_recording_device_index(context);
+    int default_playback = genesis_default_output_device_index(context);
+    int default_recording = genesis_default_input_device_index(context);
     int default_midi = genesis_get_default_midi_device_index(context);
-    for (int i = 0; i < audio_count; i += 1) {
-        struct GenesisAudioDevice *device = genesis_get_audio_device(context, i);
-        const char *purpose_str;
-        const char *default_str;
-        if (genesis_audio_device_purpose(device) == GenesisAudioDevicePurposePlayback) {
-            purpose_str = "playback";
-            default_str = (i == default_playback) ? " (default)" : "";
-        } else {
-            purpose_str = "recording";
-            default_str = (i == default_recording) ? " (default)" : "";
-        }
-        const char *description = genesis_audio_device_description(device);
-        int sample_rate = genesis_audio_device_sample_rate(device);
-        fprintf(stderr, "%s device: %d Hz %s%s\n", purpose_str, sample_rate, description, default_str);
-        genesis_audio_device_unref(device);
+    for (int i = 0; i < input_count; i += 1) {
+        struct SoundIoDevice *device = genesis_get_input_device(context, i);
+        const char *purpose_str = "recording";
+        const char *default_str = (i == default_recording) ? " (default)" : "";
+        int sample_rate = soundio_device_nearest_sample_rate(device, 44100);
+        fprintf(stderr, "%s device: %d Hz %s%s\n", purpose_str, sample_rate, device->name, default_str);
+        soundio_device_unref(device);
+    }
+    for (int i = 0; i < output_count; i += 1) {
+        struct SoundIoDevice *device = genesis_get_output_device(context, i);
+        const char *purpose_str = "playback";
+        const char *default_str = (i == default_playback) ? " (default)" : "";
+        int sample_rate = soundio_device_nearest_sample_rate(device, 44100);
+        fprintf(stderr, "%s device: %d Hz %s%s\n", purpose_str, sample_rate, device->name, default_str);
+        soundio_device_unref(device);
     }
     for (int i = 0; i < midi_count; i += 1) {
         struct GenesisMidiDevice *device = genesis_get_midi_device(context, i);
@@ -50,7 +48,7 @@ static int list_devices(struct GenesisContext *context) {
         fprintf(stderr, "controller device: %s%s\n", description, default_str);
         genesis_midi_device_unref(device);
     }
-    fprintf(stderr, "%d devices found\n", audio_count + midi_count);
+    fprintf(stderr, "%d devices found\n", input_count + output_count + midi_count);
     return 0;
 }
 
@@ -76,7 +74,7 @@ int main(int argc, char **argv) {
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
-        fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 

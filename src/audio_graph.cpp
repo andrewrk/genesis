@@ -77,7 +77,7 @@ static void audio_clip_node_run(struct GenesisNode *node) {
     struct GenesisPort *events_in_port = genesis_node_port(node, 1);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct SoundIoChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
     int channel_count = channel_layout->channel_count;
     int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_out_port);
@@ -254,7 +254,7 @@ static void audio_file_node_run(struct GenesisNode *node) {
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
+    const struct SoundIoChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     int channel_count = channel_layout->channel_count;
     float *out_samples = genesis_audio_out_port_write_ptr(audio_out_port);
 
@@ -373,11 +373,11 @@ static void rebuild_and_start_pipeline(Project *project) {
 
     assert(next_mixer_port == mix_port_count + 1);
     if ((err = genesis_start_pipeline(project->genesis_context, start_time)))
-        panic("unable to start pipeline: %s", genesis_error_string(err));
+        panic("unable to start pipeline: %s", genesis_strerror(err));
 }
 
 static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool is_asset) {
-    const struct GenesisChannelLayout *channel_layout;
+    const struct SoundIoChannelLayout *channel_layout;
     int sample_rate;
     long audio_file_frame_count;
     if (audio_file) {
@@ -385,7 +385,7 @@ static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool
         sample_rate = genesis_audio_file_sample_rate(audio_file);
         audio_file_frame_count = genesis_audio_file_frame_count(audio_file);
     } else {
-        channel_layout = genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono);
+        channel_layout = soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
         sample_rate = 48000;
         audio_file_frame_count = 0;
     }
@@ -454,11 +454,11 @@ int project_set_up_audio_graph(Project *project) {
             project->spy_descr, 1, GenesisPortTypeAudioOut, "audio_out");
 
     genesis_audio_port_descriptor_set_channel_layout(spy_in_port,
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), true, 1);
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), true, 1);
     genesis_audio_port_descriptor_set_sample_rate(spy_in_port, 48000, true, 1);
 
     genesis_audio_port_descriptor_set_channel_layout(spy_out_port,
-        genesis_channel_layout_get_builtin(GenesisChannelLayoutIdMono), false, -1);
+        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
     genesis_audio_port_descriptor_set_sample_rate(spy_out_port, 48000, false, -1);
 
     project->spy_node = genesis_node_descriptor_create_node(project->spy_descr);
@@ -467,26 +467,29 @@ int project_set_up_audio_graph(Project *project) {
 
 
     // block until we have audio devices list
-    genesis_refresh_audio_devices(project->genesis_context);
+    genesis_flush_events(project->genesis_context);
 
     // create hardware playback node
-    int playback_device_index = genesis_get_default_playback_device_index(project->genesis_context);
+    int playback_device_index = genesis_default_output_device_index(project->genesis_context);
     if (playback_device_index < 0)
         panic("error getting audio device list");
 
-    GenesisAudioDevice *audio_device = genesis_get_audio_device(project->genesis_context, playback_device_index);
+    SoundIoDevice *audio_device = genesis_get_output_device(project->genesis_context, playback_device_index);
     if (!audio_device)
         panic("error getting playback device");
 
     GenesisNodeDescriptor *playback_node_descr;
-    if ((err = genesis_audio_device_create_node_descriptor(audio_device, &playback_node_descr)))
+    if ((err = genesis_audio_device_create_node_descriptor(project->genesis_context,
+                    audio_device, &playback_node_descr)))
+    {
         return err;
+    }
 
     project->playback_node = genesis_node_descriptor_create_node(playback_node_descr);
     if (!project->playback_node)
         panic("unable to create playback node");
 
-    genesis_audio_device_unref(audio_device);
+    soundio_device_unref(audio_device);
 
     play_audio_file(project, nullptr, true);
 
@@ -505,7 +508,7 @@ void project_play_sample_file(Project *project, const ByteBuffer &path) {
     GenesisAudioFile *audio_file;
     int err;
     if ((err = genesis_audio_file_load(project->genesis_context, path.raw(), &audio_file))) {
-        fprintf(stderr, "unable to load audio file: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to load audio file: %s\n", genesis_strerror(err));
         return;
     }
 
@@ -586,7 +589,7 @@ static void add_audio_node_to_audio_clip(Project *project, AudioClip *audio_clip
     ok_or_panic(project_ensure_audio_asset_loaded(project, audio_clip->audio_asset));
     GenesisAudioFile *audio_file = audio_clip->audio_asset->audio_file;
 
-    const struct GenesisChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
+    const struct SoundIoChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
     int sample_rate = genesis_audio_file_sample_rate(audio_file);
 
     GenesisContext *context = project->genesis_context;

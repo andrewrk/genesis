@@ -193,10 +193,7 @@ String key_sequence_to_string(const KeySequence &seq);
 bool key_sequence_match(const KeySequence &seq, const KeyEvent *event);
 
 static inline KeySequence make_shortcut(int modifiers, VirtKey key) {
-    return {
-        .modifiers = modifiers,
-        .key = key,
-    };
+    return KeySequence{modifiers, key};
 }
 
 static inline KeySequence no_shortcut() { return make_shortcut(-1, VirtKeyUnknown); }

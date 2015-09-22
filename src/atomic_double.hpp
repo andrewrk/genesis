@@ -1,8 +1,7 @@
 #ifndef ATOMIC_DOUBLE_HPP
 #define ATOMIC_DOUBLE_HPP
 
-#include <atomic>
-
+#include "atomics.hpp"
 using std::atomic;
 
 class AtomicDouble {

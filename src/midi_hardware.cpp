@@ -2,6 +2,7 @@
 #include "util.hpp"
 #include "error.h"
 #include "genesis.hpp"
+#include "limits.h"
 
 static void default_on_buffer_overrun(struct MidiHardware *midi_hardware) {
     fprintf(stderr, "MIDI buffer overrun\n");
@@ -36,7 +37,7 @@ static void destroy_devices_info(MidiDevicesInfo *devices_info) {
 
 void destroy_midi_hardware(struct MidiHardware *midi_hardware) {
     if (midi_hardware) {
-        if (midi_hardware->thread.running()) {
+        if (midi_hardware->thread) {
             // send dummy event to make thread wake up from blocking
             midi_hardware->quit_flag = true;
             snd_seq_event_t ev;
@@ -52,7 +53,7 @@ void destroy_midi_hardware(struct MidiHardware *midi_hardware) {
             err = snd_seq_drain_output(midi_hardware->seq);
             if (err < 0)
                 panic("unable to drain output: %s\n", snd_strerror(err));
-            midi_hardware->thread.join();
+            os_thread_destroy(midi_hardware->thread);
         }
 
         destroy_devices_info(midi_hardware->current_devices_info);
@@ -139,12 +140,12 @@ static int midi_hardware_refresh(MidiHardware *midi_hardware) {
         }
     }
 
-    midi_hardware->mutex.lock();
+    os_mutex_lock(midi_hardware->mutex);
 
     MidiDevicesInfo *old_devices_info = midi_hardware->ready_devices_info;
     midi_hardware->ready_devices_info = info;
 
-    midi_hardware->mutex.unlock();
+    os_mutex_unlock(midi_hardware->mutex);
 
     destroy_devices_info(old_devices_info);
 
@@ -224,7 +225,7 @@ void midi_hardware_flush_events(MidiHardware *midi_hardware) {
     MidiDevicesInfo *old_devices_info = nullptr;
     bool change = false;
 
-    midi_hardware->mutex.lock();
+    os_mutex_lock(midi_hardware->mutex);
 
     if (midi_hardware->ready_devices_info) {
         old_devices_info = midi_hardware->current_devices_info;
@@ -233,7 +234,7 @@ void midi_hardware_flush_events(MidiHardware *midi_hardware) {
         change = true;
     }
 
-    midi_hardware->mutex.unlock();
+    os_mutex_unlock(midi_hardware->mutex);
 
     destroy_devices_info(old_devices_info);
 
@@ -261,9 +262,9 @@ int create_midi_hardware(GenesisContext *context,
     midi_hardware->on_devices_change = on_devices_change;
     midi_hardware->userdata = userdata;
 
-    if (midi_hardware->mutex.error()) {
+    if (!(midi_hardware->mutex = os_mutex_create())) {
         destroy_midi_hardware(midi_hardware);
-        return midi_hardware->mutex.error();
+        return GenesisErrorNoMem;
     }
 
     if (snd_seq_open(&midi_hardware->seq, "default", SND_SEQ_OPEN_DUPLEX, 0) < 0) {
@@ -322,8 +323,7 @@ int create_midi_hardware(GenesisContext *context,
         return GenesisErrorOpeningMidiHardware;
     }
 
-    err = midi_hardware->thread.start(midi_thread, midi_hardware);
-    if (err) {
+    if ((err = os_thread_create(midi_thread, midi_hardware, false, &midi_hardware->thread))) {
         destroy_midi_hardware(midi_hardware);
         return err;
     }

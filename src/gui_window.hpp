@@ -8,11 +8,9 @@
 #include "drag_event.hpp"
 #include "string.hpp"
 #include "glfw.hpp"
-#include "threads.hpp"
 #include "event_dispatcher.hpp"
-
-#include <atomic>
-using std::atomic_bool;
+#include "atomics.hpp"
+#include "os.hpp"
 
 class Gui;
 class Widget;
@@ -89,7 +87,7 @@ public:
     double _double_click_timeout;
     int dbl_click_count;
 
-    Thread thread;
+    OsThread *thread;
     atomic_bool running;
     atomic_bool viewport_update_queued;
 

@@ -1,5 +1,4 @@
 #include "gui.hpp"
-#include "debug.hpp"
 #include "os.hpp"
 #include "audio_graph.hpp"
 
@@ -94,14 +93,14 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     genesis_set_midi_device_callback(_genesis_context, midi_device_callback, this);
     genesis_set_underrun_callback(_genesis_context, underrun_callback, this);
 
-    genesis_refresh_audio_devices(_genesis_context);
+    genesis_flush_events(_genesis_context);
     genesis_refresh_midi_devices(_genesis_context);
 
-    gui_mutex.lock();
+    os_mutex_lock(gui_mutex);
 }
 
 Gui::~Gui() {
-    gui_mutex.unlock();
+    os_mutex_unlock(gui_mutex);
 
     glfwDestroyCursor(cursor_default);
     glfwDestroyCursor(cursor_ibeam);
@@ -120,15 +119,15 @@ Gui::~Gui() {
 }
 
 void Gui::exec() {
-    gui_mutex.unlock();
+    os_mutex_unlock(gui_mutex);
     fps = 60.0;
     double last_time = os_get_time();
     while (_running) {
-        gui_mutex.lock();
+        os_mutex_lock(gui_mutex);
         genesis_flush_events(_genesis_context);
         glfwPollEvents();
         events.trigger(EventFlushEvents);
-        gui_mutex.unlock();
+        os_mutex_unlock(gui_mutex);
 
         _utility_window->draw();
 
@@ -138,7 +137,7 @@ void Gui::exec() {
         double this_fps = 1.0 / delta;
         fps = fps * 0.90 + this_fps * 0.10;
     }
-    gui_mutex.lock();
+    os_mutex_lock(gui_mutex);
 }
 
 FontSize *Gui::get_font_size(int font_size) {

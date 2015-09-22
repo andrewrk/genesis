@@ -1,7 +1,7 @@
 #ifndef LOCKED_QUEUE_HPP
 #define LOCKED_QUEUE_HPP
 
-#include "threads.hpp"
+#include "os.hpp"
 #include "util.hpp"
 
 template<typename T>
@@ -14,19 +14,29 @@ public:
         _capacity = 0;
         _items = NULL;
         _shutdown = false;
+        if (!(_mutex = os_mutex_create()))
+            mutex_err = GenesisErrorNoMem;
+        if (!(_cond = os_cond_create()))
+            cond_err = GenesisErrorNoMem;
     }
 
     ~LockedQueue() {
         destroy(_items, _capacity);
+        os_mutex_destroy(_mutex);
+        os_cond_destroy(_cond);
     }
 
-    int error() const {
-        return _mutex.error() || _cond.error();
+    int error() {
+        if (mutex_err)
+            return mutex_err;
+        if (cond_err)
+            return cond_err;
+        return 0;
     }
 
     // returns 0 on success or GenesisErrorNoMem
     int __attribute__((warn_unused_result)) push(T item) {
-        MutexLocker locker(&_mutex);
+        OsMutexLocker locker(_mutex);
 
         int err = ensure_capacity(_length + 1);
         if (err)
@@ -35,19 +45,19 @@ public:
         _length += 1;
         _items[_end] = item;
         _end = (_end + 1) % _capacity;
-        _cond.signal();
+        os_cond_signal(_cond, _mutex);
         return 0;
     }
 
     // returns 0 on success or GenesisErrorAborted
     int shift(T *result) {
-        MutexLocker locker(&_mutex);
+        OsMutexLocker locker(_mutex);
 
         for (;;) {
             if (_shutdown)
                 return GenesisErrorAborted;
             if (_length <= 0) {
-                _cond.wait(&_mutex);
+                os_cond_wait(_cond, _mutex);
                 continue;
             }
             _length -= 1;
@@ -58,13 +68,13 @@ public:
     }
 
     void wakeup_all() {
-        MutexLocker locker(&_mutex);
+        OsMutexLocker locker(_mutex);
         _shutdown = true;
-        _cond.signal();
+        os_cond_signal(_cond, _mutex);
     }
 
     int length() {
-        MutexLocker locker(&_mutex);
+        OsMutexLocker locker(_mutex);
         return _length;
     }
 
@@ -74,8 +84,10 @@ private:
     int _end;
     int _length;
     int _capacity;
-    Mutex _mutex;
-    MutexCond _cond;
+    OsMutex *_mutex;
+    int mutex_err;
+    OsCond *_cond;
+    int cond_err;
     bool _shutdown;
 
     int ensure_capacity(int new_capacity) {

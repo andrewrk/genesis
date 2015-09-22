@@ -1,14 +1,21 @@
-cmake_minimum_required(VERSION 2.8)
-cmake_policy(SET CMP0042 NEW)
-cmake_policy(SET CMP0046 NEW)
+cmake_minimum_required(VERSION 2.8.5)
+project(genesis C CXX)
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+
+if(CMAKE_VERSION VERSION_LESS 3.0.0)
+    set(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "library install dir (lib)")
+    set(CMAKE_INSTALL_INCLUDEDIR "include" CACHE PATH "header base install dir (include)")
+    set(CMAKE_INSTALL_BINDIR "bin" CACHE PATH "user executables (bin)")
+else()
+    cmake_policy(SET CMP0042 NEW)
+    cmake_policy(SET CMP0046 NEW)
+    include(GNUInstallDirs)
+endif()
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
       "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
-
-project(genesis C CXX)
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 set(LIBGENESIS_VERSION_MAJOR 0)
 set(LIBGENESIS_VERSION_MINOR 0)
@@ -19,31 +26,23 @@ message("Configuring libgenesis version ${LIBGENESIS_VERSION}")
 set(LIBGENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
-    "${CMAKE_SOURCE_DIR}/src/channel_layout.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/util.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
     "${CMAKE_SOURCE_DIR}/src/resample.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_backend_pulseaudio.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_backend_dummy.cpp"
     "${CMAKE_SOURCE_DIR}/src/os.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
     "${CMAKE_SOURCE_DIR}/src/warning.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
 )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
     "${CMAKE_SOURCE_DIR}/src/genesis.h"
-    "${CMAKE_SOURCE_DIR}/src/channel_layout.h"
-    "${CMAKE_SOURCE_DIR}/src/sample_format.h"
-    "${CMAKE_SOURCE_DIR}/src/error.h"
-    ${CONFIGURE_OUT_FILE}
 )
 
 set(GENESIS_SOURCES
@@ -88,6 +87,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
+    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -118,19 +118,15 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
     "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
     "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
-    "${CMAKE_SOURCE_DIR}/src/channel_layout.cpp"
     "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
     "${CMAKE_SOURCE_DIR}/src/resample.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sample_format.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_hardware.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_backend_pulseaudio.cpp"
-    "${CMAKE_SOURCE_DIR}/src/audio_backend_dummy.cpp"
     "${CMAKE_SOURCE_DIR}/src/warning.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
 )
 
 find_package(Threads)
@@ -143,16 +139,19 @@ endif(Threads_FOUND)
 
 find_package(ffmpeg)
 if(AVCODEC_FOUND)
+    include_directories(${AVCODEC_INCLUDE_DIRS})
     set(STATUS_LIBAVCODEC "OK")
 else()
     set(STATUS_LIBAVCODEC "not found")
 endif()
 if(AVFORMAT_FOUND)
+    include_directories(${AVFORMAT_INCLUDE_DIRS})
     set(STATUS_LIBAVFORMAT "OK")
 else()
     set(STATUS_LIBAVFORMAT "not found")
 endif()
 if(AVUTIL_FOUND)
+    include_directories(${AVUTIL_INCLUDE_DIRS})
     set(STATUS_LIBAVUTIL "OK")
 else()
     set(STATUS_LIBAVUTIL "not found")
@@ -160,6 +159,7 @@ endif()
 
 find_package(FreeType)
 if(FREETYPE_FOUND)
+    include_directories(${FREETYPE_INCLUDE_DIR})
     set(STATUS_FREETYPE "OK")
 else()
     set(STATUS_FREETYPE "not found")
@@ -167,6 +167,7 @@ endif()
 
 find_package(PNG)
 if(PNG_FOUND)
+    include_directories(${PNG_INCLUDE_DIR})
     set(STATUS_PNG "OK")
 else()
     set(STATUS_PNG "not found")
@@ -174,6 +175,7 @@ endif()
 
 find_package(rucksack)
 if(RUCKSACK_FOUND)
+    include_directories(${RUCKSACK_INCLUDE_DIR})
     set(STATUS_RUCKSACK "OK")
 else()
     set(STATUS_RUCKSACK "not found")
@@ -181,20 +183,23 @@ endif()
 
 find_package(LaxJson)
 if(LAXJSON_FOUND)
-  set(STATUS_LAXJSON "OK")
+    include_directories(${LAXJSON_INCLUDE_DIR})
+    set(STATUS_LAXJSON "OK")
 else()
-  set(STATUS_LAXJSON "not found")
+    set(STATUS_LAXJSON "not found")
 endif()
 
-find_package(PulseAudio)
-if(PULSEAUDIO_FOUND)
-    set(STATUS_PULSEAUDIO "OK")
+find_package(SoundIo)
+if(SOUNDIO_FOUND)
+    include_directories(${SOUNDIO_INCLUDE_DIR})
+    set(STATUS_SOUNDIO "OK")
 else()
-    set(STATUS_PULSEAUDIO "not found")
+    set(STATUS_SOUNDIO "not found")
 endif()
 
 find_package(GLFW)
 if(GLFW_FOUND)
+    include_directories(${GLFW_INCLUDE_DIR})
     set(STATUS_GLFW "OK")
 else()
     set(STATUS_GLFW "not found")
@@ -202,6 +207,7 @@ endif()
 
 find_package(epoxy)
 if(EPOXY_FOUND)
+    include_directories(${EPOXY_INCLUDE_DIR})
     set(STATUS_EPOXY "OK")
 else()
     set(STATUS_EPOXY "not found")
@@ -209,10 +215,12 @@ endif()
 
 find_package(rhash)
 if(RHASH_FOUND)
+    include_directories(${RHASH_INCLUDE_DIR})
     set(STATUS_RHASH "OK")
 else()
     set(STATUS_RHASH "not found")
 endif()
+
 
 if(APPLE)
     set(GENESIS_HAVE_ALSA false)
@@ -221,6 +229,7 @@ else()
     set(GENESIS_HAVE_ALSA true)
     find_package(ALSA)
     if(ALSA_FOUND)
+        include_directories(${ALSA_INCLUDE_DIRS})
         set(STATUS_ALSA "OK")
     else()
         set(STATUS_ALSA "not found")
@@ -231,16 +240,14 @@ endif()
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wno-unused-variable")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wno-unused-variable")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Werror -pedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror -pedantic")
 
 
-set(LIB_CFLAGS "-std=c++11 -fno-exceptions -fno-rtti -Werror -Wall -fdiagnostics-color=auto")
-set(EXAMPLE_CFLAGS "-std=c99 -pedantic -Werror -Wall")
-set(EXAMPLE_INCLUDES "${CMAKE_SOURCE_DIR}/src")
+set(LIB_CFLAGS "-std=c++11 -fno-exceptions -fno-rtti -fvisibility=hidden -Wall -Werror=strict-prototypes -Werror=old-style-definition -Werror=missing-prototypes -Wno-c99-extensions")
+set(EXAMPLE_CFLAGS "-std=c99 -Wall")
 set(TEST_CFLAGS "${LIB_CFLAGS} -fprofile-arcs -ftest-coverage")
 set(TEST_LDFLAGS "-fprofile-arcs -ftest-coverage")
-set(TEST_INCLUDES "${CMAKE_SOURCE_DIR}/test")
 
 configure_file (
     "${CMAKE_SOURCE_DIR}/src/config.h.in"
@@ -277,19 +284,20 @@ set_target_properties(libgenesis_shared PROPERTIES
 )
 include_directories(
     ${CMAKE_SOURCE_DIR}
-    ${PULSEAUDIO_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}
-    ${ALSA_INCLUDE_DIRS}
+    "${CMAKE_SOURCE_DIR}/src"
+    "${CMAKE_SOURCE_DIR}/test"
 )
+
 target_link_libraries(libgenesis_shared LINK_PRIVATE
     ${FFMPEG_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     ${RHASH_LIBRARY}
+    ${SOUNDIO_LIBRARY}
     m
 )
 target_link_libraries(libgenesis_shared LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT})
-include_directories(${FFMPEG_INCLUDE_DIRS})
 install(TARGETS libgenesis_shared DESTINATION lib)
 
 
@@ -312,42 +320,36 @@ add_executable(list_devices example/list_devices.c)
 set_target_properties(list_devices PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
-include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(list_devices libgenesis_shared)
 
 add_executable(normalize_audio example/normalize_audio.c)
 set_target_properties(normalize_audio PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
-include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(normalize_audio libgenesis_shared m)
 
 add_executable(list_supported_formats example/list_supported_formats.c)
 set_target_properties(list_supported_formats PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
-include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(list_supported_formats libgenesis_shared)
 
 add_executable(synth example/synth.c)
 set_target_properties(synth PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
-include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(synth libgenesis_shared)
 
 add_executable(delay example/delay.c)
 set_target_properties(delay PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
-include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(delay libgenesis_shared)
 
 add_executable(play example/play.c)
 set_target_properties(play PROPERTIES
     LINKER_LANGUAGE C
     COMPILE_FLAGS ${EXAMPLE_CFLAGS})
-include_directories(${EXAMPLE_INCLUDES})
 target_link_libraries(play libgenesis_shared)
 
 
@@ -363,15 +365,6 @@ add_executable(genesis ${GENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(genesis PROPERTIES
     LINKER_LANGUAGE CXX
     COMPILE_FLAGS ${LIB_CFLAGS}
-)
-include_directories(
-    ${FREETYPE_INCLUDE_DIR}
-    ${PNG_INCLUDE_DIR}
-    ${RUCKSACK_INCLUDE_DIR}
-    ${GLFW_INCLUDE_DIR}
-    ${EPOXY_INCLUDE_DIR}
-    ${LAXJSON_INCLUDE_DIR}
-    ${RHASH_INCLUDE_DIR}
 )
 target_link_libraries(genesis libgenesis_shared
     ${FREETYPE_LIBRARY}
@@ -395,6 +388,7 @@ target_link_libraries(unit_tests LINK_PUBLIC
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     ${RHASH_LIBRARY}
+    ${SOUNDIO_LIBRARY}
     m
     -lstdc++
 )
@@ -403,7 +397,6 @@ set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS ${TEST_CFLAGS}
     LINK_FLAGS ${TEST_LDFLAGS}
 )
-include_directories(${TEST_INCLUDES} ${LAXJSON_INCLUDE_DIR})
 add_test(UnitTests unit_tests)
 
 
@@ -437,7 +430,7 @@ message(
     "* libpng                       : ${STATUS_PNG}\n"
     "* rucksack                     : ${STATUS_RUCKSACK}\n"
     "* liblaxjson                   : ${STATUS_LAXJSON}\n"
-    "* pulseaudio                   : ${STATUS_PULSEAUDIO}\n"
+    "* libsoundio                   : ${STATUS_SOUNDIO}\n"
     "* GLFW                         : ${STATUS_GLFW}\n"
     "* libepoxy                     : ${STATUS_EPOXY}\n"
     "* ALSA                         : ${STATUS_ALSA}\n"

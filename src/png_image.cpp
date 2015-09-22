@@ -62,7 +62,7 @@ PngImage::PngImage(const ByteBuffer &compressed_bytes) {
 
     _pitch = _width * bits_per_channel * channel_count / 8;
     _image_data.resize(_height * _pitch);
-    png_bytep *row_ptrs = allocate<png_bytep>(_height);
+    png_bytep *row_ptrs = ok_mem(allocate_zero<png_bytep>(_height));
 
     for (int i = 0; i < _height; i++) {
         png_uint_32 q = (_height - i - 1) * _pitch;

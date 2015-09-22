@@ -60,7 +60,7 @@ void TabWidget::draw(const glm::mat4 &projection) {
     }
 
     current_tab->widget->draw(projection);
-};
+}
 
 void TabWidget::get_tab_pos(int index, int *x, int *y) {
     if (index <= 0) {

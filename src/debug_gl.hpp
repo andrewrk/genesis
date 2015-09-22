@@ -2,7 +2,7 @@
 #define DEBUG_GL_HPP
 
 #include "glfw.hpp"
-#include "debug.hpp"
+#include "util.hpp"
 
 static inline void assert_no_gl_error() {
 #ifdef NDEBUG

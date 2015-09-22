@@ -8,7 +8,6 @@
 #include "error.h"
 #include "thread_safe_queue_test.hpp"
 #include "sort_key.hpp"
-#include "debug.hpp"
 #include "locked_queue.hpp"
 #include "crc32.hpp"
 #include "ordered_map_file_test.hpp"
@@ -458,12 +457,30 @@ static void test_atomic_double(void) {
     assert(x.load() == 13.0);
 }
 
+static void test_mirrored_memory(void) {
+    struct OsMirroredMemory mem;
+
+    static const int requested_bytes = 1024;
+    ok_or_panic(os_init_mirrored_memory(&mem, requested_bytes));
+    const int size_bytes = mem.capacity;
+
+    for (int i = 0; i < size_bytes; i += 1) {
+        mem.address[i] = rand() % CHAR_MAX;
+    }
+    for (int i = 0; i < size_bytes; i += 1) {
+        assert(mem.address[i] == mem.address[size_bytes+i]);
+    }
+
+    os_deinit_mirrored_memory(&mem);
+}
+
 struct Test {
     const char *name;
     void (*fn)(void);
 };
 
 static struct Test tests[] = {
+    {"mirrored memory", test_mirrored_memory},
     {"ByteBuffer::split", test_bytebuffer_split},
     {"String::make_lower_case", test_string_make_lower_case},
     {"List::remove_range", test_list_remove_range},
@@ -499,7 +516,7 @@ static void exec_test(struct Test *test) {
 }
 
 int main(int argc, char *argv[]) {
-    os_init(OsRandomQualityPseudo);
+    os_init();
 
     const char *match = nullptr;
 

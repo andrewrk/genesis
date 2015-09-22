@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
-        fprintf(stderr, "unable to create context: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 
@@ -32,28 +32,28 @@ int main(int argc, char **argv) {
     }
 
     // block until we have devices list
-    genesis_refresh_audio_devices(context);
+    genesis_flush_events(context);
     genesis_refresh_midi_devices(context);
 
-    int playback_device_index = genesis_get_default_playback_device_index(context);
+    int playback_device_index = genesis_default_output_device_index(context);
     if (playback_device_index < 0) {
         fprintf(stderr, "error getting audio device list\n");
         return 1;
     }
 
-    struct GenesisAudioDevice *out_device = genesis_get_audio_device(context, playback_device_index);
+    struct SoundIoDevice *out_device = genesis_get_output_device(context, playback_device_index);
     if (!out_device) {
         fprintf(stderr, "error getting playback device\n");
         return 1;
     }
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(out_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
     if (err) {
-        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
     }
-    genesis_audio_device_unref(out_device);
+    soundio_device_unref(out_device);
 
     struct GenesisNode *playback_node = genesis_node_descriptor_create_node(playback_node_descr);
     if (!playback_node) {
@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
 
     err = genesis_connect_ports(audio_out_port, audio_in_port);
     if (err) {
-        fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to connect audio ports: %s\n", genesis_strerror(err));
         return 1;
     }
 
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
     struct GenesisNodeDescriptor *midi_node_descr;
     err = genesis_midi_device_create_node_descriptor(midi_device, &midi_node_descr);
     if (err) {
-        fprintf(stderr, "unable to create input node descriptor: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to create input node descriptor: %s\n", genesis_strerror(err));
         return 1;
     }
     genesis_midi_device_unref(midi_device);
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
 
     err = genesis_connect_ports(events_out_port, events_in_port);
     if (err) {
-        fprintf(stderr, "unable to connect audio ports: %s\n", genesis_error_string(err));
+        fprintf(stderr, "unable to connect audio ports: %s\n", genesis_strerror(err));
         return 1;
     }
 
