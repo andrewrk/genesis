@@ -383,6 +383,11 @@ double genesis_whole_notes_to_seconds(GenesisContext *context, double whole_note
     return whole_notes / whole_notes_per_second;
 }
 
+static void on_backend_disconnect(struct SoundIo *soundio, int err) {
+    GenesisContext *context = (GenesisContext *)soundio->userdata;
+    context->soundio_connect_err = err;
+}
+
 int genesis_create_context(struct GenesisContext **out_context) {
     *out_context = nullptr;
 
@@ -434,7 +439,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
     context->soundio->userdata = context;
     context->soundio->on_devices_change = on_devices_change;
     context->soundio->on_events_signal = on_audio_hardware_events_signal;
-    // TODO handle on_backend_disconnect
+    context->soundio->on_backend_disconnect = on_backend_disconnect;
     context->soundio->app_name = "Genesis";
 
     if ((err = soundio_connect(context->soundio))) {
@@ -501,6 +506,9 @@ void genesis_destroy_context(struct GenesisContext *context) {
 
 void genesis_flush_events(struct GenesisContext *context) {
     soundio_flush_events(context->soundio);
+    if (context->soundio_connect_err) {
+        context->soundio_connect_err = soundio_connect(context->soundio);
+    }
     midi_hardware_flush_events(context->midi_hardware);
     if (!context->underrun_flag.test_and_set()) {
         if (context->underrun_callback)

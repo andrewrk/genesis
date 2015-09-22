@@ -14,6 +14,7 @@
 
 struct GenesisContext {
     SoundIo *soundio;
+    int soundio_connect_err;
     void (*devices_change_callback)(void *userdata);
     void *devices_change_callback_userdata;
 
