@@ -48,12 +48,14 @@ static void swap_endian(char *ptr) {
 static void write_sample_s16ne(char *ptr, float sample) {
     int16_t *buf = (int16_t *)ptr;
     float range = (float)INT16_MAX - (float)INT16_MIN;
-    float val = sample * range / 2.0;
+    float val = sample * range / 2.0f;
     *buf = val;
 }
 
 static void read_sample_s16ne(char *ptr, float *sample) {
-    panic("TODO");
+    int16_t *buf = (int16_t *)ptr;
+    float range = (float)INT16_MAX - (float)INT16_MIN;
+    *sample = (float)(*buf) / range * 2.0f;
 }
 
 static void write_sample_s16fe(char *ptr, float sample) {
@@ -62,17 +64,19 @@ static void write_sample_s16fe(char *ptr, float sample) {
 }
 
 static void read_sample_s16fe(char *ptr, float *sample) {
-    panic("TODO");
+    read_sample_s16ne(ptr, sample);
+    swap_endian<2>(ptr);
 }
 
 static void write_sample_u16ne(char *ptr, float sample) {
     uint32_t *buf = (uint32_t *)ptr;
-    float val = sample * (1.0f + (float)UINT32_MAX);
+    float val = sample * (1.0f + (float)UINT16_MAX);
     *buf = val;
 }
 
 static void read_sample_u16ne(char *ptr, float *sample) {
-    panic("TODO");
+    uint16_t *buf = (uint16_t *)ptr;
+    *sample = (float)(*buf) / (1.0f + (float)UINT16_MAX);
 }
 
 static void write_sample_u16fe(char *ptr, float sample) {
@@ -81,7 +85,8 @@ static void write_sample_u16fe(char *ptr, float sample) {
 }
 
 static void read_sample_u16fe(char *ptr, float *sample) {
-    panic("TODO");
+    read_sample_u16ne(ptr, sample);
+    swap_endian<2>(ptr);
 }
 
 static void write_sample_s32ne(char *ptr, float sample) {
@@ -92,7 +97,9 @@ static void write_sample_s32ne(char *ptr, float sample) {
 }
 
 static void read_sample_s32ne(char *ptr, float *sample) {
-    panic("TODO");
+    int32_t *buf = (int32_t *)ptr;
+    float range = (float)INT32_MAX - (float)INT32_MIN;
+    *sample = (float)(*buf) / range * 2.0f;
 }
 
 static void write_sample_s32fe(char *ptr, float sample) {
@@ -101,7 +108,8 @@ static void write_sample_s32fe(char *ptr, float sample) {
 }
 
 static void read_sample_s32fe(char *ptr, float *sample) {
-    panic("TODO");
+    read_sample_s32ne(ptr, sample);
+    swap_endian<4>(ptr);
 }
 
 static void write_sample_float32ne(char *ptr, float sample) {
@@ -151,7 +159,8 @@ static void write_sample_u32ne(char *ptr, float sample) {
 }
 
 static void read_sample_u32ne(char *ptr, float *sample) {
-    panic("TODO");
+    uint32_t *buf = (uint32_t *)ptr;
+    *sample = (float)(*buf) / (1.0f + (float)UINT32_MAX);
 }
 
 static void write_sample_u32fe(char *ptr, float sample) {
@@ -160,7 +169,8 @@ static void write_sample_u32fe(char *ptr, float sample) {
 }
 
 static void read_sample_u32fe(char *ptr, float *sample) {
-    panic("TODO");
+    read_sample_u32ne(ptr, sample);
+    swap_endian<4>(ptr);
 }
 
 static void write_sample_s24ne(char *ptr, float sample) {
@@ -171,7 +181,9 @@ static void write_sample_s24ne(char *ptr, float sample) {
 }
 
 static void read_sample_s24ne(char *ptr, float *sample) {
-    panic("TODO");
+    int32_t *buf = (int32_t *)ptr;
+    float range = 16777216.0f;
+    *sample = (float)(*buf) / range * 2.0f;
 }
 
 static void write_sample_s24fe(char *ptr, float sample) {
@@ -180,7 +192,8 @@ static void write_sample_s24fe(char *ptr, float sample) {
 }
 
 static void read_sample_s24fe(char *ptr, float *sample) {
-    panic("TODO");
+    read_sample_s24ne(ptr, sample);
+    swap_endian<4>(ptr);
 }
 
 static void write_sample_u24ne(char *ptr, float sample) {
@@ -190,7 +203,8 @@ static void write_sample_u24ne(char *ptr, float sample) {
 }
 
 static void read_sample_u24ne(char *ptr, float *sample) {
-    panic("TODO");
+    uint32_t *buf = (uint32_t *)ptr;
+    *sample = (float)(*buf) / 16777217.0f;
 }
 
 static void write_sample_u24fe(char *ptr, float sample) {
@@ -199,7 +213,8 @@ static void write_sample_u24fe(char *ptr, float sample) {
 }
 
 static void read_sample_u24fe(char *ptr, float *sample) {
-    panic("TODO");
+    read_sample_u24ne(ptr, sample);
+    swap_endian<4>(ptr);
 }
 
 static void write_sample_s8(char *ptr, float sample) {
@@ -210,7 +225,9 @@ static void write_sample_s8(char *ptr, float sample) {
 }
 
 static void read_sample_s8(char *ptr, float *sample) {
-    panic("TODO");
+    int8_t *buf = (int8_t *)ptr;
+    float range = (float)INT8_MAX - (float)INT8_MIN;
+    *sample = (float)(*buf) / range * 2.0f;
 }
 
 static void write_sample_u8(char *ptr, float sample) {
@@ -220,7 +237,8 @@ static void write_sample_u8(char *ptr, float sample) {
 }
 
 static void read_sample_u8(char *ptr, float *sample) {
-    panic("TODO");
+    uint8_t *buf = (uint8_t *)ptr;
+    *sample = (float)(*buf) / (1.0f + (float)UINT8_MAX);
 }
 
 static SampleFormatInfo prioritized_sample_format_infos[] = {
