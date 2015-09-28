@@ -89,7 +89,7 @@ struct GenesisNodeDescriptor {
     void (*destroy)(struct GenesisNode *node);
     void (*run)(struct GenesisNode *node);
     void (*seek)(struct GenesisNode *node);
-    void (*activate)(struct GenesisNode *node);
+    int (*activate)(struct GenesisNode *node);
     void (*deactivate)(struct GenesisNode *node);
     int set_index;
 

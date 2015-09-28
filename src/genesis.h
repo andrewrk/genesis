@@ -276,6 +276,7 @@ GENESIS_EXPORT int genesis_set_latency(struct GenesisContext *context, double la
 GENESIS_EXPORT int genesis_audio_in_port_fill_count(struct GenesisPort *port);
 GENESIS_EXPORT float *genesis_audio_in_port_read_ptr(struct GenesisPort *port);
 GENESIS_EXPORT void genesis_audio_in_port_advance_read_ptr(struct GenesisPort *port, int frame_count);
+GENESIS_EXPORT int genesis_audio_in_port_capacity(struct GenesisPort *port);
 
 // returns the number of frames that can be written
 GENESIS_EXPORT int genesis_audio_out_port_free_count(struct GenesisPort *port);
