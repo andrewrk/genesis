@@ -289,7 +289,7 @@ include_directories(
     "${CMAKE_SOURCE_DIR}/test"
 )
 
-target_link_libraries(libgenesis_shared LINK_PRIVATE
+target_link_libraries(libgenesis_shared
     ${FFMPEG_LIBRARIES}
     ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
@@ -297,7 +297,7 @@ target_link_libraries(libgenesis_shared LINK_PRIVATE
     ${SOUNDIO_LIBRARY}
     m
 )
-target_link_libraries(libgenesis_shared LINK_PUBLIC ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(libgenesis_shared ${CMAKE_THREAD_LIBS_INIT})
 install(TARGETS libgenesis_shared DESTINATION lib)
 
 
@@ -381,7 +381,7 @@ install(TARGETS genesis DESTINATION bin)
 
 enable_testing()
 add_executable(unit_tests ${TEST_SOURCES} ${UNICODE_HPP})
-target_link_libraries(unit_tests LINK_PUBLIC
+target_link_libraries(unit_tests
     ${CMAKE_THREAD_LIBS_INIT}
     ${LAXJSON_LIBRARY}
     ${FFMPEG_LIBRARIES}
