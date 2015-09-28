@@ -412,8 +412,10 @@ int genesis_create_context(struct GenesisContext **out_context) {
     *out_context = nullptr;
 
     // only call global initialization once
+    // TODO race condition here
     if (!lib_init_flag.test_and_set()) {
         audio_file_init();
+        os_init();
     }
 
     GenesisContext *context = create_zero<GenesisContext>();
@@ -1774,12 +1776,13 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 audio_port->sample_buffer_size = new_sample_buffer_size;
 
                 if (audio_port->sample_buffer_err || different) {
-                    ring_buffer_deinit(&audio_port->sample_buffer);
+                    if (!audio_port->sample_buffer_err)
+                        ring_buffer_deinit(&audio_port->sample_buffer);
                     if ((audio_port->sample_buffer_err =
                             ring_buffer_init(&audio_port->sample_buffer, audio_port->sample_buffer_size)))
                     {
                         genesis_stop_pipeline(context);
-                        return GenesisErrorNoMem;
+                        return audio_port->sample_buffer_err;
                     }
                 }
             } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
@@ -1789,12 +1792,13 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 if (events_port->event_buffer_err ||
                     events_port->event_buffer.capacity != min_event_buffer_size)
                 {
-                    ring_buffer_deinit(&events_port->event_buffer);
+                    if (!events_port->event_buffer_err)
+                        ring_buffer_deinit(&events_port->event_buffer);
                     if ((events_port->event_buffer_err = ring_buffer_init(&events_port->event_buffer,
                                     min_event_buffer_size)))
                     {
                         genesis_stop_pipeline(context);
-                        return GenesisErrorNoMem;
+                        return events_port->event_buffer_err;
                     }
                 }
             }

@@ -147,7 +147,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    genesis_start_pipeline(context, 0.0);
+    if ((err = genesis_start_pipeline(context, 0.0))) {
+        fprintf(stderr, "unable to start audio pipeline: %s\n", genesis_strerror(err));
+        return 1;
+    }
 
     for (;;)
         genesis_wait_events(context);

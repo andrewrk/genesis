@@ -1113,8 +1113,7 @@ int os_init_mirrored_memory(struct OsMirroredMemory *mem, size_t requested_capac
 
 void os_deinit_mirrored_memory(struct OsMirroredMemory *mem) {
     assert(mem);
-    if (!mem->address)
-        return;
+    assert(mem->address);
 #if defined(GENESIS_OS_WINDOWS)
     BOOL ok;
     ok = UnmapViewOfFile(mem->address);
@@ -1127,7 +1126,6 @@ void os_deinit_mirrored_memory(struct OsMirroredMemory *mem) {
     int err = munmap(mem->address, 2 * mem->capacity);
     assert(!err);
 #endif
-    mem->address = nullptr;
 }
 
 int os_concurrency(void) {
