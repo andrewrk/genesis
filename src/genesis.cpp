@@ -6,8 +6,6 @@
 #include "resample.hpp"
 #include "config.h"
 
-static atomic_flag lib_init_flag = ATOMIC_FLAG_INIT;
-
 static const int BYTES_PER_SAMPLE = 4; // assuming float samples
 static const int EVENTS_PER_SECOND_CAPACITY = 16000;
 static const double whole_notes_per_second = 140.0 / 60.0;
@@ -411,12 +409,7 @@ static void on_backend_disconnect(struct SoundIo *soundio, int err) {
 int genesis_create_context(struct GenesisContext **out_context) {
     *out_context = nullptr;
 
-    // only call global initialization once
-    // TODO race condition here
-    if (!lib_init_flag.test_and_set()) {
-        audio_file_init();
-        os_init();
-    }
+    os_init(audio_file_init);
 
     GenesisContext *context = create_zero<GenesisContext>();
     if (!context) {

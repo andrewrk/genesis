@@ -36,7 +36,7 @@ struct GenesisAudioFileFormat {
     AVInputFormat *iformat;
 };
 
-void audio_file_init(void);
+int audio_file_init(void);
 int __attribute__((warn_unused_result)) audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats);
 int __attribute__((warn_unused_result)) audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats);
 GenesisAudioFileCodec *audio_file_guess_audio_file_codec(

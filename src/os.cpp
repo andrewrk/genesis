@@ -934,7 +934,7 @@ void os_cond_wait(struct OsCond *cond,
 #endif
 }
 
-static int internal_init(void) {
+static int internal_init(int (*init_once)(void)) {
     uint32_t seed;
     int err;
     if ((err = get_random_seed(&seed)))
@@ -955,10 +955,14 @@ static int internal_init(void) {
     host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
 #endif
 #endif
+
+    if (init_once && (err = init_once())) {
+        return err;
+    }
     return 0;
 }
 
-int os_init(void) {
+int os_init(int (*init_once)(void)) {
     int err;
 #if defined(GENESIS_OS_WINDOWS)
     PVOID lpContext;
@@ -970,7 +974,7 @@ int os_init(void) {
     if (!pending)
         return 0;
 
-    if ((err = internal_init()))
+    if ((err = internal_init(init_once)))
         return err;
 
     if (!InitOnceComplete(&win32_init_once, INIT_ONCE_ASYNC, nullptr))
@@ -982,7 +986,7 @@ int os_init(void) {
         return 0;
     }
     initialized = true;
-    if ((err = internal_init()))
+    if ((err = internal_init(init_once)))
         return err;
     assert_no_err(pthread_mutex_unlock(&init_mutex));
 #endif

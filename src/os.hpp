@@ -18,7 +18,7 @@ struct OsDirEntry {
     int ref_count;
 };
 
-int os_init(void);
+int os_init(int (*init_once)(void));
 
 ByteBuffer os_get_home_dir(void);
 ByteBuffer os_get_app_dir(void);

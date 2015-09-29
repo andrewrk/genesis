@@ -516,7 +516,10 @@ static void exec_test(struct Test *test) {
 }
 
 int main(int argc, char *argv[]) {
-    os_init();
+    // Do all the one-time initialization stuff.
+    GenesisContext *context;
+    ok_or_panic(genesis_create_context(&context));
+    genesis_destroy_context(context);
 
     const char *match = nullptr;
 

@@ -1024,10 +1024,11 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     return 0;
 }
 
-void audio_file_init(void) {
+int audio_file_init(void) {
     av_log_set_level(AV_LOG_QUIET);
     avcodec_register_all();
     av_register_all();
+    return 0;
 }
 
 static int add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {

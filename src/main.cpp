@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
     int err;
-    if ((err = os_init()))
+    if ((err = os_init(nullptr)))
         panic("unable to initialize: %s", genesis_strerror(err));
 
     GenesisEditor genesis_editor;
