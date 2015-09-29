@@ -7,5 +7,4 @@ MixerWidget::MixerWidget(GuiWindow *window, Project *project) :
 }
 
 void MixerWidget::draw(const glm::mat4 &projection) {
-    // TODO
 }

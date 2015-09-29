@@ -562,6 +562,12 @@ void project_restart_playback(Project *project) {
     rebuild_and_start_pipeline(project);
 }
 
+void project_recover_stream(Project *project, double new_latency) {
+    stop_pipeline(project);
+    genesis_set_latency(project->genesis_context, new_latency);
+    rebuild_and_start_pipeline(project);
+}
+
 void project_stop_playback(Project *project) {
     stop_pipeline(project);
     project->is_playing = false;

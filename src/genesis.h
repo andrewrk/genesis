@@ -271,6 +271,7 @@ GENESIS_EXPORT int genesis_resume_pipeline(struct GenesisContext *context);
 // also if you change this, you must destroy and re-create nodes and node
 // descriptors based on audio devices
 GENESIS_EXPORT int genesis_set_latency(struct GenesisContext *context, double latency);
+GENESIS_EXPORT double genesis_get_latency(struct GenesisContext *context);
 
 // returns the number of frames available to read
 GENESIS_EXPORT int genesis_audio_in_port_fill_count(struct GenesisPort *port);

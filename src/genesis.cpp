@@ -483,7 +483,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
         }
     }
 
-    context->underrun_flag.test_and_set();
+    context->stream_fail_flag.test_and_set();
 
     *out_context = context;
     return 0;
@@ -516,6 +516,9 @@ void genesis_destroy_context(struct GenesisContext *context) {
     if (context->soundio)
         soundio_destroy(context->soundio);
 
+    os_mutex_destroy(context->events_mutex);
+    os_cond_destroy(context->events_cond);
+
     destroy(context, 1);
 }
 
@@ -525,7 +528,7 @@ void genesis_flush_events(struct GenesisContext *context) {
         context->soundio_connect_err = soundio_connect(context->soundio);
     }
     midi_hardware_flush_events(context->midi_hardware);
-    if (!context->underrun_flag.test_and_set()) {
+    if (!context->stream_fail_flag.test_and_set()) {
         if (context->underrun_callback)
             context->underrun_callback(context->underrun_callback_userdata);
     }
@@ -845,11 +848,13 @@ static void playback_node_destroy(struct GenesisNode *node) {
 }
 
 static void playback_node_error_callback(SoundIoOutStream *outstream, int err) {
-    //GenesisNode *node = (GenesisNode *)outstream->userdata;
-    //PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    GenesisNode *node = (GenesisNode *)outstream->userdata;
+    GenesisContext *context = node->descriptor->context;
 
-    // TODO: communicate this error to genesis context so it can be recovered
-    panic("output stream error: %s", soundio_strerror(err));
+    if (context->pipeline_running.load()) {
+        context->stream_fail_flag.clear();
+        emit_event_ready(context);
+    }
 }
 
 static void playback_node_fill_silence(SoundIoOutStream *outstream, int frame_count_min) {
@@ -1833,6 +1838,10 @@ int genesis_set_latency(struct GenesisContext *context, double latency) {
 
     context->latency = latency;
     return 0;
+}
+
+double genesis_get_latency(struct GenesisContext *context) {
+    return context->latency;
 }
 
 const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node) {

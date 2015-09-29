@@ -7,5 +7,4 @@ PianoRollWidget::PianoRollWidget(GuiWindow *window, Project *project) :
 }
 
 void PianoRollWidget::draw(const glm::mat4 &projection) {
-    // TODO
 }

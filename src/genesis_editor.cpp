@@ -89,8 +89,12 @@ static void on_flush_events(Event, void *userdata) {
 static void on_buffer_underrun(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
 
-    genesis_editor->underrun_count += 1;
-    fprintf(stderr, "buffer underrun %d\n", genesis_editor->underrun_count);
+    // TODO tell the difference between buffer underruns and other types of errors
+    double latency = genesis_get_latency(genesis_editor->genesis_context);
+    double new_latency = latency + 0.005;
+    fprintf(stderr, "recovering from stream error. latency %f -> %f\n", latency, new_latency);
+
+    project_recover_stream(genesis_editor->project, new_latency);
 }
 
 static void show_dock_handler(void *userdata) {

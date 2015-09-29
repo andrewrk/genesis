@@ -297,19 +297,24 @@ static void destroy_list(OrderedMapFile *omf) {
 }
 
 void ordered_map_file_close(OrderedMapFile *omf) {
-    if (omf) {
-        if (omf->mutex && omf->cond && !omf->queue.error()) {
-            ordered_map_file_flush(omf);
-            omf->running = false;
-            omf->queue.wakeup_all();
-        }
-        os_thread_destroy(omf->write_thread);
-        if (omf->file)
-            fclose(omf->file);
-        destroy_list(omf);
-        destroy_map(omf);
-        destroy(omf, 1);
+    if (!omf)
+        return;
+
+    if (omf->mutex && omf->cond && !omf->queue.error()) {
+        ordered_map_file_flush(omf);
+        omf->running = false;
+        omf->queue.wakeup_all();
     }
+    os_thread_destroy(omf->write_thread);
+    if (omf->file)
+        fclose(omf->file);
+    destroy_list(omf);
+    destroy_map(omf);
+
+    os_mutex_destroy(omf->mutex);
+    os_cond_destroy(omf->cond);
+
+    destroy(omf, 1);
 }
 
 OrderedMapFileBatch *ordered_map_file_batch_create(OrderedMapFile *omf) {

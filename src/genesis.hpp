@@ -29,7 +29,7 @@ struct GenesisContext {
 
     void (*underrun_callback)(void *userdata);
     void *underrun_callback_userdata;
-    atomic_flag underrun_flag;
+    atomic_flag stream_fail_flag;
 
     List<GenesisAudioFileFormat*> out_formats;
     List<GenesisAudioFileFormat*> in_formats;
