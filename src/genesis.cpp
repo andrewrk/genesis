@@ -796,7 +796,6 @@ static void get_port_status(GenesisPort *port, bool *empty, bool *full) {
 
 static void run_node(GenesisNode *node) {
     const GenesisNodeDescriptor *node_descriptor = node->descriptor;
-    //fprintf(stderr, "run %s\n", node_descriptor->name);
     node_descriptor->run(node);
     node->being_processed = false;
 }
@@ -813,10 +812,12 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
     // make sure all the children of this node are ready
     bool waiting_for_any_children = false;
     bool any_output_has_room = false;
+    bool has_any_output = false;
     for (int parent_port_i = 0; parent_port_i < node->port_count; parent_port_i += 1) {
         GenesisPort *port = node->ports[parent_port_i];
 
         if (port->output_to) {
+            has_any_output = true;
             bool empty, full;
             get_port_status(port, &empty, &full);
             if (!full)
@@ -835,7 +836,7 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
             }
         }
     }
-    if (!waiting_for_any_children && any_output_has_room) {
+    if (!waiting_for_any_children && (!has_any_output || any_output_has_room)) {
         // we know that we want it enqueued. now make sure it only happens once.
         if (!node->being_processed.exchange(true))
             context->task_queue.enqueue(node);
@@ -851,10 +852,11 @@ static void playback_node_destroy(struct GenesisNode *node) {
 }
 
 static void playback_node_error_callback(SoundIoOutStream *outstream, int err) {
-    GenesisNode *node = (GenesisNode *)outstream->userdata;
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    //GenesisNode *node = (GenesisNode *)outstream->userdata;
+    //PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
 
-    playback_node_context->ongoing_recovery.store(true);
+    // TODO: communicate this error to genesis context so it can be recovered
+    panic("output stream error: %s", soundio_strerror(err));
 }
 
 static void playback_node_fill_silence(SoundIoOutStream *outstream, int frame_count_min) {
@@ -954,6 +956,7 @@ static void playback_node_deactivate(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     soundio_outstream_destroy(playback_node_context->outstream);
     playback_node_context->outstream = nullptr;
+    playback_node_context->stream_started = false;
 }
 
 static int playback_choose_best_format(PlaybackNodeContext *playback_node_context, SoundIoDevice *device) {
@@ -973,7 +976,7 @@ static int playback_node_activate(struct GenesisNode *node) {
     GenesisContext *context = node->descriptor->context;
     SoundIoDevice *device = (SoundIoDevice*)node->descriptor->userdata;
 
-    playback_node_context->ongoing_recovery.store(false);
+    playback_node_context->ongoing_recovery.store(true);
 
     assert(!playback_node_context->outstream);
     if (!(playback_node_context->outstream = soundio_outstream_create(device))) {
@@ -991,7 +994,7 @@ static int playback_node_activate(struct GenesisNode *node) {
 
 
     playback_node_context->outstream->name = "Genesis";
-    playback_node_context->outstream->userdata = playback_node_context;
+    playback_node_context->outstream->userdata = node;
     playback_node_context->outstream->underflow_callback = playback_node_underrun_callback;
     playback_node_context->outstream->error_callback = playback_node_error_callback;
     playback_node_context->outstream->write_callback = playback_node_callback;
@@ -1006,6 +1009,9 @@ static int playback_node_activate(struct GenesisNode *node) {
         return GenesisErrorOpeningAudioHardware;
     }
 
+    // ask for audio frames
+    genesis_audio_in_port_advance_read_ptr(&audio_port->port, 0);
+
     return 0;
 }
 
@@ -1018,13 +1024,13 @@ static void playback_node_run(struct GenesisNode *node) {
         int input_capacity = genesis_audio_in_port_capacity(audio_in_port);
 
         if (input_frame_count == input_capacity) {
+            playback_node_context->ongoing_recovery.store(false);
             if (!playback_node_context->stream_started) {
                 soundio_outstream_start(playback_node_context->outstream);
                 playback_node_context->stream_started = true;
             } else {
                 soundio_outstream_pause(playback_node_context->outstream, 0);
             }
-            playback_node_context->ongoing_recovery.store(false);
         }
     }
 }
@@ -1180,7 +1186,7 @@ static int recording_node_create(struct GenesisNode *node) {
     GenesisAudioPort *audio_port = (GenesisAudioPort *)node->ports[0];
 
     recording_node_context->instream->name = "Genesis";
-    recording_node_context->instream->userdata = recording_node_context;
+    recording_node_context->instream->userdata = node;
     recording_node_context->instream->read_callback = recording_node_callback;
     recording_node_context->instream->error_callback = recording_node_error_callback;
     recording_node_context->instream->overflow_callback = recording_node_overflow_callback;
