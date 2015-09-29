@@ -897,13 +897,10 @@ static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_
     struct SoundIoChannelArea *areas;
     int err;
 
-    assert(context->pipeline_running);
-
-    if (playback_node_context->ongoing_recovery.load()) {
+    if (!context->pipeline_running.load() || playback_node_context->ongoing_recovery.load()) {
         playback_node_fill_silence(outstream, frame_count_min);
         return;
     }
-
 
     GenesisPort *audio_in_port = genesis_node_port(node, 0);
     int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);

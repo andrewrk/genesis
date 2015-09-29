@@ -96,6 +96,8 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     genesis_flush_events(_genesis_context);
     genesis_refresh_midi_devices(_genesis_context);
 
+    gui_mutex = ok_mem(os_mutex_create());
+
     os_mutex_lock(gui_mutex);
 }
 
