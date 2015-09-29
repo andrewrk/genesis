@@ -177,20 +177,24 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    int device_rate = soundio_device_nearest_sample_rate(audio_device, 44100);
-    soundio_sort_channel_layouts(audio_device->layouts, audio_device->layout_count);
-    const struct SoundIoChannelLayout *device_layout = &audio_device->layouts[0];
-
-    struct GenesisNode *target_node;
-    if (!force_resample && (sample_rate == device_rate && soundio_channel_layout_equal(channel_layout, device_layout))) {
-        target_node = playback_node;
-        fprintf(stderr, "%s ", input_filename);
-        print_channel_and_rate(channel_layout, sample_rate);
-        fprintf(stderr, " -> %s ", audio_device->name);
-        print_channel_and_rate(device_layout, device_rate);
-        fprintf(stderr, "\n");
+    bool try_with_resample;
+    if (force_resample) {
+        try_with_resample = true;
     } else {
-        // create resampling node
+        if ((err = genesis_connect_audio_nodes(audio_file_node, playback_node))) {
+            if (err == GenesisErrorIncompatibleChannelLayouts ||
+                err == GenesisErrorIncompatibleSampleRates)
+            {
+                try_with_resample = true;
+            } else {
+                fprintf(stderr, "unable to connect audio nodes: %s\n", genesis_strerror(err));
+                return 1;
+            }
+        } else {
+            try_with_resample = false;
+        }
+    }
+    if (try_with_resample) {
         struct GenesisNodeDescriptor *resample_descr = genesis_node_descriptor_find(context, "resample");
         if (!resample_descr) {
             fprintf(stderr, "unable to find resampler\n");
@@ -202,29 +206,34 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        int err = genesis_connect_audio_nodes(resample_node, playback_node);
-        if (err) {
+        if ((err = genesis_connect_audio_nodes(resample_node, playback_node))) {
             fprintf(stderr, "error connecting resampler to playback device: %s\n", genesis_strerror(err));
             return 1;
         }
 
-        target_node = resample_node;
-        fprintf(stderr, "%s ", input_filename);
-        print_channel_and_rate(channel_layout, sample_rate);
-        fprintf(stderr, " -> %s -> %s ",
-                genesis_node_descriptor_name(resample_descr),
-                audio_device->name);
-        print_channel_and_rate(device_layout, device_rate);
-        fprintf(stderr, "\n");
+        if ((err = genesis_connect_audio_nodes(audio_file_node, resample_node))) {
+            fprintf(stderr, "error connecting audio file node to resampler: %s\n", genesis_strerror(err));
+            return 1;
+        }
     }
+
+    struct GenesisPort *audio_in_port = genesis_node_port(playback_node, 0);
+    const struct SoundIoChannelLayout *device_layout = genesis_audio_port_channel_layout(audio_in_port);
+    int device_rate = genesis_audio_port_sample_rate(audio_in_port);
+
+    fprintf(stderr, "%s ", input_filename);
+    print_channel_and_rate(channel_layout, sample_rate);
+    fprintf(stderr, " -> ");
+
+    if (try_with_resample) {
+        fprintf(stderr, "resample -> ");
+    }
+
+    fprintf(stderr, "%s ", audio_device->name);
+    print_channel_and_rate(device_layout, device_rate);
+    fprintf(stderr, "\n");
 
     soundio_device_unref(audio_device);
-
-    err = genesis_connect_audio_nodes(audio_file_node, target_node);
-    if (err) {
-        fprintf(stderr, "unable to connect audio nodes: %s\n", genesis_strerror(err));
-        return 1;
-    }
 
     err = genesis_start_pipeline(context, 0.0);
     if (err) {

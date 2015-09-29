@@ -63,7 +63,7 @@ static void resample_seek(struct GenesisNode *node) {
     resample_context->out_offset = 0;
 }
 
-static inline float get_channel_value(float *samples, ResampleContext *resample_context,
+static float get_channel_value(float *samples, ResampleContext *resample_context,
         const struct SoundIoChannelLayout *in_layout,
         const struct SoundIoChannelLayout *out_layout,
         int in_frame_index, int out_channel_index)

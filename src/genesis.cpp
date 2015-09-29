@@ -1271,11 +1271,20 @@ int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
         node_descr->seek = recording_node_seek;
     }
 
-    int chosen_sample_rate = soundio_device_nearest_sample_rate(audio_device, context->target_sample_rate);
+    int chosen_sample_rate;
+    if (audio_device->sample_rate_current) {
+        chosen_sample_rate = audio_device->sample_rate_current;
+    } else {
+        chosen_sample_rate = soundio_device_nearest_sample_rate(audio_device, context->target_sample_rate);
+    }
     genesis_audio_port_descriptor_set_sample_rate(audio_port, chosen_sample_rate, true, -1);
 
     SoundIoChannelLayout layout;
-    get_best_supported_layout(audio_device, &layout);
+    if (audio_device->current_layout.channel_count) {
+        layout = audio_device->current_layout;
+    } else {
+        get_best_supported_layout(audio_device, &layout);
+    }
     genesis_audio_port_descriptor_set_channel_layout(audio_port, &layout, true, -1);
 
     *out = node_descr;
