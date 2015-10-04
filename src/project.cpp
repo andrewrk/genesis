@@ -16,6 +16,7 @@ enum PropKey {
     PropKeyAudioAsset,
     PropKeyAudioClip,
     PropKeyAudioClipSegment,
+    PropKeyMixerLine,
 };
 
 static const int PROP_KEY_SIZE = 4;
@@ -42,6 +43,8 @@ enum SerializableFieldKey {
     SerializableFieldKeyStart,
     SerializableFieldKeyEnd,
     SerializableFieldKeyPos,
+    SerializableFieldKeySolo,
+    SerializableFieldKeyVolume,
 };
 
 // modifying this structure affects project file backward compatibility
@@ -57,6 +60,8 @@ enum SerializableFieldType {
     SerializableFieldTypeCommandChild,
     SerializableFieldTypeUInt64AsLong,
     SerializableFieldTypeDouble,
+    SerializableFieldTypeUInt8,
+    SerializableFieldTypeFloat,
 };
 
 template <typename T>
@@ -84,6 +89,50 @@ static const SerializableField<Track> *get_serializable_fields(Track *) {
             SerializableFieldTypeSortKey,
             [](Track *track) -> void * {
                 return &track->sort_key;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<MixerLine> *get_serializable_fields(MixerLine *) {
+    static const SerializableField<MixerLine> fields[] = {
+        {
+            SerializableFieldKeyName,
+            SerializableFieldTypeString,
+            [](MixerLine *self) -> void * {
+                return &self->name;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeySortKey,
+            SerializableFieldTypeSortKey,
+            [](MixerLine *self) -> void * {
+                return &self->sort_key;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeySolo,
+            SerializableFieldTypeUInt8,
+            [](MixerLine *self) -> void * {
+                return &self->solo;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyVolume,
+            SerializableFieldTypeFloat,
+            [](MixerLine *self) -> void * {
+                return &self->volume;
             },
             nullptr,
         },
@@ -500,6 +549,12 @@ static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffe
             buffer.append_uint32be(*value);
             break;
         }
+    case SerializableFieldTypeUInt8:
+        {
+            uint8_t *value = static_cast<uint8_t *>(ptr);
+            buffer.append_uint8(*value);
+            break;
+        }
     case SerializableFieldTypeUInt32AsInt:
         {
             int *value = static_cast<int *>(ptr);
@@ -557,6 +612,12 @@ static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffe
             buffer.append_double(*value);
             break;
         }
+    case SerializableFieldTypeFloat:
+        {
+            float *value = static_cast<float *>(ptr);
+            buffer.append_float(*value);
+            break;
+        }
     }
 }
 
@@ -601,12 +662,31 @@ static int deserialize_double(double *x, const ByteBuffer &buffer, int *offset) 
     return 0;
 }
 
+static int deserialize_float(float *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 4)
+        return GenesisErrorInvalidFormat;
+
+    const float *buffer_ptr = reinterpret_cast<const float*>(buffer.raw() + *offset);
+    *x = *buffer_ptr;
+    *offset += 4;
+    return 0;
+}
+
 static int deserialize_uint32be(uint32_t *x, const ByteBuffer &buffer, int *offset) {
     if (buffer.length() - *offset < 4)
         return GenesisErrorInvalidFormat;
 
     *x = read_uint32be(buffer.raw() + *offset);
     *offset += 4;
+    return 0;
+}
+
+static int deserialize_uint8(uint8_t *x, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 1)
+        return GenesisErrorInvalidFormat;
+
+    *x = *((uint8_t*)(buffer.raw() + *offset));
+    *offset += 1;
     return 0;
 }
 
@@ -743,6 +823,11 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
             uint32_t *value = static_cast<uint32_t *>(ptr);
             return deserialize_uint32be(value, buffer, offset);
         }
+    case SerializableFieldTypeUInt8:
+        {
+            uint8_t *value = static_cast<uint8_t *>(ptr);
+            return deserialize_uint8(value, buffer, offset);
+        }
     case SerializableFieldTypeUInt32AsInt:
         {
             int *value = static_cast<int *>(ptr);
@@ -803,6 +888,11 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
             double *value = static_cast<double *>(ptr);
             return deserialize_double(value, buffer, offset);
         }
+    case SerializableFieldTypeFloat:
+        {
+            float *value = static_cast<float *>(ptr);
+            return deserialize_float(value, buffer, offset);
+        }
     }
     panic("unreachable");
 }
@@ -862,6 +952,11 @@ static int compare_audio_clips(AudioClip *a, AudioClip *b) {
     return uint256::compare(a->id, b->id);
 }
 
+static int compare_mixer_lines(MixerLine *a, MixerLine *b) {
+    int sort_key_cmp = SortKey::compare(a->sort_key, b->sort_key);
+    return (sort_key_cmp == 0) ? uint256::compare(a->id, b->id) : sort_key_cmp;
+}
+
 static int compare_audio_clip_segments(AudioClipSegment *a, AudioClipSegment *b) {
     if (a->pos < b->pos)
         return -1;
@@ -903,6 +998,10 @@ static void project_sort_audio_assets(Project *project) {
 
 static void project_sort_audio_clips(Project *project) {
     project_sort_item<AudioClip *, compare_audio_clips>(project->audio_clip_list, project->audio_clips);
+}
+
+static void project_sort_mixer_lines(Project *project) {
+    project_sort_item<MixerLine *, compare_mixer_lines>(project->mixer_line_list, project->mixer_lines);
 }
 
 static void project_sort_audio_clip_segments(Project *project) {
@@ -957,6 +1056,7 @@ static void project_compute_indexes(Project *project) {
     if (project->command_list_dirty) project_sort_commands(project);
     if (project->audio_asset_list_dirty) project_sort_audio_assets(project);
     if (project->audio_clip_list_dirty) project_sort_audio_clips(project);
+    if (project->mixer_line_list_dirty) project_sort_mixer_lines(project);
     // depends on tracks being sorted
     if (project->audio_clip_segments_dirty) project_sort_audio_clip_segments(project);
 
@@ -984,6 +1084,10 @@ static void project_compute_indexes(Project *project) {
         project->audio_clip_segments_dirty = false;
         trigger_event(project, EventProjectAudioClipSegmentsChanged);
     }
+    if (project->mixer_line_list_dirty) {
+        project->mixer_line_list_dirty = false;
+        trigger_event(project, EventProjectMixerLinesChanged);
+    }
 }
 
 int project_get_next_revision(Project *project) {
@@ -1010,6 +1114,10 @@ static OrderedMapFileBuffer *create_id_key(PropKey prop_key, const uint256 &id) 
     write_uint32be(&buf->data[4], PropKeyDelimiter);
     id.write_be(&buf->data[8]);
     return buf;
+}
+
+static OrderedMapFileBuffer *create_mixer_line_key(const uint256 &id) {
+    return create_id_key(PropKeyMixerLine, id);
 }
 
 static OrderedMapFileBuffer *create_user_key(const uint256 &id) {
@@ -1207,6 +1315,29 @@ static int deserialize_audio_clip_segment(Project *project, const ByteBuffer &ke
 
     project->audio_clip_segments.put(segment->id, segment);
     project->audio_clip_segments_dirty = true;
+
+    return 0;
+}
+
+static int deserialize_mixer_line(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
+    MixerLine *mixer_line = create_zero<MixerLine>();
+    if (!mixer_line)
+        return GenesisErrorNoMem;
+
+    int err;
+    if ((err = object_key_to_id(key, &mixer_line->id))) {
+        destroy(mixer_line, 1);
+        return err;
+    }
+
+    int offset = 0;
+    if ((err = deserialize_object(mixer_line, value, &offset))) {
+        destroy(mixer_line, 1);
+        return err;
+    }
+
+    project->mixer_lines.put(mixer_line->id, mixer_line);
+    project->mixer_line_list_dirty = true;
 
     return 0;
 }
@@ -1455,6 +1586,12 @@ int project_open(const char *path, GenesisContext *genesis_context,
         return err;
     }
 
+    // read mixer line
+    if ((err = iterate_prefix(project, PropKeyMixerLine, deserialize_mixer_line))) {
+        project_close(project);
+        return err;
+    }
+
     // read command history (depends on users)
     err = iterate_prefix(project, PropKeyCommand, deserialize_command);
     if (err) {
@@ -1489,6 +1626,18 @@ int project_open(const char *path, GenesisContext *genesis_context,
     return 0;
 }
 
+static MixerLine *mixer_line_create(const char *name) {
+    MixerLine *mixer_line = ok_mem(create_zero<MixerLine>());
+    mixer_line->id = uint256::random();
+    mixer_line->name = name;
+    mixer_line->sort_key = SortKey::single(nullptr, nullptr);
+    mixer_line->solo = false;
+    mixer_line->volume = 1.0f;
+
+    return mixer_line;
+}
+
+
 int project_create(const char *path, GenesisContext *genesis_context,
         const uint256 &id, User *user, Project **out_project)
 {
@@ -1522,6 +1671,12 @@ int project_create(const char *path, GenesisContext *genesis_context,
     ok_or_panic(ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user)));
     AddTrackCommand *add_track_cmd = project_insert_track_batch(project, batch, nullptr, nullptr);
     project_push_command(project, add_track_cmd);
+
+    // Add master mixer line.
+    MixerLine *mixer_line = mixer_line_create("Master");
+    project->mixer_lines.put(mixer_line->id, mixer_line);
+    ok_or_panic(ordered_map_file_batch_put(batch, create_mixer_line_key(mixer_line->id),
+                omf_buf_obj(mixer_line)));
 
     err = ordered_map_file_batch_exec(batch);
     if (err) {

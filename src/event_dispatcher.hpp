@@ -21,6 +21,7 @@ enum Event {
     EventProjectAudioClipSegmentsChanged,
     EventProjectPlayHeadChanged,
     EventProjectPlayingChanged,
+    EventProjectMixerLinesChanged,
     EventBufferUnderrun,
 };
 

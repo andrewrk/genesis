@@ -132,6 +132,8 @@ struct Project {
 
     bool audio_clip_segments_dirty;
 
+    List<MixerLine *> mixer_line_list;
+    bool mixer_line_list_dirty;
 
     ////////// transient state
     User *active_user; // the user that is running this instance of genesis

@@ -86,6 +86,14 @@ public:
         _buffer.at(_buffer.length() - 1) = 0;
     }
 
+    inline void append_float(float value) {
+        static_assert(sizeof(float) == 4, "require float to be IEEE754 32-bit floating point");
+        ok_or_panic(_buffer.resize(_buffer.length() + 4));
+        float *ptr = (float *)(_buffer.raw() + _buffer.length() - 5);
+        *ptr = value;
+        _buffer.at(_buffer.length() - 1) = 0;
+    }
+
     uint32_t read_uint32le(int index) const {
         if (index < 0 || index + 4 > length())
             panic("bounds check");
