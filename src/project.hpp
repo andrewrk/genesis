@@ -79,12 +79,57 @@ struct User {
     String name;
 };
 
+struct Effect;
+
 struct MixerLine {
     uint256 id;
     String name;
     SortKey sort_key;
     bool solo;
     float volume;
+
+    // prepared view of data
+    List<Effect *> effects;
+};
+
+// modifying this structure affects project file backward compatibility
+enum EffectSendType {
+    EffectSendTypeDevice,
+};
+
+// modifying this structure affects project file backward compatibility
+enum DeviceId {
+    DeviceIdMainOut,
+    DeviceIdMainIn,
+};
+
+struct EffectSendDevice {
+    int device_id; // see enum DeviceId
+};
+
+struct EffectSend {
+    float gain;
+    int send_type; // see enum EffectSendType
+    union {
+        EffectSendDevice device;
+    } send;
+};
+
+enum EffectType {
+    EffectTypeSend,
+};
+
+struct Effect {
+    uint256 id;
+    uint256 mixer_line_id;
+    SortKey sort_key;
+    int effect_type; // see enum EffectType
+    union {
+        EffectSend send;
+    } effect;
+
+    // prepared view of data
+    MixerLine *mixer_line;
 };
 
 struct PlayChannelContext {
@@ -102,6 +147,7 @@ struct Project {
     IdMap<Track *> tracks;
     IdMap<User *> users;
     IdMap<MixerLine *> mixer_lines;
+    IdMap<Effect *> effects;
     // this represents the true history of the project. you can create the
     // entire project data structure just from this data
     // this grows forever and never shrinks
@@ -131,6 +177,7 @@ struct Project {
     bool audio_clip_list_dirty;
 
     bool audio_clip_segments_dirty;
+    bool effects_dirty;
 
     List<MixerLine *> mixer_line_list;
     bool mixer_line_list_dirty;
@@ -385,5 +432,7 @@ void project_add_audio_clip_segment(Project *project, AudioClip *audio_clip, Tra
 int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset);
 long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip);
 int project_audio_clip_sample_rate(Project *project, AudioClip *audio_clip);
+
+void project_get_effect_string(Project *project, Effect *effect, String &result);
 
 #endif

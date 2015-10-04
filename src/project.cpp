@@ -17,6 +17,7 @@ enum PropKey {
     PropKeyAudioClip,
     PropKeyAudioClipSegment,
     PropKeyMixerLine,
+    PropKeyEffect,
 };
 
 static const int PROP_KEY_SIZE = 4;
@@ -25,7 +26,6 @@ static const int UINT256_SIZE = 32;
 // modifying this structure affects project file backward compatibility
 enum SerializableFieldKey {
     SerializableFieldKeyInvalid,
-    SerializableFieldKeyId,
     SerializableFieldKeyUserId,
     SerializableFieldKeyRevision,
     SerializableFieldKeyName,
@@ -45,12 +45,20 @@ enum SerializableFieldKey {
     SerializableFieldKeyPos,
     SerializableFieldKeySolo,
     SerializableFieldKeyVolume,
+    SerializableFieldKeyMixerLineId,
+    SerializableFieldKeyEffectType,
+    SerializableFieldKeyEffectChild,
+    SerializableFieldKeyEffectSendType,
+    SerializableFieldKeyEffectSendChild,
+    SerializableFieldKeyGain,
+    SerializableFieldKeyDeviceId,
 };
 
 // modifying this structure affects project file backward compatibility
 enum SerializableFieldType {
     SerializableFieldTypeInvalid,
     SerializableFieldTypeUInt32,
+    SerializableFieldTypeEffectChild,
     SerializableFieldTypeUInt32AsInt,
     SerializableFieldTypeString,
     SerializableFieldTypeByteBuffer,
@@ -62,6 +70,7 @@ enum SerializableFieldType {
     SerializableFieldTypeDouble,
     SerializableFieldTypeUInt8,
     SerializableFieldTypeFloat,
+    SerializableFieldTypeEffectSendChild,
 };
 
 template <typename T>
@@ -73,6 +82,8 @@ struct SerializableField {
 };
 
 static int deserialize_from_enum(void *ptr, SerializableFieldType type, const ByteBuffer &buffer, int *offset);
+static void serialize_effect(Effect *effect, ByteBuffer &buffer);
+static void serialize_effect_send(EffectSend *effect_send, ByteBuffer &buffer);
 
 static const SerializableField<Track> *get_serializable_fields(Track *) {
     static const SerializableField<Track> fields[] = {
@@ -225,14 +236,6 @@ static const SerializableField<AudioClip> *get_serializable_fields(AudioClip *) 
 static const SerializableField<AudioClipSegment> *get_serializable_fields(AudioClipSegment *) {
     static const SerializableField<AudioClipSegment> fields[] = {
         {
-            SerializableFieldKeyId,
-            SerializableFieldTypeUInt256,
-            [](AudioClipSegment *segment) -> void * {
-                return &segment->id;
-            },
-            nullptr,
-        },
-        {
             SerializableFieldKeyAudioClipId,
             SerializableFieldTypeUInt256,
             [](AudioClipSegment *segment) -> void * {
@@ -282,6 +285,106 @@ static const SerializableField<AudioClipSegment> *get_serializable_fields(AudioC
     return fields;
 }
 
+static const SerializableField<Effect> *get_serializable_fields(Effect *) {
+    static const SerializableField<Effect> fields[] = {
+        {
+            SerializableFieldKeyMixerLineId,
+            SerializableFieldTypeUInt256,
+            [](Effect *self) -> void * {
+                return &self->mixer_line_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeySortKey,
+            SerializableFieldTypeSortKey,
+            [](Effect *self) -> void * {
+                return &self->sort_key;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyEffectType,
+            SerializableFieldTypeUInt32AsInt,
+            [](Effect *self) -> void * {
+                return &self->effect_type;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyEffectChild,
+            SerializableFieldTypeEffectChild,
+            [](Effect *self) -> void * {
+                return self;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<EffectSend> *get_serializable_fields(EffectSend *) {
+    static const SerializableField<EffectSend> fields[] = {
+        {
+            SerializableFieldKeyGain,
+            SerializableFieldTypeFloat,
+            [](EffectSend *self) -> void * {
+                return &self->gain;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyEffectSendType,
+            SerializableFieldTypeUInt32AsInt,
+            [](EffectSend *self) -> void * {
+                return &self->send_type;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyEffectSendChild,
+            SerializableFieldTypeEffectSendChild,
+            [](EffectSend *self) -> void * {
+                return self;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
+static const SerializableField<EffectSendDevice> *get_serializable_fields(EffectSendDevice *) {
+    static const SerializableField<EffectSendDevice> fields[] = {
+        {
+            SerializableFieldKeyDeviceId,
+            SerializableFieldTypeUInt32AsInt,
+            [](EffectSendDevice *self) -> void * {
+                return &self->device_id;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
 static const SerializableField<Command> *get_serializable_fields(Command *) {
     static const SerializableField<Command> fields[] = {
         {
@@ -289,14 +392,6 @@ static const SerializableField<Command> *get_serializable_fields(Command *) {
             SerializableFieldTypeCmdType,
             [](Command *cmd) -> void * {
                 return cmd;
-            },
-            nullptr,
-        },
-        {
-            SerializableFieldKeyId,
-            SerializableFieldTypeUInt256,
-            [](Command *cmd) -> void * {
-                return &cmd->id;
             },
             nullptr,
         },
@@ -600,6 +695,18 @@ static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffe
             value->serialize(buffer);
             break;
         }
+    case SerializableFieldTypeEffectChild:
+        {
+            Effect *value = static_cast<Effect *>(ptr);
+            serialize_effect(value, buffer);
+            break;
+        }
+    case SerializableFieldTypeEffectSendChild:
+        {
+            EffectSend *value = static_cast<EffectSend *>(ptr);
+            serialize_effect_send(value, buffer);
+            break;
+        }
     case SerializableFieldTypeCmdType:
         {
             Command *value = static_cast<Command *>(ptr);
@@ -651,6 +758,25 @@ static void serialize_object(T *obj, ByteBuffer &buffer) {
         it += 1;
     }
 }
+
+static void serialize_effect(Effect *effect, ByteBuffer &buffer) {
+    switch ((EffectType)effect->effect_type) {
+        case EffectTypeSend:
+            serialize_object(&effect->effect.send, buffer);
+            return;
+    }
+    panic("invalid effect type");
+}
+
+static void serialize_effect_send(EffectSend *effect_send, ByteBuffer &buffer) {
+    switch ((EffectSendType)effect_send->send_type) {
+        case EffectSendTypeDevice:
+            serialize_object(&effect_send->send.device, buffer);
+            return;
+    }
+    panic("invalid effect type");
+}
+
 
 static int deserialize_double(double *x, const ByteBuffer &buffer, int *offset) {
     if (buffer.length() - *offset < 8)
@@ -858,6 +984,24 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
             SortKey *value = static_cast<SortKey *>(ptr);
             return value->deserialize(buffer, offset);
         }
+    case SerializableFieldTypeEffectChild:
+        {
+            Effect *effect = static_cast<Effect *>(ptr);
+            switch ((EffectType)effect->effect_type) {
+                case EffectTypeSend:
+                    return deserialize_object(&effect->effect.send, buffer, offset);
+            }
+            panic("unreachable");
+        }
+    case SerializableFieldTypeEffectSendChild:
+        {
+            EffectSend *effect_send = static_cast<EffectSend *>(ptr);
+            switch ((EffectSendType)effect_send->send_type) {
+                case EffectSendTypeDevice:
+                    return deserialize_object(&effect_send->send.device, buffer, offset);
+            }
+            panic("unreachable");
+        }
     case SerializableFieldTypeCommandChild:
         {
             Command *cmd = static_cast<Command *>(ptr);
@@ -966,6 +1110,11 @@ static int compare_audio_clip_segments(AudioClipSegment *a, AudioClipSegment *b)
         return uint256::compare(a->id, b->id);
 }
 
+static int compare_effects(Effect *a, Effect *b) {
+    int sort_key_cmp = SortKey::compare(a->sort_key, b->sort_key);
+    return (sort_key_cmp == 0) ? uint256::compare(a->id, b->id) : sort_key_cmp;
+}
+
 template<typename T, int (*compare)(T, T)>
 static void project_sort_item(List<T> &list, IdMap<T> &id_map) {
     list.clear();
@@ -1046,6 +1195,28 @@ static void project_sort_audio_clip_segments(Project *project) {
     }
 }
 
+static void project_sort_effects(Project *project) {
+    for (int i = 0; i < project->mixer_line_list.length(); i += 1) {
+        MixerLine *mixer_line = project->mixer_line_list.at(i);
+        mixer_line->effects.clear();
+    }
+
+    auto it = project->effects.entry_iterator();
+    for (;;) {
+        auto *entry = it.next();
+        if (!entry)
+            break;
+
+        Effect *effect = entry->value;
+        ok_or_panic(effect->mixer_line->effects.append(effect));
+    }
+
+    for (int i = 0; i < project->mixer_line_list.length(); i += 1) {
+        MixerLine *mixer_line = project->mixer_line_list.at(i);
+        mixer_line->effects.sort<compare_effects>();
+    }
+}
+
 static void trigger_event(Project *project, Event event) {
     project->events.trigger(event);
 }
@@ -1059,6 +1230,8 @@ static void project_compute_indexes(Project *project) {
     if (project->mixer_line_list_dirty) project_sort_mixer_lines(project);
     // depends on tracks being sorted
     if (project->audio_clip_segments_dirty) project_sort_audio_clip_segments(project);
+    // depends on mixer lines being sorted
+    if (project->effects_dirty) project_sort_effects(project);
 
     if (project->track_list_dirty) {
         project->track_list_dirty = false;
@@ -1080,13 +1253,17 @@ static void project_compute_indexes(Project *project) {
         project->audio_clip_list_dirty = false;
         trigger_event(project, EventProjectAudioClipsChanged);
     }
+    if (project->mixer_line_list_dirty) {
+        project->mixer_line_list_dirty = false;
+        trigger_event(project, EventProjectMixerLinesChanged);
+    }
     if (project->audio_clip_segments_dirty) {
         project->audio_clip_segments_dirty = false;
         trigger_event(project, EventProjectAudioClipSegmentsChanged);
     }
-    if (project->mixer_line_list_dirty) {
-        project->mixer_line_list_dirty = false;
-        trigger_event(project, EventProjectMixerLinesChanged);
+    if (project->effects_dirty) {
+        project->effects_dirty = false;
+        trigger_event(project, EventProjectEffectsChanged);
     }
 }
 
@@ -1114,6 +1291,10 @@ static OrderedMapFileBuffer *create_id_key(PropKey prop_key, const uint256 &id) 
     write_uint32be(&buf->data[4], PropKeyDelimiter);
     id.write_be(&buf->data[8]);
     return buf;
+}
+
+static OrderedMapFileBuffer *create_effect_key(const uint256 &id) {
+    return create_id_key(PropKeyEffect, id);
 }
 
 static OrderedMapFileBuffer *create_mixer_line_key(const uint256 &id) {
@@ -1338,6 +1519,36 @@ static int deserialize_mixer_line(Project *project, const ByteBuffer &key, const
 
     project->mixer_lines.put(mixer_line->id, mixer_line);
     project->mixer_line_list_dirty = true;
+
+    return 0;
+}
+
+static int deserialize_effect(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
+    Effect *effect = create_zero<Effect>();
+    if (!effect)
+        return GenesisErrorNoMem;
+
+    int err;
+    if ((err = object_key_to_id(key, &effect->id))) {
+        destroy(effect, 1);
+        return err;
+    }
+
+    int offset = 0;
+    if ((err = deserialize_object(effect, value, &offset))) {
+        destroy(effect, 1);
+        return err;
+    }
+
+    auto mixer_line_entry = project->mixer_lines.maybe_get(effect->mixer_line_id);
+    if (!mixer_line_entry) {
+        destroy(effect, 1);
+        return GenesisErrorInvalidFormat;
+    }
+    effect->mixer_line = mixer_line_entry->value;
+
+    project->effects.put(effect->id, effect);
+    project->effects_dirty = true;
 
     return 0;
 }
@@ -1572,22 +1783,28 @@ int project_open(const char *path, GenesisContext *genesis_context,
         return err;
     }
 
-    // read audio clips
+    // read audio clips (depends on audio assets)
     err = iterate_prefix(project, PropKeyAudioClip, deserialize_audio_clip);
     if (err) {
         project_close(project);
         return err;
     }
 
-    // read audio clip segments
+    // read audio clip segments (depends on audio clips)
     err = iterate_prefix(project, PropKeyAudioClipSegment, deserialize_audio_clip_segment);
     if (err) {
         project_close(project);
         return err;
     }
 
-    // read mixer line
+    // read mixer lines
     if ((err = iterate_prefix(project, PropKeyMixerLine, deserialize_mixer_line))) {
+        project_close(project);
+        return err;
+    }
+
+    // read effects (depends on mixer lines)
+    if ((err = iterate_prefix(project, PropKeyEffect, deserialize_effect))) {
         project_close(project);
         return err;
     }
@@ -1637,6 +1854,23 @@ static MixerLine *mixer_line_create(const char *name) {
     return mixer_line;
 }
 
+static Effect *create_default_master_send(MixerLine *mixer_line) {
+    Effect *effect = ok_mem(create_zero<Effect>());
+    effect->id = uint256::random();
+    effect->mixer_line_id = mixer_line->id;
+    effect->mixer_line = mixer_line;
+    effect->effect_type = EffectTypeSend;
+    effect->sort_key = SortKey::single(nullptr, nullptr);
+
+    EffectSend *send_effect = &effect->effect.send;
+    send_effect->gain = 1.0f;
+
+    EffectSendDevice *send_device = &send_effect->send.device;
+    send_device->device_id = DeviceIdMainOut;
+
+    return effect;
+}
+
 
 int project_create(const char *path, GenesisContext *genesis_context,
         const uint256 &id, User *user, Project **out_project)
@@ -1675,8 +1909,14 @@ int project_create(const char *path, GenesisContext *genesis_context,
     // Add master mixer line.
     MixerLine *mixer_line = mixer_line_create("Master");
     project->mixer_lines.put(mixer_line->id, mixer_line);
+    project->mixer_line_list_dirty = true;
     ok_or_panic(ordered_map_file_batch_put(batch, create_mixer_line_key(mixer_line->id),
                 omf_buf_obj(mixer_line)));
+    Effect *master_send = create_default_master_send(mixer_line);
+    project->effects.put(master_send->id, master_send);
+    project->effects_dirty = true;
+    ok_or_panic(ordered_map_file_batch_put(batch, create_effect_key(master_send->id), omf_buf_obj(master_send)));
+
 
     err = ordered_map_file_batch_exec(batch);
     if (err) {
@@ -1931,6 +2171,31 @@ void project_redo(Project *project) {
     ok_or_panic(ordered_map_file_batch_exec(batch));
     project_compute_indexes(project);
     trigger_undo_changed(project);
+}
+
+void project_get_effect_string(Project *project, Effect *effect, String &out) {
+    switch ((EffectType)effect->effect_type) {
+        case EffectTypeSend:
+        {
+            EffectSend *send = &effect->effect.send;
+            switch ((EffectSendType)send->send_type) {
+                case EffectSendTypeDevice:
+                {
+                    EffectSendDevice *send_device = &send->send.device;
+                    switch ((DeviceId)send_device->device_id) {
+                        case DeviceIdMainOut:
+                            out = "To Main Out Device";
+                            return;
+                        case DeviceIdMainIn:
+                            panic("unexpected input device");
+                    }
+                    panic("invalid device id");
+                }
+            }
+            panic("invalid send type");
+        }
+    }
+    panic("invalid effect type");
 }
 
 AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :

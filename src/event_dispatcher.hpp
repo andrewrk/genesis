@@ -22,6 +22,7 @@ enum Event {
     EventProjectPlayHeadChanged,
     EventProjectPlayingChanged,
     EventProjectMixerLinesChanged,
+    EventProjectEffectsChanged,
     EventBufferUnderrun,
 };
 

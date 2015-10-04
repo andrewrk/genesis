@@ -16,6 +16,13 @@ struct GuiMixerLine {
     glm::mat4 name_label_model;
 };
 
+struct GuiEffect {
+    Effect *effect;
+    Label *name_label;
+    glm::mat4 name_label_model;
+    SunkenBox bg;
+};
+
 class MixerWidget : public Widget {
 public:
     MixerWidget(GuiWindow *window, Project *project);
@@ -32,9 +39,17 @@ private:
     glm::vec4 line_name_color;
 
     List<GuiMixerLine *> gui_lines;
+    List<GuiEffect *> gui_effects;
+
+    SunkenBox fx_area_bg;
 
     GuiMixerLine * create_gui_mixer_line();
     void destroy_gui_mixer_line(GuiMixerLine *gui_mixer_line);
+
+    GuiEffect *create_gui_effect();
+    void destroy_gui_effect(GuiEffect *gui_effect);
+
+    void refresh_fx_list();
 };
 
 #endif

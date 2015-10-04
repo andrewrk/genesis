@@ -117,15 +117,13 @@ make
 
 ## Roadmap
 
- 0. assertion failure: advance write ptr
- 0. why so much CPU usage?
- 0. poll instead of callback for audio hardware
- 0. instead of the buffer being on the audio out port, it should be on the
-    audio in port. exception is playback node, which uses the audio device
-    buffer instead.
+ 0. ability to set which device is main device out
+ 0. connect to all soundio backends at once
+ 0. button to refresh soundio backend connections
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection
+ 0. ability to export audio to wav
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move

@@ -22,6 +22,9 @@ public:
     const String &text() const {
         return _text;
     }
+    String &text() {
+        return _text;
+    }
     // need to call update() to make it take effect
     void set_font_size(int size);
 
