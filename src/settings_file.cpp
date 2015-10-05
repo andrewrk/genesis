@@ -34,6 +34,8 @@ static int on_string(struct LaxJsonContext *json,
                     sf->state = SettingsFileStateExpectSampleDirs;
                 } else if (ByteBuffer::compare(value, "latency") == 0) {
                     sf->state = SettingsFileStateLatency;
+                } else if (ByteBuffer::compare(value, "device_designations") == 0) {
+                    sf->state = SettingsFileStateDeviceDesignations;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
@@ -133,6 +135,16 @@ static int on_string(struct LaxJsonContext *json,
                 return parse_error(sf, "invalid open window property name");
             }
             break;
+        case SettingsFileStateDeviceDesignationProp:
+            {
+                sf->current_device_id = device_id_from_str(value.raw());
+                if (sf->current_device_id == DeviceIdInvalid) {
+                    return parse_error(sf, "invalid device designation name");
+                } else {
+                    sf->state = SettingsFileStateDeviceDesignationValue;
+                }
+                break;
+            }
         default:
             return parse_error(sf, (type == LaxJsonTypeProperty) ? "unexpected property" : "unexpected string");
     }
@@ -190,6 +202,11 @@ static int on_primitive(struct LaxJsonContext *json, enum LaxJsonType type) {
                 return parse_error(sf, "expected boolean");
             sf->current_open_window->maximized = (type == LaxJsonTypeTrue);
             sf->state = SettingsFileStateOpenWindowItemProp;
+            break;
+        case SettingsFileStateDeviceDesignationValue:
+            if (type != LaxJsonTypeNull)
+                return parse_error(sf, "expected null or object");
+            sf->state = SettingsFileStateDeviceDesignationProp;
             break;
         default:
             return parse_error(sf, "unexpected primitive");
@@ -258,6 +275,11 @@ static int on_begin(struct LaxJsonContext *json, enum LaxJsonType type) {
             sf->current_open_window = &sf->open_windows.last();
             sf->state = SettingsFileStateOpenWindowItemProp;
             break;
+        case SettingsFileStateDeviceDesignations:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected object");
+            sf->state = SettingsFileStateDeviceDesignationProp;
+            break;
     }
     return 0;
 }
@@ -313,6 +335,11 @@ static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
             if (type != LaxJsonTypeObject)
                 return parse_error(sf, "expected end object");
             sf->state = SettingsFileStateOpenWindowItem;
+            break;
+        case SettingsFileStateDeviceDesignationProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStateReadyForProp;
             break;
     }
     return 0;
@@ -515,6 +542,34 @@ static void json_line_perspectives(FILE *f, int indent, const char *key,
     json_line_outdent(f, &indent, "],");
 }
 
+static void json_line_device_designations(FILE *f, int indent, const char *key,
+        const List<SettingsFileDeviceId> &device_designations)
+{
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_line_indent(f, &indent, "{");
+
+    for (int i = 1; i < device_designations.length(); i += 1) {
+        const SettingsFileDeviceId *sf_device_id = &device_designations.at(i);
+        do_indent(f, indent);
+        fprintf(f, "\"%s\": ", device_id_str((DeviceId)i));
+
+        if (sf_device_id->backend_name) {
+            json_line_indent(f, &indent, "{");
+
+            json_line_str(f, indent, "backend", sf_device_id->backend_name);
+            json_line_str(f, indent, "device", sf_device_id->device_id);
+            json_line_bool(f, indent, "raw", sf_device_id->is_raw);
+
+            json_line_outdent(f, &indent, "},");
+        } else {
+            fprintf(f, "null,\n");
+        }
+    }
+
+    json_line_outdent(f, &indent, "},");
+}
+
 static void handle_parse_error(SettingsFile *sf, LaxJsonError err) {
     if (err) {
         fprintf(stderr, "Error parsing config file: %s\n", sf->path.raw());
@@ -531,6 +586,12 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
     sf->open_project_id = uint256::zero();
     sf->user_name = "";
     sf->user_id = uint256::zero();
+
+    ok_or_panic(sf->device_designations.resize(device_id_count() + 1));
+    for (int i = 0; i < sf->device_designations.length(); i += 1) {
+        SettingsFileDeviceId *sf_device_id = &sf->device_designations.at(i);
+        sf_device_id->backend_name = nullptr;
+    }
 
     FILE *f = fopen(path.raw(), "rb");
     if (!f) {
@@ -647,7 +708,7 @@ int settings_file_commit(SettingsFile *sf) {
     json_line_uint256(f, indent, "open_project_id", sf->open_project_id);
     fprintf(f, "\n");
 
-    json_line_comment(f, indent, "these perspectives are available for the user to choose from");
+    json_line_comment(f, indent, "these perspectives are available for you to choose from");
     json_line_perspectives(f, indent, "perspectives", sf->perspectives);
     fprintf(f, "\n");
 
@@ -659,6 +720,11 @@ int settings_file_commit(SettingsFile *sf) {
     json_line_comment(f, indent, "a shorter value makes genesis respond to events faster");
     json_line_comment(f, indent, "a larger value guards against buffer underruns");
     json_line_double(f, indent, "latency", sf->latency);
+    fprintf(f, "\n");
+
+    json_line_comment(f, indent, "which actual devices correspond to virtual devices");
+    json_line_comment(f, indent, "null means use the system default device for this virtual device");
+    json_line_device_designations(f, indent, "device_designations", sf->device_designations);
     fprintf(f, "\n");
 
     json_line_outdent(f, &indent, "}");

@@ -6,6 +6,7 @@
 #include "label.hpp"
 #include "os.hpp"
 #include "sunken_box.hpp"
+#include "device_id.hpp"
 
 class GuiWindow;
 class Gui;
@@ -16,6 +17,13 @@ class MenuWidgetItem;
 struct Project;
 struct AudioAsset;
 struct AudioClip;
+
+class ResourcesTreeWidget;
+
+struct DeviceDesignationHandler {
+    ResourcesTreeWidget *resources_tree_widget;
+    DeviceId device_id;
+};
 
 class ResourcesTreeWidget : public Widget {
 public:
@@ -114,6 +122,8 @@ public:
     Project *project;
     Node *last_click_node;
     MenuWidgetItem *sample_context_menu;
+    MenuWidgetItem *playback_device_context_menu;
+    List<DeviceDesignationHandler> playback_device_designation_handlers;
 
     void update_model();
 
@@ -152,6 +162,7 @@ public:
     void select_node(Node *node);
 
     void add_clicked_sample_to_project();
+    void designate_clicked_device_as(DeviceId device_id);
 
     void refresh_audio_assets();
     void refresh_audio_clips();

@@ -160,6 +160,7 @@ GenesisEditor::GenesisEditor() :
         settings_file->latency = 0.010; // 10 ms
         settings_dirty = true;
     }
+
     genesis_set_latency(genesis_context, settings_file->latency);
     user = user_create(settings_file->user_id, settings_file->user_name);
 

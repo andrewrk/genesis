@@ -2182,14 +2182,8 @@ void project_get_effect_string(Project *project, Effect *effect, String &out) {
                 case EffectSendTypeDevice:
                 {
                     EffectSendDevice *send_device = &send->send.device;
-                    switch ((DeviceId)send_device->device_id) {
-                        case DeviceIdMainOut:
-                            out = "To Main Out Device";
-                            return;
-                        case DeviceIdMainIn:
-                            panic("unexpected input device");
-                    }
-                    panic("invalid device id");
+                    out = ByteBuffer::format("To %s Device", device_id_str((DeviceId)send_device->device_id));
+                    return;
                 }
             }
             panic("invalid send type");

@@ -25,6 +25,12 @@ static void add_to_project_handler(void *userdata) {
     resources_tree_widget->add_clicked_sample_to_project();
 }
 
+static void designate_device_handler(void *userdata) {
+    DeviceDesignationHandler *device_designation_handler = (DeviceDesignationHandler *)userdata;
+    ResourcesTreeWidget *resources_tree_widget = device_designation_handler->resources_tree_widget;
+    resources_tree_widget->designate_clicked_device_as(device_designation_handler->device_id);
+}
+
 static void audio_assets_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree_widget = (ResourcesTreeWidget *)userdata;
     resources_tree_widget->refresh_audio_assets();
@@ -90,6 +96,16 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
     sample_context_menu = create<MenuWidgetItem>(gui_window);
     MenuWidgetItem *add_to_project_menu = sample_context_menu->add_menu("&Add to Project", shortcut(VirtKeyEnter));
     add_to_project_menu->set_activate_handler(add_to_project_handler, this);
+
+    playback_device_context_menu = create<MenuWidgetItem>(gui_window);
+    MenuWidgetItem *designate_menu = playback_device_context_menu->add_menu("&Designate", no_shortcut());
+    ok_or_panic(playback_device_designation_handlers.append({this, DeviceIdMainOut}));
+    for (int i = 0; i < playback_device_designation_handlers.length(); i += 1) {
+        DeviceDesignationHandler *device_designation_handler = &playback_device_designation_handlers.at(i);
+        MenuWidgetItem *designate_menu_action = designate_menu->add_menu(
+                device_id_str(device_designation_handler->device_id), -1, no_shortcut());
+        designate_menu_action->set_activate_handler(designate_device_handler, device_designation_handler);
+    }
 }
 
 ResourcesTreeWidget::~ResourcesTreeWidget() {
@@ -529,6 +545,10 @@ void ResourcesTreeWidget::right_click_node(Node *node, const MouseEvent *event) 
         ContextMenuWidget *context_menu = pop_context_menu(sample_context_menu, event->x, event->y, 1, 1);
         context_menu->userdata = this;
         context_menu->on_destroy = on_context_menu_destroy;
+    } else if (node->node_type == NodeTypePlaybackDevice) {
+        ContextMenuWidget *context_menu = pop_context_menu(playback_device_context_menu, event->x, event->y, 1, 1);
+        context_menu->userdata = this;
+        context_menu->on_destroy = on_context_menu_destroy;
     }
 }
 
@@ -760,6 +780,13 @@ void ResourcesTreeWidget::add_clicked_sample_to_project() {
         if (err != GenesisErrorAlreadyExists)
             ok_or_panic(err);
     }
+}
+
+void ResourcesTreeWidget::designate_clicked_device_as(DeviceId device_id) {
+    assert(selected_node);
+    assert(selected_node->node_type == NodeTypePlaybackDevice);
+
+    // TODO
 }
 
 void ResourcesTreeWidget::refresh_audio_assets() {

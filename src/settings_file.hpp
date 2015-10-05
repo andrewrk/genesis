@@ -4,6 +4,7 @@
 #include "byte_buffer.hpp"
 #include "string.hpp"
 #include "uint256.hpp"
+#include "device_id.hpp"
 
 struct LaxJsonContext;
 
@@ -39,6 +40,9 @@ enum SettingsFileState {
     SettingsFileStateOpenWindowHeight,
     SettingsFileStateOpenWindowMaximized,
     SettingsFileStateOpenWindowAlwaysShowTabs,
+    SettingsFileStateDeviceDesignations,
+    SettingsFileStateDeviceDesignationProp,
+    SettingsFileStateDeviceDesignationValue,
 };
 
 enum SettingsFileDockType {
@@ -70,6 +74,12 @@ struct SettingsFileOpenWindow {
     bool always_show_tabs;
 };
 
+struct SettingsFileDeviceId {
+    const char *backend_name;
+    const char *device_id;
+    bool is_raw;
+};
+
 struct SettingsFile {
     // settings you can directly manipulate
     uint256 open_project_id;
@@ -78,6 +88,8 @@ struct SettingsFile {
     List<SettingsFileOpenWindow> open_windows;
     List<SettingsFilePerspective> perspectives;
     List<ByteBuffer> sample_dirs;
+    // index is DeviceId. if backend_name is NULL then that DeviceId is unspecified
+    List<SettingsFileDeviceId> device_designations;
     double latency;
 
     // private state
@@ -88,6 +100,7 @@ struct SettingsFile {
     SettingsFileDock *current_dock;
     List<SettingsFileDock *> dock_stack;
     SettingsFileOpenWindow *current_open_window;
+    DeviceId current_device_id;
 };
 
 SettingsFile *settings_file_open(const ByteBuffer &path);

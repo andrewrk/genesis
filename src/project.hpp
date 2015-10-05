@@ -11,6 +11,7 @@
 #include "atomic_value.hpp"
 #include "atomic_double.hpp"
 #include "atomics.hpp"
+#include "device_id.hpp"
 
 class Command;
 struct AudioClipSegment;
@@ -95,12 +96,6 @@ struct MixerLine {
 // modifying this structure affects project file backward compatibility
 enum EffectSendType {
     EffectSendTypeDevice,
-};
-
-// modifying this structure affects project file backward compatibility
-enum DeviceId {
-    DeviceIdMainOut,
-    DeviceIdMainIn,
 };
 
 struct EffectSendDevice {

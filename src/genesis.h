@@ -141,6 +141,8 @@ GENESIS_EXPORT void genesis_set_audio_device_callback(struct GenesisContext *con
 GENESIS_EXPORT int genesis_input_device_count(struct GenesisContext *context);
 GENESIS_EXPORT int genesis_output_device_count(struct GenesisContext *context);
 
+GENESIS_EXPORT enum SoundIoBackend genesis_current_backend(struct GenesisContext *context);
+
 ///////////// MIDI Devices
 
 GENESIS_EXPORT void genesis_refresh_midi_devices(struct GenesisContext *context);

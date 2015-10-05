@@ -88,6 +88,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
     "${CMAKE_SOURCE_DIR}/src/warning.cpp"
+    "${CMAKE_SOURCE_DIR}/src/device_id.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
@@ -127,6 +128,7 @@ set(TEST_SOURCES
     "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
     "${CMAKE_SOURCE_DIR}/src/warning.cpp"
     "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/device_id.cpp"
 )
 
 find_package(Threads)

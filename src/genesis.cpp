@@ -489,6 +489,11 @@ int genesis_create_context(struct GenesisContext **out_context) {
     return 0;
 }
 
+// TODO connect to every backend all the time
+SoundIoBackend genesis_current_backend(struct GenesisContext *context) {
+    return context->soundio->current_backend;
+}
+
 void genesis_destroy_context(struct GenesisContext *context) {
     if (!context)
         return;
