@@ -1,5 +1,6 @@
 #include "audio_graph.hpp"
 #include "mixer_node.hpp"
+#include "settings_file.hpp"
 
 static const int AUDIO_CLIP_POLYPHONY = 32;
 
@@ -417,9 +418,54 @@ static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool
     rebuild_and_start_pipeline(project);
 }
 
-int project_set_up_audio_graph(Project *project) {
-    int err;
+static SoundIoDevice *get_device_for_id(Project *project, DeviceId device_id) {
+    assert(device_id >= 1);
+    assert(device_id < device_id_count());
+    SettingsFileDeviceId *sf_device_id = &project->settings_file->device_designations.at(device_id);
 
+    if (sf_device_id->backend == SoundIoBackendNone)
+        return genesis_get_default_output_device(project->genesis_context);
+
+    SoundIoDevice *device = genesis_find_output_device(project->genesis_context,
+            sf_device_id->backend, sf_device_id->device_id.raw(), sf_device_id->is_raw);
+
+    if (device)
+        return device;
+    else
+        return genesis_get_default_output_device(project->genesis_context);
+}
+
+static int init_playback_node(Project *project) {
+    MixerLine *master_mixer_line = project->mixer_line_list.at(0);
+    Effect *first_effect = master_mixer_line->effects.at(0);
+
+    assert(first_effect->effect_type == EffectTypeSend);
+    EffectSend *effect_send = &first_effect->effect.send;
+
+    assert(effect_send->send_type == EffectSendTypeDevice);
+    EffectSendDevice *send_device = &effect_send->send.device;
+
+    SoundIoDevice *audio_device = get_device_for_id(project, (DeviceId)send_device->device_id);
+    if (!audio_device) {
+        return GenesisErrorDeviceNotFound;
+    }
+
+    GenesisNodeDescriptor *playback_node_descr;
+    int err;
+    if ((err = genesis_audio_device_create_node_descriptor(project->genesis_context,
+                    audio_device, &playback_node_descr)))
+    {
+        return err;
+    }
+
+    project->playback_node = ok_mem(genesis_node_descriptor_create_node(playback_node_descr));
+
+    soundio_device_unref(audio_device);
+
+    return 0;
+}
+
+int project_set_up_audio_graph(Project *project) {
     project->play_head_pos.store(0.0);
 
     project->is_playing = false;
@@ -465,27 +511,7 @@ int project_set_up_audio_graph(Project *project) {
     if (!project->spy_node)
         panic("unable to create spy node");
 
-
-    // block until we have audio devices list
-    genesis_flush_events(project->genesis_context);
-
-    // create hardware playback node
-    SoundIoDevice *audio_device = genesis_get_default_output_device(project->genesis_context);
-    if (!audio_device)
-        panic("error getting playback device");
-
-    GenesisNodeDescriptor *playback_node_descr;
-    if ((err = genesis_audio_device_create_node_descriptor(project->genesis_context,
-                    audio_device, &playback_node_descr)))
-    {
-        return err;
-    }
-
-    project->playback_node = genesis_node_descriptor_create_node(playback_node_descr);
-    if (!project->playback_node)
-        panic("unable to create playback node");
-
-    soundio_device_unref(audio_device);
+    init_playback_node(project);
 
     play_audio_file(project, nullptr, true);
 
@@ -561,6 +587,28 @@ void project_restart_playback(Project *project) {
 void project_recover_stream(Project *project, double new_latency) {
     stop_pipeline(project);
     genesis_set_latency(project->genesis_context, new_latency);
+    rebuild_and_start_pipeline(project);
+}
+
+void project_recover_sound_backend_disconnect(Project *project) {
+    if (!project->playback_node) {
+        return;
+    }
+
+    GenesisNodeDescriptor *playback_node_descr = genesis_node_descriptor(project->playback_node);
+
+
+    stop_pipeline(project);
+
+
+    genesis_node_destroy(project->playback_node);
+    project->playback_node = nullptr;
+
+    genesis_node_descriptor_destroy(playback_node_descr);
+    playback_node_descr = nullptr;
+
+    init_playback_node(project);
+
     rebuild_and_start_pipeline(project);
 }
 

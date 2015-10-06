@@ -327,13 +327,17 @@ static void test_basic_project_editing(void) {
     ok_or_panic(genesis_create_context(&context));
     static const char *tmp_proj_path = "/tmp/test_genesis_project.gdaw";
     os_delete(tmp_proj_path);
+    static const char *tmp_file_path = "/tmp/test_genesis_config";
+    os_delete(tmp_file_path);
+
+    SettingsFile *sf = ok_mem(settings_file_open(tmp_file_path));
 
     uint256 user_id = uint256::random();
     User *user = user_create(user_id, os_get_user_name());
 
     uint256 project_id = uint256::random();
     Project *project;
-    ok_or_panic(project_create(tmp_proj_path, context, project_id, user, &project));
+    ok_or_panic(project_create(tmp_proj_path, context, sf, project_id, user, &project));
 
     assert(project->user_list.length() == 1);
     assert(project->user_list.at(0)->id == user_id);
@@ -341,7 +345,7 @@ static void test_basic_project_editing(void) {
     project_close(project);
     project = nullptr;
 
-    int err = project_open(tmp_proj_path, context, user, &project);
+    int err = project_open(tmp_proj_path, context, sf, user, &project);
     assert(err == 0);
 
     assert(project->id == project_id);
@@ -369,7 +373,7 @@ static void test_basic_project_editing(void) {
     project_close(project);
     project = nullptr;
 
-    err = project_open(tmp_proj_path, context, user, &project);
+    err = project_open(tmp_proj_path, context, sf, user, &project);
     assert(err == 0);
 
     assert(project->user_list.length() == 1);

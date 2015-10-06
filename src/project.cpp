@@ -1735,7 +1735,7 @@ static void project_push_command(Project *project, Command *command) {
     project->commands.put(command->id, command);
 }
 
-int project_open(const char *path, GenesisContext *genesis_context,
+int project_open(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
         User *user, Project **out_project)
 {
     *out_project = nullptr;
@@ -1749,6 +1749,7 @@ int project_open(const char *path, GenesisContext *genesis_context,
     project->path = path;
     project->active_user = user;
     project->genesis_context = genesis_context;
+    project->settings_file = settings_file;
 
     int err = ordered_map_file_open(path, &project->omf);
     if (err) {
@@ -1872,7 +1873,7 @@ static Effect *create_default_master_send(MixerLine *mixer_line) {
 }
 
 
-int project_create(const char *path, GenesisContext *genesis_context,
+int project_create(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
         const uint256 &id, User *user, Project **out_project)
 {
     *out_project = nullptr;
@@ -1893,6 +1894,7 @@ int project_create(const char *path, GenesisContext *genesis_context,
     project->path = path;
     project->active_user = user;
     project->genesis_context = genesis_context;
+    project->settings_file = settings_file;
 
     project->users.put(user->id, user);
     project->user_list_dirty = true;

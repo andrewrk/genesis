@@ -124,6 +124,7 @@ public:
     Node *last_click_node;
     MenuWidgetItem *sample_context_menu;
     MenuWidgetItem *playback_device_context_menu;
+    MenuWidgetItem *devices_context_menu;
     List<DeviceDesignationHandler> playback_device_designation_handlers;
 
     void update_model();
@@ -164,6 +165,7 @@ public:
 
     void add_clicked_sample_to_project();
     void designate_clicked_device_as(DeviceId device_id);
+    void rescan_devices();
 
     void refresh_audio_assets();
     void refresh_audio_clips();

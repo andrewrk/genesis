@@ -43,6 +43,10 @@ enum SettingsFileState {
     SettingsFileStateDeviceDesignations,
     SettingsFileStateDeviceDesignationProp,
     SettingsFileStateDeviceDesignationValue,
+    SettingsFileStateDeviceDesignationIdProp,
+    SettingsFileStateDeviceDesignationIdBackend,
+    SettingsFileStateDeviceDesignationIdDevice,
+    SettingsFileStateDeviceDesignationIdRaw,
 };
 
 enum SettingsFileDockType {
@@ -75,8 +79,8 @@ struct SettingsFileOpenWindow {
 };
 
 struct SettingsFileDeviceId {
-    const char *backend_name;
-    const char *device_id;
+    SoundIoBackend backend;
+    ByteBuffer device_id;
     bool is_raw;
 };
 
@@ -101,6 +105,7 @@ struct SettingsFile {
     List<SettingsFileDock *> dock_stack;
     SettingsFileOpenWindow *current_open_window;
     DeviceId current_device_id;
+    SettingsFileDeviceId *current_sf_device_id;
 };
 
 SettingsFile *settings_file_open(const ByteBuffer &path);

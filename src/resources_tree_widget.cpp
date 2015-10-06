@@ -9,6 +9,8 @@
 #include "dragged_sample_file.hpp"
 #include "menu_widget.hpp"
 
+#include <string.h>
+
 static void device_change_callback(Event, void *userdata) {
     ResourcesTreeWidget *resources_tree = (ResourcesTreeWidget *)userdata;
     resources_tree->refresh_devices();
@@ -29,6 +31,11 @@ static void designate_device_handler(void *userdata) {
     DeviceDesignationHandler *device_designation_handler = (DeviceDesignationHandler *)userdata;
     ResourcesTreeWidget *resources_tree_widget = device_designation_handler->resources_tree_widget;
     resources_tree_widget->designate_clicked_device_as(device_designation_handler->device_id);
+}
+
+static void rescan_handler(void *userdata) {
+    ResourcesTreeWidget *resources_tree_widget = (ResourcesTreeWidget *)userdata;
+    resources_tree_widget->rescan_devices();
 }
 
 static void audio_assets_change_callback(Event, void *userdata) {
@@ -106,6 +113,10 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
                 device_id_str(device_designation_handler->device_id), -1, no_shortcut());
         designate_menu_action->set_activate_handler(designate_device_handler, device_designation_handler);
     }
+
+    devices_context_menu = create<MenuWidgetItem>(gui_window);
+    MenuWidgetItem *rescan_menu = devices_context_menu->add_menu("&Rescan", no_shortcut());
+    rescan_menu->set_activate_handler(rescan_handler, this);
 }
 
 ResourcesTreeWidget::~ResourcesTreeWidget() {
@@ -176,6 +187,7 @@ void ResourcesTreeWidget::refresh_devices() {
             input_backend_node = recording_devices_root->parent_data->children.at(backend_i);
             input_backend_node->node_type = NodeTypeParent;
             input_backend_node->text = backend_name;
+            input_backend_node->icon_img = gui->img_plus;
         } else {
             input_backend_node = create_parent_node(recording_devices_root, backend_name);
         }
@@ -185,6 +197,7 @@ void ResourcesTreeWidget::refresh_devices() {
             output_backend_node = playback_devices_root->parent_data->children.at(backend_i);
             output_backend_node->node_type = NodeTypeParent;
             output_backend_node->text = backend_name;
+            output_backend_node->icon_img = gui->img_plus;
         } else {
             output_backend_node = create_parent_node(playback_devices_root, backend_name);
         }
@@ -608,6 +621,10 @@ void ResourcesTreeWidget::right_click_node(Node *node, const MouseEvent *event) 
         ContextMenuWidget *context_menu = pop_context_menu(playback_device_context_menu, event->x, event->y, 1, 1);
         context_menu->userdata = this;
         context_menu->on_destroy = on_context_menu_destroy;
+    } else if (node == playback_devices_root) {
+        ContextMenuWidget *context_menu = pop_context_menu(devices_context_menu, event->x, event->y, 1, 1);
+        context_menu->userdata = this;
+        context_menu->on_destroy = on_context_menu_destroy;
     }
 }
 
@@ -845,7 +862,30 @@ void ResourcesTreeWidget::designate_clicked_device_as(DeviceId device_id) {
     assert(selected_node);
     assert(selected_node->node_type == NodeTypePlaybackDevice);
 
-    panic("TODO designate audio device");
+    assert(device_id >= 1);
+    assert(device_id < device_id_count());
+
+    SettingsFileDeviceId *sf_device_id = &settings_file->device_designations.at(device_id);
+    sf_device_id->backend = selected_node->audio_device->soundio->current_backend;
+    sf_device_id->device_id = selected_node->audio_device->id;
+    sf_device_id->is_raw = selected_node->audio_device->is_raw;
+
+    settings_file_commit(settings_file);
+
+    gui->events.trigger(EventDeviceDesignationChange);
+}
+
+void ResourcesTreeWidget::rescan_devices() {
+    int sound_backend_count;
+    GenesisSoundBackend *sound_backend_list = genesis_get_sound_backends(context, &sound_backend_count);
+    for (int i = 0; i < sound_backend_count; i += 1) {
+        GenesisSoundBackend *sound_backend = &sound_backend_list[i];
+        if (sound_backend->connect_err)
+            sound_backend->connect_err = soundio_connect_backend(sound_backend->soundio, sound_backend->backend);
+        if (!sound_backend->connect_err) {
+            soundio_force_device_scan(sound_backend->soundio);
+        }
+    }
 }
 
 void ResourcesTreeWidget::refresh_audio_assets() {

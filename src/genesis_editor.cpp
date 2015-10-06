@@ -97,6 +97,12 @@ static void on_buffer_underrun(Event, void *userdata) {
     project_recover_stream(genesis_editor->project, new_latency);
 }
 
+static void on_sound_backend_disconnected(Event, void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+
+    project_recover_sound_backend_disconnect(genesis_editor->project);
+}
+
 static void show_dock_handler(void *userdata) {
     EditorPane *editor_pane = (EditorPane *)userdata;
     EditorWindow *editor_window = editor_pane->editor_window;
@@ -146,6 +152,8 @@ GenesisEditor::GenesisEditor() :
 
     gui->events.attach_handler(EventFlushEvents, on_flush_events, this);
     gui->events.attach_handler(EventBufferUnderrun, on_buffer_underrun, this);
+    gui->events.attach_handler(EventSoundBackendDisconnected, on_sound_backend_disconnected, this);
+    gui->events.attach_handler(EventDeviceDesignationChange, on_sound_backend_disconnected, this);
 
     bool settings_dirty = false;
     if (settings_file->user_name.length() == 0) {
@@ -168,7 +176,7 @@ GenesisEditor::GenesisEditor() :
     if (settings_file->open_project_id != uint256::zero()) {
         ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
         ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
-        int err = project_open(proj_path.raw(), genesis_context, user, &project);
+        int err = project_open(proj_path.raw(), genesis_context, settings_file, user, &project);
         if (err) {
             fprintf(stderr, "Unable to load project: %s\n", genesis_strerror(err));
         } else {
@@ -181,7 +189,7 @@ GenesisEditor::GenesisEditor() :
         ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), id.to_string());
         ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
         ok_or_panic(os_mkdirp(proj_dir));
-        ok_or_panic(project_create(proj_path.raw(), genesis_context, id, user, &project));
+        ok_or_panic(project_create(proj_path.raw(), genesis_context, settings_file, id, user, &project));
 
         settings_file->open_project_id = id;
         settings_dirty = true;

@@ -17,6 +17,7 @@ void project_restart_playback(Project *project);
 void project_stop_playback(Project *project);
 
 void project_recover_stream(Project *project, double new_latency);
+void project_recover_sound_backend_disconnect(Project *project);
 
 void project_flush_events(Project *project);
 double project_play_head_pos(Project *project);

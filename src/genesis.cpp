@@ -400,6 +400,9 @@ double genesis_whole_notes_to_seconds(GenesisContext *context, double whole_note
 static void on_backend_disconnect(struct SoundIo *soundio, int err) {
     GenesisSoundBackend *sound_backend = (GenesisSoundBackend *)soundio->userdata;
     sound_backend->connect_err = err;
+    GenesisContext *context = sound_backend->context;
+    if (context->sound_backend_disconnect_callback)
+        context->sound_backend_disconnect_callback(context->sound_backend_disconnect_userdata);
 }
 
 int genesis_create_context(struct GenesisContext **out_context) {
@@ -1868,7 +1871,7 @@ double genesis_get_latency(struct GenesisContext *context) {
     return context->latency;
 }
 
-const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node) {
+struct GenesisNodeDescriptor *genesis_node_descriptor(struct GenesisNode *node) {
     return node->descriptor;
 }
 
@@ -2152,6 +2155,13 @@ void genesis_set_audio_device_callback(struct GenesisContext *context,
     context->devices_change_callback = callback;
 }
 
+void genesis_set_sound_backend_disconnect_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata)
+{
+    context->sound_backend_disconnect_userdata = userdata;
+    context->sound_backend_disconnect_callback = callback;
+}
+
 int genesis_input_device_count(struct GenesisSoundBackend *sound_backend) {
     return soundio_input_device_count(sound_backend->soundio);
 }
@@ -2191,4 +2201,61 @@ struct GenesisSoundBackend *genesis_default_backend(struct GenesisContext *conte
         return sound_backend;
     }
     panic("unreachable");
+}
+
+struct GenesisSoundBackend *genesis_find_sound_backend(struct GenesisContext *context,
+        enum SoundIoBackend backend)
+{
+    for (int i = 0; i < context->sound_backend_count; i += 1) {
+        GenesisSoundBackend *sound_backend = &context->sound_backend_list[i];
+        if (sound_backend->backend == backend)
+            return sound_backend;
+    }
+    return nullptr;
+}
+
+struct SoundIoDevice *genesis_find_output_device(struct GenesisContext *context,
+        enum SoundIoBackend backend, const char *device_id, bool is_raw)
+{
+    GenesisSoundBackend *sound_backend = genesis_find_sound_backend(context, backend);
+    if (!sound_backend)
+        return nullptr;
+
+    if (sound_backend->connect_err)
+        return nullptr;
+
+    int out_device_count = genesis_output_device_count(sound_backend);
+    for (int i = 0; i < out_device_count; i += 1) {
+        SoundIoDevice *device = genesis_get_output_device(sound_backend, i);
+        if (device->is_raw == is_raw && strcmp(device->id, device_id) == 0) {
+            return device;
+        } else {
+            soundio_device_unref(device);
+        }
+    }
+
+    return nullptr;
+}
+
+struct SoundIoDevice *genesis_find_input_device(struct GenesisContext *context,
+        enum SoundIoBackend backend, const char *device_id, bool is_raw)
+{
+    GenesisSoundBackend *sound_backend = genesis_find_sound_backend(context, backend);
+    if (!sound_backend)
+        return nullptr;
+
+    if (sound_backend->connect_err)
+        return nullptr;
+
+    int in_device_count = genesis_input_device_count(sound_backend);
+    for (int i = 0; i < in_device_count; i += 1) {
+        SoundIoDevice *device = genesis_get_input_device(sound_backend, i);
+        if (device->is_raw == is_raw && strcmp(device->id, device_id) == 0) {
+            return device;
+        } else {
+            soundio_device_unref(device);
+        }
+    }
+
+    return nullptr;
 }

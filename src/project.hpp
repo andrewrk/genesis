@@ -16,6 +16,7 @@
 class Command;
 struct AudioClipSegment;
 struct Project;
+struct SettingsFile;
 
 struct EventList {
     List<GenesisMidiEvent> events;
@@ -184,6 +185,7 @@ struct Project {
     ByteBuffer path; // path to the project file
 
     GenesisContext *genesis_context;
+    SettingsFile *settings_file;
     GenesisNodeDescriptor *resample_descr;
     GenesisNodeDescriptor *audio_file_descr;
     GenesisNodeDescriptor *spy_descr;
@@ -401,9 +403,9 @@ public:
 User *user_create(const uint256 &id, const String &name);
 void user_destroy(User *user);
 
-int project_open(const char *path, GenesisContext *genesis_context,
+int project_open(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
         User *user, Project **out_project);
-int project_create(const char *path, GenesisContext *genesis_context,
+int project_create(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
         const uint256 &id, User *user, Project **out_project);
 void project_close(Project *project);
 

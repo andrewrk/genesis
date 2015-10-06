@@ -55,6 +55,7 @@ enum GenesisError {
     GenesisErrorAlreadyExists,
     GenesisErrorConnectionRefused,
     GenesisErrorIncompatibleDevice,
+    GenesisErrorDeviceNotFound,
 };
 
 enum GenesisPortType {
@@ -149,6 +150,9 @@ GENESIS_EXPORT struct SoundIoDevice *genesis_get_output_device(
 GENESIS_EXPORT void genesis_set_audio_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata), void *userdata);
 
+GENESIS_EXPORT void genesis_set_sound_backend_disconnect_callback(struct GenesisContext *context,
+        void (*callback)(void *userdata), void *userdata);
+
 GENESIS_EXPORT int genesis_input_device_count(struct GenesisSoundBackend *sound_backend);
 GENESIS_EXPORT int genesis_output_device_count(struct GenesisSoundBackend *sound_backend);
 
@@ -159,6 +163,15 @@ GENESIS_EXPORT struct SoundIoDevice *genesis_get_default_output_device(struct Ge
 
 GENESIS_EXPORT struct GenesisSoundBackend *genesis_get_sound_backends(
         struct GenesisContext *context, int *count);
+
+GENESIS_EXPORT struct GenesisSoundBackend *genesis_find_sound_backend(
+        struct GenesisContext *context, enum SoundIoBackend backend);
+
+GENESIS_EXPORT struct SoundIoDevice *genesis_find_output_device(struct GenesisContext *context,
+        enum SoundIoBackend backend, const char *device_id, bool is_raw);
+
+GENESIS_EXPORT struct SoundIoDevice *genesis_find_input_device(struct GenesisContext *context,
+        enum SoundIoBackend backend, const char *device_id, bool is_raw);
 
 ///////////// MIDI Devices
 
@@ -237,7 +250,7 @@ GENESIS_EXPORT struct GenesisNode *genesis_node_descriptor_create_node(struct Ge
 GENESIS_EXPORT void genesis_node_destroy(struct GenesisNode *node);
 
 GENESIS_EXPORT struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
-GENESIS_EXPORT const struct GenesisNodeDescriptor *genesis_node_descriptor(const struct GenesisNode *node);
+GENESIS_EXPORT struct GenesisNodeDescriptor *genesis_node_descriptor(struct GenesisNode *node);
 GENESIS_EXPORT struct GenesisContext *genesis_node_context(struct GenesisNode *node);
 GENESIS_EXPORT void genesis_node_disconnect_all_ports(struct GenesisNode *node);
 

@@ -12,6 +12,23 @@ static int parse_error(SettingsFile *sf, const char *msg) {
     panic("Line %d, column %d: %s", sf->json->line, sf->json->column, msg);
 }
 
+static SoundIoBackend get_backend_from_str(const char *str) {
+    static SoundIoBackend all_backends[] = {
+        SoundIoBackendJack,
+        SoundIoBackendPulseAudio,
+        SoundIoBackendAlsa,
+        SoundIoBackendCoreAudio,
+        SoundIoBackendWasapi,
+        SoundIoBackendDummy,
+    };
+    for (int i = 0; i < array_length(all_backends); i += 1) {
+        if (strcmp(str, soundio_backend_name(all_backends[i])) == 0) {
+            return all_backends[i];
+        }
+    }
+    return SoundIoBackendNone;
+}
+
 static int on_string(struct LaxJsonContext *json,
     enum LaxJsonType type, const char *value_raw, int length)
 {
@@ -141,8 +158,36 @@ static int on_string(struct LaxJsonContext *json,
                 if (sf->current_device_id == DeviceIdInvalid) {
                     return parse_error(sf, "invalid device designation name");
                 } else {
+                    sf->current_sf_device_id = &sf->device_designations.at(sf->current_device_id);
                     sf->state = SettingsFileStateDeviceDesignationValue;
                 }
+                break;
+            }
+        case SettingsFileStateDeviceDesignationIdProp:
+            {
+                if (ByteBuffer::compare(value, "backend") == 0) {
+                    sf->state = SettingsFileStateDeviceDesignationIdBackend;
+                } else if (ByteBuffer::compare(value, "device") == 0) {
+                    sf->state = SettingsFileStateDeviceDesignationIdDevice;
+                } else if (ByteBuffer::compare(value, "raw") == 0) {
+                    sf->state = SettingsFileStateDeviceDesignationIdRaw;
+                } else {
+                    return parse_error(sf, "invalid device id property name");
+                }
+                break;
+            }
+        case SettingsFileStateDeviceDesignationIdBackend:
+            {
+                sf->current_sf_device_id->backend = get_backend_from_str(value.raw());
+                if (sf->current_sf_device_id->backend == SoundIoBackendNone)
+                    return parse_error(sf, "invalid backend name");
+                sf->state = SettingsFileStateDeviceDesignationIdProp;
+                break;
+            }
+        case SettingsFileStateDeviceDesignationIdDevice:
+            {
+                sf->current_sf_device_id->device_id = value;
+                sf->state = SettingsFileStateDeviceDesignationIdProp;
                 break;
             }
         default:
@@ -207,6 +252,12 @@ static int on_primitive(struct LaxJsonContext *json, enum LaxJsonType type) {
             if (type != LaxJsonTypeNull)
                 return parse_error(sf, "expected null or object");
             sf->state = SettingsFileStateDeviceDesignationProp;
+            break;
+        case SettingsFileStateDeviceDesignationIdRaw:
+            if (type != LaxJsonTypeTrue && type != LaxJsonTypeFalse)
+                return parse_error(sf, "expected true or false");
+            sf->current_sf_device_id->is_raw = (type == LaxJsonTypeTrue);
+            sf->state = SettingsFileStateDeviceDesignationIdProp;
             break;
         default:
             return parse_error(sf, "unexpected primitive");
@@ -280,6 +331,11 @@ static int on_begin(struct LaxJsonContext *json, enum LaxJsonType type) {
                 return parse_error(sf, "expected object");
             sf->state = SettingsFileStateDeviceDesignationProp;
             break;
+        case SettingsFileStateDeviceDesignationValue:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected null or object");
+            sf->state = SettingsFileStateDeviceDesignationIdProp;
+            break;
     }
     return 0;
 }
@@ -340,6 +396,11 @@ static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
             if (type != LaxJsonTypeObject)
                 return parse_error(sf, "expected end object");
             sf->state = SettingsFileStateReadyForProp;
+            break;
+        case SettingsFileStateDeviceDesignationIdProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStateDeviceDesignationProp;
             break;
     }
     return 0;
@@ -554,10 +615,10 @@ static void json_line_device_designations(FILE *f, int indent, const char *key,
         do_indent(f, indent);
         fprintf(f, "\"%s\": ", device_id_str((DeviceId)i));
 
-        if (sf_device_id->backend_name) {
+        if (sf_device_id->backend != SoundIoBackendNone) {
             json_line_indent(f, &indent, "{");
 
-            json_line_str(f, indent, "backend", sf_device_id->backend_name);
+            json_line_str(f, indent, "backend", soundio_backend_name(sf_device_id->backend));
             json_line_str(f, indent, "device", sf_device_id->device_id);
             json_line_bool(f, indent, "raw", sf_device_id->is_raw);
 
@@ -590,7 +651,7 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
     ok_or_panic(sf->device_designations.resize(device_id_count() + 1));
     for (int i = 0; i < sf->device_designations.length(); i += 1) {
         SettingsFileDeviceId *sf_device_id = &sf->device_designations.at(i);
-        sf_device_id->backend_name = nullptr;
+        sf_device_id->backend = SoundIoBackendNone;
     }
 
     FILE *f = fopen(path.raw(), "rb");

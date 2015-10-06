@@ -15,6 +15,8 @@ struct GenesisContext {
     int sound_backend_count;
     void (*devices_change_callback)(void *userdata);
     void *devices_change_callback_userdata;
+    void (*sound_backend_disconnect_callback)(void *userdata);
+    void *sound_backend_disconnect_userdata;
 
     MidiHardware *midi_hardware;
     void (*midi_change_callback)(void *userdata);
@@ -121,7 +123,7 @@ struct GenesisEventsPort {
 };
 
 struct GenesisNode {
-    const struct GenesisNodeDescriptor *descriptor;
+    struct GenesisNodeDescriptor *descriptor;
     int port_count;
     struct GenesisPort **ports;
     int set_index; // index into context->nodes

@@ -35,6 +35,11 @@ GlobalGlfwContext::~GlobalGlfwContext() {
     glfwTerminate();
 }
 
+static void sound_backend_disconnect_callback(void *userdata) {
+    Gui *gui = (Gui *)userdata;
+    gui->events.trigger(EventSoundBackendDisconnected);
+}
+
 static void audio_device_callback(void *userdata) {
     Gui *gui = (Gui *)userdata;
     gui->events.trigger(EventAudioDeviceChange);
@@ -93,6 +98,8 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     genesis_set_audio_device_callback(_genesis_context, audio_device_callback, this);
     genesis_set_midi_device_callback(_genesis_context, midi_device_callback, this);
     genesis_set_underrun_callback(_genesis_context, underrun_callback, this);
+
+    genesis_set_sound_backend_disconnect_callback(_genesis_context, sound_backend_disconnect_callback, this);
 
     genesis_flush_events(_genesis_context);
     genesis_refresh_midi_devices(_genesis_context);
