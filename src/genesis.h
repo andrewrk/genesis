@@ -80,6 +80,13 @@ struct GenesisAudioFileIterator {
     float *ptr;
 };
 
+struct GenesisSoundBackend {
+    struct GenesisContext *context;
+    enum SoundIoBackend backend;
+    struct SoundIo *soundio;
+    int connect_err;
+};
+
 struct GenesisMidiDevice;
 
 struct GenesisPortDescriptor;
@@ -129,19 +136,29 @@ GENESIS_EXPORT int genesis_whole_notes_to_frames(struct GenesisContext *context,
 GENESIS_EXPORT double genesis_whole_notes_to_seconds(struct GenesisContext *context, double whole_notes, int frame_rate);
 
 
-GENESIS_EXPORT int genesis_default_input_device_index(struct GenesisContext *context);
-GENESIS_EXPORT int genesis_default_output_device_index(struct GenesisContext *context);
+GENESIS_EXPORT int genesis_default_input_device_index(struct GenesisSoundBackend *sound_backend);
+GENESIS_EXPORT int genesis_default_output_device_index(struct GenesisSoundBackend *sound_backend);
 
-GENESIS_EXPORT struct SoundIoDevice *genesis_get_input_device(struct GenesisContext *context, int index);
-GENESIS_EXPORT struct SoundIoDevice *genesis_get_output_device(struct GenesisContext *context, int index);
+GENESIS_EXPORT struct SoundIoDevice *genesis_get_input_device(
+        struct GenesisSoundBackend *sound_backend, int index);
+
+GENESIS_EXPORT struct SoundIoDevice *genesis_get_output_device(
+        struct GenesisSoundBackend *sound_backend, int index);
+
 
 GENESIS_EXPORT void genesis_set_audio_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata), void *userdata);
 
-GENESIS_EXPORT int genesis_input_device_count(struct GenesisContext *context);
-GENESIS_EXPORT int genesis_output_device_count(struct GenesisContext *context);
+GENESIS_EXPORT int genesis_input_device_count(struct GenesisSoundBackend *sound_backend);
+GENESIS_EXPORT int genesis_output_device_count(struct GenesisSoundBackend *sound_backend);
 
-GENESIS_EXPORT enum SoundIoBackend genesis_current_backend(struct GenesisContext *context);
+GENESIS_EXPORT struct GenesisSoundBackend *genesis_default_backend(struct GenesisContext *context);
+
+GENESIS_EXPORT struct SoundIoDevice *genesis_get_default_input_device(struct GenesisContext *context);
+GENESIS_EXPORT struct SoundIoDevice *genesis_get_default_output_device(struct GenesisContext *context);
+
+GENESIS_EXPORT struct GenesisSoundBackend *genesis_get_sound_backends(
+        struct GenesisContext *context, int *count);
 
 ///////////// MIDI Devices
 

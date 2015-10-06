@@ -35,13 +35,7 @@ int main(int argc, char **argv) {
     genesis_flush_events(context);
     genesis_refresh_midi_devices(context);
 
-    int playback_device_index = genesis_default_output_device_index(context);
-    if (playback_device_index < 0) {
-        fprintf(stderr, "error getting audio device list\n");
-        return 1;
-    }
-
-    struct SoundIoDevice *out_device = genesis_get_output_device(context, playback_device_index);
+    struct SoundIoDevice *out_device = genesis_get_default_output_device(context);
     if (!out_device) {
         fprintf(stderr, "error getting playback device\n");
         return 1;

@@ -46,6 +46,7 @@ public:
         NodeTypeSampleFile, // external
         NodeTypeAudioAsset, // already added to project
         NodeTypeAudioClip,
+        NodeTypeDummy,
     };
 
     struct Node;
@@ -128,8 +129,8 @@ public:
     void update_model();
 
     Node *create_parent_node(Node *parent, const char *text);
-    Node *create_playback_node();
-    Node *create_record_node();
+    Node *create_playback_node(Node *parent);
+    Node *create_record_node(Node *parent);
     Node *create_midi_node();
     Node *create_audio_asset_node();
     Node *create_audio_clip_node();

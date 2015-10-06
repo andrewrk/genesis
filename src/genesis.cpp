@@ -378,14 +378,10 @@ static void midi_events_signal(MidiHardware *midi_hardware) {
 }
 
 static void on_devices_change(SoundIo *soundio) {
-    GenesisContext *context = reinterpret_cast<GenesisContext *>(soundio->userdata);
+    GenesisSoundBackend *sound_backend = (GenesisSoundBackend *)soundio->userdata;
+    GenesisContext *context = sound_backend->context;
     if (context->devices_change_callback)
         context->devices_change_callback(context->devices_change_callback_userdata);
-}
-
-static void on_audio_hardware_events_signal(SoundIo *soundio) {
-    GenesisContext *context = reinterpret_cast<GenesisContext *>(soundio->userdata);
-    emit_event_ready(context);
 }
 
 double genesis_frames_to_whole_notes(GenesisContext *context, int frames, int frame_rate) {
@@ -402,8 +398,8 @@ double genesis_whole_notes_to_seconds(GenesisContext *context, double whole_note
 }
 
 static void on_backend_disconnect(struct SoundIo *soundio, int err) {
-    GenesisContext *context = (GenesisContext *)soundio->userdata;
-    context->soundio_connect_err = err;
+    GenesisSoundBackend *sound_backend = (GenesisSoundBackend *)soundio->userdata;
+    sound_backend->connect_err = err;
 }
 
 int genesis_create_context(struct GenesisContext **out_context) {
@@ -446,20 +442,32 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return err;
     }
 
-    context->soundio = soundio_create();
-    if (!context->soundio) {
+    SoundIo *token_soundio = soundio_create();
+    if (!token_soundio) {
         genesis_destroy_context(context);
         return GenesisErrorNoMem;
     }
-    context->soundio->userdata = context;
-    context->soundio->on_devices_change = on_devices_change;
-    context->soundio->on_events_signal = on_audio_hardware_events_signal;
-    context->soundio->on_backend_disconnect = on_backend_disconnect;
-    context->soundio->app_name = "Genesis";
-
-    if ((err = soundio_connect(context->soundio))) {
+    context->sound_backend_count = soundio_backend_count(token_soundio);
+    context->sound_backend_list = allocate_zero<GenesisSoundBackend>(context->sound_backend_count);
+    if (!context->sound_backend_list) {
+        soundio_destroy(token_soundio);
         genesis_destroy_context(context);
-        return GenesisErrorOpeningAudioHardware;
+        return GenesisErrorNoMem;
+    }
+    for (int i = 0; i < context->sound_backend_count; i += 1) {
+        GenesisSoundBackend *sound_backend = &context->sound_backend_list[i];
+        sound_backend->context = context;
+        sound_backend->backend = soundio_get_backend(token_soundio, i);
+        sound_backend->soundio = (i == 0) ? token_soundio : soundio_create();
+        if (!sound_backend->soundio) {
+            genesis_destroy_context(context);
+            return GenesisErrorNoMem;
+        }
+        sound_backend->soundio->userdata = sound_backend;
+        sound_backend->soundio->app_name = "Genesis";
+        sound_backend->soundio->on_backend_disconnect = on_backend_disconnect;
+        sound_backend->soundio->on_devices_change = on_devices_change;
+        sound_backend->connect_err = soundio_connect_backend(sound_backend->soundio, sound_backend->backend);
     }
 
     err = audio_file_get_out_formats(context->out_formats);
@@ -489,11 +497,6 @@ int genesis_create_context(struct GenesisContext **out_context) {
     return 0;
 }
 
-// TODO connect to every backend all the time
-SoundIoBackend genesis_current_backend(struct GenesisContext *context) {
-    return context->soundio->current_backend;
-}
-
 void genesis_destroy_context(struct GenesisContext *context) {
     if (!context)
         return;
@@ -518,8 +521,13 @@ void genesis_destroy_context(struct GenesisContext *context) {
     if (context->midi_hardware)
         destroy_midi_hardware(context->midi_hardware);
 
-    if (context->soundio)
-        soundio_destroy(context->soundio);
+    if (context->sound_backend_list) {
+        for (int i = 0; i < context->sound_backend_count; i += 1) {
+            GenesisSoundBackend *sound_backend = &context->sound_backend_list[i];
+            soundio_destroy(sound_backend->soundio);
+        }
+        destroy(context->sound_backend_list, 1);
+    }
 
     os_mutex_destroy(context->events_mutex);
     os_cond_destroy(context->events_cond);
@@ -528,10 +536,12 @@ void genesis_destroy_context(struct GenesisContext *context) {
 }
 
 void genesis_flush_events(struct GenesisContext *context) {
-    soundio_flush_events(context->soundio);
-    if (context->soundio_connect_err) {
-        context->soundio_connect_err = soundio_connect(context->soundio);
+    for (int i = 0; i < context->sound_backend_count; i += 1) {
+        GenesisSoundBackend *sound_backend = &context->sound_backend_list[i];
+        if (!sound_backend->connect_err)
+            soundio_flush_events(sound_backend->soundio);
     }
+
     midi_hardware_flush_events(context->midi_hardware);
     if (!context->stream_fail_flag.test_and_set()) {
         if (context->underrun_callback)
@@ -2117,21 +2127,23 @@ void genesis_debug_print_pipeline(struct GenesisContext *context) {
     }
 }
 
-int genesis_default_input_device_index(struct GenesisContext *context) {
-    return soundio_default_input_device_index(context->soundio);
+
+int genesis_default_input_device_index(struct GenesisSoundBackend *sound_backend) {
+    return soundio_default_input_device_index(sound_backend->soundio);
 }
 
-int genesis_default_output_device_index(struct GenesisContext *context) {
-    return soundio_default_output_device_index(context->soundio);
+int genesis_default_output_device_index(struct GenesisSoundBackend *sound_backend) {
+    return soundio_default_output_device_index(sound_backend->soundio);
 }
 
-struct SoundIoDevice *genesis_get_input_device(struct GenesisContext *context, int index) {
-    return soundio_get_input_device(context->soundio, index);
+struct SoundIoDevice *genesis_get_input_device(struct GenesisSoundBackend *sound_backend, int index) {
+    return soundio_get_input_device(sound_backend->soundio, index);
 }
 
-struct SoundIoDevice *genesis_get_output_device(struct GenesisContext *context, int index) {
-    return soundio_get_output_device(context->soundio, index);
+struct SoundIoDevice *genesis_get_output_device(struct GenesisSoundBackend *sound_backend, int index) {
+    return soundio_get_output_device(sound_backend->soundio, index);
 }
+
 
 void genesis_set_audio_device_callback(struct GenesisContext *context,
         void (*callback)(void *userdata), void *userdata)
@@ -2140,14 +2152,43 @@ void genesis_set_audio_device_callback(struct GenesisContext *context,
     context->devices_change_callback = callback;
 }
 
-int genesis_input_device_count(struct GenesisContext *context) {
-    return soundio_input_device_count(context->soundio);
+int genesis_input_device_count(struct GenesisSoundBackend *sound_backend) {
+    return soundio_input_device_count(sound_backend->soundio);
 }
 
-int genesis_output_device_count(struct GenesisContext *context) {
-    return soundio_output_device_count(context->soundio);
+int genesis_output_device_count(struct GenesisSoundBackend *sound_backend) {
+    return soundio_output_device_count(sound_backend->soundio);
+}
+
+struct SoundIoDevice *genesis_get_default_input_device(struct GenesisContext *context) {
+    GenesisSoundBackend *sound_backend = genesis_default_backend(context);
+    int index = soundio_default_input_device_index(sound_backend->soundio);
+    return soundio_get_input_device(sound_backend->soundio, index);
+}
+
+struct SoundIoDevice *genesis_get_default_output_device(struct GenesisContext *context) {
+    GenesisSoundBackend *sound_backend = genesis_default_backend(context);
+    int index = soundio_default_output_device_index(sound_backend->soundio);
+    return soundio_get_output_device(sound_backend->soundio, index);
 }
 
 const char *genesis_version_string(void) {
     return GENESIS_VERSION_STRING;
+}
+
+struct GenesisSoundBackend *genesis_get_sound_backends(
+        struct GenesisContext *context, int *count)
+{
+    *count = context->sound_backend_count;
+    return context->sound_backend_list;
+}
+
+struct GenesisSoundBackend *genesis_default_backend(struct GenesisContext *context) {
+    for (int i = 0; i < context->sound_backend_count; i += 1) {
+        GenesisSoundBackend *sound_backend = &context->sound_backend_list[i];
+        if (sound_backend->connect_err)
+            continue;
+        return sound_backend;
+    }
+    panic("unreachable");
 }

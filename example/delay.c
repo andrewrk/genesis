@@ -56,15 +56,9 @@ int main(int argc, char **argv) {
     // block until we have audio devices list
     genesis_flush_events(context);
 
-    int playback_device_index = genesis_default_output_device_index(context);
-    int recording_device_index = genesis_default_input_device_index(context);
-    if (playback_device_index < 0 || recording_device_index < 0) {
-        fprintf(stderr, "error getting audio device list\n");
-        return 1;
-    }
+    struct SoundIoDevice *out_device = genesis_get_default_output_device(context);
+    struct SoundIoDevice *in_device = genesis_get_default_input_device(context);
 
-    struct SoundIoDevice *out_device = genesis_get_output_device(context, playback_device_index);
-    struct SoundIoDevice *in_device = genesis_get_input_device(context, recording_device_index);
     if (!out_device || !in_device) {
         fprintf(stderr, "error getting playback or recording device\n");
         return 1;

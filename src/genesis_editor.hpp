@@ -51,6 +51,7 @@ public:
 
 
     GenesisContext *genesis_context;
+
     ResourceBundle *resource_bundle;
     Gui *gui;
 

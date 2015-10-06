@@ -118,8 +118,8 @@ make
 ## Roadmap
 
  0. ability to set which device is main device out
- 0. connect to all soundio backends at once
  0. button to refresh soundio backend connections
+ 0. recover from jack server disconnecting
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection

@@ -164,57 +164,116 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
 }
 
 void ResourcesTreeWidget::refresh_devices() {
-    int input_device_count = genesis_input_device_count(context);
-    int output_device_count = genesis_output_device_count(context);
+    int backend_count;
+    GenesisSoundBackend *audio_connections = genesis_get_sound_backends(context, &backend_count);
+    for (int backend_i = 0; backend_i < backend_count; backend_i += 1) {
+        GenesisSoundBackend *sound_backend = &audio_connections[backend_i];
+        const char *backend_name = soundio_backend_name(sound_backend->backend);
+
+
+        Node *input_backend_node;
+        if (backend_i < recording_devices_root->parent_data->children.length()) {
+            input_backend_node = recording_devices_root->parent_data->children.at(backend_i);
+            input_backend_node->node_type = NodeTypeParent;
+            input_backend_node->text = backend_name;
+        } else {
+            input_backend_node = create_parent_node(recording_devices_root, backend_name);
+        }
+
+        Node *output_backend_node;
+        if (backend_i < playback_devices_root->parent_data->children.length()) {
+            output_backend_node = playback_devices_root->parent_data->children.at(backend_i);
+            output_backend_node->node_type = NodeTypeParent;
+            output_backend_node->text = backend_name;
+        } else {
+            output_backend_node = create_parent_node(playback_devices_root, backend_name);
+        }
+
+        if (sound_backend->connect_err) {
+            input_backend_node->node_type = NodeTypeDummy;
+            input_backend_node->icon_img = gui->img_exclamation_circle;
+            input_backend_node->text = ByteBuffer::format("%s (%s)", backend_name,
+                    soundio_strerror(sound_backend->connect_err));
+
+            output_backend_node->node_type = NodeTypeDummy;
+            output_backend_node->icon_img = gui->img_exclamation_circle;
+            output_backend_node->text = ByteBuffer::format("%s (%s)", backend_name,
+                    soundio_strerror(sound_backend->connect_err));
+            continue;
+        }
+
+        int input_device_count = soundio_input_device_count(sound_backend->soundio);
+        int default_recording_index = soundio_default_input_device_index(sound_backend->soundio);
+        int record_i = 0;
+        for (int i = 0; i < input_device_count; i += 1) {
+            SoundIoDevice *audio_device = soundio_get_input_device(sound_backend->soundio, i);
+
+            Node *node;
+            if (record_i < input_backend_node->parent_data->children.length()) {
+                node = input_backend_node->parent_data->children.at(record_i);
+            } else {
+                node = create_record_node(input_backend_node);
+            }
+
+            soundio_device_unref(node->audio_device);
+            node->audio_device = audio_device;
+            String text = audio_device->name;
+            if (node->audio_device->is_raw) {
+                text.append(" (raw)");
+            }
+            if (i == default_recording_index) {
+                text.append(" (default)");
+            }
+            if (node->audio_device->probe_error) {
+                node->icon_img = gui->img_exclamation_circle;
+                text.append(ByteBuffer::format(" (%s)", soundio_strerror(node->audio_device->probe_error)));
+            } else {
+                node->icon_img = gui->img_microphone;
+            }
+            node->text = text;
+
+            record_i += 1;
+        }
+        trim_extra_children(input_backend_node, record_i);
+
+        int output_device_count = soundio_output_device_count(sound_backend->soundio);
+        int default_playback_index = soundio_default_output_device_index(sound_backend->soundio);
+        int playback_i = 0;
+        for (int i = 0; i < output_device_count; i += 1) {
+            SoundIoDevice *audio_device = soundio_get_output_device(sound_backend->soundio, i);
+            Node *node;
+            if (playback_i < output_backend_node->parent_data->children.length()) {
+                node = output_backend_node->parent_data->children.at(playback_i);
+            } else {
+                node = create_playback_node(output_backend_node);
+            }
+            soundio_device_unref(node->audio_device);
+            node->audio_device = audio_device;
+            String text = audio_device->name;
+            if (node->audio_device->is_raw) {
+                text.append(" (raw)");
+            }
+            if (i == default_playback_index) {
+                text.append(" (default)");
+            }
+            if (node->audio_device->probe_error) {
+                node->icon_img = gui->img_exclamation_circle;
+                text.append(ByteBuffer::format(" (%s)", soundio_strerror(node->audio_device->probe_error)));
+            } else {
+                node->icon_img = gui->img_volume_up;
+            }
+            node->text = text;
+
+            playback_i += 1;
+        }
+        trim_extra_children(output_backend_node, playback_i);
+
+    }
+    trim_extra_children(playback_devices_root, backend_count);
+    trim_extra_children(recording_devices_root, backend_count);
 
     int midi_device_count = genesis_get_midi_device_count(context);
-    int default_playback_index = genesis_default_output_device_index(context);
-    int default_recording_index = genesis_default_input_device_index(context);
     int default_midi_index = genesis_get_default_midi_device_index(context);
-
-    int record_i = 0;
-    for (int i = 0; i < input_device_count; i += 1) {
-        SoundIoDevice *audio_device = genesis_get_input_device(context, i);
-
-        Node *node;
-        if (record_i < recording_devices_root->parent_data->children.length()) {
-            node = recording_devices_root->parent_data->children.at(record_i);
-        } else {
-            node = create_record_node();
-        }
-
-        soundio_device_unref(node->audio_device);
-        node->audio_device = audio_device;
-        String text = audio_device->name;
-        if (i == default_recording_index) {
-            text.append(" (default)");
-        }
-        node->text = text;
-
-        record_i += 1;
-    }
-    trim_extra_children(recording_devices_root, record_i);
-
-    int playback_i = 0;
-    for (int i = 0; i < output_device_count; i += 1) {
-        SoundIoDevice *audio_device = genesis_get_output_device(context, i);
-        Node *node;
-        if (playback_i < playback_devices_root->parent_data->children.length()) {
-            node = playback_devices_root->parent_data->children.at(playback_i);
-        } else {
-            node = create_playback_node();
-        }
-        soundio_device_unref(node->audio_device);
-        node->audio_device = audio_device;
-        String text = audio_device->name;
-        if (i == default_playback_index) {
-            text.append(" (default)");
-        }
-        node->text = text;
-
-        playback_i += 1;
-    }
-    trim_extra_children(playback_devices_root, playback_i);
 
     int i;
     for (i = 0; i < midi_device_count; i += 1) {
@@ -358,19 +417,19 @@ void ResourcesTreeWidget::add_children_to_stack(List<Node *> &stack, Node *node)
     }
 }
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_playback_node() {
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_playback_node(Node *parent_node) {
     Node *node = ok_mem(create_zero<Node>());
     node->node_type = NodeTypePlaybackDevice;
-    node->parent_node = playback_devices_root;
+    node->parent_node = parent_node;
     node->icon_img = gui->img_volume_up;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
 }
 
-ResourcesTreeWidget::Node *ResourcesTreeWidget::create_record_node() {
+ResourcesTreeWidget::Node *ResourcesTreeWidget::create_record_node(Node *parent_node) {
     Node *node = ok_mem(create_zero<Node>());
     node->node_type = NodeTypeRecordingDevice;
-    node->parent_node = recording_devices_root;
+    node->parent_node = parent_node;
     node->icon_img = gui->img_microphone;
     ok_or_panic(node->parent_node->parent_data->children.append(node));
     return node;
@@ -786,7 +845,7 @@ void ResourcesTreeWidget::designate_clicked_device_as(DeviceId device_id) {
     assert(selected_node);
     assert(selected_node->node_type == NodeTypePlaybackDevice);
 
-    // TODO
+    panic("TODO designate audio device");
 }
 
 void ResourcesTreeWidget::refresh_audio_assets() {

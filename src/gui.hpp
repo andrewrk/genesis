@@ -92,6 +92,7 @@ public:
     const SpritesheetImage *img_arrow_right;
     const SpritesheetImage *img_music;
     const SpritesheetImage *img_plug;
+    const SpritesheetImage *img_exclamation_circle;
     const SpritesheetImage *img_null;
 
     const SpritesheetImage *img_play_head;

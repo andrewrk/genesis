@@ -470,11 +470,7 @@ int project_set_up_audio_graph(Project *project) {
     genesis_flush_events(project->genesis_context);
 
     // create hardware playback node
-    int playback_device_index = genesis_default_output_device_index(project->genesis_context);
-    if (playback_device_index < 0)
-        panic("error getting audio device list");
-
-    SoundIoDevice *audio_device = genesis_get_output_device(project->genesis_context, playback_device_index);
+    SoundIoDevice *audio_device = genesis_get_default_output_device(project->genesis_context);
     if (!audio_device)
         panic("error getting playback device");
 

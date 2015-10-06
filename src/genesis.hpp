@@ -10,11 +10,9 @@
 #include "atomic_double.hpp"
 #include "atomics.hpp"
 
-#include <soundio/soundio.h>
-
 struct GenesisContext {
-    SoundIo *soundio;
-    int soundio_connect_err;
+    GenesisSoundBackend *sound_backend_list;
+    int sound_backend_count;
     void (*devices_change_callback)(void *userdata);
     void *devices_change_callback_userdata;
 

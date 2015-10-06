@@ -13,8 +13,10 @@ static int usage(char *exe) {
 static int list_devices(struct GenesisContext *context) {
     genesis_flush_events(context);
     genesis_refresh_midi_devices(context);
-    int input_count = genesis_input_device_count(context);
-    int output_count = genesis_output_device_count(context);
+
+    struct GenesisSoundBackend *sound_backend = genesis_default_backend(context);
+    int input_count = genesis_input_device_count(sound_backend);
+    int output_count = genesis_output_device_count(sound_backend);
 
     int midi_count = genesis_get_midi_device_count(context);
     if (midi_count < 0) {
@@ -22,11 +24,11 @@ static int list_devices(struct GenesisContext *context) {
         return 1;
     }
 
-    int default_playback = genesis_default_output_device_index(context);
-    int default_recording = genesis_default_input_device_index(context);
+    int default_playback = genesis_default_output_device_index(sound_backend);
+    int default_recording = genesis_default_input_device_index(sound_backend);
     int default_midi = genesis_get_default_midi_device_index(context);
     for (int i = 0; i < input_count; i += 1) {
-        struct SoundIoDevice *device = genesis_get_input_device(context, i);
+        struct SoundIoDevice *device = genesis_get_input_device(sound_backend, i);
         const char *purpose_str = "recording";
         const char *default_str = (i == default_recording) ? " (default)" : "";
         int sample_rate = soundio_device_nearest_sample_rate(device, 44100);
@@ -34,7 +36,7 @@ static int list_devices(struct GenesisContext *context) {
         soundio_device_unref(device);
     }
     for (int i = 0; i < output_count; i += 1) {
-        struct SoundIoDevice *device = genesis_get_output_device(context, i);
+        struct SoundIoDevice *device = genesis_get_output_device(sound_backend, i);
         const char *purpose_str = "playback";
         const char *default_str = (i == default_playback) ? " (default)" : "";
         int sample_rate = soundio_device_nearest_sample_rate(device, 44100);
