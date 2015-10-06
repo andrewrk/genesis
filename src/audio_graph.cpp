@@ -429,10 +429,15 @@ static SoundIoDevice *get_device_for_id(Project *project, DeviceId device_id) {
     SoundIoDevice *device = genesis_find_output_device(project->genesis_context,
             sf_device_id->backend, sf_device_id->device_id.raw(), sf_device_id->is_raw);
 
-    if (device)
+    if (device) {
+        if (device->probe_error) {
+            soundio_device_unref(device);
+            return genesis_get_default_output_device(project->genesis_context);
+        }
         return device;
-    else
-        return genesis_get_default_output_device(project->genesis_context);
+    }
+
+    return genesis_get_default_output_device(project->genesis_context);
 }
 
 static int init_playback_node(Project *project) {
