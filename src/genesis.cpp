@@ -868,8 +868,9 @@ static void playback_node_destroy(struct GenesisNode *node) {
 static void playback_node_error_callback(SoundIoOutStream *outstream, int err) {
     GenesisNode *node = (GenesisNode *)outstream->userdata;
     GenesisContext *context = node->descriptor->context;
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
 
-    if (context->pipeline_running.load()) {
+    if (context->pipeline_running.load() && !playback_node_context->ongoing_recovery.exchange(true)) {
         context->stream_fail_flag.clear();
         emit_event_ready(context);
     }
@@ -924,9 +925,9 @@ static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_
     const struct SoundIoChannelLayout *layout = &outstream->layout;
 
     if (frame_count_max > input_frame_count) {
-        soundio_outstream_pause(playback_node_context->outstream, 1);
-        playback_node_context->ongoing_recovery.store(true);
         playback_node_fill_silence(outstream, frame_count_min);
+        soundio_outstream_pause(playback_node_context->outstream, 1);
+        playback_node_error_callback(outstream, SoundIoErrorUnderflow);
         return;
     }
 
@@ -944,7 +945,6 @@ static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_
         for (int frame = 0; frame < frame_count; frame += 1) {
             for (int channel = 0; channel < layout->channel_count; channel += 1) {
                 playback_node_context->write_sample(areas[channel].ptr, *in_buf);
-                memcpy(areas[channel].ptr, in_buf, outstream->bytes_per_sample);
                 areas[channel].ptr += areas[channel].step;
                 in_buf += 1;
             }
@@ -1238,6 +1238,10 @@ int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
 {
 
     *out = nullptr;
+
+    if (audio_device->probe_error) {
+        return GenesisErrorOpeningAudioHardware;
+    }
 
     const char *name_fmt_str = (audio_device->aim == SoundIoDeviceAimOutput) ?
         "playback-device-%s" : "recording-device-%s";
@@ -1789,6 +1793,8 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
         return err;
     }
 
+    context->stream_fail_flag.test_and_set();
+
     // the 0.75 is because the outstream software_latency is context->latency * 0.25
     double desired_buffer_duration = context->latency * 0.75;
     for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
@@ -2233,6 +2239,11 @@ struct SoundIoDevice *genesis_find_output_device(struct GenesisContext *context,
     if (sound_backend->connect_err)
         return nullptr;
 
+    if (!device_id) {
+        int default_index = genesis_default_output_device_index(sound_backend);
+        return genesis_get_output_device(sound_backend, default_index);
+    }
+
     int out_device_count = genesis_output_device_count(sound_backend);
     for (int i = 0; i < out_device_count; i += 1) {
         SoundIoDevice *device = genesis_get_output_device(sound_backend, i);
@@ -2255,6 +2266,11 @@ struct SoundIoDevice *genesis_find_input_device(struct GenesisContext *context,
 
     if (sound_backend->connect_err)
         return nullptr;
+
+    if (!device_id) {
+        int default_index = genesis_default_input_device_index(sound_backend);
+        return genesis_get_input_device(sound_backend, default_index);
+    }
 
     int in_device_count = genesis_input_device_count(sound_backend);
     for (int i = 0; i < in_device_count; i += 1) {

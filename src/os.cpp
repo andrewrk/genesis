@@ -193,7 +193,7 @@ uint64_t os_random_uint64(void) {
 
 double os_random_double(void) {
     uint32_t x = os_random_uint32();
-    return ((double)x) / (((double)(UINT32_MAX))+1);
+    return ((double)x) / (((double)(UINT32_MAX))+1.0);
 }
 
 void os_spawn_process(const char *exe, const List<ByteBuffer> &args, bool detached) {

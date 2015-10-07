@@ -72,12 +72,6 @@ static void synth_run(struct GenesisNode *node) {
     // clear everything to 0
     memset(write_ptr_start, 0, output_frame_count * bytes_per_frame);
 
-    float divisor = 0.0f;
-    for (int note = 0; note < GENESIS_NOTES_COUNT; note += 1) {
-        if (synth_context->notes_on[note].velocity > 0.0f)
-            divisor += 1.0f;
-    }
-    float one_over_notes_count = 1.0f / divisor;
     const SoundIoChannelLayout *channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     for (int note = 0; note < GENESIS_NOTES_COUNT; note += 1) {
         SynthNoteState *note_state = &synth_context->notes_on[note];
@@ -95,7 +89,7 @@ static void synth_run(struct GenesisNode *node) {
         for (int frame = 0; frame < output_frame_count; frame += 1) {
             float sample = sinf((note_state->seconds_offset + frame * seconds_per_frame) * radians_per_second);
             for (int channel = 0; channel < channel_layout->channel_count; channel += 1) {
-                *ptr += sample * note_value * one_over_notes_count;
+                *ptr += sample * note_value;
                 ptr += 1;
             }
         }

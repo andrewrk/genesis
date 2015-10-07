@@ -117,8 +117,7 @@ make
 
 ## Roadmap
 
- 0. also default playback hangs when recovering from stream error
- 0. get alsa raw playback working and jack playback working
+ 0. rewrite audio graph code. there's certainly a bug in the audio clip node
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection

@@ -1,7 +1,21 @@
 #include "genesis.h"
+
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 // hooks default MIDI keyboard up to a simple synth
+
+static int usage(char *exe) {
+    fprintf(stderr, "Usage: %s [options]\n"
+            "Options:\n"
+            "  [--backend dummy|alsa|pulseaudio|jack|coreaudio|wasapi]\n"
+            "  [--device id]\n"
+            "  [--raw]\n"
+            "  [--latency seconds]\n"
+            , exe);
+    return 1;
+}
 
 static void on_underrun(void *userdata) {
     static int underrun_count = 0;
@@ -9,6 +23,51 @@ static void on_underrun(void *userdata) {
 }
 
 int main(int argc, char **argv) {
+    char *exe = argv[0];
+    bool raw = false;
+    enum SoundIoBackend backend = SoundIoBackendNone;
+    char *device_id = NULL;
+    double latency = 0.0;
+
+    for (int i = 1; i < argc; i += 1) {
+        char *arg = argv[i];
+        if (arg[0] == '-' && arg[1] == '-') {
+            if (strcmp(arg, "--raw") == 0) {
+                raw = true;
+            } else {
+                i += 1;
+                if (i >= argc) {
+                    return usage(exe);
+                } else if (strcmp(arg, "--backend") == 0) {
+                    if (strcmp(argv[i], "dummy") == 0) {
+                        backend = SoundIoBackendDummy;
+                    } else if (strcmp(argv[i], "alsa") == 0) {
+                        backend = SoundIoBackendAlsa;
+                    } else if (strcmp(argv[i], "pulseaudio") == 0) {
+                        backend = SoundIoBackendPulseAudio;
+                    } else if (strcmp(argv[i], "jack") == 0) {
+                        backend = SoundIoBackendJack;
+                    } else if (strcmp(argv[i], "coreaudio") == 0) {
+                        backend = SoundIoBackendCoreAudio;
+                    } else if (strcmp(argv[i], "wasapi") == 0) {
+                        backend = SoundIoBackendWasapi;
+                    } else {
+                        fprintf(stderr, "Invalid backend: %s\n", argv[i]);
+                        return 1;
+                    }
+                } else if (strcmp(arg, "--device") == 0) {
+                    device_id = argv[i];
+                } else if (strcmp(arg, "--latency") == 0) {
+                    latency = atof(argv[i]);
+                } else {
+                    return usage(exe);
+                }
+            }
+        } else {
+            return usage(exe);
+        }
+    }
+
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
@@ -16,6 +75,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if (latency > 0.0)
+        genesis_set_latency(context, latency);
     genesis_set_underrun_callback(context, on_underrun, NULL);
 
     struct GenesisNodeDescriptor *synth_descr = genesis_node_descriptor_find(context, "synth");
@@ -35,7 +96,14 @@ int main(int argc, char **argv) {
     genesis_flush_events(context);
     genesis_refresh_midi_devices(context);
 
-    struct SoundIoDevice *out_device = genesis_get_default_output_device(context);
+    struct SoundIoDevice *out_device;
+
+    if (backend != SoundIoBackendNone) {
+        out_device = genesis_find_output_device(context, backend, device_id, raw);
+    } else {
+        out_device = genesis_get_default_output_device(context);
+    }
+
     if (!out_device) {
         fprintf(stderr, "error getting playback device\n");
         return 1;
