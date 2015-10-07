@@ -996,6 +996,7 @@ static int playback_node_activate(struct GenesisNode *node) {
         playback_node_destroy(node);
         return GenesisErrorNoMem;
     }
+    SoundIoOutStream *outstream = playback_node_context->outstream;
 
     int err;
     if ((err = playback_choose_best_format(playback_node_context, device))) {
@@ -1006,18 +1007,19 @@ static int playback_node_activate(struct GenesisNode *node) {
     GenesisAudioPort *audio_port = (GenesisAudioPort*)node->ports[0];
 
 
-    playback_node_context->outstream->name = "Genesis";
-    playback_node_context->outstream->userdata = node;
-    playback_node_context->outstream->underflow_callback = playback_node_underrun_callback;
-    playback_node_context->outstream->error_callback = playback_node_error_callback;
-    playback_node_context->outstream->write_callback = playback_node_callback;
-    playback_node_context->outstream->sample_rate = audio_port->sample_rate;
-    playback_node_context->outstream->layout = audio_port->channel_layout;
+    outstream->name = "Genesis";
+    outstream->userdata = node;
+    outstream->underflow_callback = playback_node_underrun_callback;
+    outstream->error_callback = playback_node_error_callback;
+    outstream->write_callback = playback_node_callback;
+    outstream->sample_rate = audio_port->sample_rate;
+    outstream->layout = audio_port->channel_layout;
+
     // Spend 1/4 of the latency on the device buffer and 3/4 of the latency in ring buffers for
     // nodes in the audio pipeline.
-    playback_node_context->outstream->software_latency = context->latency * 0.25;
+    outstream->software_latency = context->actual_latency * 0.25;
 
-    if ((err = soundio_outstream_open(playback_node_context->outstream))) {
+    if ((err = soundio_outstream_open(outstream))) {
         playback_node_destroy(node);
         return GenesisErrorOpeningAudioHardware;
     }
@@ -1261,6 +1263,7 @@ int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
     soundio_device_ref(audio_device);
     node_descr->userdata = audio_device;
     node_descr->destroy_descriptor = destroy_audio_device_node_descriptor;
+    node_descr->min_software_latency = audio_device->software_latency_min;
 
     struct GenesisPortDescriptor *audio_port;
     if (audio_device->aim == SoundIoDeviceAimOutput) {
@@ -1786,6 +1789,14 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
         return err;
     }
 
+    // the 0.75 is because the outstream software_latency is context->latency * 0.25
+    double desired_buffer_duration = context->latency * 0.75;
+    for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
+        GenesisNode *node = context->nodes.at(node_index);
+        desired_buffer_duration = max(node->descriptor->min_software_latency, desired_buffer_duration);
+    }
+    context->actual_latency = desired_buffer_duration / 0.75;
+
     for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
         GenesisNode *node = context->nodes.at(node_index);
         node->being_processed = false;
@@ -1796,8 +1807,7 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
             } else if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
                 GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
-                // the 0.75 is because the outstream software_latency is context->latency * 0.25
-                int sample_buffer_frame_count = ceil(context->latency * audio_port->sample_rate * 0.75);
+                int sample_buffer_frame_count = ceil(desired_buffer_duration * audio_port->sample_rate);
                 audio_port->bytes_per_frame = BYTES_PER_SAMPLE * audio_port->channel_layout.channel_count;
                 int new_sample_buffer_size = sample_buffer_frame_count * audio_port->bytes_per_frame;
                 bool different = new_sample_buffer_size != audio_port->sample_buffer_size;
@@ -1815,8 +1825,7 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                 }
             } else if (port->descriptor->port_type == GenesisPortTypeEventsOut) {
                 GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
-                // 0.75 to match audio ports
-                int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * context->latency * 0.75;
+                int min_event_buffer_size = EVENTS_PER_SECOND_CAPACITY * desired_buffer_duration;
                 if (events_port->event_buffer_err ||
                     events_port->event_buffer.capacity != min_event_buffer_size)
                 {

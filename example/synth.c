@@ -41,6 +41,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    fprintf(stderr, "Audio Output Device: %s (%s)\n", out_device->name,
+            soundio_backend_name(out_device->soundio->current_backend));
+
     struct GenesisNodeDescriptor *playback_node_descr;
     err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
     if (err) {
@@ -96,6 +99,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "error getting midi device\n");
         return 1;
     }
+
+    fprintf(stderr, "MIDI Device: %s\n", genesis_midi_device_description(midi_device));
 
     struct GenesisNodeDescriptor *midi_node_descr;
     err = genesis_midi_device_create_node_descriptor(midi_device, &midi_node_descr);

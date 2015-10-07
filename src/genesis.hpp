@@ -43,6 +43,7 @@ struct GenesisContext {
     ThreadSafeQueue<GenesisNode *> task_queue;
 
     double latency;
+    double actual_latency;
 
     // The sample rate that we use if a range of sample rates are available. For example
     // if a device supports 44100 - 96000, and target_sample_rate is 48000, then 48000
@@ -92,6 +93,7 @@ struct GenesisNodeDescriptor {
     int (*activate)(struct GenesisNode *node);
     void (*deactivate)(struct GenesisNode *node);
     int set_index;
+    double min_software_latency;
 
     void *userdata;
     void (*destroy_descriptor)(struct GenesisNodeDescriptor *);

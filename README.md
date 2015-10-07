@@ -117,11 +117,14 @@ make
 
 ## Roadmap
 
- 0. get alsa raw playback working
+ 0. also default playback hangs when recovering from stream error
+ 0. get alsa raw playback working and jack playback working
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection
  0. ability to export audio to wav
+ 0. make sure recording works and is stable
+ 0. sequencer / piano roll
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move
