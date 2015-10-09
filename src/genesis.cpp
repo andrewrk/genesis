@@ -993,14 +993,14 @@ static int playback_node_activate(struct GenesisNode *node) {
 
     assert(!playback_node_context->outstream);
     if (!(playback_node_context->outstream = soundio_outstream_create(device))) {
-        playback_node_destroy(node);
+        playback_node_deactivate(node);
         return GenesisErrorNoMem;
     }
     SoundIoOutStream *outstream = playback_node_context->outstream;
 
     int err;
     if ((err = playback_choose_best_format(playback_node_context, device))) {
-        playback_node_destroy(node);
+        playback_node_deactivate(node);
         return err;
     }
 
@@ -1020,7 +1020,7 @@ static int playback_node_activate(struct GenesisNode *node) {
     outstream->software_latency = context->actual_latency * 0.25;
 
     if ((err = soundio_outstream_open(outstream))) {
-        playback_node_destroy(node);
+        playback_node_deactivate(node);
         return GenesisErrorOpeningAudioHardware;
     }
 
@@ -2127,24 +2127,29 @@ void genesis_set_underrun_callback(struct GenesisContext *context,
     context->underrun_callback = callback;
 }
 
-void genesis_debug_print_pipeline(struct GenesisContext *context) {
-    fprintf(stderr, "\n");
-    for (int node_i = 0; node_i < context->nodes.length(); node_i += 1) {
-        GenesisNode *node = context->nodes.at(node_i);
-        const GenesisNodeDescriptor *descriptor = node->descriptor;
-        fprintf(stderr, "%s:\n", descriptor->name);
-        for (int port_i = 0; port_i < node->port_count; port_i += 1) {
-            GenesisPortDescriptor *port_descr = descriptor->port_descriptors.at(port_i);
-            GenesisPort *port = node->ports[port_i];
-            if (!port->output_to)
-                continue;
-            bool empty, full;
-            get_port_status(port, &empty, &full);
-            fprintf(stderr, " - %s: empty: %d full: %d\n", port_descr->name, (int)empty, (int)full);
+void genesis_debug_print_pipeline(GenesisContext *context) {
+    for (int i = 0; i < context->nodes.length(); i += 1) {
+        GenesisNode *node = context->nodes.at(i);
+        fprintf(stderr, "node: %s\n", node->descriptor->name);
+        for (int i = 0; i < node->port_count; i += 1) {
+            GenesisPort *port = node->ports[i];
+            const char *in_port_name = "-";
+            const char *in_node_name = "-";
+            const char *out_port_name = "-";
+            const char *out_node_name = "-";
+            if (port->input_from) {
+                in_port_name = port->input_from->descriptor->name;
+                in_node_name = port->input_from->node->descriptor->name;
+            }
+            if (port->output_to) {
+                out_port_name = port->output_to->descriptor->name;
+                out_node_name = port->output_to->node->descriptor->name;
+            }
+            fprintf(stderr, "  port: %s  in: %s.%s  out: %s.%s\n", port->descriptor->name,
+                    in_node_name, in_port_name, out_node_name, out_port_name);
         }
     }
 }
-
 
 int genesis_default_input_device_index(struct GenesisSoundBackend *sound_backend) {
     return soundio_default_input_device_index(sound_backend->soundio);

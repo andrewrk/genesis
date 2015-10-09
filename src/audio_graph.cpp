@@ -370,6 +370,9 @@ static void rebuild_and_start_pipeline(Project *project) {
         }
     }
 
+    fprintf(stderr, "\nStarting pipeline...\n");
+    genesis_debug_print_pipeline(project->genesis_context);
+
     double start_time = project->play_head_pos.load();
 
     assert(next_mixer_port == mix_port_count + 1);
