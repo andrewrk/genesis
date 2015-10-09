@@ -30,8 +30,7 @@ static void audio_file_node_run(struct GenesisNode *node) {
     int channel_count = channel_layout->channel_count;
     float *out_samples = (float *)genesis_audio_out_port_write_ptr(audio_out_port);
 
-    int frame_index_end = play_context->frame_index + output_frame_count;
-    int audio_file_frames_left = play_context->frame_count - frame_index_end;
+    int audio_file_frames_left = play_context->frame_count - play_context->frame_index;
     bool end_detected = audio_file_frames_left <= 0;
     int output_end = (output_frame_count < audio_file_frames_left) ?
         output_frame_count : audio_file_frames_left;
@@ -52,8 +51,8 @@ static void audio_file_node_run(struct GenesisNode *node) {
     }
 
     genesis_audio_out_port_advance_write_ptr(audio_out_port, output_end);
-
     play_context->frame_index += output_end;
+
     if (end_detected) {
         play_context->running = false;
         genesis_wakeup(play_context->context);
