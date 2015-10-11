@@ -1,6 +1,7 @@
 #include "genesis.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // play the input file over the default playback device
 
@@ -16,6 +17,11 @@ struct PlayContext {
     long frame_count;
     struct GenesisContext *context;
 };
+
+static void on_underrun(void *userdata) {
+    static int underrun_count = 0;
+    fprintf(stderr, "buffer underrun %d\n", ++underrun_count);
+}
 
 static void audio_file_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
@@ -60,7 +66,14 @@ static void audio_file_node_run(struct GenesisNode *node) {
 }
 
 static int usage(char *exe) {
-    fprintf(stderr, "Usage: %s [--force-resample] audio_file\n", exe);
+    fprintf(stderr, "Usage: %s [options] audio_file\n"
+            "Options:\n"
+            "  [--backend dummy|alsa|pulseaudio|jack|coreaudio|wasapi]\n"
+            "  [--device id]\n"
+            "  [--raw]\n"
+            "  [--latency seconds]\n"
+            "  [--force-resample]\n"
+            , exe);
     return 1;
 }
 
@@ -72,6 +85,60 @@ static void print_channel_and_rate(const struct SoundIoChannelLayout *layout, in
 }
 
 int main(int argc, char **argv) {
+    char *exe = argv[0];
+    bool raw = false;
+    enum SoundIoBackend backend = SoundIoBackendNone;
+    char *device_id = NULL;
+    double latency = 0.0;
+    const char *input_filename = NULL;
+    bool force_resample = false;
+
+    for (int i = 1; i < argc; i += 1) {
+        char *arg = argv[i];
+        if (arg[0] == '-' && arg[1] == '-') {
+            if (strcmp(arg, "--raw") == 0) {
+                raw = true;
+            } else if (strcmp(arg, "--force-resample") == 0) {
+                force_resample = true;
+            } else {
+                i += 1;
+                if (i >= argc) {
+                    return usage(exe);
+                } else if (strcmp(arg, "--backend") == 0) {
+                    if (strcmp(argv[i], "dummy") == 0) {
+                        backend = SoundIoBackendDummy;
+                    } else if (strcmp(argv[i], "alsa") == 0) {
+                        backend = SoundIoBackendAlsa;
+                    } else if (strcmp(argv[i], "pulseaudio") == 0) {
+                        backend = SoundIoBackendPulseAudio;
+                    } else if (strcmp(argv[i], "jack") == 0) {
+                        backend = SoundIoBackendJack;
+                    } else if (strcmp(argv[i], "coreaudio") == 0) {
+                        backend = SoundIoBackendCoreAudio;
+                    } else if (strcmp(argv[i], "wasapi") == 0) {
+                        backend = SoundIoBackendWasapi;
+                    } else {
+                        fprintf(stderr, "Invalid backend: %s\n", argv[i]);
+                        return 1;
+                    }
+                } else if (strcmp(arg, "--device") == 0) {
+                    device_id = argv[i];
+                } else if (strcmp(arg, "--latency") == 0) {
+                    latency = atof(argv[i]);
+                } else {
+                    return usage(exe);
+                }
+            }
+        } else if (!input_filename) {
+            input_filename = arg;
+        } else {
+            return usage(exe);
+        }
+    }
+
+    if (!input_filename)
+        return usage(exe);
+
     struct GenesisContext *context;
     int err = genesis_create_context(&context);
     if (err) {
@@ -79,31 +146,14 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    const char *input_filename = NULL;
-    bool force_resample = false;
-    for (int i = 1; i < argc; i += 1) {
-        char *arg = argv[i];
-        if (arg[0] == '-' && arg[1] == '-') {
-            arg += 2;
-            if (strcmp(arg, "force-resample") == 0) {
-                force_resample = true;
-            } else {
-                return usage(argv[0]);
-            }
-        } else if (!input_filename) {
-            input_filename = arg;
-        } else {
-            return usage(argv[0]);
-        }
-    }
-
-    if (!input_filename)
-        return usage(argv[0]);
+    if (latency > 0.0)
+        genesis_set_latency(context, latency);
+    genesis_set_underrun_callback(context, on_underrun, NULL);
 
     struct GenesisAudioFile *audio_file;
     err = genesis_audio_file_load(context, input_filename, &audio_file);
     if (err) {
-        fprintf(stderr, "unable to load audio file: %s", genesis_strerror(err));
+        fprintf(stderr, "unable to load audio file: %s\n", genesis_strerror(err));
         return 1;
     }
     const struct SoundIoChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
@@ -112,14 +162,20 @@ int main(int argc, char **argv) {
     // block until we have audio devices list
     genesis_flush_events(context);
 
-    struct SoundIoDevice *audio_device = genesis_get_default_output_device(context);
-    if (!audio_device) {
+    struct SoundIoDevice *out_device;
+    if (backend == SoundIoBackendNone) {
+        out_device = genesis_get_default_output_device(context);
+    } else {
+        out_device = genesis_find_output_device(context, backend, device_id, raw);
+    }
+
+    if (!out_device) {
         fprintf(stderr, "error getting playback device\n");
         return 1;
     }
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(context, audio_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
     if (err) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
@@ -222,11 +278,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "resample -> ");
     }
 
-    fprintf(stderr, "%s ", audio_device->name);
+    fprintf(stderr, "%s %s ", soundio_backend_name(out_device->soundio->current_backend), out_device->name);
     print_channel_and_rate(device_layout, device_rate);
     fprintf(stderr, "\n");
 
-    soundio_device_unref(audio_device);
+    soundio_device_unref(out_device);
 
     err = genesis_start_pipeline(context, 0.0);
     if (err) {

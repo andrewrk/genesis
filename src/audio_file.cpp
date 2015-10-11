@@ -199,10 +199,11 @@ static int decode_frame(GenesisAudioFile *audio_file, AVPacket *pkt,
         int got_frame;
         int len1 = avcodec_decode_audio4(codec_ctx, in_frame, &got_frame, &pkt_temp);
         if (len1 < 0) {
-            if (len1 == AVERROR(ENOMEM))
+            if (len1 == AVERROR(ENOMEM)) {
                 return -GenesisErrorNoMem;
-            else
+            } else {
                 return -GenesisErrorDecodingAudio;
+            }
         }
         pkt_temp.data += len1;
         pkt_temp.size -= len1;
@@ -312,14 +313,18 @@ int genesis_audio_file_load(struct GenesisContext *context,
         }
     }
 
+    if ((av_err = avformat_find_stream_info(audio_file->ic, NULL)) < 0) {
+        genesis_audio_file_destroy(audio_file);
+        return GenesisErrorDecodingAudio;
+    }
+
     // set all streams to discard. in a few lines here we will find the audio
     // stream and cancel discarding it
     for (long i = 0; i < audio_file->ic->nb_streams; i += 1)
         audio_file->ic->streams[i]->discard = AVDISCARD_ALL;
 
     AVCodec *decoder = NULL;
-    int audio_stream_index = av_find_best_stream(audio_file->ic, AVMEDIA_TYPE_AUDIO,
-            -1, -1, &decoder, 0);
+    int audio_stream_index = av_find_best_stream(audio_file->ic, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
     if (audio_stream_index < 0) {
         genesis_audio_file_destroy(audio_file);
         return GenesisErrorNoAudioFound;
@@ -430,7 +435,10 @@ int genesis_audio_file_load(struct GenesisContext *context,
         }
         int negative_err = decode_frame(audio_file, &pkt, audio_file->codec_ctx, audio_file->in_frame, import_frame);
         av_free_packet(&pkt);
-        if (negative_err < 0) {
+        if (negative_err == -GenesisErrorDecodingAudio) {
+            // treat decoding errors as EOFs
+            break;
+        } else if (negative_err < 0) {
             genesis_audio_file_destroy(audio_file);
             return -negative_err;
         }
@@ -443,7 +451,10 @@ int genesis_audio_file_load(struct GenesisContext *context,
         pkt.size = 0;
         pkt.stream_index = audio_stream_index;
         int negative_err = decode_frame(audio_file, &pkt, audio_file->codec_ctx, audio_file->in_frame, import_frame);
-        if (negative_err < 0) {
+        if (negative_err == -GenesisErrorDecodingAudio) {
+            // treat decoding errors as EOFs
+            break;
+        } else if (negative_err < 0) {
             genesis_audio_file_destroy(audio_file);
             return -negative_err;
         } else if (negative_err == 0) {
