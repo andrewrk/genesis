@@ -69,6 +69,8 @@ void destroy_midi_hardware(struct MidiHardware *midi_hardware) {
             snd_seq_close(midi_hardware->seq);
         }
 
+        os_mutex_destroy(midi_hardware->mutex);
+
         destroy(midi_hardware, 1);
     }
 }

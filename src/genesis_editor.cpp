@@ -15,6 +15,7 @@
 #include "mixer_widget.hpp"
 #include "piano_roll_widget.hpp"
 #include "audio_graph.hpp"
+#include "project_props_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -314,12 +315,12 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     ok_or_panic(windows.append(editor_window));
 
-    MenuWidget *menu_widget = create<MenuWidget>(new_window);
-    MenuWidgetItem *project_menu = menu_widget->add_menu("&Project");
-    MenuWidgetItem *edit_menu = menu_widget->add_menu("&Edit");
-    MenuWidgetItem *playback_menu = menu_widget->add_menu("P&layback");
-    MenuWidgetItem *window_menu = menu_widget->add_menu("&Window");
-    MenuWidgetItem *help_menu = menu_widget->add_menu("&Help");
+    editor_window->menu_widget = create<MenuWidget>(new_window);
+    MenuWidgetItem *project_menu = editor_window->menu_widget->add_menu("&Project");
+    MenuWidgetItem *edit_menu = editor_window->menu_widget->add_menu("&Edit");
+    MenuWidgetItem *playback_menu = editor_window->menu_widget->add_menu("P&layback");
+    MenuWidgetItem *window_menu = editor_window->menu_widget->add_menu("&Window");
+    MenuWidgetItem *help_menu = editor_window->menu_widget->add_menu("&Help");
 
     MenuWidgetItem *exit_menu = project_menu->add_menu("E&xit", ctrl_shortcut(VirtKeyQ));
 
@@ -366,7 +367,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     TextWidget *fps_widget = create<TextWidget>(new_window);
     fps_widget->set_text_interaction(false);
-    fps_widget->set_background_color(menu_widget->bg_color);
+    fps_widget->set_background_color(editor_window->menu_widget->bg_color);
     fps_widget->set_min_width(50);
     fps_widget->set_max_width(50);
     editor_window->fps_widget = fps_widget;
@@ -374,7 +375,7 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     GridLayoutWidget *top_bar_grid_layout = create<GridLayoutWidget>(new_window);
     top_bar_grid_layout->padding = 0;
     top_bar_grid_layout->spacing = 0;
-    top_bar_grid_layout->add_widget(menu_widget, 0, 0, HAlignLeft, VAlignTop);
+    top_bar_grid_layout->add_widget(editor_window->menu_widget, 0, 0, HAlignLeft, VAlignTop);
     top_bar_grid_layout->add_widget(fps_widget, 0, 1, HAlignRight, VAlignTop);
 
     ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window, settings_file, project);
@@ -388,6 +389,9 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     PianoRollWidget *piano_roll = create<PianoRollWidget>(new_window, project);
     add_dock(editor_window, piano_roll, "Piano Roll");
+
+    ProjectPropsWidget *project_props = create<ProjectPropsWidget>(new_window, project);
+    add_dock(editor_window, project_props, "Project");
 
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
     editor_window->dock_area = dock_area;

@@ -432,6 +432,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
     // subtract one to make room for GUI thread, OS, and other miscellaneous
     // interruptions.
     context->thread_pool_size = max(1, concurrency - 1);
+    context->thread_pool_size = 1; // TODO remove this debug
     context->thread_pool = allocate_zero<OsThread *>(context->thread_pool_size);
     if (!context->thread_pool) {
         genesis_destroy_context(context);
@@ -534,6 +535,8 @@ void genesis_destroy_context(struct GenesisContext *context) {
 
     os_mutex_destroy(context->events_mutex);
     os_cond_destroy(context->events_cond);
+
+    destroy(context->thread_pool, context->thread_pool_size);
 
     destroy(context, 1);
 }

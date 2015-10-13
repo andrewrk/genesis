@@ -56,6 +56,7 @@ enum GenesisError {
     GenesisErrorConnectionRefused,
     GenesisErrorIncompatibleDevice,
     GenesisErrorDeviceNotFound,
+    GenesisErrorDecodingString,
 };
 
 enum GenesisPortType {

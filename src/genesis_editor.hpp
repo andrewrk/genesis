@@ -10,6 +10,7 @@ struct Project;
 struct SettingsFile;
 struct User;
 class MenuWidgetItem;
+class MenuWidget;
 class GenesisEditor;
 class DockAreaWidget;
 class TextWidget;
@@ -39,6 +40,7 @@ struct EditorWindow {
     DockAreaWidget* dock_area;
     TextWidget *fps_widget;
     List<EditorPane *> all_panes;
+    MenuWidget *menu_widget;
 };
 
 class GenesisEditor {

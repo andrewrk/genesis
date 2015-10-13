@@ -122,4 +122,6 @@ struct OsMutexLocker {
     OsMutex *mutex;
 };
 
+int os_get_current_year(void);
+
 #endif

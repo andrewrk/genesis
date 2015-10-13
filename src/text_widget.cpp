@@ -427,7 +427,7 @@ bool TextWidget::on_key_event(const KeyEvent *event) {
             }
         default:
             // do nothing
-            return false;
+            return true;
     }
 }
 

@@ -33,6 +33,7 @@ const char *genesis_strerror(int error) {
         case GenesisErrorConnectionRefused: return "connection refused";
         case GenesisErrorIncompatibleDevice: return "incompatible device";
         case GenesisErrorDeviceNotFound: return "device not found";
+        case GenesisErrorDecodingString: return "decoding string";
     }
     panic("invalid error enum value");
 }

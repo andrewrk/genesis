@@ -144,6 +144,12 @@ struct Project {
     IdMap<User *> users;
     IdMap<MixerLine *> mixer_lines;
     IdMap<Effect *> effects;
+    int sample_rate;
+    String tag_title;
+    String tag_artist;
+    String tag_album_artist;
+    String tag_album;
+    int tag_year;
     // this represents the true history of the project. you can create the
     // entire project data structure just from this data
     // this grows forever and never shrinks

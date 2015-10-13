@@ -18,6 +18,12 @@ enum PropKey {
     PropKeyAudioClipSegment,
     PropKeyMixerLine,
     PropKeyEffect,
+    PropKeySampleRate,
+    PropKeyTagArtist,
+    PropKeyTagTitle,
+    PropKeyTagAlbumArtist,
+    PropKeyTagAlbum,
+    PropKeyTagYear,
 };
 
 static const int PROP_KEY_SIZE = 4;
@@ -1059,6 +1065,11 @@ static OrderedMapFileBuffer *omf_buf_byte_buffer(const ByteBuffer &byte_buffer) 
     return buf;
 }
 
+static OrderedMapFileBuffer *omf_buf_string(const String &string) {
+    ByteBuffer encoded = string.encode();
+    return omf_buf_byte_buffer(encoded);
+}
+
 template<typename T>
 static OrderedMapFileBuffer *omf_buf_obj(T *obj) {
     ByteBuffer buffer;
@@ -1668,6 +1679,19 @@ static int read_scalar_byte_buffer(Project *project, PropKey prop_key, ByteBuffe
     return ordered_map_file_get(project->omf, key_index, nullptr, buffer);
 }
 
+static int read_scalar_string(Project *project, PropKey prop_key, String &string) {
+    ByteBuffer buf;
+    int err;
+    if ((err = read_scalar_byte_buffer(project, prop_key, buf))) {
+        return err;
+    }
+    bool ok;
+    string = String::decode(buf, &ok);
+    if (!ok)
+        return GenesisErrorDecodingString;
+    return 0;
+}
+
 static int read_scalar_uint256(Project *project, PropKey prop_key, uint256 *out_value) {
     ByteBuffer buf;
     int err = read_scalar_byte_buffer(project, prop_key, buf);
@@ -1759,6 +1783,36 @@ int project_open(const char *path, GenesisContext *genesis_context, SettingsFile
 
     err = read_scalar_uint256(project, PropKeyProjectId, &project->id);
     if (err) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_uint32be_as_int(project, PropKeySampleRate, &project->sample_rate))) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_string(project, PropKeyTagTitle, project->tag_title))) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_string(project, PropKeyTagArtist, project->tag_artist))) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_string(project, PropKeyTagAlbumArtist, project->tag_album_artist))) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_string(project, PropKeyTagAlbum, project->tag_album))) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_uint32be_as_int(project, PropKeyTagYear, &project->tag_year))) {
         project_close(project);
         return err;
     }
@@ -1896,15 +1950,16 @@ int project_create(const char *path, GenesisContext *genesis_context, SettingsFi
     project->genesis_context = genesis_context;
     project->settings_file = settings_file;
 
+    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
+
     project->users.put(user->id, user);
     project->user_list_dirty = true;
+    ok_or_panic(ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user)));
 
-    OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
     ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyProjectId), omf_buf_uint256(project->id)));
     ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyUndoStackIndex),
             omf_buf_uint32(project->undo_stack_index)));
 
-    ok_or_panic(ordered_map_file_batch_put(batch, create_user_key(user->id), omf_buf_obj(user)));
     AddTrackCommand *add_track_cmd = project_insert_track_batch(project, batch, nullptr, nullptr);
     project_push_command(project, add_track_cmd);
 
@@ -1918,6 +1973,29 @@ int project_create(const char *path, GenesisContext *genesis_context, SettingsFi
     project->effects.put(master_send->id, master_send);
     project->effects_dirty = true;
     ok_or_panic(ordered_map_file_batch_put(batch, create_effect_key(master_send->id), omf_buf_obj(master_send)));
+
+
+    // Add default sample rate
+    project->sample_rate = 44100;
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeySampleRate),
+                omf_buf_uint32(project->sample_rate)));
+
+    // Add default project tags
+    project->tag_title = "";
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyTagTitle),
+                omf_buf_string(project->tag_title)));
+    project->tag_artist = user->name;
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyTagArtist),
+                omf_buf_string(project->tag_artist)));
+    project->tag_album_artist = user->name;
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyTagAlbumArtist),
+                omf_buf_string(project->tag_album_artist)));
+    project->tag_album = "";
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyTagAlbum),
+                omf_buf_string(project->tag_album)));
+    project->tag_year = os_get_current_year();
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyTagYear),
+                omf_buf_uint32(project->tag_year)));
 
 
     err = ordered_map_file_batch_exec(batch);

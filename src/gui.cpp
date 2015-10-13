@@ -70,6 +70,7 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     img_volume_up(_spritesheet.get_image_info("font-awesome/volume-up.png")),
     img_check(_spritesheet.get_image_info("font-awesome/check.png")),
     img_caret_right(_spritesheet.get_image_info("font-awesome/caret-right.png")),
+    img_caret_down(_spritesheet.get_image_info("font-awesome/caret-down.png")),
     img_arrow_up(_spritesheet.get_image_info("font-awesome/arrow-up.png")),
     img_arrow_down(_spritesheet.get_image_info("font-awesome/arrow-down.png")),
     img_arrow_left(_spritesheet.get_image_info("font-awesome/arrow-left.png")),

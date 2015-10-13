@@ -24,21 +24,21 @@ set(LIBGENESIS_VERSION "${LIBGENESIS_VERSION_MAJOR}.${LIBGENESIS_VERSION_MINOR}.
 message("Configuring libgenesis version ${LIBGENESIS_VERSION}")
 
 set(LIBGENESIS_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
-    "${CMAKE_SOURCE_DIR}/src/error.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
-    "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
-    "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
-    "${CMAKE_SOURCE_DIR}/src/synth.cpp"
     "${CMAKE_SOURCE_DIR}/src/delay.cpp"
-    "${CMAKE_SOURCE_DIR}/src/resample.cpp"
+    "${CMAKE_SOURCE_DIR}/src/error.cpp"
+    "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
+    "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
     "${CMAKE_SOURCE_DIR}/src/os.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/resample.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
     "${CMAKE_SOURCE_DIR}/src/string.cpp"
+    "${CMAKE_SOURCE_DIR}/src/synth.cpp"
+    "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/warning.cpp"
-    "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
 )
 set(CONFIGURE_OUT_FILE "${CMAKE_BINARY_DIR}/config.h")
 set(LIBGENESIS_HEADERS
@@ -46,89 +46,91 @@ set(LIBGENESIS_HEADERS
 )
 
 set(GENESIS_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/main.cpp"
-    "${CMAKE_SOURCE_DIR}/src/util.cpp"
-    "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
-    "${CMAKE_SOURCE_DIR}/src/os.cpp"
-    "${CMAKE_SOURCE_DIR}/src/string.cpp"
-    "${CMAKE_SOURCE_DIR}/src/shader_program.cpp"
-    "${CMAKE_SOURCE_DIR}/src/gui.cpp"
-    "${CMAKE_SOURCE_DIR}/src/label.cpp"
-    "${CMAKE_SOURCE_DIR}/src/text_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/font_size.cpp"
-    "${CMAKE_SOURCE_DIR}/src/resource_bundle.cpp"
-    "${CMAKE_SOURCE_DIR}/src/png_image.cpp"
-    "${CMAKE_SOURCE_DIR}/src/spritesheet.cpp"
-    "${CMAKE_SOURCE_DIR}/src/genesis_editor.cpp"
-    "${CMAKE_SOURCE_DIR}/src/texture.cpp"
-    "${CMAKE_SOURCE_DIR}/src/shader_program_manager.cpp"
     "${CMAKE_SOURCE_DIR}/src/alpha_texture.cpp"
-    "${CMAKE_SOURCE_DIR}/src/static_geometry.cpp"
-    "${CMAKE_SOURCE_DIR}/src/gui_window.cpp"
-    "${CMAKE_SOURCE_DIR}/src/random.cpp"
-    "${CMAKE_SOURCE_DIR}/src/widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/grid_layout_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/menu_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/key_event.cpp"
-    "${CMAKE_SOURCE_DIR}/src/resources_tree_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/track_editor_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
-    "${CMAKE_SOURCE_DIR}/src/project.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
-    "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
-    "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
-    "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tab_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/dockable_pane_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/mixer_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/piano_roll_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/scroll_bar_widget.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sunken_box.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
-    "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
-    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
+    "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
     "${CMAKE_SOURCE_DIR}/src/device_id.cpp"
+    "${CMAKE_SOURCE_DIR}/src/dockable_pane_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/font_size.cpp"
+    "${CMAKE_SOURCE_DIR}/src/genesis_editor.cpp"
+    "${CMAKE_SOURCE_DIR}/src/grid_layout_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/gui.cpp"
+    "${CMAKE_SOURCE_DIR}/src/gui_window.cpp"
+    "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
+    "${CMAKE_SOURCE_DIR}/src/key_event.cpp"
+    "${CMAKE_SOURCE_DIR}/src/label.cpp"
+    "${CMAKE_SOURCE_DIR}/src/main.cpp"
+    "${CMAKE_SOURCE_DIR}/src/menu_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
+    "${CMAKE_SOURCE_DIR}/src/mixer_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/os.cpp"
+    "${CMAKE_SOURCE_DIR}/src/piano_roll_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/png_image.cpp"
+    "${CMAKE_SOURCE_DIR}/src/project.cpp"
+    "${CMAKE_SOURCE_DIR}/src/project_props_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/resource_bundle.cpp"
+    "${CMAKE_SOURCE_DIR}/src/resources_tree_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/scroll_bar_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/select_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
+    "${CMAKE_SOURCE_DIR}/src/shader_program.cpp"
+    "${CMAKE_SOURCE_DIR}/src/shader_program_manager.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
+    "${CMAKE_SOURCE_DIR}/src/spritesheet.cpp"
+    "${CMAKE_SOURCE_DIR}/src/static_geometry.cpp"
+    "${CMAKE_SOURCE_DIR}/src/string.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sunken_box.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tab_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/texture.cpp"
+    "${CMAKE_SOURCE_DIR}/src/text_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/track_editor_widget.cpp"
+    "${CMAKE_SOURCE_DIR}/src/util.cpp"
+    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
+    "${CMAKE_SOURCE_DIR}/src/widget.cpp"
 )
 
 set(UNICODE_HPP "${CMAKE_BINARY_DIR}/unicode.hpp")
 
 set(GENERATE_UNICODE_DATA_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/generate_unicode_data.cpp"
-    "${CMAKE_SOURCE_DIR}/src/util.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/error.cpp"
+    "${CMAKE_SOURCE_DIR}/src/generate_unicode_data.cpp"
+    "${CMAKE_SOURCE_DIR}/src/util.cpp"
 )
 
 set(TEST_SOURCES
-    "${CMAKE_SOURCE_DIR}/test/unit_tests.cpp"
-    "${CMAKE_SOURCE_DIR}/test/thread_safe_queue_test.cpp"
-    "${CMAKE_SOURCE_DIR}/test/ordered_map_file_test.cpp"
-    "${CMAKE_SOURCE_DIR}/test/ring_buffer_test.cpp"
-    "${CMAKE_SOURCE_DIR}/src/util.cpp"
-    "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
-    "${CMAKE_SOURCE_DIR}/src/string.cpp"
-    "${CMAKE_SOURCE_DIR}/src/error.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
-    "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
-    "${CMAKE_SOURCE_DIR}/src/os.cpp"
-    "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
-    "${CMAKE_SOURCE_DIR}/src/random.cpp"
-    "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
-    "${CMAKE_SOURCE_DIR}/src/project.cpp"
-    "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
-    "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
-    "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
-    "${CMAKE_SOURCE_DIR}/src/synth.cpp"
-    "${CMAKE_SOURCE_DIR}/src/delay.cpp"
-    "${CMAKE_SOURCE_DIR}/src/resample.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_file.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
-    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
-    "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
-    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
-    "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
+    "${CMAKE_SOURCE_DIR}/src/delay.cpp"
     "${CMAKE_SOURCE_DIR}/src/device_id.cpp"
+    "${CMAKE_SOURCE_DIR}/src/error.cpp"
+    "${CMAKE_SOURCE_DIR}/src/genesis.cpp"
+    "${CMAKE_SOURCE_DIR}/src/id_map.cpp"
+    "${CMAKE_SOURCE_DIR}/src/midi_hardware.cpp"
+    "${CMAKE_SOURCE_DIR}/src/mixer_node.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ordered_map_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/os.cpp"
+    "${CMAKE_SOURCE_DIR}/src/project.cpp"
+    "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/resample.cpp"
+    "${CMAKE_SOURCE_DIR}/src/ring_buffer.cpp"
+    "${CMAKE_SOURCE_DIR}/src/settings_file.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sha_256_hasher.cpp"
+    "${CMAKE_SOURCE_DIR}/src/sort_key.cpp"
+    "${CMAKE_SOURCE_DIR}/src/string.cpp"
+    "${CMAKE_SOURCE_DIR}/src/synth.cpp"
+    "${CMAKE_SOURCE_DIR}/src/util.cpp"
+    "${CMAKE_SOURCE_DIR}/src/warning.cpp"
+    "${CMAKE_SOURCE_DIR}/test/ordered_map_file_test.cpp"
+    "${CMAKE_SOURCE_DIR}/test/ring_buffer_test.cpp"
+    "${CMAKE_SOURCE_DIR}/test/thread_safe_queue_test.cpp"
+    "${CMAKE_SOURCE_DIR}/test/unit_tests.cpp"
 )
 
 find_package(Threads)
@@ -242,7 +244,7 @@ endif()
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Werror -pedantic")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Werror -pedantic -fsanitize=address -fno-omit-frame-pointer")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror -pedantic")
 
 
@@ -293,7 +295,6 @@ include_directories(
 
 target_link_libraries(libgenesis_shared
     ${FFMPEG_LIBRARIES}
-    ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     ${RHASH_LIBRARY}
     ${SOUNDIO_LIBRARY}
@@ -363,12 +364,13 @@ add_custom_target(rucksack_bundle ALL
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-add_executable(genesis ${GENESIS_SOURCES} ${UNICODE_HPP})
+add_executable(genesis ${GENESIS_SOURCES} ${LIBGENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(genesis PROPERTIES
     LINKER_LANGUAGE CXX
     COMPILE_FLAGS ${LIB_CFLAGS}
 )
-target_link_libraries(genesis libgenesis_shared
+target_link_libraries(genesis
+    asan
     ${FREETYPE_LIBRARY}
     ${PNG_LIBRARY}
     ${RUCKSACK_LIBRARY}
@@ -376,6 +378,10 @@ target_link_libraries(genesis libgenesis_shared
     ${EPOXY_LIBRARY}
     ${LAXJSON_LIBRARY}
     ${RHASH_LIBRARY}
+    ${FFMPEG_LIBRARIES}
+    ${ALSA_LIBRARIES}
+    ${RHASH_LIBRARY}
+    ${SOUNDIO_LIBRARY}
     -lstdc++
 )
 install(TARGETS genesis DESTINATION bin)
@@ -387,7 +393,6 @@ target_link_libraries(unit_tests
     ${CMAKE_THREAD_LIBS_INIT}
     ${LAXJSON_LIBRARY}
     ${FFMPEG_LIBRARIES}
-    ${PULSEAUDIO_LIBRARY}
     ${ALSA_LIBRARIES}
     ${RHASH_LIBRARY}
     ${SOUNDIO_LIBRARY}

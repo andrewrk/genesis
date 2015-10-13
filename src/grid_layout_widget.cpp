@@ -113,23 +113,16 @@ void GridLayoutWidget::on_resize() {
 }
 
 void GridLayoutWidget::ensure_size(int row_count, int col_count) {
-    if (rows() < row_count) {
-        int old_length = rows();
+    if (rows() < row_count)
         ok_or_panic(cells.resize(row_count));
-        for (int row = old_length; row < row_count; row += 1) {
-            List<Cell> *r = &cells.at(row);
-            ok_or_panic(r->resize(col_count));
-            for (int col = 0; col < col_count; col += 1) {
-                r->at(col).widget = nullptr;
-            }
-        }
-    }
+
+    int new_col_count = max(col_count, cols());
     for (int row = 0; row < rows(); row += 1) {
         List<Cell> *r = &cells.at(row);
-        if (r->length() < col_count) {
+        if (r->length() < new_col_count) {
             int old_length = r->length();
-            ok_or_panic(r->resize(col_count));
-            for (int col = old_length; col < col_count; col += 1) {
+            ok_or_panic(r->resize(new_col_count));
+            for (int col = old_length; col < new_col_count; col += 1) {
                 r->at(col).widget = nullptr;
             }
         }
@@ -276,7 +269,8 @@ int GridLayoutWidget::get_col_min_height(int col) const {
     int total = 0;
     for (int row = 0; row < rows(); row += 1) {
         const Cell *cell = &cells.at(row).at(col);
-        total += cell->widget->min_height();
+        if (cell->widget)
+            total += cell->widget->min_height();
     }
     return total + padding * 2 + spacing * (rows() - 1);
 }

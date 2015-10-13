@@ -1145,3 +1145,9 @@ int os_flush_file(FILE *file) {
     }
     return 0;
 }
+
+int os_get_current_year(void) {
+    time_t t = time(nullptr);
+    struct tm *gmt = gmtime(&t);
+    return gmt->tm_year + 1900;
+}

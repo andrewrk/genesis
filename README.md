@@ -117,11 +117,13 @@ make
 
 ## Roadmap
 
- 0. rewrite audio graph code. there's certainly a bug in the audio clip node
+ 0. ALSA raw keeps getting underruns
+ 0. assertion failure when multithreading on
+ 0. respect project sample rate
+ 0. ability to export audio to wav
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection
- 0. ability to export audio to wav
  0. make sure recording works and is stable
  0. sequencer / piano roll
  0. drag samples directly to track editor
