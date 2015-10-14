@@ -2,6 +2,7 @@
 #include "project.hpp"
 #include "text_widget.hpp"
 #include "select_widget.hpp"
+#include "spacer_widget.hpp"
 
 static const int sample_rate_list[] = {
     8000,
@@ -77,6 +78,9 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
     year_text->set_text(ByteBuffer::format("%d", project->tag_year));
     layout.add_widget(create_form_label("Year:"), 6, 0, HAlignRight, VAlignCenter);
     layout.add_widget(year_text, 6, 1, HAlignLeft, VAlignCenter);
+
+    SpacerWidget *spacer_widget = create<SpacerWidget>(gui_window, false, true);
+    layout.add_widget(spacer_widget, 7, 0, HAlignCenter, VAlignCenter);
 
     select_project_sample_rate();
 
