@@ -415,6 +415,8 @@ static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool
     if (project->preview_audio_file && !project->preview_audio_file_is_asset) {
         genesis_audio_file_destroy(project->preview_audio_file);
         project->preview_audio_file = nullptr;
+    } else if (project->preview_audio_file && project->preview_audio_file_is_asset) {
+        project->preview_audio_file = nullptr;
     }
 
     assert(!project->preview_audio_file);

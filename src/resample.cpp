@@ -15,11 +15,10 @@ struct ResampleContext {
     bool in_connected;
     bool out_connected;
 
-    long in_offset;
-    long out_offset;
+    long over_offset;
 
-    int upsample_factor;
-    int downsample_factor;
+    long upsample_factor;
+    long downsample_factor;
 
     float *impulse_response;
     int impulse_response_size;
@@ -30,7 +29,7 @@ struct ResampleContext {
 };
 
 static double sinc(double x) {
-    return (x == 0.0) ? 1.0 : (sinf(PI * x) / (PI * x));
+    return (x == 0.0) ? 1.0 : (sin(PI * x) / (PI * x));
 }
 
 static double blackman_window(double n, double size) {
@@ -59,8 +58,7 @@ static int resample_create(struct GenesisNode *node) {
 
 static void resample_seek(struct GenesisNode *node) {
     struct ResampleContext *resample_context = (struct ResampleContext *)node->userdata;
-    resample_context->in_offset = 0;
-    resample_context->out_offset = 0;
+    resample_context->over_offset = 0;
 }
 
 static float get_channel_value(float *samples, ResampleContext *resample_context,
@@ -113,31 +111,30 @@ static void resample_run(struct GenesisNode *node) {
     int half_window_size = window_size / 2;
 
     // compute available input start and end in oversample coordinates
-    long over_input_start = resample_context->in_offset * resample_context->upsample_factor;
+    long over_input_start = resample_context->over_offset;
     long over_input_end = over_input_start + input_frame_count * resample_context->upsample_factor;
 
     // compute available output start and end in oversample coordinates
-    long over_output_start = resample_context->out_offset * resample_context->downsample_factor;
+    long over_output_start = resample_context->over_offset;
     long over_output_end = over_output_start + output_frame_count * resample_context->downsample_factor;
 
-    if (over_input_end - half_window_size < over_output_start)
+    long over_actual_input_end = over_input_end - half_window_size;
+
+    if (over_actual_input_end < over_output_start)
         return;
 
-    long over_actual_output_end = min(over_output_end, over_input_end - half_window_size);
-    if (over_actual_output_end - over_output_start < 0)
-        return;
+    long over_actual_output_end = min(over_output_end, over_actual_input_end);
+    long over_out_count = over_actual_output_end - over_output_start;
+    assert(over_out_count > 0);
 
     // actual output frame count in output sample rate coordinates
-    int out_frame_count = (over_actual_output_end - over_output_start) / resample_context->downsample_factor;
+    int out_frame_count = over_out_count / resample_context->downsample_factor;
+    assert(out_frame_count > 0);
 
-    // actual input start and end in oversample coordinates
-    long over_actual_input_start = over_output_start - half_window_size;
-    long next_over_actual_input_start = over_actual_output_end - half_window_size;
-    long over_in_frame_count = next_over_actual_input_start - over_actual_input_start;
-    int in_frame_count = over_in_frame_count / resample_context->upsample_factor;
+    int in_frame_count = over_out_count / resample_context->upsample_factor;
 
-    for (int frame = 0; frame < out_frame_count; frame += 1) {
-        long over_frame = (resample_context->out_offset + frame) * resample_context->downsample_factor;
+    for (long frame = 0; frame < out_frame_count; frame += 1) {
+        long over_frame = resample_context->over_offset + (frame * resample_context->downsample_factor);
         // calculate this oversampled frame
         float total[GENESIS_MAX_CHANNELS] = {0.0f};
 
@@ -147,7 +144,7 @@ static void resample_run(struct GenesisNode *node) {
                 impulse_i += resample_context->upsample_factor)
         {
             long over_in_index = over_frame + (impulse_i - half_window_size);
-            int in_index = (over_in_index / resample_context->upsample_factor) - resample_context->in_offset;
+            int in_index = (over_in_index - resample_context->over_offset) / resample_context->upsample_factor;
             if (in_index < 0)
                 continue;
             for (int ch = 0; ch < out_channel_count; ch += 1) {
@@ -166,15 +163,8 @@ static void resample_run(struct GenesisNode *node) {
     genesis_audio_in_port_advance_read_ptr(audio_in_port, in_frame_count);
     genesis_audio_out_port_advance_write_ptr(audio_out_port, out_frame_count);
 
-    resample_context->in_offset += in_frame_count;
-    resample_context->out_offset += out_frame_count;
-
-    if (resample_context->in_offset > resample_context->oversampled_rate &&
-        resample_context->out_offset > resample_context->oversampled_rate)
-    {
-        resample_context->in_offset = resample_context->in_offset % resample_context->oversampled_rate;
-        resample_context->out_offset = resample_context->out_offset % resample_context->oversampled_rate;
-    }
+    resample_context->over_offset = (resample_context->over_offset +
+            out_frame_count * resample_context->downsample_factor) % resample_context->oversampled_rate;
 }
 
 static int port_connected(struct GenesisNode *node) {

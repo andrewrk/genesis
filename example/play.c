@@ -73,6 +73,7 @@ static int usage(char *exe) {
             "  [--raw]\n"
             "  [--latency seconds]\n"
             "  [--force-resample]\n"
+            "  [--sample-rate rate]\n"
             , exe);
     return 1;
 }
@@ -92,6 +93,7 @@ int main(int argc, char **argv) {
     double latency = 0.0;
     const char *input_filename = NULL;
     bool force_resample = false;
+    int target_sample_rate = 0;
 
     for (int i = 1; i < argc; i += 1) {
         char *arg = argv[i];
@@ -125,6 +127,8 @@ int main(int argc, char **argv) {
                     device_id = argv[i];
                 } else if (strcmp(arg, "--latency") == 0) {
                     latency = atof(argv[i]);
+                } else if (strcmp(arg, "--sample-rate") == 0) {
+                    target_sample_rate = atoi(argv[i]);
                 } else {
                     return usage(exe);
                 }
@@ -148,6 +152,8 @@ int main(int argc, char **argv) {
 
     if (latency > 0.0)
         genesis_set_latency(context, latency);
+    if (target_sample_rate > 0)
+        genesis_set_sample_rate(context, target_sample_rate);
     genesis_set_underrun_callback(context, on_underrun, NULL);
 
     struct GenesisAudioFile *audio_file;

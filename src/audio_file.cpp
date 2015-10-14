@@ -436,8 +436,8 @@ int genesis_audio_file_load(struct GenesisContext *context,
         int negative_err = decode_frame(audio_file, &pkt, audio_file->codec_ctx, audio_file->in_frame, import_frame);
         av_free_packet(&pkt);
         if (negative_err == -GenesisErrorDecodingAudio) {
-            // treat decoding errors as EOFs
-            break;
+            // ignore decoding errors and try the next frame
+            continue;
         } else if (negative_err < 0) {
             genesis_audio_file_destroy(audio_file);
             return -negative_err;
