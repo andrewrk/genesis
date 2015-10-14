@@ -76,6 +76,7 @@ static void mixer_run(struct GenesisNode *node) {
         }
     }
 
+
     genesis_audio_out_port_advance_write_ptr(audio_out_port, min_frame_count);
     for (int i = 0; i < mixer_context->input_port_count; i += 1) {
         GenesisPort *audio_in_port = genesis_node_port(node, i + 1);

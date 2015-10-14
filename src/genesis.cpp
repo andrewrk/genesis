@@ -1043,12 +1043,10 @@ static void playback_node_run(struct GenesisNode *node) {
         int input_capacity = genesis_audio_in_port_capacity(audio_in_port);
 
         if (input_frame_count == input_capacity) {
-            playback_node_context->ongoing_recovery.store(false);
             if (!playback_node_context->stream_started) {
+                playback_node_context->ongoing_recovery.store(false);
                 soundio_outstream_start(playback_node_context->outstream);
                 playback_node_context->stream_started = true;
-            } else {
-                soundio_outstream_pause(playback_node_context->outstream, 0);
             }
         }
     }
