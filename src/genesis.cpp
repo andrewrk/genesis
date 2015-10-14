@@ -416,7 +416,8 @@ int genesis_create_context(struct GenesisContext **out_context) {
         return GenesisErrorNoMem;
     }
     context->latency = 0.020; // 20ms
-    context->target_sample_rate = 48000;
+    context->target_sample_rate = 44100;
+    context->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo);
 
     if (!(context->events_cond = os_cond_create())) {
         genesis_destroy_context(context);
@@ -1498,6 +1499,7 @@ static void resolve_sample_rate(GenesisAudioPort *audio_port) {
 static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest) {
     GenesisAudioPortDescriptor *source_audio_descr = (GenesisAudioPortDescriptor *) source->port.descriptor;
     GenesisAudioPortDescriptor *dest_audio_descr = (GenesisAudioPortDescriptor *) dest->port.descriptor;
+    GenesisContext *context = source->port.node->descriptor->context;
 
     resolve_channel_layout(source);
     resolve_channel_layout(dest);
@@ -1532,7 +1534,7 @@ static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest)
                !dest_audio_descr->sample_rate_fixed)
     {
         // anything goes. default to 48,000 Hz
-        source->sample_rate = 48000;
+        source->sample_rate = context->target_sample_rate;
         dest->sample_rate = source->sample_rate;
     } else if (source_audio_descr->sample_rate_fixed) {
         // source is fixed, use that one
@@ -1694,6 +1696,43 @@ struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
     node_descr->port_descriptors.at(port_index) = port_descr;
 
     return port_descr;
+}
+
+void genesis_debug_print_pipeline(GenesisContext *context) {
+    for (int i = 0; i < context->nodes.length(); i += 1) {
+        GenesisNode *node = context->nodes.at(i);
+        fprintf(stderr, "node: %s\n", node->descriptor->name);
+        for (int i = 0; i < node->port_count; i += 1) {
+            GenesisPort *port = node->ports[i];
+            const char *in_port_name = "-";
+            const char *in_node_name = "-";
+            const char *out_port_name = "-";
+            const char *out_node_name = "-";
+            if (port->input_from) {
+                in_port_name = port->input_from->descriptor->name;
+                in_node_name = port->input_from->node->descriptor->name;
+            }
+            if (port->output_to) {
+                out_port_name = port->output_to->descriptor->name;
+                out_node_name = port->output_to->node->descriptor->name;
+            }
+            fprintf(stderr, "  port: %s  in: %s.%s  out: %s.%s", port->descriptor->name,
+                    in_node_name, in_port_name, out_node_name, out_port_name);
+            if (port->descriptor->port_type == GenesisPortTypeAudioIn ||
+                port->descriptor->port_type == GenesisPortTypeAudioOut)
+            {
+                GenesisAudioPort *audio_port = (GenesisAudioPort *)port;
+                fprintf(stderr, "  rate: %d  layout: ", audio_port->sample_rate);
+                if (audio_port->channel_layout.name) {
+                    fprintf(stderr, "%s\n", audio_port->channel_layout.name);
+                } else {
+                    fprintf(stderr, "%d\n", audio_port->channel_layout.channel_count);
+                }
+            } else {
+                fprintf(stderr, "\n");
+            }
+        }
+    }
 }
 
 static void genesis_debug_print_channel_layout(const struct SoundIoChannelLayout *layout) {
@@ -1887,6 +1926,28 @@ int genesis_set_latency(struct GenesisContext *context, double latency) {
 
 double genesis_get_latency(struct GenesisContext *context) {
     return context->latency;
+}
+
+int genesis_set_sample_rate(struct GenesisContext *context, int sample_rate) {
+    if (sample_rate <= 0)
+        return GenesisErrorInvalidParam;
+    if (context->pipeline_running)
+        return GenesisErrorInvalidState;
+
+    context->target_sample_rate = sample_rate;
+    return 0;
+}
+
+int genesis_get_sample_rate(struct GenesisContext *context) {
+    return context->target_sample_rate;
+}
+
+void genesis_set_channel_layout(struct GenesisContext *context, const struct SoundIoChannelLayout *layout) {
+    context->channel_layout = *layout;
+}
+
+struct SoundIoChannelLayout *genesis_get_channel_layout(struct GenesisContext *context) {
+    return &context->channel_layout;
 }
 
 struct GenesisNodeDescriptor *genesis_node_descriptor(struct GenesisNode *node) {
@@ -2128,30 +2189,6 @@ void genesis_set_underrun_callback(struct GenesisContext *context,
 {
     context->underrun_callback_userdata = userdata;
     context->underrun_callback = callback;
-}
-
-void genesis_debug_print_pipeline(GenesisContext *context) {
-    for (int i = 0; i < context->nodes.length(); i += 1) {
-        GenesisNode *node = context->nodes.at(i);
-        fprintf(stderr, "node: %s\n", node->descriptor->name);
-        for (int i = 0; i < node->port_count; i += 1) {
-            GenesisPort *port = node->ports[i];
-            const char *in_port_name = "-";
-            const char *in_node_name = "-";
-            const char *out_port_name = "-";
-            const char *out_node_name = "-";
-            if (port->input_from) {
-                in_port_name = port->input_from->descriptor->name;
-                in_node_name = port->input_from->node->descriptor->name;
-            }
-            if (port->output_to) {
-                out_port_name = port->output_to->descriptor->name;
-                out_node_name = port->output_to->node->descriptor->name;
-            }
-            fprintf(stderr, "  port: %s  in: %s.%s  out: %s.%s\n", port->descriptor->name,
-                    in_node_name, in_port_name, out_node_name, out_port_name);
-        }
-    }
 }
 
 int genesis_default_input_device_index(struct GenesisSoundBackend *sound_backend) {

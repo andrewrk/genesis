@@ -6,6 +6,7 @@
 
 struct Project;
 class TextWidget;
+class SelectWidget;
 
 class ProjectPropsWidget : public Widget {
 public:
@@ -22,6 +23,8 @@ public:
 
     TextWidget *create_form_label(const char *text);
 
+    SelectWidget *sample_rate_select;
+    void select_project_sample_rate();
 };
 
 #endif

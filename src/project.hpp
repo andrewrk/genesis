@@ -201,7 +201,7 @@ struct Project {
     GenesisNode *mixer_node;
     GenesisNode *spy_node;
     GenesisNode *playback_node;
-    GenesisAudioFile *audio_file;
+    GenesisAudioFile *preview_audio_file;
     GenesisPortDescriptor *audio_file_port_descr;
     long audio_file_frame_count;
     long audio_file_frame_index;
@@ -224,6 +224,7 @@ enum CommandType {
     CommandTypeDeleteTrack,
     CommandTypeAddAudioClip,
     CommandTypeAddAudioClipSegment,
+    CommandTypeChangeSampleRate,
 };
 
 class Command {
@@ -354,6 +355,30 @@ public:
     double pos;
 };
 
+class ChangeSampleRateCommand : public Command {
+public:
+    ChangeSampleRateCommand(Project *project, int sample_rate);
+    ChangeSampleRateCommand() {}
+    ~ChangeSampleRateCommand() override {}
+
+    String description() const override {
+        return ByteBuffer::format("Change Sample Rate from %d to %d", old_sample_rate, new_sample_rate);
+    }
+
+    int allocated_size() const override {
+        return sizeof(ChangeSampleRateCommand);
+    }
+
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeChangeSampleRate; }
+
+    int old_sample_rate;
+    int new_sample_rate;
+};
+
 class UndoCommand : public Command {
 public:
     UndoCommand(Project *project, Command *other_command);
@@ -437,5 +462,7 @@ long project_audio_clip_frame_count(Project *project, AudioClip *audio_clip);
 int project_audio_clip_sample_rate(Project *project, AudioClip *audio_clip);
 
 void project_get_effect_string(Project *project, Effect *effect, String &result);
+
+void project_set_sample_rate(Project *project, int sample_rate);
 
 #endif

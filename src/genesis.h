@@ -306,6 +306,19 @@ GENESIS_EXPORT int genesis_resume_pipeline(struct GenesisContext *context);
 GENESIS_EXPORT int genesis_set_latency(struct GenesisContext *context, double latency);
 GENESIS_EXPORT double genesis_get_latency(struct GenesisContext *context);
 
+// can only set this when the pipeline is stopped.
+// also if you change this, you must destroy and re-create all nodes and node
+// descriptors
+GENESIS_EXPORT int genesis_set_sample_rate(struct GenesisContext *context, int sample_rate);
+GENESIS_EXPORT int genesis_get_sample_rate(struct GenesisContext *context);
+
+// can only set this when the pipeline is stopped.
+// also if you change this, you must destroy and re-create all nodes and node
+// descriptors
+GENESIS_EXPORT void genesis_set_channel_layout(struct GenesisContext *context,
+        const struct SoundIoChannelLayout *layout);
+GENESIS_EXPORT struct SoundIoChannelLayout *genesis_get_channel_layout(struct GenesisContext *context);
+
 // returns the number of frames available to read
 GENESIS_EXPORT int genesis_audio_in_port_fill_count(struct GenesisPort *port);
 GENESIS_EXPORT float *genesis_audio_in_port_read_ptr(struct GenesisPort *port);

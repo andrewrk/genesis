@@ -117,7 +117,9 @@ int create_mixer_descriptor(GenesisContext *context, int input_port_count, Genes
     genesis_audio_port_descriptor_set_channel_layout(audio_out_port,
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
 
-    genesis_audio_port_descriptor_set_sample_rate(audio_out_port, 48000, false, -1);
+    int target_sample_rate = genesis_get_sample_rate(context);
+
+    genesis_audio_port_descriptor_set_sample_rate(audio_out_port, target_sample_rate, false, -1);
 
     for (int i = 0; i < input_port_count; i += 1) {
         char name[256];
@@ -131,7 +133,7 @@ int create_mixer_descriptor(GenesisContext *context, int input_port_count, Genes
         genesis_audio_port_descriptor_set_channel_layout(audio_in_port,
             soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), true, 0);
 
-        genesis_audio_port_descriptor_set_sample_rate(audio_in_port, 48000, true, 0);
+        genesis_audio_port_descriptor_set_sample_rate(audio_in_port, target_sample_rate, true, 0);
     }
 
     *out = node_descr;

@@ -124,7 +124,7 @@ int create_synth_descriptor(GenesisContext *context) {
     genesis_audio_port_descriptor_set_channel_layout(audio_port,
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
 
-    genesis_audio_port_descriptor_set_sample_rate(audio_port, 48000, false, -1);
+    genesis_audio_port_descriptor_set_sample_rate(audio_port, genesis_get_sample_rate(context), false, -1);
 
     return 0;
 }

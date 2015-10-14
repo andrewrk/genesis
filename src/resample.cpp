@@ -450,14 +450,16 @@ int create_resample_descriptor(GenesisContext *context) {
     genesis_port_descriptor_set_disconnect_callback(audio_in_port, in_disconnect);
     genesis_port_descriptor_set_disconnect_callback(audio_out_port, out_disconnect);
 
+    int default_sample_rate = genesis_get_sample_rate(context);
+
     const struct SoundIoChannelLayout *mono_layout =
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
 
     genesis_audio_port_descriptor_set_channel_layout(audio_in_port, mono_layout, false, -1);
-    genesis_audio_port_descriptor_set_sample_rate(audio_in_port, 48000, false, -1);
+    genesis_audio_port_descriptor_set_sample_rate(audio_in_port, default_sample_rate, false, -1);
 
     genesis_audio_port_descriptor_set_channel_layout(audio_out_port, mono_layout, false, -1);
-    genesis_audio_port_descriptor_set_sample_rate(audio_out_port, 48000, false, -1);
+    genesis_audio_port_descriptor_set_sample_rate(audio_out_port, default_sample_rate, false, -1);
 
     return 0;
 }

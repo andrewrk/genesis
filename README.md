@@ -119,7 +119,6 @@ make
 
  0. ALSA raw keeps getting underruns
  0. assertion failure when multithreading on
- 0. respect project sample rate
  0. ability to export audio to wav
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment

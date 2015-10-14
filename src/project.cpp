@@ -58,6 +58,8 @@ enum SerializableFieldKey {
     SerializableFieldKeyEffectSendChild,
     SerializableFieldKeyGain,
     SerializableFieldKeyDeviceId,
+    SerializableFieldKeyOldSampleRate,
+    SerializableFieldKeyNewSampleRate,
 };
 
 // modifying this structure affects project file backward compatibility
@@ -595,6 +597,34 @@ static const SerializableField<AddAudioClipSegmentCommand> *get_serializable_fie
     return fields;
 }
 
+static const SerializableField<ChangeSampleRateCommand> *get_serializable_fields(ChangeSampleRateCommand *) {
+    static const SerializableField<ChangeSampleRateCommand> fields[] = {
+        {
+            SerializableFieldKeyOldSampleRate,
+            SerializableFieldTypeUInt32AsInt,
+            [](ChangeSampleRateCommand *cmd) -> void * {
+                return &cmd->old_sample_rate;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyNewSampleRate,
+            SerializableFieldTypeUInt32AsInt,
+            [](ChangeSampleRateCommand *cmd) -> void * {
+                return &cmd->new_sample_rate;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
 static const SerializableField<UndoCommand> *get_serializable_fields(UndoCommand *) {
     static const SerializableField<UndoCommand> fields[] = {
         {
@@ -1026,6 +1056,8 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
                     return deserialize_object(reinterpret_cast<AddAudioClipCommand*>(cmd), buffer, offset);
                 case CommandTypeAddAudioClipSegment:
                     return deserialize_object(reinterpret_cast<AddAudioClipSegmentCommand*>(cmd), buffer, offset);
+                case CommandTypeChangeSampleRate:
+                    return deserialize_object(reinterpret_cast<ChangeSampleRateCommand*>(cmd), buffer, offset);
             }
             panic("unreachable");
         }
@@ -1613,6 +1645,9 @@ static int deserialize_command(Project *project, const ByteBuffer &key, const By
         case CommandTypeAddAudioClipSegment:
             command = create_zero<AddAudioClipSegmentCommand>();
             break;
+        case CommandTypeChangeSampleRate:
+            command = create_zero<ChangeSampleRateCommand>();
+            break;
         case CommandTypeUndo:
             command = create_zero<UndoCommand>();
             break;
@@ -1892,8 +1927,6 @@ int project_open(const char *path, GenesisContext *genesis_context, SettingsFile
     project_compute_indexes(project);
     ordered_map_file_done_reading(project->omf);
 
-    project_set_up_audio_graph(project);
-
     *out_project = project;
     return 0;
 }
@@ -2004,8 +2037,6 @@ int project_create(const char *path, GenesisContext *genesis_context, SettingsFi
         return err;
     }
     project_compute_indexes(project);
-
-    project_set_up_audio_graph(project);
 
     *out_project = project;
     return 0;
@@ -2272,6 +2303,11 @@ void project_get_effect_string(Project *project, Effect *effect, String &out) {
     panic("invalid effect type");
 }
 
+void project_set_sample_rate(Project *project, int sample_rate) {
+    ChangeSampleRateCommand *cmd = create<ChangeSampleRateCommand>(project, sample_rate);
+    project_perform_command(cmd);
+}
+
 AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :
     Command(project),
     name(name),
@@ -2437,6 +2473,35 @@ void AddAudioClipSegmentCommand::serialize(ByteBuffer &buf) {
 }
 
 int AddAudioClipSegmentCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    return deserialize_object(this, buffer, offset);
+}
+
+ChangeSampleRateCommand::ChangeSampleRateCommand(Project *project, int sample_rate) :
+    Command(project)
+{
+    this->old_sample_rate = project->sample_rate;
+    this->new_sample_rate = sample_rate;
+}
+
+void ChangeSampleRateCommand::undo(OrderedMapFileBatch *batch) {
+    project->sample_rate = old_sample_rate;
+    trigger_event(project, EventProjectSampleRateChanged);
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeySampleRate),
+                omf_buf_uint32(project->sample_rate)));
+}
+
+void ChangeSampleRateCommand::redo(OrderedMapFileBatch *batch) {
+    project->sample_rate = new_sample_rate;
+    trigger_event(project, EventProjectSampleRateChanged);
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeySampleRate),
+                omf_buf_uint32(project->sample_rate)));
+}
+
+void ChangeSampleRateCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
+}
+
+int ChangeSampleRateCommand::deserialize(const ByteBuffer &buffer, int *offset) {
     return deserialize_object(this, buffer, offset);
 }
 

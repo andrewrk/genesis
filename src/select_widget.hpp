@@ -7,6 +7,15 @@
 #include "sunken_box.hpp"
 
 class SpritesheetImage;
+class MenuWidgetItem;
+class SelectWidget;
+
+struct SelectWidgetItem {
+    SelectWidget *parent;
+    MenuWidgetItem *menu_item;
+    String name;
+    int index;
+};
 
 class SelectWidget : public Widget {
 public:
@@ -30,9 +39,13 @@ public:
 
     int selected_index;
 
+    void (*on_selected_index_change)(SelectWidget *);
+
     Label label;
     glm::mat4 label_model;
     SunkenBox bg;
+    MenuWidgetItem *context_menu;
+    void *userdata;
 
     int padding_left;
     int padding_right;
@@ -43,11 +56,14 @@ public:
     const SpritesheetImage *arrow_icon_img;
     glm::mat4 arrow_icon_model;
 
-    List<String> items;
+    List<SelectWidgetItem> items;
 
     bool hovering;
+    bool context_menu_open;
 
     void update_model();
+    void set_activate_handlers();
+    void clear_context_menu();
 };
 
 #endif

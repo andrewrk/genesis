@@ -49,6 +49,8 @@ struct GenesisContext {
     // if a device supports 44100 - 96000, and target_sample_rate is 48000, then 48000
     // is chosen. Otherwise the closest supported rate is chosen.
     int target_sample_rate;
+
+    SoundIoChannelLayout channel_layout;
 };
 
 struct GenesisPortDescriptor {

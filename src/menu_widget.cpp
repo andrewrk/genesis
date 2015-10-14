@@ -36,10 +36,7 @@ MenuWidgetItem::MenuWidgetItem(GuiWindow *gui_window) :
 }
 
 MenuWidgetItem::~MenuWidgetItem() {
-    for (int i = 0; i < children.length(); i += 1) {
-        MenuWidgetItem *child = children.at(i);
-        destroy(child, 1);
-    }
+    clear();
 }
 
 MenuWidgetItem *MenuWidgetItem::add_menu(const String &name, int mnemonic_index, const KeySequence &shortcut) {
@@ -53,6 +50,14 @@ MenuWidgetItem *MenuWidgetItem::add_menu(const String &name_orig, const KeySeque
     int mnemonic_index = -1;
     parse_mnemonic(name, &mnemonic_index);
     return add_menu(name, mnemonic_index, shortcut);
+}
+
+void MenuWidgetItem::clear() {
+    for (int i = 0; i < children.length(); i += 1) {
+        MenuWidgetItem *child = children.at(i);
+        destroy(child, 1);
+    }
+    children.clear();
 }
 
 void MenuWidgetItem::set_caption(const String &orig_caption) {

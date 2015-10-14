@@ -1273,7 +1273,7 @@ struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *contex
         return nullptr;
     }
 
-    audio_file->sample_rate = 48000;
+    audio_file->sample_rate = genesis_get_sample_rate(context);
     audio_file->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
     if (audio_file->channels.resize(1)) {
         genesis_audio_file_destroy(audio_file);

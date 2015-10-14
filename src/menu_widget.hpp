@@ -34,6 +34,8 @@ public:
         this->icon = icon;
     }
 
+    void clear();
+
     GuiWindow *gui_window;
 
     Label label;

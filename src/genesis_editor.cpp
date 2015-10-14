@@ -65,6 +65,11 @@ static void on_playing_changed(Event, void *userdata) {
     genesis_editor->refresh_menu_state();
 }
 
+static void on_sample_rate_changed(Event, void *userdata) {
+    GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
+    audio_graph_change_sample_rate(genesis_editor->project, genesis_editor->project->sample_rate);
+}
+
 static void always_show_tabs_handler(void *userdata) {
     EditorWindow *editor_window = (EditorWindow *)userdata;
     GenesisEditor *genesis_editor = editor_window->genesis_editor;
@@ -196,6 +201,10 @@ GenesisEditor::GenesisEditor() :
         settings_dirty = true;
     }
 
+    genesis_set_sample_rate(genesis_context, project->sample_rate);
+
+    project_set_up_audio_graph(project);
+
     if (settings_file->open_windows.length() == 0) {
         create_sf_open_window();
         settings_dirty = true;
@@ -228,6 +237,7 @@ GenesisEditor::GenesisEditor() :
 
     project->events.attach_handler(EventProjectUndoChanged, on_undo_changed, this);
     project->events.attach_handler(EventProjectPlayingChanged, on_playing_changed, this);
+    project->events.attach_handler(EventProjectSampleRateChanged, on_sample_rate_changed, this);
 }
 
 GenesisEditor::~GenesisEditor() {
