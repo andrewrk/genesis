@@ -25,13 +25,25 @@ static void on_sample_rate_changed(Event, void *userdata) {
     project_props_widget->select_project_sample_rate();
 }
 
+static void on_channel_layout_changed(Event, void *userdata) {
+    ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)userdata;
+    project_props_widget->select_project_channel_layout();
+}
+
 static void on_selected_sample_rate_change(SelectWidget *select_widget) {
     int sample_rate = sample_rate_list[select_widget->selected_index];
     ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)select_widget->userdata;
     project_set_sample_rate(project_props_widget->project, sample_rate);
 }
 
+static void on_selected_channel_layout_change(SelectWidget *select_widget) {
+    const SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(select_widget->selected_index);
+    ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)select_widget->userdata;
+    project_set_channel_layout(project_props_widget->project, layout);
+}
+
 ProjectPropsWidget::~ProjectPropsWidget() {
+    project->events.detach_handler(EventProjectChannelLayoutChanged, on_channel_layout_changed);
     project->events.detach_handler(EventProjectSampleRateChanged, on_sample_rate_changed);
 }
 
@@ -40,6 +52,17 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
     project(project),
     layout(gui_window)
 {
+    channel_layout_select = create<SelectWidget>(gui_window);
+    int channel_layout_count = soundio_channel_layout_builtin_count();
+    for (int i = 0; i < channel_layout_count; i += 1) {
+        const SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(i);
+        channel_layout_select->append_choice(layout->name);
+    }
+    channel_layout_select->userdata = this;
+    channel_layout_select->on_selected_index_change = on_selected_channel_layout_change;
+    layout.add_widget(create_form_label("Channel Layout:"), 0, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(channel_layout_select, 0, 1, HAlignLeft, VAlignCenter);
+
     sample_rate_select = create<SelectWidget>(gui_window);
     for (int i = 0; i < array_length(sample_rate_list); i += 1) {
         int sample_rate = sample_rate_list[i];
@@ -47,44 +70,49 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
     }
     sample_rate_select->userdata = this;
     sample_rate_select->on_selected_index_change = on_selected_sample_rate_change;
-    layout.add_widget(create_form_label("Sample Rate:"), 0, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(sample_rate_select, 0, 1, HAlignLeft, VAlignCenter);
+    layout.add_widget(create_form_label("Sample Rate:"), 1, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(sample_rate_select, 1, 1, HAlignLeft, VAlignCenter);
 
     SelectWidget *loop_mode_select = create<SelectWidget>(gui_window);
-    layout.add_widget(create_form_label("Loop Mode:"), 1, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(loop_mode_select, 1, 1, HAlignLeft, VAlignCenter);
+    loop_mode_select->append_choice("Off (Leave Ending)");
+    loop_mode_select->append_choice("On (Wrap Remainder)");
+    loop_mode_select->select_index(0);
+    layout.add_widget(create_form_label("Loop Mode:"), 2, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(loop_mode_select, 2, 1, HAlignLeft, VAlignCenter);
 
     TextWidget *title_text = create<TextWidget>(gui_window);
     title_text->set_text(project->tag_title);
-    layout.add_widget(create_form_label("Title:"), 2, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(title_text, 2, 1, HAlignLeft, VAlignCenter);
+    layout.add_widget(create_form_label("Title:"), 3, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(title_text, 3, 1, HAlignLeft, VAlignCenter);
 
     TextWidget *artist_text = create<TextWidget>(gui_window);
     artist_text->set_text(project->tag_artist);
-    layout.add_widget(create_form_label("Artist:"), 3, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(artist_text, 3, 1, HAlignLeft, VAlignCenter);
+    layout.add_widget(create_form_label("Artist:"), 4, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(artist_text, 4, 1, HAlignLeft, VAlignCenter);
 
     TextWidget *album_text = create<TextWidget>(gui_window);
     album_text->set_text(project->tag_album);
-    layout.add_widget(create_form_label("Album:"), 4, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(album_text, 4, 1, HAlignLeft, VAlignCenter);
+    layout.add_widget(create_form_label("Album:"), 5, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(album_text, 5, 1, HAlignLeft, VAlignCenter);
 
     TextWidget *album_artist_text = create<TextWidget>(gui_window);
     album_artist_text->set_text(project->tag_album_artist);
-    layout.add_widget(create_form_label("Album Artist:"), 5, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(album_artist_text, 5, 1, HAlignLeft, VAlignCenter);
+    layout.add_widget(create_form_label("Album Artist:"), 6, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(album_artist_text, 6, 1, HAlignLeft, VAlignCenter);
 
     TextWidget *year_text = create<TextWidget>(gui_window);
     year_text->set_text(ByteBuffer::format("%d", project->tag_year));
-    layout.add_widget(create_form_label("Year:"), 6, 0, HAlignRight, VAlignCenter);
-    layout.add_widget(year_text, 6, 1, HAlignLeft, VAlignCenter);
+    layout.add_widget(create_form_label("Year:"), 7, 0, HAlignRight, VAlignCenter);
+    layout.add_widget(year_text, 7, 1, HAlignLeft, VAlignCenter);
 
     SpacerWidget *spacer_widget = create<SpacerWidget>(gui_window, false, true);
-    layout.add_widget(spacer_widget, 7, 0, HAlignCenter, VAlignCenter);
+    layout.add_widget(spacer_widget, 8, 0, HAlignCenter, VAlignCenter);
 
     select_project_sample_rate();
+    select_project_channel_layout();
 
     project->events.attach_handler(EventProjectSampleRateChanged, on_sample_rate_changed, this);
+    project->events.attach_handler(EventProjectChannelLayoutChanged, on_channel_layout_changed, this);
 }
 
 TextWidget *ProjectPropsWidget::create_form_label(const char *text) {
@@ -122,4 +150,16 @@ void ProjectPropsWidget::select_project_sample_rate() {
         }
     }
     panic("project sample rate not in list: %d", project->sample_rate);
+}
+
+void ProjectPropsWidget::select_project_channel_layout() {
+    int channel_layout_count = soundio_channel_layout_builtin_count();
+    for (int i = 0; i < channel_layout_count; i += 1) {
+        const SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(i);
+        if (soundio_channel_layout_equal(layout, &project->channel_layout)) {
+            channel_layout_select->select_index(i);
+            return;
+        }
+    }
+    panic("project channel layout not in list");
 }

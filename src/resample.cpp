@@ -8,9 +8,6 @@ static const double transition_band_hz = 800.0;
 static const double lfe_mix_level = 1.0;
 static const double surround_mix_level = 1.0;
 
-// equal to the number of enum values in SoundIoChannelId
-static const int channel_id_count = 70;
-
 struct ResampleContext {
     bool in_connected;
     bool out_connected;
@@ -25,7 +22,7 @@ struct ResampleContext {
 
     long oversampled_rate;
 
-    float channel_matrix[channel_id_count][channel_id_count];
+    float channel_matrix[GENESIS_CHANNEL_ID_COUNT][GENESIS_CHANNEL_ID_COUNT];
 };
 
 static double sinc(double x) {
@@ -219,20 +216,20 @@ static int port_connected(struct GenesisNode *node) {
     const struct SoundIoChannelLayout * out_channel_layout = genesis_audio_port_channel_layout(audio_out_port);
     memset(resample_context->channel_matrix, 0, sizeof(resample_context->channel_matrix));
 
-    int in_contains[channel_id_count];
-    int out_contains[channel_id_count];
-    for (int id = 0; id < channel_id_count; id += 1) {
+    int in_contains[GENESIS_CHANNEL_ID_COUNT];
+    int out_contains[GENESIS_CHANNEL_ID_COUNT];
+    for (int id = 0; id < GENESIS_CHANNEL_ID_COUNT; id += 1) {
         in_contains[id] = soundio_channel_layout_find_channel(in_channel_layout, (SoundIoChannelId)id);
         out_contains[id] = soundio_channel_layout_find_channel(out_channel_layout, (SoundIoChannelId)id);
     }
 
-    bool unaccounted[channel_id_count];
-    for (int id = 0; id < channel_id_count; id += 1) {
+    bool unaccounted[GENESIS_CHANNEL_ID_COUNT];
+    for (int id = 0; id < GENESIS_CHANNEL_ID_COUNT; id += 1) {
         unaccounted[id] = in_contains[id] >= 0 && out_contains[id] == -1;
     }
 
     // route matching channel ids
-    for (int id = 0; id < channel_id_count; id += 1) {
+    for (int id = 0; id < GENESIS_CHANNEL_ID_COUNT; id += 1) {
         if (in_contains[id] >= 0 && out_contains[id] >= 0)
             resample_context->channel_matrix[out_contains[id]][in_contains[id]] = 1.0;
     }
@@ -362,7 +359,7 @@ static int port_connected(struct GenesisNode *node) {
     }
 
     // make sure all input channels are accounted for
-    for (int id = 0; id < channel_id_count; id += 1) {
+    for (int id = 0; id < GENESIS_CHANNEL_ID_COUNT; id += 1) {
         if (unaccounted[id]) {
             fprintf(stderr, "unaccounted: %s\n", soundio_get_channel_name((SoundIoChannelId)id));
             return GenesisErrorUnimplemented;

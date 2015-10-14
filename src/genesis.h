@@ -25,6 +25,9 @@
 #define GENESIS_NOTES_COUNT 128
 #define GENESIS_MAX_CHANNELS SOUNDIO_MAX_CHANNELS
 
+/// How many SoundIoChannelId values there are.
+#define GENESIS_CHANNEL_ID_COUNT 70
+
 enum GenesisError {
     GenesisErrorNone,
     GenesisErrorNoMem,

@@ -24,7 +24,9 @@ public:
     TextWidget *create_form_label(const char *text);
 
     SelectWidget *sample_rate_select;
+    SelectWidget *channel_layout_select;
     void select_project_sample_rate();
+    void select_project_channel_layout();
 };
 
 #endif

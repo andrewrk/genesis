@@ -144,6 +144,7 @@ struct Project {
     IdMap<User *> users;
     IdMap<MixerLine *> mixer_lines;
     IdMap<Effect *> effects;
+    SoundIoChannelLayout channel_layout;
     int sample_rate;
     String tag_title;
     String tag_artist;
@@ -225,6 +226,7 @@ enum CommandType {
     CommandTypeAddAudioClip,
     CommandTypeAddAudioClipSegment,
     CommandTypeChangeSampleRate,
+    CommandTypeChangeChannelLayout,
 };
 
 class Command {
@@ -379,6 +381,30 @@ public:
     int new_sample_rate;
 };
 
+class ChangeChannelLayoutCommand : public Command {
+public:
+    ChangeChannelLayoutCommand(Project *project, const SoundIoChannelLayout *layout);
+    ChangeChannelLayoutCommand() {}
+    ~ChangeChannelLayoutCommand() override {}
+
+    String description() const override {
+        return ByteBuffer::format("Change Channel Layout from %s to %s", old_layout.name, new_layout.name);
+    }
+
+    int allocated_size() const override {
+        return sizeof(ChangeChannelLayoutCommand);
+    }
+
+    void undo(OrderedMapFileBatch *batch) override;
+    void redo(OrderedMapFileBatch *batch) override;
+    void serialize(ByteBuffer &buf) override;
+    int deserialize(const ByteBuffer &buf, int *offset) override;
+    CommandType command_type() const override { return CommandTypeChangeChannelLayout; }
+
+    SoundIoChannelLayout old_layout;
+    SoundIoChannelLayout new_layout;
+};
+
 class UndoCommand : public Command {
 public:
     UndoCommand(Project *project, Command *other_command);
@@ -464,5 +490,6 @@ int project_audio_clip_sample_rate(Project *project, AudioClip *audio_clip);
 void project_get_effect_string(Project *project, Effect *effect, String &result);
 
 void project_set_sample_rate(Project *project, int sample_rate);
+void project_set_channel_layout(Project *project, const SoundIoChannelLayout *layout);
 
 #endif

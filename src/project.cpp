@@ -19,6 +19,7 @@ enum PropKey {
     PropKeyMixerLine,
     PropKeyEffect,
     PropKeySampleRate,
+    PropKeyChannelLayout,
     PropKeyTagArtist,
     PropKeyTagTitle,
     PropKeyTagAlbumArtist,
@@ -60,6 +61,8 @@ enum SerializableFieldKey {
     SerializableFieldKeyDeviceId,
     SerializableFieldKeyOldSampleRate,
     SerializableFieldKeyNewSampleRate,
+    SerializableFieldKeyOldChannelLayout,
+    SerializableFieldKeyNewChannelLayout,
 };
 
 // modifying this structure affects project file backward compatibility
@@ -79,6 +82,7 @@ enum SerializableFieldType {
     SerializableFieldTypeUInt8,
     SerializableFieldTypeFloat,
     SerializableFieldTypeEffectSendChild,
+    SerializableFieldTypeChannelLayout,
 };
 
 template <typename T>
@@ -625,6 +629,34 @@ static const SerializableField<ChangeSampleRateCommand> *get_serializable_fields
     return fields;
 }
 
+static const SerializableField<ChangeChannelLayoutCommand> *get_serializable_fields(ChangeChannelLayoutCommand *) {
+    static const SerializableField<ChangeChannelLayoutCommand> fields[] = {
+        {
+            SerializableFieldKeyOldChannelLayout,
+            SerializableFieldTypeChannelLayout,
+            [](ChangeChannelLayoutCommand *cmd) -> void * {
+                return &cmd->old_layout;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyNewChannelLayout,
+            SerializableFieldTypeChannelLayout,
+            [](ChangeChannelLayoutCommand *cmd) -> void * {
+                return &cmd->new_layout;
+            },
+            nullptr,
+        },
+        {
+            SerializableFieldKeyInvalid,
+            SerializableFieldTypeInvalid,
+            nullptr,
+            nullptr,
+        },
+    };
+    return fields;
+}
+
 static const SerializableField<UndoCommand> *get_serializable_fields(UndoCommand *) {
     static const SerializableField<UndoCommand> fields[] = {
         {
@@ -668,6 +700,13 @@ static const SerializableField<RedoCommand> *get_serializable_fields(RedoCommand
 static void serialize_uint256(ByteBuffer &buf, const uint256 &val) {
     buf.resize(buf.length() + UINT256_SIZE);
     val.write_be(buf.raw() + buf.length() - UINT256_SIZE);
+}
+
+static void serialize_channel_layout(ByteBuffer &buf, SoundIoChannelLayout *layout) {
+    buf.append_uint32be(layout->channel_count);
+    for (int i = 0; i < layout->channel_count; i += 1) {
+        buf.append_uint32be(layout->channels[i]);
+    }
 }
 
 static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffer &buffer) {
@@ -759,6 +798,12 @@ static void serialize_from_enum(void *ptr, SerializableFieldType type, ByteBuffe
         {
             float *value = static_cast<float *>(ptr);
             buffer.append_float(*value);
+            break;
+        }
+    case SerializableFieldTypeChannelLayout:
+        {
+            SoundIoChannelLayout *value = static_cast<SoundIoChannelLayout *>(ptr);
+            serialize_channel_layout(buffer, value);
             break;
         }
     }
@@ -917,6 +962,33 @@ static int deserialize_uint256(uint256 *x, const ByteBuffer &buffer, int *offset
     return 0;
 }
 
+static int deserialize_channel_layout(SoundIoChannelLayout *layout, const ByteBuffer &buffer, int *offset) {
+    if (buffer.length() - *offset < 4)
+        return GenesisErrorInvalidFormat;
+
+    uint32_t unsigned_channel_count = read_uint32be(buffer.raw() + *offset);
+    if (unsigned_channel_count > GENESIS_MAX_CHANNELS)
+        return GenesisErrorInvalidFormat;
+
+    layout->channel_count = unsigned_channel_count;
+    *offset += 4;
+
+    if (buffer.length() - *offset < layout->channel_count * 4)
+        return GenesisErrorInvalidFormat;
+
+    for (int i = 0; i < layout->channel_count; i += 1) {
+        uint32_t channel_id = read_uint32be(buffer.raw() + *offset);
+        if (channel_id >= GENESIS_CHANNEL_ID_COUNT)
+            return GenesisErrorInvalidFormat;
+        layout->channels[i] = (SoundIoChannelId)channel_id;
+        *offset += 4;
+    }
+
+    soundio_channel_layout_detect_builtin(layout);
+
+    return 0;
+}
+
 template<typename T>
 static int deserialize_object(T *obj, const ByteBuffer &buffer, int *offset) {
     const SerializableField<T> *serializable_fields = get_serializable_fields(obj);
@@ -1058,6 +1130,8 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
                     return deserialize_object(reinterpret_cast<AddAudioClipSegmentCommand*>(cmd), buffer, offset);
                 case CommandTypeChangeSampleRate:
                     return deserialize_object(reinterpret_cast<ChangeSampleRateCommand*>(cmd), buffer, offset);
+                case CommandTypeChangeChannelLayout:
+                    return deserialize_object(reinterpret_cast<ChangeChannelLayoutCommand*>(cmd), buffer, offset);
             }
             panic("unreachable");
         }
@@ -1074,6 +1148,11 @@ static int deserialize_from_enum(void *ptr, SerializableFieldType type, const By
         {
             float *value = static_cast<float *>(ptr);
             return deserialize_float(value, buffer, offset);
+        }
+    case SerializableFieldTypeChannelLayout:
+        {
+            SoundIoChannelLayout *value = static_cast<SoundIoChannelLayout *>(ptr);
+            return deserialize_channel_layout(value, buffer, offset);
         }
     }
     panic("unreachable");
@@ -1094,6 +1173,16 @@ static OrderedMapFileBuffer *omf_buf_uint32(uint32_t x) {
 static OrderedMapFileBuffer *omf_buf_byte_buffer(const ByteBuffer &byte_buffer) {
     OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(byte_buffer.length()));
     memcpy(buf->data, byte_buffer.raw(), byte_buffer.length());
+    return buf;
+}
+
+static OrderedMapFileBuffer *omf_buf_channel_layout(const SoundIoChannelLayout *layout) {
+    assert(layout->channel_count <= GENESIS_MAX_CHANNELS);
+    OrderedMapFileBuffer *buf = ok_mem(ordered_map_file_buffer_create(4 + 4 * layout->channel_count));
+    write_uint32be(buf->data, layout->channel_count);
+    for (int i = 0; i < layout->channel_count; i += 1) {
+        write_uint32be(&buf->data[4 + i * 4], layout->channels[i]);
+    }
     return buf;
 }
 
@@ -1648,6 +1737,9 @@ static int deserialize_command(Project *project, const ByteBuffer &key, const By
         case CommandTypeChangeSampleRate:
             command = create_zero<ChangeSampleRateCommand>();
             break;
+        case CommandTypeChangeChannelLayout:
+            command = create_zero<ChangeChannelLayoutCommand>();
+            break;
         case CommandTypeUndo:
             command = create_zero<UndoCommand>();
             break;
@@ -1724,6 +1816,32 @@ static int read_scalar_string(Project *project, PropKey prop_key, String &string
     string = String::decode(buf, &ok);
     if (!ok)
         return GenesisErrorDecodingString;
+    return 0;
+}
+
+static int read_scalar_channel_layout(Project *project, PropKey prop_key, SoundIoChannelLayout *layout) {
+    ByteBuffer buf;
+    int err;
+    if ((err = read_scalar_byte_buffer(project, prop_key, buf))) {
+        return err;
+    }
+    if (buf.length() < 4)
+        return GenesisErrorInvalidFormat;
+    uint32_t unsigned_channel_count = read_uint32be(buf.raw());
+    if (unsigned_channel_count > GENESIS_MAX_CHANNELS)
+        return GenesisErrorInvalidFormat;
+
+    layout->channel_count = unsigned_channel_count;
+    if (buf.length() < 4 + layout->channel_count * 4)
+        return GenesisErrorInvalidFormat;
+
+    for (int i = 0; i < layout->channel_count; i += 1) {
+        uint32_t channel_id = read_uint32be(buf.raw() + 4 + 4 * i);
+        if (channel_id >= GENESIS_CHANNEL_ID_COUNT)
+            return GenesisErrorInvalidFormat;
+        layout->channels[i] = (SoundIoChannelId)channel_id;
+    }
+    soundio_channel_layout_detect_builtin(layout);
     return 0;
 }
 
@@ -1823,6 +1941,11 @@ int project_open(const char *path, GenesisContext *genesis_context, SettingsFile
     }
 
     if ((err = read_scalar_uint32be_as_int(project, PropKeySampleRate, &project->sample_rate))) {
+        project_close(project);
+        return err;
+    }
+
+    if ((err = read_scalar_channel_layout(project, PropKeyChannelLayout, &project->channel_layout))) {
         project_close(project);
         return err;
     }
@@ -2012,6 +2135,11 @@ int project_create(const char *path, GenesisContext *genesis_context, SettingsFi
     project->sample_rate = 44100;
     ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeySampleRate),
                 omf_buf_uint32(project->sample_rate)));
+
+    // Add default channel layout
+    project->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo);
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyChannelLayout),
+                omf_buf_channel_layout(&project->channel_layout)));
 
     // Add default project tags
     project->tag_title = "";
@@ -2308,6 +2436,11 @@ void project_set_sample_rate(Project *project, int sample_rate) {
     project_perform_command(cmd);
 }
 
+void project_set_channel_layout(Project *project, const SoundIoChannelLayout *layout) {
+    ChangeChannelLayoutCommand *cmd = create<ChangeChannelLayoutCommand>(project, layout);
+    project_perform_command(cmd);
+}
+
 AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :
     Command(project),
     name(name),
@@ -2502,6 +2635,36 @@ void ChangeSampleRateCommand::serialize(ByteBuffer &buf) {
 }
 
 int ChangeSampleRateCommand::deserialize(const ByteBuffer &buffer, int *offset) {
+    return deserialize_object(this, buffer, offset);
+}
+
+ChangeChannelLayoutCommand::ChangeChannelLayoutCommand(Project *project,
+        const SoundIoChannelLayout *layout) :
+    Command(project)
+{
+    this->old_layout = project->channel_layout;
+    this->new_layout = *layout;
+}
+
+void ChangeChannelLayoutCommand::undo(OrderedMapFileBatch *batch) {
+    project->channel_layout = old_layout;
+    trigger_event(project, EventProjectChannelLayoutChanged);
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyChannelLayout),
+                omf_buf_channel_layout(&project->channel_layout)));
+}
+
+void ChangeChannelLayoutCommand::redo(OrderedMapFileBatch *batch) {
+    project->channel_layout = new_layout;
+    trigger_event(project, EventProjectChannelLayoutChanged);
+    ok_or_panic(ordered_map_file_batch_put(batch, create_basic_key(PropKeyChannelLayout),
+                omf_buf_channel_layout(&project->channel_layout)));
+}
+
+void ChangeChannelLayoutCommand::serialize(ByteBuffer &buf) {
+    serialize_object(this, buf);
+}
+
+int ChangeChannelLayoutCommand::deserialize(const ByteBuffer &buffer, int *offset) {
     return deserialize_object(this, buffer, offset);
 }
 

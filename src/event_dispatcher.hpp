@@ -27,6 +27,7 @@ enum Event {
     EventSoundBackendDisconnected,
     EventDeviceDesignationChange,
     EventProjectSampleRateChanged,
+    EventProjectChannelLayoutChanged,
 };
 
 struct EventHandler {
