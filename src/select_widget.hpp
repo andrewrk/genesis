@@ -51,6 +51,7 @@ public:
     int padding_right;
     int padding_top;
     int padding_bottom;
+    int icon_spacing;
     glm::vec4 text_color;
 
     const SpritesheetImage *arrow_icon_img;

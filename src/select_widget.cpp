@@ -31,6 +31,7 @@ SelectWidget::SelectWidget(GuiWindow *gui_window) :
     padding_right = 4;
     padding_top = 4;
     padding_bottom = 4;
+    icon_spacing = 4;
     hovering = false;
     text_color = color_fg_text();
     selected_index = -1;
@@ -45,6 +46,8 @@ void SelectWidget::draw(const glm::mat4 &projection) {
     bg.draw(gui_window, projection);
     if (selected_index >= 0)
         label.draw(projection * label_model, text_color);
+
+    gui->draw_image_color(gui_window, arrow_icon_img, projection * arrow_icon_model, text_color);
 }
 
 void SelectWidget::update_model() {
@@ -52,6 +55,12 @@ void SelectWidget::update_model() {
     bg.update(this, 0, 0, width, height);
 
     label_model = transform2d(padding_left, padding_top);
+
+    float icon_h = label.height();
+    float icon_w = icon_h;
+    float scale_x = ((float)icon_w) / ((float)arrow_icon_img->width);
+    float scale_y = ((float)icon_h) / ((float)arrow_icon_img->height);
+    arrow_icon_model = transform2d(width - padding_right - icon_w - icon_spacing, padding_top, scale_x, scale_y);
 }
 
 void SelectWidget::clear() {
@@ -129,5 +138,5 @@ int SelectWidget::max_height() const {
 }
 
 int SelectWidget::min_width() const {
-    return padding_left + label.width() + padding_right;
+    return padding_left + label.width() + icon_spacing + label.height() + padding_right;
 }
