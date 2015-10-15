@@ -224,7 +224,7 @@ int GridLayoutWidget::get_row_max_height(int row) const {
     for (int col = 0; col < cols(); col += 1) {
         const Cell *cell = &cells.at(row).at(col);
         if (!cell->widget)
-            return -1;
+            continue;
         int widget_max_height = cell->widget->max_height();
         if (widget_max_height == -1)
             return -1;
@@ -254,7 +254,7 @@ int GridLayoutWidget::get_col_max_width(int col) const {
     for (int row = 0; row < rows(); row += 1) {
         const Cell *cell = &cells.at(row).at(col);
         if (!cell->widget)
-            return -1;
+            continue;
         int widget_max_width = cell->widget->max_width();
         if (widget_max_width == -1)
             return -1;

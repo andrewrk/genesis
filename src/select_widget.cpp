@@ -8,8 +8,7 @@ static void on_select_choice(void *userdata) {
     SelectWidgetItem *item = (SelectWidgetItem *)userdata;
     SelectWidget *select_widget = item->parent;
     select_widget->selected_index = item->index;
-    if (select_widget->on_selected_index_change)
-        select_widget->on_selected_index_change(select_widget);
+    select_widget->events.trigger(EventSelectedIndexChanged);
 }
 
 static void on_context_menu_destroy(ContextMenuWidget *context_menu_widget) {

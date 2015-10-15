@@ -2,35 +2,98 @@
 
 #include <stdint.h>
 
-static const SoundIoFormat prioritized_sample_formats[] = {
-    SoundIoFormatS24NE,
-    SoundIoFormatFloat32NE,
-    SoundIoFormatS32NE,
-    SoundIoFormatS16NE,
-    SoundIoFormatFloat64NE,
+static const SoundIoFormat sample_format_list[] = {
     SoundIoFormatU8,
+    SoundIoFormatS16NE,
+    SoundIoFormatS24NE,
+    SoundIoFormatS32NE,
+    SoundIoFormatFloat32NE,
+    SoundIoFormatFloat64NE,
 };
 
-static const int prioritized_sample_rates[] = {
-    48000,
-    44100,
-    96000,
-    32000,
+static const int sample_rate_list[] = {
+    8000,
+    11025,
     16000,
+    22050,
+    32000,
+    44100,
+    48000,
+    88200,
+    96000,
+    176400,
+    192000,
+    352800,
+    384000,
 };
 
-/*
-static const char *prioritized_formats = {
-    "flac",
-    "wav",
-    "opus",
-    "ogg",
-    "mp3",
-    "mp4",
-    "wma",
-    "wv",
+struct RenderFormat {
+    RenderFormatType render_format_type;
+    AVCodecID codec_id;
+    const char *desc;
+    const char *name;
+    const char *extension;
+    bool has_bit_rate;
 };
-*/
+
+static const RenderFormat prioritized_render_formats[] = {
+    {
+        RenderFormatTypeFlac,
+        AV_CODEC_ID_FLAC,
+        "FLAC (.flac)",
+        "flac",
+        ".flac",
+        false,
+    },
+    {
+        RenderFormatTypeVorbis,
+        AV_CODEC_ID_VORBIS,
+        "Vorbis (.ogg)",
+        "ogg",
+        ".ogg",
+        true,
+    },
+    {
+        RenderFormatTypeOpus,
+        AV_CODEC_ID_OPUS,
+        "Opus (.opus)",
+        "opus",
+        ".opus",
+        true,
+    },
+    {
+        RenderFormatTypeWav,
+        AV_CODEC_ID_PCM_F32LE,
+        "WAV (.wav)",
+        "wav",
+        ".wav",
+        false,
+    },
+    {
+        RenderFormatTypeMp3,
+        AV_CODEC_ID_MP3,
+        "MP3 (.mp3)",
+        "mp3",
+        ".mp3",
+        true,
+    },
+    {
+        RenderFormatTypeAac,
+        AV_CODEC_ID_AAC,
+        "AAC (.mp4)",
+        "mp4",
+        ".mp4",
+        true,
+    },
+};
+
+static const int bit_rate_list[] = {
+    128,
+    160,
+    192,
+    256,
+    320,
+};
 
 static int import_frame_uint8(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
@@ -482,7 +545,7 @@ void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file) {
 }
 
 GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
-        List<GenesisAudioFileFormat*> &out_formats, const char *filename_hint,
+        List<GenesisRenderFormat*> &out_formats, const char *filename_hint,
         const char *format_name, const char *codec_name)
 {
     AVOutputFormat *oformat = av_guess_format(format_name, filename_hint, nullptr);
@@ -490,11 +553,9 @@ GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
         return nullptr;
 
     for (int i = 0; i < out_formats.length(); i += 1) {
-        GenesisAudioFileFormat *format = out_formats.at(i);
+        GenesisRenderFormat *format = out_formats.at(i);
         if (format->oformat == oformat) {
-            // there is always guaranteed to be the main codec, and we always
-            // choose it here
-            return &format->codecs.at(0);
+            return &format->codec;
         }
     }
     return nullptr;
@@ -813,7 +874,7 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
         const char *output_filename, struct GenesisExportFormat *export_format)
 {
     AVCodec *codec = export_format->codec->codec;
-    AVOutputFormat *oformat = export_format->codec->format->oformat;
+    AVOutputFormat *oformat = export_format->codec->render_format->oformat;
 
     if (!av_codec_is_encoder(codec))
         panic("not encoder: %s\n", codec->name);
@@ -1042,32 +1103,22 @@ int audio_file_init(void) {
     return 0;
 }
 
-static int add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {
-    if (!codec)
-        return 0;
-
-    int err = fmt->codecs.resize(fmt->codecs.length() + 1);
-    if (err)
-        return err;
-
-    GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.at(fmt->codecs.length() - 1);
+static int complete_audio_file_codec(GenesisAudioFileCodec *audio_file_codec, AVCodec *codec) {
+    int err;
     audio_file_codec->codec = codec;
-    audio_file_codec->format = fmt;
-    for (int j = 0; j < array_length(prioritized_sample_formats); j += 1) {
+    for (int j = 0; j < array_length(sample_format_list); j += 1) {
         if (genesis_audio_file_codec_supports_sample_format(audio_file_codec,
-                    prioritized_sample_formats[j]))
+                    sample_format_list[j]))
         {
-            err = audio_file_codec->prioritized_sample_formats.append(prioritized_sample_formats[j]);
-            if (err)
+            if ((err = audio_file_codec->sample_format_list.append(sample_format_list[j])))
                 return err;
         }
     }
-    for (int j = 0; j < array_length(prioritized_sample_rates); j += 1) {
+    for (int j = 0; j < array_length(sample_rate_list); j += 1) {
         if (genesis_audio_file_codec_supports_sample_rate(audio_file_codec,
-                    prioritized_sample_rates[j]))
+                    sample_rate_list[j]))
         {
-            err = audio_file_codec->prioritized_sample_rates.append(prioritized_sample_rates[j]);
-            if (err)
+            if ((err = audio_file_codec->sample_rate_list.append(sample_rate_list[j])))
                 return err;
         }
     }
@@ -1075,43 +1126,37 @@ static int add_audio_file_codec(GenesisAudioFileFormat *fmt, AVCodec *codec) {
     return 0;
 }
 
-int audio_file_get_out_formats(List<GenesisAudioFileFormat*> &formats) {
-    formats.clear();
-    AVOutputFormat *oformat = nullptr;
-    while ((oformat = av_oformat_next(oformat))) {
-        if (oformat->audio_codec == AV_CODEC_ID_NONE)
-            continue;
-        AVCodec *main_codec = avcodec_find_encoder(oformat->audio_codec);
-        if (!main_codec)
-            continue;
+int audio_file_get_out_formats(List<GenesisRenderFormat*> &formats) {
+    int err;
 
-        GenesisAudioFileFormat *fmt = create_zero<GenesisAudioFileFormat>();
+    formats.clear();
+    for (int i = 0; i < array_length(prioritized_render_formats); i += 1) {
+        const RenderFormat *render_format = &prioritized_render_formats[i];
+        AVCodec *codec = avcodec_find_encoder(render_format->codec_id);
+        if (!codec)
+            continue;
+        AVOutputFormat *oformat = av_guess_format(render_format->name, nullptr, nullptr);
+        if (!oformat)
+            continue;
+        GenesisRenderFormat *fmt = create_zero<GenesisRenderFormat>();
         if (!fmt)
             return GenesisErrorNoMem;
 
-        int err = formats.append(fmt);
-        if (err) {
+        if ((err = formats.append(fmt))) {
             destroy(fmt, 1);
             return err;
         }
 
-        fmt->iformat = nullptr;
         fmt->oformat = oformat;
+        fmt->description = render_format->desc;
+        fmt->extension = render_format->extension;
+        fmt->render_format_type = render_format->render_format_type;
 
-        fmt->codecs.clear();
-        err = add_audio_file_codec(fmt, main_codec);
-        if (err)
-            return err;
-        for (int i = 0;; i += 1) {
-            AVCodecID codec_id = av_codec_get_id(oformat->codec_tag, i);
-            if (codec_id == AV_CODEC_ID_NONE)
-                break;
-            if (codec_id != oformat->audio_codec) {
-                err = add_audio_file_codec(fmt, avcodec_find_encoder(codec_id));
-                if (err)
-                    return err;
-            }
-        }
+        GenesisAudioFileCodec *audio_file_codec = &fmt->codec;
+        audio_file_codec->audio_file_format = nullptr;
+        audio_file_codec->render_format = fmt;
+        complete_audio_file_codec(audio_file_codec, codec);
+        audio_file_codec->has_bit_rate = render_format->has_bit_rate;
     }
 
     return 0;
@@ -1130,7 +1175,6 @@ int audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
             return err;
 
         fmt->iformat = iformat;
-        fmt->oformat = nullptr;
 
         fmt->codecs.clear();
         for (int i = 0;; i += 1) {
@@ -1143,8 +1187,9 @@ int audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
                 return err;
 
             GenesisAudioFileCodec *audio_file_codec = &fmt->codecs.at(fmt->codecs.length() - 1);
-            audio_file_codec->codec = avcodec_find_decoder(codec_id);
-            audio_file_codec->format = fmt;
+            audio_file_codec->audio_file_format = fmt;
+            audio_file_codec->render_format = nullptr;
+            complete_audio_file_codec(audio_file_codec, avcodec_find_decoder(codec_id));
         }
     }
 
@@ -1152,21 +1197,22 @@ int audio_file_get_in_formats(List<GenesisAudioFileFormat*> &formats) {
 }
 
 const char *genesis_audio_file_format_name(const struct GenesisAudioFileFormat *format) {
-    if (format->oformat) {
-        return format->oformat->name;
-    } else if (format->iformat) {
-        return format->iformat->name;
-    }
-    panic("oformat or iformat must be set");
+    assert(format->iformat);
+    return format->iformat->name;
 }
 
 const char *genesis_audio_file_format_description(const struct GenesisAudioFileFormat *format) {
-    if (format->oformat) {
-        return format->oformat->long_name;
-    } else if (format->iformat) {
-        return format->iformat->long_name;
-    }
-    panic("oformat or iformat must be set");
+    assert(format->iformat);
+    return format->iformat->long_name;
+}
+
+const char *genesis_render_format_name(const struct GenesisRenderFormat *format) {
+    assert(format->oformat);
+    return format->oformat->name;
+}
+
+const char *genesis_render_format_description(const struct GenesisRenderFormat *format) {
+    return format->description;
 }
 
 int genesis_audio_file_format_codec_count(const struct GenesisAudioFileFormat *format) {
@@ -1177,6 +1223,10 @@ struct GenesisAudioFileCodec * genesis_audio_file_format_codec_index(
         struct GenesisAudioFileFormat *format, int codec_index)
 {
     return &format->codecs.at(codec_index);
+}
+
+struct GenesisAudioFileCodec * genesis_render_format_codec(struct GenesisRenderFormat *format) {
+    return &format->codec;
 }
 
 const char *genesis_audio_file_codec_name(const struct GenesisAudioFileCodec *audio_file_codec) {
@@ -1298,4 +1348,78 @@ int genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
     audio_file->channel_layout = *channel_layout;
 
     return 0;
+}
+
+int audio_file_sample_rate_count(void) {
+    return array_length(sample_rate_list);
+}
+
+int audio_file_sample_rate_index(int index) {
+    assert(index >= 0);
+    assert(index < array_length(sample_rate_list));
+    return sample_rate_list[index];
+}
+
+static int sample_format_rank(SoundIoFormat format) {
+    switch (format) {
+        case SoundIoFormatS24NE:        return 0;
+        case SoundIoFormatFloat32NE:    return 1;
+        case SoundIoFormatS32NE:        return 2;
+        case SoundIoFormatS16NE:        return 3;
+        case SoundIoFormatFloat64NE:    return 4;
+        case SoundIoFormatU8:           return 5;
+
+        default:
+            panic("format %s has no rank", soundio_format_string(format));
+    }
+}
+
+static int sample_rate_rank(int sample_rate) {
+    return abs(sample_rate - 44100);
+}
+
+int genesis_audio_file_codec_best_sample_format(const struct GenesisAudioFileCodec *codec) {
+    SoundIoFormat best_format = codec->sample_format_list.at(0);
+    int best_rank = sample_format_rank(best_format);
+    int best_index = 0;
+    for (int i = 1; i < codec->sample_format_list.length(); i += 1) {
+        SoundIoFormat this_format = codec->sample_format_list.at(i);
+        int this_rank = sample_format_rank(this_format);
+        if (this_rank < best_rank) {
+            best_rank = this_rank;
+            best_format = this_format;
+            best_index = i;
+        }
+    }
+    return best_index;
+}
+
+int genesis_audio_file_codec_best_sample_rate(const struct GenesisAudioFileCodec *codec) {
+    int best_sample_rate = codec->sample_rate_list.at(0);
+    int best_rank = sample_rate_rank(best_sample_rate);
+    int best_index = 0;
+    for (int i = 1; i < codec->sample_rate_list.length(); i += 1) {
+        int this_sample_rate = codec->sample_rate_list.at(i);
+        int this_rank = sample_rate_rank(this_sample_rate);
+        if (this_rank < best_rank) {
+            best_rank = this_rank;
+            best_sample_rate = this_sample_rate;
+            best_index = i;
+        }
+    }
+    return best_index;
+}
+
+int genesis_audio_file_codec_best_bit_rate(const struct GenesisAudioFileCodec *codec) {
+    return codec->has_bit_rate ? (array_length(bit_rate_list) - 1) : -1;
+}
+
+int genesis_audio_file_codec_bit_rate_count(const struct GenesisAudioFileCodec *codec) {
+    return codec->has_bit_rate ? array_length(bit_rate_list) : 0;
+}
+
+int genesis_audio_file_codec_bit_rate_index(const struct GenesisAudioFileCodec *codec, int index) {
+    assert(index >= 0);
+    assert(index < array_length(bit_rate_list));
+    return bit_rate_list[index];
 }

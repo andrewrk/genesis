@@ -100,6 +100,7 @@ struct GenesisPort;
 struct GenesisNode;
 
 struct GenesisAudioFileFormat;
+struct GenesisRenderFormat;
 struct GenesisAudioFileCodec;
 struct GenesisAudioFile;
 
@@ -363,16 +364,22 @@ GENESIS_EXPORT int genesis_out_format_count(struct GenesisContext *context);
 
 GENESIS_EXPORT struct GenesisAudioFileFormat *genesis_in_format_index(
         struct GenesisContext *context, int format_index);
-GENESIS_EXPORT struct GenesisAudioFileFormat *genesis_out_format_index(
+GENESIS_EXPORT struct GenesisRenderFormat *genesis_out_format_index(
         struct GenesisContext *context, int format_index);
 
 GENESIS_EXPORT const char *genesis_audio_file_format_name(const struct GenesisAudioFileFormat *format);
 GENESIS_EXPORT const char *genesis_audio_file_format_description(const struct GenesisAudioFileFormat *format);
 
+GENESIS_EXPORT const char *genesis_render_format_name(const struct GenesisRenderFormat *format);
+GENESIS_EXPORT const char *genesis_render_format_description(const struct GenesisRenderFormat *format);
+
 GENESIS_EXPORT int genesis_audio_file_format_codec_count(const struct GenesisAudioFileFormat *format);
 
 GENESIS_EXPORT struct GenesisAudioFileCodec * genesis_audio_file_format_codec_index(
         struct GenesisAudioFileFormat *format, int codec_index);
+
+/// GenesisRenderFormat always have exactly one codec.
+GENESIS_EXPORT struct GenesisAudioFileCodec * genesis_render_format_codec(struct GenesisRenderFormat *format);
 
 GENESIS_EXPORT struct GenesisAudioFileCodec *genesis_guess_audio_file_codec(
         struct GenesisContext *context, const char *filename_hint,
@@ -384,11 +391,21 @@ GENESIS_EXPORT const char *genesis_audio_file_codec_name(
 GENESIS_EXPORT const char *genesis_audio_file_codec_description(
         const struct GenesisAudioFileCodec *codec);
 
+
 GENESIS_EXPORT int genesis_audio_file_codec_sample_format_count(
         const struct GenesisAudioFileCodec *codec);
 
 GENESIS_EXPORT enum SoundIoFormat genesis_audio_file_codec_sample_format_index(
         const struct GenesisAudioFileCodec *codec, int index);
+
+/// Returns the index
+GENESIS_EXPORT int genesis_audio_file_codec_best_sample_format(
+        const struct GenesisAudioFileCodec *codec);
+
+GENESIS_EXPORT bool genesis_audio_file_codec_supports_sample_format(
+        const struct GenesisAudioFileCodec *codec,
+        enum SoundIoFormat sample_format);
+
 
 GENESIS_EXPORT int genesis_audio_file_codec_sample_rate_count(
         const struct GenesisAudioFileCodec *codec);
@@ -396,13 +413,23 @@ GENESIS_EXPORT int genesis_audio_file_codec_sample_rate_count(
 GENESIS_EXPORT int genesis_audio_file_codec_sample_rate_index(
         const struct GenesisAudioFileCodec *codec, int index);
 
-GENESIS_EXPORT bool genesis_audio_file_codec_supports_sample_format(
-        const struct GenesisAudioFileCodec *codec,
-        enum SoundIoFormat sample_format);
+/// Returns the index
+GENESIS_EXPORT int genesis_audio_file_codec_best_sample_rate(
+        const struct GenesisAudioFileCodec *codec);
 
 GENESIS_EXPORT bool genesis_audio_file_codec_supports_sample_rate(
         const struct GenesisAudioFileCodec *codec, int sample_rate);
 
+
+GENESIS_EXPORT int genesis_audio_file_codec_bit_rate_count(
+        const struct GenesisAudioFileCodec *codec);
+
+GENESIS_EXPORT int genesis_audio_file_codec_bit_rate_index(
+        const struct GenesisAudioFileCodec *codec, int index);
+
+/// Returns the index
+GENESIS_EXPORT int genesis_audio_file_codec_best_bit_rate(
+        const struct GenesisAudioFileCodec *codec);
 
 
 ////////////////// Audio File

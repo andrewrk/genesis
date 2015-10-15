@@ -753,7 +753,7 @@ struct GenesisAudioFileFormat *genesis_in_format_index(
     return context->in_formats.at(format_index);
 }
 
-struct GenesisAudioFileFormat *genesis_out_format_index(
+struct GenesisRenderFormat *genesis_out_format_index(
         struct GenesisContext *context, int format_index)
 {
     return context->out_formats.at(format_index);
@@ -767,23 +767,23 @@ struct GenesisAudioFileCodec *genesis_guess_audio_file_codec(
 }
 
 int genesis_audio_file_codec_sample_format_count(const struct GenesisAudioFileCodec *codec) {
-    return codec ? codec->prioritized_sample_formats.length() : 0;
+    return codec ? codec->sample_format_list.length() : 0;
 }
 
 enum SoundIoFormat genesis_audio_file_codec_sample_format_index(
         const struct GenesisAudioFileCodec *codec, int index)
 {
-    return codec->prioritized_sample_formats.at(index);
+    return codec->sample_format_list.at(index);
 }
 
 int genesis_audio_file_codec_sample_rate_count(const struct GenesisAudioFileCodec *codec) {
-    return codec ? codec->prioritized_sample_rates.length() : 0;
+    return codec ? codec->sample_rate_list.length() : 0;
 }
 
 int genesis_audio_file_codec_sample_rate_index(
         const struct GenesisAudioFileCodec *codec, int index)
 {
-    return codec->prioritized_sample_rates.at(index);
+    return codec->sample_rate_list.at(index);
 }
 
 static void get_audio_port_status(GenesisAudioPort *audio_out_port, bool *empty, bool *full) {

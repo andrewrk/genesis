@@ -5,6 +5,8 @@
 #include "string.hpp"
 #include "uint256.hpp"
 #include "device_id.hpp"
+#include "event_dispatcher.hpp"
+#include "audio_file.hpp"
 
 struct LaxJsonContext;
 
@@ -85,6 +87,9 @@ struct SettingsFileDeviceId {
 };
 
 struct SettingsFile {
+    // use this to announce when you change a setting (if anyone cares)
+    EventDispatcher events;
+
     // settings you can directly manipulate
     uint256 open_project_id;
     String user_name;
@@ -95,6 +100,9 @@ struct SettingsFile {
     // index is DeviceId. if backend_name is NULL then that DeviceId is unspecified
     List<SettingsFileDeviceId> device_designations;
     double latency;
+    RenderFormatType default_render_format;
+    SoundIoFormat default_render_sample_formats[RenderFormatTypeCount];
+    int default_render_bit_rates[RenderFormatTypeCount];
 
     // private state
     ByteBuffer path;
@@ -115,5 +123,14 @@ void settings_file_close(SettingsFile *sf);
 int settings_file_commit(SettingsFile *sf);
 
 void settings_file_clear_dock(SettingsFileDock *dock);
+
+// you still need to commit after calling these
+void settings_file_set_default_render_format(SettingsFile *sf, RenderFormatType format_type);
+
+void settings_file_set_default_render_sample_format(SettingsFile *sf,
+        RenderFormatType format_type, SoundIoFormat sample_format);
+
+void settings_file_set_default_render_bit_rate(SettingsFile *sf,
+        RenderFormatType format_type, int bit_rate);
 
 #endif

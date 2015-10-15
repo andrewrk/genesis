@@ -3,22 +3,7 @@
 #include "text_widget.hpp"
 #include "select_widget.hpp"
 #include "spacer_widget.hpp"
-
-static const int sample_rate_list[] = {
-    8000,
-    11025,
-    16000,
-    22050,
-    32000,
-    44100,
-    48000,
-    88200,
-    96000,
-    176400,
-    192000,
-    352800,
-    384000,
-};
+#include "audio_file.hpp"
 
 static void on_sample_rate_changed(Event, void *userdata) {
     ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)userdata;
@@ -30,19 +15,23 @@ static void on_channel_layout_changed(Event, void *userdata) {
     project_props_widget->select_project_channel_layout();
 }
 
-static void on_selected_sample_rate_change(SelectWidget *select_widget) {
-    int sample_rate = sample_rate_list[select_widget->selected_index];
-    ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)select_widget->userdata;
+static void on_selected_sample_rate_change(Event, void *userdata) {
+    ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)userdata;
+    int sample_rate = audio_file_sample_rate_index(project_props_widget->sample_rate_select->selected_index);
     project_set_sample_rate(project_props_widget->project, sample_rate);
 }
 
-static void on_selected_channel_layout_change(SelectWidget *select_widget) {
-    const SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(select_widget->selected_index);
-    ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)select_widget->userdata;
+static void on_selected_channel_layout_change(Event, void *userdata) {
+    ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)userdata;
+    const SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(
+            project_props_widget->channel_layout_select->selected_index);
     project_set_channel_layout(project_props_widget->project, layout);
 }
 
 ProjectPropsWidget::~ProjectPropsWidget() {
+    channel_layout_select->events.detach_handler(EventSelectedIndexChanged, on_selected_channel_layout_change);
+    sample_rate_select->events.detach_handler(EventSelectedIndexChanged, on_selected_sample_rate_change);
+
     project->events.detach_handler(EventProjectChannelLayoutChanged, on_channel_layout_changed);
     project->events.detach_handler(EventProjectSampleRateChanged, on_sample_rate_changed);
 }
@@ -58,18 +47,18 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
         const SoundIoChannelLayout *layout = soundio_channel_layout_get_builtin(i);
         channel_layout_select->append_choice(layout->name);
     }
-    channel_layout_select->userdata = this;
-    channel_layout_select->on_selected_index_change = on_selected_channel_layout_change;
+    channel_layout_select->events.attach_handler(EventSelectedIndexChanged,
+            on_selected_channel_layout_change, this);
     layout.add_widget(create_form_label("Channel Layout:"), 0, 0, HAlignRight, VAlignCenter);
     layout.add_widget(channel_layout_select, 0, 1, HAlignLeft, VAlignCenter);
 
     sample_rate_select = create<SelectWidget>(gui_window);
-    for (int i = 0; i < array_length(sample_rate_list); i += 1) {
-        int sample_rate = sample_rate_list[i];
+    int sample_rate_count = audio_file_sample_rate_count();
+    for (int i = 0; i < sample_rate_count; i += 1) {
+        int sample_rate = audio_file_sample_rate_index(i);
         sample_rate_select->append_choice(ByteBuffer::format("%d", sample_rate));
     }
-    sample_rate_select->userdata = this;
-    sample_rate_select->on_selected_index_change = on_selected_sample_rate_change;
+    sample_rate_select->events.attach_handler(EventSelectedIndexChanged, on_selected_sample_rate_change, this);
     layout.add_widget(create_form_label("Sample Rate:"), 1, 0, HAlignRight, VAlignCenter);
     layout.add_widget(sample_rate_select, 1, 1, HAlignLeft, VAlignCenter);
 
@@ -142,8 +131,9 @@ void ProjectPropsWidget::on_mouse_move(const MouseEvent *ev) {
 }
 
 void ProjectPropsWidget::select_project_sample_rate() {
-    for (int i = 0; i < array_length(sample_rate_list); i += 1) {
-        int sample_rate = sample_rate_list[i];
+    int sample_rate_count = audio_file_sample_rate_count();
+    for (int i = 0; i < sample_rate_count; i += 1) {
+        int sample_rate = audio_file_sample_rate_index(i);
         if (project->sample_rate == sample_rate) {
             sample_rate_select->select_index(i);
             return;

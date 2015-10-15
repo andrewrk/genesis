@@ -16,6 +16,7 @@
 #include "piano_roll_widget.hpp"
 #include "audio_graph.hpp"
 #include "project_props_widget.hpp"
+#include "render_widget.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -175,6 +176,31 @@ GenesisEditor::GenesisEditor() :
         settings_dirty = true;
     }
 
+    int out_format_count = genesis_out_format_count(genesis_context);
+    for (int i = 0; i < out_format_count; i += 1) {
+        GenesisRenderFormat *render_format = genesis_out_format_index(genesis_context, i);
+        GenesisAudioFileCodec *codec = genesis_render_format_codec(render_format);
+        SoundIoFormat sf_format = settings_file->default_render_sample_formats[render_format->render_format_type];
+        int sf_bit_rate = settings_file->default_render_bit_rates[render_format->render_format_type];
+        int best_bit_rate_index = genesis_audio_file_codec_best_bit_rate(codec);
+        if (sf_format == SoundIoFormatInvalid) {
+            int best_sample_format_index = genesis_audio_file_codec_best_sample_format(codec);
+            settings_file->default_render_sample_formats[render_format->render_format_type] =
+                genesis_audio_file_codec_sample_format_index(codec, best_sample_format_index);
+            settings_dirty = true;
+        }
+        if (!sf_bit_rate && best_bit_rate_index >= 0) {
+            settings_file->default_render_bit_rates[render_format->render_format_type] =
+                genesis_audio_file_codec_bit_rate_index(codec, best_bit_rate_index);
+            settings_dirty = true;
+        }
+        if (settings_file->default_render_format == RenderFormatTypeInvalid) {
+            settings_file->default_render_format = render_format->render_format_type;
+            settings_dirty = true;
+        }
+    }
+
+
     genesis_set_latency(genesis_context, settings_file->latency);
     user = user_create(settings_file->user_id, settings_file->user_name);
 
@@ -224,6 +250,8 @@ GenesisEditor::GenesisEditor() :
         perspective->dock.child_b->dock_type = SettingsFileDockTypeTabs;
         ok_or_panic(perspective->dock.child_b->tabs.append("Track Editor"));
         ok_or_panic(perspective->dock.child_b->tabs.append("Mixer"));
+
+        // TODO add more default docks
 
         settings_dirty = true;
     }
@@ -402,6 +430,9 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
 
     ProjectPropsWidget *project_props = create<ProjectPropsWidget>(new_window, project);
     add_dock(editor_window, project_props, "Project");
+
+    RenderWidget *render_widget = create<RenderWidget>(new_window, project, settings_file);
+    add_dock(editor_window, render_widget, "Render");
 
     DockAreaWidget *dock_area = create<DockAreaWidget>(new_window);
     editor_window->dock_area = dock_area;

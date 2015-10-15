@@ -28,6 +28,11 @@ enum Event {
     EventDeviceDesignationChange,
     EventProjectSampleRateChanged,
     EventProjectChannelLayoutChanged,
+    EventSelectedIndexChanged,
+    EventActivate,
+    EventSettingsDefaultRenderFormatChanged,
+    EventSettingsDefaultRenderSampleFormatChanged,
+    EventSettingsDefaultRenderBitRateChanged,
 };
 
 struct EventHandler {

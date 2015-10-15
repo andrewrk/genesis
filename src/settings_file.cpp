@@ -647,6 +647,7 @@ SettingsFile *settings_file_open(const ByteBuffer &path) {
     sf->open_project_id = uint256::zero();
     sf->user_name = "";
     sf->user_id = uint256::zero();
+    sf->default_render_format = RenderFormatTypeInvalid;
 
     ok_or_panic(sf->device_designations.resize(device_id_count() + 1));
     for (int i = 0; i < sf->device_designations.length(); i += 1) {
@@ -798,4 +799,23 @@ int settings_file_commit(SettingsFile *sf) {
         return err;
 
     return 0;
+}
+
+void settings_file_set_default_render_format(SettingsFile *sf, RenderFormatType format_type) {
+    sf->default_render_format = format_type;
+    sf->events.trigger(EventSettingsDefaultRenderFormatChanged);
+}
+
+void settings_file_set_default_render_sample_format(SettingsFile *sf,
+        RenderFormatType format_type, SoundIoFormat sample_format)
+{
+    sf->default_render_sample_formats[format_type] = sample_format;
+    sf->events.trigger(EventSettingsDefaultRenderSampleFormatChanged);
+}
+
+void settings_file_set_default_render_bit_rate(SettingsFile *sf,
+        RenderFormatType format_type, int bit_rate)
+{
+    sf->default_render_bit_rates[format_type] = bit_rate;
+    sf->events.trigger(EventSettingsDefaultRenderBitRateChanged);
 }

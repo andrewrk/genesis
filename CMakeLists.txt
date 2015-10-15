@@ -48,6 +48,7 @@ set(LIBGENESIS_HEADERS
 set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/alpha_texture.cpp"
     "${CMAKE_SOURCE_DIR}/src/audio_graph.cpp"
+    "${CMAKE_SOURCE_DIR}/src/button_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/byte_buffer.cpp"
     "${CMAKE_SOURCE_DIR}/src/crc32.cpp"
     "${CMAKE_SOURCE_DIR}/src/device_id.cpp"
@@ -71,6 +72,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/project.cpp"
     "${CMAKE_SOURCE_DIR}/src/project_props_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/render_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/resource_bundle.cpp"
     "${CMAKE_SOURCE_DIR}/src/resources_tree_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/scroll_bar_widget.cpp"
