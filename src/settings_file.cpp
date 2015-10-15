@@ -13,7 +13,7 @@ static int parse_error(SettingsFile *sf, const char *msg) {
 }
 
 static SoundIoBackend get_backend_from_str(const char *str) {
-    static SoundIoBackend all_backends[] = {
+    static const SoundIoBackend all_backends[] = {
         SoundIoBackendJack,
         SoundIoBackendPulseAudio,
         SoundIoBackendAlsa,
@@ -27,6 +27,63 @@ static SoundIoBackend get_backend_from_str(const char *str) {
         }
     }
     return SoundIoBackendNone;
+}
+
+static const char *render_format_type_to_str(RenderFormatType render_format_type) {
+    switch (render_format_type) {
+        case RenderFormatTypeInvalid:
+        case RenderFormatTypeCount:
+            panic("invalid render format type");
+        case RenderFormatTypeFlac:
+            return "flac";
+        case RenderFormatTypeVorbis:
+            return "vorbis";
+        case RenderFormatTypeOpus:
+            return "opus";
+        case RenderFormatTypeWav:
+            return "wav";
+        case RenderFormatTypeMp3:
+            return "mp3";
+        case RenderFormatTypeAac:
+            return "aac";
+    }
+    panic("invalid render format type");
+}
+
+static RenderFormatType parse_render_format_type(const char *str) {
+    static const RenderFormatType all_render_format_types[] = {
+        RenderFormatTypeFlac,
+        RenderFormatTypeVorbis,
+        RenderFormatTypeOpus,
+        RenderFormatTypeWav,
+        RenderFormatTypeMp3,
+        RenderFormatTypeAac,
+    };
+    static_assert(array_length(all_render_format_types) == RenderFormatTypeCount,
+            "expected lengths to match");
+    for (int i = 0; i < array_length(all_render_format_types); i += 1) {
+        if (strcmp(str, render_format_type_to_str(all_render_format_types[i])) == 0) {
+            return all_render_format_types[i];
+        }
+    }
+    return RenderFormatTypeInvalid;
+}
+
+static SoundIoFormat parse_sample_format(const char *str) {
+    static const SoundIoFormat all_sample_formats[] = {
+        SoundIoFormatU8,
+        SoundIoFormatS16NE,
+        SoundIoFormatS24NE,
+        SoundIoFormatS32NE,
+        SoundIoFormatFloat32NE,
+        SoundIoFormatFloat64NE,
+    };
+    for (int i = 0; i < array_length(all_sample_formats); i += 1) {
+        if (strcmp(str, soundio_format_string(all_sample_formats[i])) == 0) {
+            return all_sample_formats[i];
+        }
+    }
+    return SoundIoFormatInvalid;
 }
 
 static int on_string(struct LaxJsonContext *json,
@@ -53,6 +110,10 @@ static int on_string(struct LaxJsonContext *json,
                     sf->state = SettingsFileStateLatency;
                 } else if (ByteBuffer::compare(value, "device_designations") == 0) {
                     sf->state = SettingsFileStateDeviceDesignations;
+                } else if (ByteBuffer::compare(value, "default_render_format") == 0) {
+                    sf->state = SettingsFileStateDefaultRenderFormat;
+                } else if (ByteBuffer::compare(value, "default_render_params") == 0) {
+                    sf->state = SettingsFileStateDefaultRenderParams;
                 } else {
                     return parse_error(sf, "invalid setting name");
                 }
@@ -190,6 +251,38 @@ static int on_string(struct LaxJsonContext *json,
                 sf->state = SettingsFileStateDeviceDesignationIdProp;
                 break;
             }
+        case SettingsFileStateDefaultRenderFormat:
+            {
+                sf->default_render_format = parse_render_format_type(value.raw());
+                if (sf->default_render_format == RenderFormatTypeInvalid)
+                    return parse_error(sf, "invalid format name");
+                sf->state = SettingsFileStateReadyForProp;
+                break;
+            }
+        case SettingsFileStateDefaultRenderParamsFormat:
+            {
+                sf->current_default_render_params_format = parse_render_format_type(value.raw());
+                if (sf->current_default_render_params_format == RenderFormatTypeInvalid)
+                    return parse_error(sf, "invalid format name");
+                sf->state = SettingsFileStateDefaultRenderParamsReadyForObj;
+                break;
+            }
+        case SettingsFileStateDefaultRenderParamsProp:
+            if (ByteBuffer::compare(value, "sample_format") == 0) {
+                sf->state = SettingsFileStateDefaultRenderParamsSampleFormat;
+            } else if (ByteBuffer::compare(value, "bit_rate") == 0) {
+                sf->state = SettingsFileStateDefaultRenderParamsBitRate;
+            } else {
+                return parse_error(sf, "invalid default render params property name");
+            }
+            break;
+        case SettingsFileStateDefaultRenderParamsSampleFormat:
+            {
+                SoundIoFormat format = parse_sample_format(value.raw());
+                sf->default_render_sample_formats[sf->current_default_render_params_format] = format;
+                sf->state = SettingsFileStateDefaultRenderParamsProp;
+                break;
+            }
         default:
             return parse_error(sf, (type == LaxJsonTypeProperty) ? "unexpected property" : "unexpected string");
     }
@@ -228,6 +321,10 @@ static int on_number(struct LaxJsonContext *json, double x) {
         case SettingsFileStateLatency:
             sf->latency = x;
             sf->state = SettingsFileStateReadyForProp;
+            break;
+        case SettingsFileStateDefaultRenderParamsBitRate:
+            sf->default_render_bit_rates[sf->current_default_render_params_format] = (int)x;
+            sf->state = SettingsFileStateDefaultRenderParamsProp;
             break;
     }
     return 0;
@@ -336,6 +433,16 @@ static int on_begin(struct LaxJsonContext *json, enum LaxJsonType type) {
                 return parse_error(sf, "expected null or object");
             sf->state = SettingsFileStateDeviceDesignationIdProp;
             break;
+        case SettingsFileStateDefaultRenderParams:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected object");
+            sf->state = SettingsFileStateDefaultRenderParamsFormat;
+            break;
+        case SettingsFileStateDefaultRenderParamsReadyForObj:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected object");
+            sf->state = SettingsFileStateDefaultRenderParamsProp;
+            break;
     }
     return 0;
 }
@@ -401,6 +508,16 @@ static int on_end(struct LaxJsonContext *json, enum LaxJsonType type) {
             if (type != LaxJsonTypeObject)
                 return parse_error(sf, "expected end object");
             sf->state = SettingsFileStateDeviceDesignationProp;
+            break;
+        case SettingsFileStateDefaultRenderParamsProp:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStateDefaultRenderParamsFormat;
+            break;
+        case SettingsFileStateDefaultRenderParamsFormat:
+            if (type != LaxJsonTypeObject)
+                return parse_error(sf, "expected end object");
+            sf->state = SettingsFileStateReadyForProp;
             break;
     }
     return 0;
@@ -631,6 +748,29 @@ static void json_line_device_designations(FILE *f, int indent, const char *key,
     json_line_outdent(f, &indent, "},");
 }
 
+static void json_line_render_format_defaults(FILE *f, int indent, const char *key,
+        const SoundIoFormat *sample_formats, const int *bit_rates)
+{
+    do_indent(f, indent);
+    fprintf(f, "%s: ", key);
+    json_line_indent(f, &indent, "{");
+
+    for (int i = 0; i < RenderFormatTypeCount; i += 1) {
+        SoundIoFormat format = sample_formats[i];
+        int bit_rate = bit_rates[i];
+
+        do_indent(f, indent);
+        fprintf(f, "%s: ", render_format_type_to_str((RenderFormatType)i));
+
+        json_line_indent(f, &indent, "{");
+        json_line_str(f, indent, "sample_format", soundio_format_string(format));
+        json_line_int(f, indent, "bit_rate", bit_rate);
+        json_line_outdent(f, &indent, "},");
+    }
+
+    json_line_outdent(f, &indent, "},");
+}
+
 static void handle_parse_error(SettingsFile *sf, LaxJsonError err) {
     if (err) {
         fprintf(stderr, "Error parsing config file: %s\n", sf->path.raw());
@@ -787,6 +927,16 @@ int settings_file_commit(SettingsFile *sf) {
     json_line_comment(f, indent, "which actual devices correspond to virtual devices");
     json_line_comment(f, indent, "null means use the system default device for this virtual device");
     json_line_device_designations(f, indent, "device_designations", sf->device_designations);
+    fprintf(f, "\n");
+
+    json_line_comment(f, indent, "in the render dock, which format is selected by default");
+    json_line_str(f, indent, "default_render_format", render_format_type_to_str(sf->default_render_format));
+    fprintf(f, "\n");
+
+    json_line_comment(f, indent, "for each render format, which sample format and bit rate");
+    json_line_comment(f, indent, "are selected by default");
+    json_line_render_format_defaults(f, indent, "default_render_params",
+            sf->default_render_sample_formats, sf->default_render_bit_rates);
     fprintf(f, "\n");
 
     json_line_outdent(f, &indent, "}");

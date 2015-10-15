@@ -49,6 +49,13 @@ enum SettingsFileState {
     SettingsFileStateDeviceDesignationIdBackend,
     SettingsFileStateDeviceDesignationIdDevice,
     SettingsFileStateDeviceDesignationIdRaw,
+    SettingsFileStateDefaultRenderFormat,
+    SettingsFileStateDefaultRenderParams,
+    SettingsFileStateDefaultRenderParamsFormat,
+    SettingsFileStateDefaultRenderParamsReadyForObj,
+    SettingsFileStateDefaultRenderParamsProp,
+    SettingsFileStateDefaultRenderParamsSampleFormat,
+    SettingsFileStateDefaultRenderParamsBitRate,
 };
 
 enum SettingsFileDockType {
@@ -114,6 +121,7 @@ struct SettingsFile {
     SettingsFileOpenWindow *current_open_window;
     DeviceId current_device_id;
     SettingsFileDeviceId *current_sf_device_id;
+    RenderFormatType current_default_render_params_format;
 };
 
 SettingsFile *settings_file_open(const ByteBuffer &path);
