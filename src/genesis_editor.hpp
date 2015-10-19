@@ -19,6 +19,7 @@ struct SettingsFileOpenWindow;
 struct SettingsFileDock;
 class DockablePaneWidget;
 struct EditorWindow;
+struct AudioGraph;
 
 struct EditorPane {
     DockablePaneWidget *pane;
@@ -59,6 +60,7 @@ public:
 
     List<EditorWindow *> windows;
     Project *project;
+    AudioGraph *audio_graph;
     User *user;
     SettingsFile *settings_file;
 

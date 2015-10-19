@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     export_format.sample_rate = sample_rate;
     fprintf(stderr, "out sample rate: %d\n", sample_rate);
 
-    err = genesis_audio_file_export(audio_file, output_filename, &export_format);
+    err = genesis_audio_file_export(audio_file, output_filename, -1, &export_format);
     if (err)
         return report_error(err);
 

@@ -1,10 +1,10 @@
 # Genesis Digital Audio Workstation
 
-Genesis is a work-in-progress digital audio workstation with some ambitious
-goals: peer-to-peer multiplayer editing, complete plugin safety, and a built-in
-peer-to-peer community which shares plugins, projects, and samples.
+Genesis is a cross-platform digital audio workstation with ambitious goals:
+peer-to-peer multiplayer editing, complete plugin safety, and a built-in
+community which shares plugins, projects, and samples.
 
-Cross platform support is planned, however, currently only Linux is supported.
+Genesis aims to make music creation collaborative, global, free, and open source.
 
 Genesis is not ready for serious users yet. If you're excited about the project,
 follow the [development blog](http://genesisdaw.org/) or sustain development
@@ -17,7 +17,6 @@ with [financial support](https://salt.bountysource.com/teams/gdaw).
  * Load and save any format audio file.
  * Multi-threaded audio pipeline working.
  * MIDI Keyboard support.
- * Recording and playback audio devices. PulseAudio only so far.
  * Basic synthesizer plugin. [YouTube Demo](https://www.youtube.com/watch?v=K5r_o331Eqo)
  * Basic delay plugin.
  * Resampling and channel remapping plugin.
@@ -117,7 +116,7 @@ make
 
 ## Roadmap
 
- 0. ability to export audio to wav
+ 0. ability to render project
  0. assertion failure when multithreading on
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment

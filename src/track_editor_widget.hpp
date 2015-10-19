@@ -5,6 +5,7 @@
 #include "sunken_box.hpp"
 
 struct Project;
+struct AudioGraph;
 struct Track;
 class Label;
 class MenuWidgetItem;
@@ -17,7 +18,7 @@ struct SpritesheetImage;
 
 class TrackEditorWidget : public Widget {
 public:
-    TrackEditorWidget(GuiWindow *gui_window, Project *project);
+    TrackEditorWidget(GuiWindow *gui_window, AudioGraph *audio_graph);
     ~TrackEditorWidget() override;
 
     void draw(const glm::mat4 &projection) override;
@@ -27,6 +28,7 @@ public:
     void on_drag(const DragEvent *) override;
 
 
+    AudioGraph *audio_graph;
     Project *project;
 
     int timeline_top;

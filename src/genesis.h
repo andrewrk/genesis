@@ -415,7 +415,7 @@ GENESIS_EXPORT int genesis_audio_file_codec_sample_rate_index(
 
 /// Returns the index
 GENESIS_EXPORT int genesis_audio_file_codec_best_sample_rate(
-        const struct GenesisAudioFileCodec *codec);
+        const struct GenesisAudioFileCodec *codec, int target_sample_rate);
 
 GENESIS_EXPORT bool genesis_audio_file_codec_supports_sample_rate(
         const struct GenesisAudioFileCodec *codec, int sample_rate);
@@ -446,7 +446,8 @@ GENESIS_EXPORT int genesis_audio_file_set_channel_layout(struct GenesisAudioFile
 GENESIS_EXPORT void genesis_audio_file_destroy(struct GenesisAudioFile *audio_file);
 
 GENESIS_EXPORT int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
-        const char *output_filename, struct GenesisExportFormat *export_format);
+        const char *output_filename, int output_filename_len,
+        struct GenesisExportFormat *export_format);
 
 GENESIS_EXPORT const struct SoundIoChannelLayout *genesis_audio_file_channel_layout(
         const struct GenesisAudioFile *audio_file);
@@ -457,6 +458,25 @@ GENESIS_EXPORT struct GenesisAudioFileIterator genesis_audio_file_iterator(
         struct GenesisAudioFile *audio_file, int channel_index, long start_frame_index);
 GENESIS_EXPORT void genesis_audio_file_iterator_next(struct GenesisAudioFileIterator *it);
 
+
+GENESIS_EXPORT struct GenesisAudioFileStream *genesis_audio_file_stream_create(struct GenesisContext *context);
+GENESIS_EXPORT void genesis_audio_file_stream_destroy(struct GenesisAudioFileStream *stream);
+GENESIS_EXPORT void genesis_audio_file_stream_set_sample_rate(struct GenesisAudioFileStream *stream,
+        int sample_rate);
+GENESIS_EXPORT void genesis_audio_file_stream_set_channel_layout(struct GenesisAudioFileStream *stream,
+        const struct SoundIoChannelLayout *channel_layout);
+GENESIS_EXPORT void genesis_audio_file_stream_set_tag(struct GenesisAudioFileStream *stream,
+        const char *tag_key, int tag_key_len, const char *tag_value, int tag_value_len);
+GENESIS_EXPORT void genesis_audio_file_stream_set_export_format(struct GenesisAudioFileStream *stream,
+        const struct GenesisExportFormat *export_format);
+
+GENESIS_EXPORT int genesis_audio_file_stream_open(struct GenesisAudioFileStream *stream,
+        const char *file_path, int file_path_len);
+GENESIS_EXPORT int genesis_audio_file_stream_close(struct GenesisAudioFileStream *stream);
+
+/// interleaved
+GENESIS_EXPORT int genesis_audio_file_stream_write(struct GenesisAudioFileStream *stream,
+        const float *frames, long frame_count);
 
 
 #endif

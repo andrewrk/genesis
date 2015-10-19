@@ -22,9 +22,8 @@ ByteBuffer::ByteBuffer(const ByteBuffer & copy) {
     append(copy);
 }
 ByteBuffer::ByteBuffer(const char * str, int length) {
-    if (_buffer.append(0))
-        panic("out of memory");
-    append(str, length);
+    ok_or_panic(_buffer.append(0));
+    append(str, (length == -1) ? strlen(str) : length);
 }
 
 void ByteBuffer::append(const ByteBuffer &other) {

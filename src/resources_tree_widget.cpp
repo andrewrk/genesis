@@ -51,7 +51,7 @@ static void audio_clips_change_callback(Event, void *userdata) {
 }
 
 ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
-        SettingsFile *settings_file, Project *the_project) :
+        SettingsFile *settings_file, AudioGraph *the_audio_graph) :
     Widget(gui_window),
     context(gui_window->gui->_genesis_context),
     gui(gui_window->gui),
@@ -71,7 +71,8 @@ ResourcesTreeWidget::ResourcesTreeWidget(GuiWindow *gui_window,
     display_node_count = 0;
     selected_node = nullptr;
     last_click_node = nullptr;
-    project = the_project;
+    audio_graph = the_audio_graph;
+    project = audio_graph->project;
 
     scroll_bar = create<ScrollBarWidget>(gui_window, ScrollBarLayoutVert);
     scroll_bar->parent_widget = this;
@@ -124,6 +125,9 @@ ResourcesTreeWidget::~ResourcesTreeWidget() {
 
     gui->events.detach_handler(EventAudioDeviceChange, device_change_callback);
     gui->events.detach_handler(EventMidiDeviceChange, device_change_callback);
+
+    project->events.detach_handler(EventProjectAudioAssetsChanged, audio_assets_change_callback);
+    project->events.detach_handler(EventProjectAudioClipsChanged, audio_clips_change_callback);
 
     destroy_node(root_node);
 
@@ -567,9 +571,9 @@ void ResourcesTreeWidget::select_node(Node *node) {
     selected_node = node;
     if (selected_node) {
         if (selected_node->node_type == NodeTypeSampleFile) {
-            project_play_sample_file(project, selected_node->full_path);
+            audio_graph_play_sample_file(audio_graph, selected_node->full_path);
         } else if (selected_node->node_type == NodeTypeAudioAsset) {
-            project_play_audio_asset(project, selected_node->audio_asset);
+            audio_graph_play_audio_asset(audio_graph, selected_node->audio_asset);
         }
     }
 }

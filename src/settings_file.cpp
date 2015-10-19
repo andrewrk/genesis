@@ -33,7 +33,7 @@ static const char *render_format_type_to_str(RenderFormatType render_format_type
     switch (render_format_type) {
         case RenderFormatTypeInvalid:
         case RenderFormatTypeCount:
-            panic("invalid render format type");
+            return "(invalid render format type)";
         case RenderFormatTypeFlac:
             return "flac";
         case RenderFormatTypeVorbis:
@@ -254,16 +254,12 @@ static int on_string(struct LaxJsonContext *json,
         case SettingsFileStateDefaultRenderFormat:
             {
                 sf->default_render_format = parse_render_format_type(value.raw());
-                if (sf->default_render_format == RenderFormatTypeInvalid)
-                    return parse_error(sf, "invalid format name");
                 sf->state = SettingsFileStateReadyForProp;
                 break;
             }
         case SettingsFileStateDefaultRenderParamsFormat:
             {
                 sf->current_default_render_params_format = parse_render_format_type(value.raw());
-                if (sf->current_default_render_params_format == RenderFormatTypeInvalid)
-                    return parse_error(sf, "invalid format name");
                 sf->state = SettingsFileStateDefaultRenderParamsReadyForObj;
                 break;
             }

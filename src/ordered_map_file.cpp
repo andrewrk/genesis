@@ -462,7 +462,7 @@ void ordered_map_file_flush(OrderedMapFile *omf) {
 
     int err;
     if (omf->file) {
-        if ((err = os_flush_file(omf->file))) {
+        if ((err = os_file_flush(omf->file))) {
             panic("flush file fail: %s", genesis_strerror(err));
         }
     }

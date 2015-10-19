@@ -20,7 +20,7 @@ struct AudioClipVoice {
 };
 
 struct AudioClipNodeContext {
-    AudioClip *audio_clip;
+    AudioGraphClip *clip;
     GenesisAudioFile *audio_file;
     int frame_pos;
 
@@ -29,10 +29,11 @@ struct AudioClipNodeContext {
 };
 
 struct AudioClipEventNodeContext {
-    AudioClip *audio_clip;
+    AudioGraphClip *clip;
     double pos;
 };
 
+/*
 static AudioClipVoice *find_next_voice(AudioClipNodeContext *context) {
     for (int i = 0;; i += 1) {
         AudioClipVoice *voice = &context->voices[context->next_note_index];
@@ -55,8 +56,8 @@ static int audio_clip_node_create(struct GenesisNode *node) {
         audio_clip_node_destroy(node);
         return GenesisErrorNoMem;
     }
-    audio_clip_context->audio_clip = (AudioClip*)genesis_node_descriptor_userdata(node_descr);
-    audio_clip_context->audio_file = audio_clip_context->audio_clip->audio_asset->audio_file;
+    audio_clip_context->clip = (AudioGraphClip*)genesis_node_descriptor_userdata(node_descr);
+    audio_clip_context->audio_file = audio_clip_context->clip->audio_clip->audio_asset->audio_file;
     return 0;
 }
 
@@ -174,7 +175,7 @@ static int audio_clip_event_node_create(struct GenesisNode *node) {
         audio_clip_node_destroy(node);
         return GenesisErrorNoMem;
     }
-    audio_clip_event_node_context->audio_clip = (AudioClip*)genesis_node_descriptor_userdata(node_descr);
+    audio_clip_event_node_context->clip = (AudioGraphClip*) genesis_node_descriptor_userdata(node_descr);
     return 0;
 }
 
@@ -185,8 +186,8 @@ static void audio_clip_event_node_seek(struct GenesisNode *node) {
 
 static void audio_clip_event_node_run(struct GenesisNode *node) {
     AudioClipEventNodeContext *context = (AudioClipEventNodeContext*)node->userdata;
-    AudioClip *audio_clip = context->audio_clip;
-    Project *project = audio_clip->project;
+    AudioGraphClip *clip = context->clip;
+    AudioGraph *ag = clip->audio_graph;
     struct GenesisPort *events_out_port = genesis_node_port(node, 0);
 
     int event_count;
@@ -197,8 +198,8 @@ static void audio_clip_event_node_run(struct GenesisNode *node) {
     double end_pos = context->pos + event_time_requested;
 
     int event_index = 0;
-    if (project->is_playing) {
-        List<GenesisMidiEvent> *event_list = audio_clip->events.get_read_ptr();
+    if (ag->is_playing) {
+        List<GenesisMidiEvent> *event_list = clip->events.get_read_ptr();
         for (int i = 0; i < event_list->length(); i += 1) {
             GenesisMidiEvent *event = &event_list->at(i);
             if (event->start >= context->pos && event->start < end_pos) {
@@ -217,10 +218,12 @@ static void audio_clip_event_node_run(struct GenesisNode *node) {
     genesis_events_out_port_advance_write_ptr(events_out_port, event_index, event_time_requested);
 }
 
+*/
+
 static void spy_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
-    struct Project *project = (struct Project *)genesis_node_descriptor_userdata(node_descriptor);
-    struct GenesisContext *context = project->genesis_context;
+    struct AudioGraph *ag = (struct AudioGraph *)genesis_node_descriptor_userdata(node_descriptor);
+    struct GenesisContext *context = ag->genesis_context;
     struct GenesisPort *audio_in_port = genesis_node_port(node, 0);
     struct GenesisPort *audio_out_port = genesis_node_port(node, 1);
 
@@ -237,21 +240,21 @@ static void spy_node_run(struct GenesisNode *node) {
     genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count);
     genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count);
 
-    if (project->is_playing) {
+    if (ag->is_playing) {
         int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
-        double prev_play_head_pos = project->play_head_pos.load();
+        double prev_play_head_pos = ag->play_head_pos.load();
         int frame_at_start = genesis_whole_notes_to_frames(context, prev_play_head_pos, frame_rate);
         int frame_at_end = frame_at_start + frame_count;
         double new_play_head_pos = genesis_frames_to_whole_notes(context, frame_at_end, frame_rate);
         double delta = new_play_head_pos - prev_play_head_pos;
-        project->play_head_pos.add(delta);
-        project->play_head_changed_flag.clear();
+        ag->play_head_pos.add(delta);
+        ag->play_head_changed_flag.clear();
     }
 }
 
 static void audio_file_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
-    struct Project *project = (struct Project *)genesis_node_descriptor_userdata(node_descriptor);
+    struct AudioGraph *ag = (struct AudioGraph *)genesis_node_descriptor_userdata(node_descriptor);
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
 
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
@@ -259,12 +262,12 @@ static void audio_file_node_run(struct GenesisNode *node) {
     int channel_count = channel_layout->channel_count;
     float *out_samples = genesis_audio_out_port_write_ptr(audio_out_port);
 
-    int audio_file_frames_left = project->audio_file_frame_count - project->audio_file_frame_index;
+    int audio_file_frames_left = ag->audio_file_frame_count - ag->audio_file_frame_index;
     int frames_to_advance = min(output_frame_count, audio_file_frames_left);
     assert(frames_to_advance >= 0);
 
     for (int ch = 0; ch < channel_count; ch += 1) {
-        struct PlayChannelContext *channel_context = &project->audio_file_channel_context[ch];
+        struct PlayChannelContext *channel_context = &ag->audio_file_channel_context[ch];
         for (int frame_offset = 0; frame_offset < frames_to_advance; frame_offset += 1) {
             if (channel_context->offset >= channel_context->iter.end) {
                 genesis_audio_file_iterator_next(&channel_context->iter);
@@ -279,92 +282,113 @@ static void audio_file_node_run(struct GenesisNode *node) {
     int silent_frames = output_frame_count - frames_to_advance;
     memset(&out_samples[channel_count * frames_to_advance], 0, silent_frames * 4 * channel_count);
 
-    project->audio_file_frame_index += frames_to_advance;
+    ag->audio_file_frame_index += frames_to_advance;
     genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
 }
 
-static void stop_pipeline(Project *project) {
-    genesis_stop_pipeline(project->genesis_context);
-    genesis_node_disconnect_all_ports(project->playback_node);
+static void render_node_run(struct GenesisNode *node) {
+    const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
+    struct AudioGraph *ag = (struct AudioGraph *)genesis_node_descriptor_userdata(node_descriptor);
+    struct GenesisPort *audio_in_port = genesis_node_port(node, 0);
 
-    genesis_node_destroy(project->resample_node);
-    project->resample_node = nullptr;
+    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+    float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
+    GenesisAudioFileStream *afs = ag->render_stream;
 
-    genesis_node_destroy(project->mixer_node);
-    project->mixer_node = nullptr;
+    int err;
+    if ((err = genesis_audio_file_stream_write(afs, in_buf, input_frame_count))) {
+        panic("TODO handle this error");
+    }
 
-    genesis_node_descriptor_destroy(project->mixer_descr);
-    project->mixer_descr = nullptr;
+    ag->render_frame_index += input_frame_count;
 
-    for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
-        AudioClip *audio_clip = project->audio_clip_list.at(i);
-        genesis_node_disconnect_all_ports(audio_clip->node);
-
-        genesis_node_destroy(audio_clip->resample_node);
-        audio_clip->resample_node = nullptr;
+    if (ag->render_frame_index >= ag->render_frame_count) {
+        panic("TODO communicate that we're done rendering");
     }
 }
 
-static void rebuild_and_start_pipeline(Project *project) {
+static void stop_pipeline(AudioGraph *ag) {
+    genesis_stop_pipeline(ag->genesis_context);
+    genesis_node_disconnect_all_ports(ag->playback_node);
+
+    genesis_node_destroy(ag->resample_node);
+    ag->resample_node = nullptr;
+
+    genesis_node_destroy(ag->mixer_node);
+    ag->mixer_node = nullptr;
+
+    genesis_node_descriptor_destroy(ag->mixer_descr);
+    ag->mixer_descr = nullptr;
+
+    for (int i = 0; i < ag->audio_clip_list.length(); i += 1) {
+        AudioGraphClip *clip = ag->audio_clip_list.at(i);
+        genesis_node_disconnect_all_ports(clip->node);
+
+        genesis_node_destroy(clip->resample_node);
+        clip->resample_node = nullptr;
+    }
+}
+
+static void rebuild_and_start_pipeline(AudioGraph *ag) {
     int err;
 
-    int target_sample_rate = genesis_get_sample_rate(project->genesis_context);
-    SoundIoChannelLayout *target_channel_layout = genesis_get_channel_layout(project->genesis_context);
+    int target_sample_rate = genesis_get_sample_rate(ag->genesis_context);
+    SoundIoChannelLayout *target_channel_layout = genesis_get_channel_layout(ag->genesis_context);
 
-    if (project->audio_file_node) {
-        genesis_node_destroy(project->audio_file_node);
-        project->audio_file_node = nullptr;
+    if (ag->audio_file_node) {
+        genesis_node_destroy(ag->audio_file_node);
+        ag->audio_file_node = nullptr;
     }
 
-    if (project->preview_audio_file) {
+    if (ag->preview_audio_file) {
         // Set channel layout
         const struct SoundIoChannelLayout *channel_layout =
-            genesis_audio_file_channel_layout(project->preview_audio_file);
+            genesis_audio_file_channel_layout(ag->preview_audio_file);
         genesis_audio_port_descriptor_set_channel_layout(
-                project->audio_file_port_descr, channel_layout, true, -1);
+                ag->audio_file_port_descr, channel_layout, true, -1);
 
         // Set sample rate
-        int sample_rate = genesis_audio_file_sample_rate(project->preview_audio_file);
-        genesis_audio_port_descriptor_set_sample_rate(project->audio_file_port_descr, sample_rate, true, -1);
+        int sample_rate = genesis_audio_file_sample_rate(ag->preview_audio_file);
+        genesis_audio_port_descriptor_set_sample_rate(ag->audio_file_port_descr, sample_rate, true, -1);
 
     } else {
         genesis_audio_port_descriptor_set_channel_layout(
-                project->audio_file_port_descr, target_channel_layout, true, -1);
+                ag->audio_file_port_descr, target_channel_layout, true, -1);
         genesis_audio_port_descriptor_set_sample_rate(
-                project->audio_file_port_descr, target_sample_rate, true, -1);
+                ag->audio_file_port_descr, target_sample_rate, true, -1);
     }
-    project->audio_file_node = genesis_node_descriptor_create_node(project->audio_file_descr);
+    ag->audio_file_node = ok_mem(genesis_node_descriptor_create_node(ag->audio_file_descr));
 
 
-    int resample_audio_out_index = genesis_node_descriptor_find_port_index(project->resample_descr, "audio_out");
+    int resample_audio_out_index = genesis_node_descriptor_find_port_index(ag->resample_descr, "audio_out");
     assert(resample_audio_out_index >= 0);
 
     // one for each of the audio clips and one for the sample file preview node
-    int mix_port_count = 1 + project->audio_clip_list.length();
+    int mix_port_count = 1 + ag->audio_clip_list.length();
 
-    ok_or_panic(create_mixer_descriptor(project->genesis_context, mix_port_count, &project->mixer_descr));
-    project->mixer_node = ok_mem(genesis_node_descriptor_create_node(project->mixer_descr));
+    ok_or_panic(create_mixer_descriptor(ag->genesis_context, mix_port_count, &ag->mixer_descr));
+    ag->mixer_node = ok_mem(genesis_node_descriptor_create_node(ag->mixer_descr));
 
-    ok_or_panic(genesis_connect_audio_nodes(project->spy_node, project->playback_node));
-    ok_or_panic(genesis_connect_audio_nodes(project->mixer_node, project->spy_node));
+    ok_or_panic(genesis_connect_audio_nodes(ag->spy_node, ag->playback_node));
+    ok_or_panic(genesis_connect_audio_nodes(ag->mixer_node, ag->spy_node));
 
     int next_mixer_port = 1;
-    for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
-        AudioClip *audio_clip = project->audio_clip_list.at(i);
+    for (int i = 0; i < ag->audio_clip_list.length(); i += 1) {
+        AudioGraphClip *clip = ag->audio_clip_list.at(i);
 
-        int audio_out_port_index = genesis_node_descriptor_find_port_index(audio_clip->node_descr, "audio_out");
+        int audio_out_port_index = genesis_node_descriptor_find_port_index(clip->node_descr, "audio_out");
         if (audio_out_port_index < 0)
             panic("port not found");
 
-        GenesisPort *audio_out_port = genesis_node_port(audio_clip->node, audio_out_port_index);
-        GenesisPort *audio_in_port = genesis_node_port(project->mixer_node, next_mixer_port++);
+        GenesisPort *audio_out_port = genesis_node_port(clip->node, audio_out_port_index);
+        GenesisPort *audio_in_port = genesis_node_port(ag->mixer_node, next_mixer_port++);
 
         if ((err = genesis_connect_ports(audio_out_port, audio_in_port))) {
             if (err == GenesisErrorIncompatibleChannelLayouts || err == GenesisErrorIncompatibleSampleRates) {
-                audio_clip->resample_node = ok_mem(genesis_node_descriptor_create_node(project->resample_descr));
-                ok_or_panic(genesis_connect_audio_nodes(audio_clip->node, audio_clip->resample_node));
+                clip->resample_node = ok_mem(genesis_node_descriptor_create_node(ag->resample_descr));
+                ok_or_panic(genesis_connect_audio_nodes(clip->node, clip->resample_node));
 
-                GenesisPort *audio_out_port = genesis_node_port(audio_clip->resample_node,
+                GenesisPort *audio_out_port = genesis_node_port(clip->resample_node,
                         resample_audio_out_index);
                 ok_or_panic(genesis_connect_ports(audio_out_port, audio_in_port));
             } else {
@@ -372,26 +396,26 @@ static void rebuild_and_start_pipeline(Project *project) {
             }
         }
 
-        GenesisPort *events_in_port = genesis_node_port(audio_clip->node, 1);
-        GenesisPort *events_out_port = genesis_node_port(audio_clip->event_node, 0);
+        GenesisPort *events_in_port = genesis_node_port(clip->node, 1);
+        GenesisPort *events_out_port = genesis_node_port(clip->event_node, 0);
 
         ok_or_panic(genesis_connect_ports(events_out_port, events_in_port));
     }
 
     {
-        int audio_out_port_index = genesis_node_descriptor_find_port_index(project->audio_file_descr, "audio_out");
+        int audio_out_port_index = genesis_node_descriptor_find_port_index(ag->audio_file_descr, "audio_out");
         if (audio_out_port_index < 0)
             panic("port not found");
 
-        GenesisPort *audio_out_port = genesis_node_port(project->audio_file_node, audio_out_port_index);
-        GenesisPort *audio_in_port = genesis_node_port(project->mixer_node, next_mixer_port++);
+        GenesisPort *audio_out_port = genesis_node_port(ag->audio_file_node, audio_out_port_index);
+        GenesisPort *audio_in_port = genesis_node_port(ag->mixer_node, next_mixer_port++);
 
         if ((err = genesis_connect_ports(audio_out_port, audio_in_port))) {
             if (err == GenesisErrorIncompatibleChannelLayouts || err == GenesisErrorIncompatibleSampleRates) {
-                project->resample_node = ok_mem(genesis_node_descriptor_create_node(project->resample_descr));
-                ok_or_panic(genesis_connect_audio_nodes(project->audio_file_node, project->resample_node));
+                ag->resample_node = ok_mem(genesis_node_descriptor_create_node(ag->resample_descr));
+                ok_or_panic(genesis_connect_audio_nodes(ag->audio_file_node, ag->resample_node));
 
-                GenesisPort *audio_out_port = genesis_node_port(project->resample_node, resample_audio_out_index);
+                GenesisPort *audio_out_port = genesis_node_port(ag->resample_node, resample_audio_out_index);
                 ok_or_panic(genesis_connect_ports(audio_out_port, audio_in_port));
             } else {
                 ok_or_panic(err);
@@ -400,70 +424,70 @@ static void rebuild_and_start_pipeline(Project *project) {
     }
 
     fprintf(stderr, "\nStarting pipeline...\n");
-    genesis_debug_print_pipeline(project->genesis_context);
+    genesis_debug_print_pipeline(ag->genesis_context);
 
-    double start_time = project->play_head_pos.load();
+    double start_time = ag->play_head_pos.load();
 
     assert(next_mixer_port == mix_port_count + 1);
-    if ((err = genesis_start_pipeline(project->genesis_context, start_time)))
+    if ((err = genesis_start_pipeline(ag->genesis_context, start_time)))
         panic("unable to start pipeline: %s", genesis_strerror(err));
 }
 
-static void play_audio_file(Project *project, GenesisAudioFile *audio_file, bool is_asset) {
-    stop_pipeline(project);
+static void play_audio_file(AudioGraph *ag, GenesisAudioFile *audio_file, bool is_asset) {
+    stop_pipeline(ag);
 
-    if (project->preview_audio_file && !project->preview_audio_file_is_asset) {
-        genesis_audio_file_destroy(project->preview_audio_file);
-        project->preview_audio_file = nullptr;
-    } else if (project->preview_audio_file && project->preview_audio_file_is_asset) {
-        project->preview_audio_file = nullptr;
+    if (ag->preview_audio_file && !ag->preview_audio_file_is_asset) {
+        genesis_audio_file_destroy(ag->preview_audio_file);
+        ag->preview_audio_file = nullptr;
+    } else if (ag->preview_audio_file && ag->preview_audio_file_is_asset) {
+        ag->preview_audio_file = nullptr;
     }
 
-    assert(!project->preview_audio_file);
-    project->preview_audio_file = audio_file;
-    project->preview_audio_file_is_asset = is_asset;
+    assert(!ag->preview_audio_file);
+    ag->preview_audio_file = audio_file;
+    ag->preview_audio_file_is_asset = is_asset;
 
-    project->audio_file_frame_count = 0;
-    project->audio_file_frame_index = 0;
+    ag->audio_file_frame_count = 0;
+    ag->audio_file_frame_index = 0;
 
-    if (project->preview_audio_file) {
-        project->audio_file_frame_count = genesis_audio_file_frame_count(audio_file);
+    if (ag->preview_audio_file) {
+        ag->audio_file_frame_count = genesis_audio_file_frame_count(audio_file);
         const struct SoundIoChannelLayout *channel_layout =
-            genesis_audio_file_channel_layout(project->preview_audio_file);
+            genesis_audio_file_channel_layout(ag->preview_audio_file);
         for (int ch = 0; ch < channel_layout->channel_count; ch += 1) {
-            struct PlayChannelContext *channel_context = &project->audio_file_channel_context[ch];
+            struct PlayChannelContext *channel_context = &ag->audio_file_channel_context[ch];
             channel_context->offset = 0;
-            channel_context->iter = genesis_audio_file_iterator(project->preview_audio_file, ch, 0);
+            channel_context->iter = genesis_audio_file_iterator(ag->preview_audio_file, ch, 0);
         }
     }
 
-    rebuild_and_start_pipeline(project);
+    rebuild_and_start_pipeline(ag);
 }
 
-static SoundIoDevice *get_device_for_id(Project *project, DeviceId device_id) {
+static SoundIoDevice *get_device_for_id(AudioGraph *ag, DeviceId device_id) {
     assert(device_id >= 1);
     assert(device_id < device_id_count());
-    SettingsFileDeviceId *sf_device_id = &project->settings_file->device_designations.at(device_id);
+    SettingsFileDeviceId *sf_device_id = &ag->settings_file->device_designations.at(device_id);
 
     if (sf_device_id->backend == SoundIoBackendNone)
-        return genesis_get_default_output_device(project->genesis_context);
+        return genesis_get_default_output_device(ag->genesis_context);
 
-    SoundIoDevice *device = genesis_find_output_device(project->genesis_context,
+    SoundIoDevice *device = genesis_find_output_device(ag->genesis_context,
             sf_device_id->backend, sf_device_id->device_id.raw(), sf_device_id->is_raw);
 
     if (device) {
         if (device->probe_error) {
             soundio_device_unref(device);
-            return genesis_get_default_output_device(project->genesis_context);
+            return genesis_get_default_output_device(ag->genesis_context);
         }
         return device;
     }
 
-    return genesis_get_default_output_device(project->genesis_context);
+    return genesis_get_default_output_device(ag->genesis_context);
 }
 
-static int init_playback_node(Project *project) {
-    MixerLine *master_mixer_line = project->mixer_line_list.at(0);
+static int init_playback_node(AudioGraph *ag) {
+    MixerLine *master_mixer_line = ag->project->mixer_line_list.at(0);
     Effect *first_effect = master_mixer_line->effects.at(0);
 
     assert(first_effect->effect_type == EffectTypeSend);
@@ -472,62 +496,73 @@ static int init_playback_node(Project *project) {
     assert(effect_send->send_type == EffectSendTypeDevice);
     EffectSendDevice *send_device = &effect_send->send.device;
 
-    SoundIoDevice *audio_device = get_device_for_id(project, (DeviceId)send_device->device_id);
+    SoundIoDevice *audio_device = get_device_for_id(ag, (DeviceId)send_device->device_id);
     if (!audio_device) {
         return GenesisErrorDeviceNotFound;
     }
 
     GenesisNodeDescriptor *playback_node_descr;
     int err;
-    if ((err = genesis_audio_device_create_node_descriptor(project->genesis_context,
+    if ((err = genesis_audio_device_create_node_descriptor(ag->genesis_context,
                     audio_device, &playback_node_descr)))
     {
         return err;
     }
 
-    assert(!project->playback_node);
-    project->playback_node = ok_mem(genesis_node_descriptor_create_node(playback_node_descr));
+    assert(!ag->playback_node);
+    ag->playback_node = ok_mem(genesis_node_descriptor_create_node(playback_node_descr));
 
     soundio_device_unref(audio_device);
 
     return 0;
 }
 
-int project_set_up_audio_graph(Project *project) {
-    project->play_head_pos.store(0.0);
+static AudioGraph *audio_graph_create_common(Project *project, GenesisContext *genesis_context) {
+    AudioGraph *ag = ok_mem(create_zero<AudioGraph>());
+    ag->project = project;
+    ag->genesis_context = genesis_context;
+    ag->play_head_pos.store(0.0);
+    ag->is_playing = false;
 
-    project->is_playing = false;
-
-    project->resample_descr = genesis_node_descriptor_find(project->genesis_context, "resample");
-    if (!project->resample_descr)
+    ag->resample_descr = genesis_node_descriptor_find(ag->genesis_context, "resample");
+    if (!ag->resample_descr)
         panic("unable to find resampler");
-    project->resample_node = nullptr;
 
-    project->audio_file_descr = genesis_create_node_descriptor(project->genesis_context,
+    return ag;
+
+}
+
+int audio_graph_create_playback(Project *project, GenesisContext *genesis_context,
+        SettingsFile *settings_file, AudioGraph **out_audio_graph)
+{
+    AudioGraph *ag = audio_graph_create_common(project, genesis_context);
+
+    ag->audio_file_descr = genesis_create_node_descriptor(ag->genesis_context,
             1, "audio_file", "Audio file playback.");
-    if (!project->audio_file_descr)
+    if (!ag->audio_file_descr)
         panic("unable to create audio file node descriptor");
-    genesis_node_descriptor_set_userdata(project->audio_file_descr, project);
-    genesis_node_descriptor_set_run_callback(project->audio_file_descr, audio_file_node_run);
-    project->audio_file_port_descr = genesis_node_descriptor_create_port(
-            project->audio_file_descr, 0, GenesisPortTypeAudioOut, "audio_out");
-    if (!project->audio_file_port_descr)
+
+    genesis_node_descriptor_set_userdata(ag->audio_file_descr, ag);
+    genesis_node_descriptor_set_run_callback(ag->audio_file_descr, audio_file_node_run);
+    ag->audio_file_port_descr = genesis_node_descriptor_create_port(
+            ag->audio_file_descr, 0, GenesisPortTypeAudioOut, "audio_out");
+    if (!ag->audio_file_port_descr)
         panic("unable to create audio out port descriptor");
-    project->audio_file_node = nullptr;
+    ag->audio_file_node = nullptr;
 
 
-    project->spy_descr = genesis_create_node_descriptor(project->genesis_context,
+    ag->spy_descr = genesis_create_node_descriptor(ag->genesis_context,
             2, "spy", "Spy on the master channel.");
-    if (!project->spy_descr)
+    if (!ag->spy_descr)
         panic("unable to create spy node descriptor");
-    genesis_node_descriptor_set_userdata(project->spy_descr, project);
-    genesis_node_descriptor_set_run_callback(project->spy_descr, spy_node_run);
+    genesis_node_descriptor_set_userdata(ag->spy_descr, ag);
+    genesis_node_descriptor_set_run_callback(ag->spy_descr, spy_node_run);
     GenesisPortDescriptor *spy_in_port = genesis_node_descriptor_create_port(
-            project->spy_descr, 0, GenesisPortTypeAudioIn, "audio_in");
+            ag->spy_descr, 0, GenesisPortTypeAudioIn, "audio_in");
     GenesisPortDescriptor *spy_out_port = genesis_node_descriptor_create_port(
-            project->spy_descr, 1, GenesisPortTypeAudioOut, "audio_out");
+            ag->spy_descr, 1, GenesisPortTypeAudioOut, "audio_out");
 
-    int target_sample_rate = genesis_get_sample_rate(project->genesis_context);
+    int target_sample_rate = genesis_get_sample_rate(ag->genesis_context);
 
     genesis_audio_port_descriptor_set_channel_layout(spy_in_port,
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), true, 1);
@@ -537,39 +572,101 @@ int project_set_up_audio_graph(Project *project) {
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
     genesis_audio_port_descriptor_set_sample_rate(spy_out_port, target_sample_rate, false, -1);
 
-    project->spy_node = genesis_node_descriptor_create_node(project->spy_descr);
-    if (!project->spy_node)
-        panic("unable to create spy node");
+    ag->spy_node = ok_mem(genesis_node_descriptor_create_node(ag->spy_descr));
 
-    init_playback_node(project);
+    init_playback_node(ag);
 
-    play_audio_file(project, nullptr, true);
+    play_audio_file(ag, nullptr, true);
 
+
+    *out_audio_graph = ag;
     return 0;
 }
 
-void project_tear_down_audio_graph(Project *project) {
-    if (project->genesis_context) {
-        genesis_stop_pipeline(project->genesis_context);
-        genesis_node_destroy(project->playback_node);
-        project->playback_node = nullptr;
+int audio_graph_create_render(Project *project, GenesisContext *genesis_context,
+        const GenesisExportFormat *export_format, const ByteBuffer &out_path,
+        AudioGraph **out_audio_graph)
+{
+    AudioGraph *ag = audio_graph_create_common(project, genesis_context);
+
+    ag->render_export_format = *export_format;
+    ag->render_out_path = out_path;
+
+    ag->render_descr = genesis_create_node_descriptor(ag->genesis_context,
+            1, "render", "Master render node.");
+    if (!ag->render_descr)
+        panic("unable to create render node descriptor");
+
+    genesis_node_descriptor_set_userdata(ag->render_descr, ag);
+    genesis_node_descriptor_set_run_callback(ag->render_descr, render_node_run);
+    ag->render_port_descr = genesis_node_descriptor_create_port(
+            ag->render_descr, 0, GenesisPortTypeAudioIn, "audio_in");
+    if (!ag->render_port_descr)
+        panic("unable to create render port descriptor");
+
+    ag->render_node = ok_mem(genesis_node_descriptor_create_node(ag->render_descr));
+
+    ag->render_stream = ok_mem(genesis_audio_file_stream_create(ag->genesis_context));
+
+    int render_sample_rate = genesis_audio_file_codec_best_sample_rate(export_format->codec,
+            project->sample_rate);
+
+    genesis_audio_file_stream_set_sample_rate(ag->render_stream, render_sample_rate);
+    genesis_audio_file_stream_set_channel_layout(ag->render_stream, &project->channel_layout);
+
+    ByteBuffer encoded;
+    encoded = project->tag_title.encode();
+    genesis_audio_file_stream_set_tag(ag->render_stream, "title", -1, encoded.raw(), encoded.length());
+
+    encoded = project->tag_artist.encode();
+    genesis_audio_file_stream_set_tag(ag->render_stream, "artist", -1, encoded.raw(), encoded.length());
+
+    encoded = project->tag_album_artist.encode();
+    genesis_audio_file_stream_set_tag(ag->render_stream, "album_artist", -1, encoded.raw(), encoded.length());
+
+    encoded = project->tag_album.encode();
+    genesis_audio_file_stream_set_tag(ag->render_stream, "album", -1, encoded.raw(), encoded.length());
+
+    // TODO looks like I messed up the year tag; it should actually be ISO 8601 "date"
+    // TODO so we need to write the date tag here, not year.
+
+    genesis_audio_file_stream_set_export_format(ag->render_stream, export_format);
+
+    int err;
+    if ((err = genesis_audio_file_stream_open(ag->render_stream, out_path.raw(), out_path.length()))) {
+        audio_graph_destroy(ag);
+        return err;
+    }
+
+    rebuild_and_start_pipeline(ag);
+
+    *out_audio_graph = ag;
+    return 0;
+}
+
+void audio_graph_destroy(AudioGraph *ag) {
+    if (ag->genesis_context) {
+        genesis_stop_pipeline(ag->genesis_context);
+        genesis_node_destroy(ag->playback_node);
+        ag->playback_node = nullptr;
     }
 }
 
-void project_play_sample_file(Project *project, const ByteBuffer &path) {
+void audio_graph_play_sample_file(AudioGraph *ag, const ByteBuffer &path) {
     GenesisAudioFile *audio_file;
     int err;
-    if ((err = genesis_audio_file_load(project->genesis_context, path.raw(), &audio_file))) {
+    if ((err = genesis_audio_file_load(ag->genesis_context, path.raw(), &audio_file))) {
         fprintf(stderr, "unable to load audio file: %s\n", genesis_strerror(err));
         return;
     }
 
-    play_audio_file(project, audio_file, false);
+    play_audio_file(ag, audio_file, false);
 }
 
-void project_play_audio_asset(Project *project, AudioAsset *audio_asset) {
+void audio_graph_play_audio_asset(AudioGraph *ag, AudioAsset *audio_asset) {
     int err;
-    if ((err = project_ensure_audio_asset_loaded(project, audio_asset))) {
+    // TODO move this to audio graph code; it doesn't belong in project code
+    if ((err = project_ensure_audio_asset_loaded(ag->project, audio_asset))) {
         if (err == GenesisErrorDecodingAudio) {
             fprintf(stderr, "Error decoding audio\n");
             return;
@@ -578,120 +675,121 @@ void project_play_audio_asset(Project *project, AudioAsset *audio_asset) {
         }
     }
 
-    play_audio_file(project, audio_asset->audio_file, true);
+    play_audio_file(ag, audio_asset->audio_file, true);
 }
 
-bool project_is_playing(Project *project) {
-    return project->is_playing;
+bool audio_graph_is_playing(AudioGraph *ag) {
+    return ag->is_playing;
 }
 
-void project_set_play_head(Project *project, double pos) {
-    project->play_head_pos.store(max(0.0, pos));
-    project->events.trigger(EventProjectPlayHeadChanged);
+void audio_graph_set_play_head(AudioGraph *ag, double pos) {
+    ag->play_head_pos.store(max(0.0, pos));
+    ag->events.trigger(EventProjectPlayHeadChanged);
 }
 
-void project_pause(Project *project) {
-    if (!project->is_playing)
+void audio_graph_pause(AudioGraph *ag) {
+    if (!ag->is_playing)
         return;
-    project->is_playing = false;
-    project->events.trigger(EventProjectPlayingChanged);
+    ag->is_playing = false;
+    ag->events.trigger(EventProjectPlayingChanged);
 }
 
-void project_play(Project *project) {
-    if (project->is_playing)
+void audio_graph_play(AudioGraph *ag) {
+    if (ag->is_playing)
         return;
-    project->start_play_head_pos = project->play_head_pos.load();
-    project->is_playing = true;
-    project->events.trigger(EventProjectPlayingChanged);
+    ag->start_play_head_pos = ag->play_head_pos.load();
+    ag->is_playing = true;
+    ag->events.trigger(EventProjectPlayingChanged);
 }
 
-void project_restart_playback(Project *project) {
-    stop_pipeline(project);
-    project->play_head_pos.store(project->start_play_head_pos);
-    project->is_playing = true;
-    project->events.trigger(EventProjectPlayHeadChanged);
-    project->events.trigger(EventProjectPlayingChanged);
-    rebuild_and_start_pipeline(project);
+void audio_graph_restart_playback(AudioGraph *ag) {
+    stop_pipeline(ag);
+    ag->play_head_pos.store(ag->start_play_head_pos);
+    ag->is_playing = true;
+    ag->events.trigger(EventProjectPlayHeadChanged);
+    ag->events.trigger(EventProjectPlayingChanged);
+    rebuild_and_start_pipeline(ag);
 }
 
-void project_recover_stream(Project *project, double new_latency) {
-    stop_pipeline(project);
-    genesis_set_latency(project->genesis_context, new_latency);
-    rebuild_and_start_pipeline(project);
+void audio_graph_recover_stream(AudioGraph *ag, double new_latency) {
+    stop_pipeline(ag);
+    genesis_set_latency(ag->genesis_context, new_latency);
+    rebuild_and_start_pipeline(ag);
 }
 
-void audio_graph_change_sample_rate(Project *project, int new_sample_rate) {
-    stop_pipeline(project);
+void audio_graph_change_sample_rate(AudioGraph *ag, int new_sample_rate) {
+    stop_pipeline(ag);
 
 
-    GenesisNodeDescriptor *playback_node_descr = genesis_node_descriptor(project->playback_node);
+    GenesisNodeDescriptor *playback_node_descr = genesis_node_descriptor(ag->playback_node);
 
-    genesis_node_destroy(project->playback_node);
-    project->playback_node = nullptr;
+    genesis_node_destroy(ag->playback_node);
+    ag->playback_node = nullptr;
 
     genesis_node_descriptor_destroy(playback_node_descr);
     playback_node_descr = nullptr;
 
-    genesis_set_sample_rate(project->genesis_context, new_sample_rate);
+    genesis_set_sample_rate(ag->genesis_context, new_sample_rate);
 
-    init_playback_node(project);
+    init_playback_node(ag);
 
-    rebuild_and_start_pipeline(project);
+    rebuild_and_start_pipeline(ag);
 }
 
-void project_recover_sound_backend_disconnect(Project *project) {
-    if (!project->playback_node) {
+void audio_graph_recover_sound_backend_disconnect(AudioGraph *ag) {
+    if (!ag->playback_node) {
         return;
     }
 
-    GenesisNodeDescriptor *playback_node_descr = genesis_node_descriptor(project->playback_node);
+    GenesisNodeDescriptor *playback_node_descr = genesis_node_descriptor(ag->playback_node);
 
 
-    stop_pipeline(project);
+    stop_pipeline(ag);
 
 
-    genesis_node_destroy(project->playback_node);
-    project->playback_node = nullptr;
+    genesis_node_destroy(ag->playback_node);
+    ag->playback_node = nullptr;
 
     genesis_node_descriptor_destroy(playback_node_descr);
     playback_node_descr = nullptr;
 
-    init_playback_node(project);
+    init_playback_node(ag);
 
-    rebuild_and_start_pipeline(project);
+    rebuild_and_start_pipeline(ag);
 }
 
-void project_stop_playback(Project *project) {
-    stop_pipeline(project);
-    project->is_playing = false;
-    project->play_head_pos.store(0.0);
-    project->start_play_head_pos = 0.0;
-    project->events.trigger(EventProjectPlayHeadChanged);
-    project->events.trigger(EventProjectPlayingChanged);
-    rebuild_and_start_pipeline(project);
+void audio_graph_stop_playback(AudioGraph *ag) {
+    stop_pipeline(ag);
+    ag->is_playing = false;
+    ag->play_head_pos.store(0.0);
+    ag->start_play_head_pos = 0.0;
+    ag->events.trigger(EventProjectPlayHeadChanged);
+    ag->events.trigger(EventProjectPlayingChanged);
+    rebuild_and_start_pipeline(ag);
 }
 
-void project_flush_events(Project *project) {
-    if (!project->play_head_changed_flag.test_and_set()) {
-        project->events.trigger(EventProjectPlayHeadChanged);
+void audio_graph_flush_events(AudioGraph *ag) {
+    if (!ag->play_head_changed_flag.test_and_set()) {
+        ag->events.trigger(EventProjectPlayHeadChanged);
     }
 }
 
-double project_play_head_pos(Project *project) {
-    return project->play_head_pos.load();
+double audio_graph_play_head_pos(AudioGraph *ag) {
+    return ag->play_head_pos.load();
 }
 
-static void add_audio_node_to_audio_clip(Project *project, AudioClip *audio_clip) {
+/*
+static void add_audio_node_to_audio_clip(AudioGraph *ag, AudioClip *audio_clip) {
     assert(!audio_clip->node_descr);
     assert(!audio_clip->node);
 
-    ok_or_panic(project_ensure_audio_asset_loaded(project, audio_clip->audio_asset));
+    ok_or_panic(project_ensure_audio_asset_loaded(ag->project, audio_clip->audio_asset));
     GenesisAudioFile *audio_file = audio_clip->audio_asset->audio_file;
 
     const struct SoundIoChannelLayout *channel_layout = genesis_audio_file_channel_layout(audio_file);
     int sample_rate = genesis_audio_file_sample_rate(audio_file);
 
-    GenesisContext *context = project->genesis_context;
+    GenesisContext *context = ag->genesis_context;
     const char *name = "audio_clip";
     char *description = create_formatted_str("Audio Clip: %s", audio_clip->name.encode().raw());
     GenesisNodeDescriptor *node_descr = ok_mem(genesis_create_node_descriptor(context, 2, name, description));
@@ -717,14 +815,14 @@ static void add_audio_node_to_audio_clip(Project *project, AudioClip *audio_clip
     genesis_node_descriptor_set_destroy_callback(node_descr, audio_clip_node_destroy);
 
     audio_clip->node_descr = node_descr;
-    audio_clip->node = genesis_node_descriptor_create_node(node_descr);
+    audio_clip->node = ok_mem(genesis_node_descriptor_create_node(node_descr));
 }
 
-static void add_event_node_to_audio_clip(Project *project, AudioClip *audio_clip) {
+static void add_event_node_to_audio_clip(AudioGraph *ag, AudioClip *audio_clip) {
     assert(!audio_clip->event_node_descr);
     assert(!audio_clip->event_node);
 
-    GenesisContext *context = project->genesis_context;
+    GenesisContext *context = ag->genesis_context;
     const char *name = "audio_clip_events";
     char *description = create_formatted_str("Events for Audio Clip: %s", audio_clip->name.encode().raw());
     GenesisNodeDescriptor *node_descr = ok_mem(genesis_create_node_descriptor(context, 1, name, description));
@@ -744,24 +842,11 @@ static void add_event_node_to_audio_clip(Project *project, AudioClip *audio_clip
     genesis_node_descriptor_set_destroy_callback(node_descr, audio_clip_event_node_destroy);
 
     audio_clip->event_node_descr = node_descr;
-    audio_clip->event_node = genesis_node_descriptor_create_node(node_descr);
+    audio_clip->event_node = ok_mem(genesis_node_descriptor_create_node(node_descr));
 }
 
-void project_add_node_to_audio_clip(Project *project, AudioClip *audio_clip) {
-    add_audio_node_to_audio_clip(project, audio_clip);
-    add_event_node_to_audio_clip(project, audio_clip);
+void audio_graph_add_node_to_audio_clip(AudioGraph *ag, AudioClip *audio_clip) {
+    add_audio_node_to_audio_clip(ag, audio_clip);
+    add_event_node_to_audio_clip(ag, audio_clip);
 }
-
-void project_remove_node_from_audio_clip(Project *project, AudioClip *audio_clip) {
-    genesis_node_destroy(audio_clip->node);
-    audio_clip->node = nullptr;
-
-    genesis_node_descriptor_destroy(audio_clip->node_descr);
-    audio_clip->node_descr = nullptr;
-
-    genesis_node_destroy(audio_clip->event_node);
-    audio_clip->event_node = nullptr;
-
-    genesis_node_descriptor_destroy(audio_clip->event_node_descr);
-    audio_clip->event_node_descr = nullptr;
-}
+*/

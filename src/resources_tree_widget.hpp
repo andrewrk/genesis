@@ -14,6 +14,7 @@ struct SpritesheetImage;
 struct SettingsFile;
 class ScrollBarWidget;
 class MenuWidgetItem;
+struct AudioGraph;
 struct Project;
 struct AudioAsset;
 struct AudioClip;
@@ -27,7 +28,7 @@ struct DeviceDesignationHandler {
 
 class ResourcesTreeWidget : public Widget {
 public:
-    ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file, Project *project);
+    ResourcesTreeWidget(GuiWindow *gui_window, SettingsFile *settings_file, AudioGraph *audio_graph);
     ~ResourcesTreeWidget() override;
 
     void draw(const glm::mat4 &projection) override;
@@ -120,6 +121,7 @@ public:
     int display_node_count;
     glm::mat4 stencil_model;
     Node *selected_node;
+    AudioGraph *audio_graph;
     Project *project;
     Node *last_click_node;
     MenuWidgetItem *sample_context_menu;

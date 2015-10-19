@@ -1139,10 +1139,20 @@ int os_concurrency(void) {
     return cpu_core_count;
 }
 
-int os_flush_file(FILE *file) {
+int os_file_flush(FILE *file) {
     if (fsync(fileno(file))) {
         return GenesisErrorFileAccess;
     }
+    return 0;
+}
+
+int os_file_size(FILE *file, long *size) {
+    int err;
+    struct stat st;
+    if ((err = fstat(fileno(file), &st))) {
+        return GenesisErrorFileAccess;
+    }
+    *size = st.st_size;
     return 0;
 }
 

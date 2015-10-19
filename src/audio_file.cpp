@@ -1,4 +1,5 @@
 #include "audio_file.hpp"
+#include "os.hpp"
 
 #include <stdint.h>
 
@@ -668,52 +669,52 @@ static void set_codec_ctx_format(AVCodecContext *codec_ctx, GenesisExportFormat 
     }
 }
 
-static void write_frames_uint8_planar(const GenesisAudioFile *audio_file,
+static void write_frames_uint8_planar(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < channel_count; ch += 1) {
         uint8_t *ch_buf = frame->extended_data[ch];
         for (long i = start; i < end; i += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = frames[i * channel_count + ch];
             *ch_buf = (uint8_t)((sample * 127.5) + 127.5);
             ch_buf += 1;
         }
     }
 }
 
-static void write_frames_int16_planar(const GenesisAudioFile *audio_file,
+static void write_frames_int16_planar(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < channel_count; ch += 1) {
         int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = frames[i * channel_count + ch];
             *ch_buf = (int16_t)(sample * 32767.0);
             ch_buf += 1;
         }
     }
 }
 
-static void write_frames_int32_planar(const GenesisAudioFile *audio_file,
+static void write_frames_int32_planar(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < channel_count; ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = frames[i * channel_count + ch];
             *ch_buf = (int32_t)(sample * 2147483647.0);
             ch_buf += 1;
         }
     }
 }
 
-static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
+static void write_frames_int24_planar(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < channel_count; ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = frames[i * channel_count + ch];
             // ffmpeg looks at the most significant bytes
             *ch_buf = ((int32_t)(sample * 8388607.0)) << 8;
             ch_buf += 1;
@@ -721,38 +722,38 @@ static void write_frames_int24_planar(const GenesisAudioFile *audio_file,
     }
 }
 
-static void write_frames_float_planar(const GenesisAudioFile *audio_file,
+static void write_frames_float_planar(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < channel_count; ch += 1) {
         float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = frames[i * channel_count + ch];
             *ch_buf = (float)sample;
             ch_buf += 1;
         }
     }
 }
 
-static void write_frames_double_planar(const GenesisAudioFile *audio_file,
+static void write_frames_double_planar(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *frame)
 {
-    for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+    for (int ch = 0; ch < channel_count; ch += 1) {
         double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch]);
         for (long i = start; i < end; i += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+            float sample = frames[i * channel_count + ch];
             *ch_buf = sample;
             ch_buf += 1;
         }
     }
 }
 
-static void write_frames_uint8(const GenesisAudioFile *audio_file,
+static void write_frames_uint8(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            float sample = frames[i * channel_count + ch];
 
             *buffer = (uint8_t)((sample * 127.5) + 127.5);
 
@@ -761,12 +762,12 @@ static void write_frames_uint8(const GenesisAudioFile *audio_file,
     }
 }
 
-static void write_frames_int16(const GenesisAudioFile *audio_file,
+static void write_frames_int16(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            float sample = frames[i * channel_count + ch];
 
             int16_t *int_ptr = reinterpret_cast<int16_t*>(buffer);
             *int_ptr = (int16_t)(sample * 32767.0);
@@ -776,12 +777,12 @@ static void write_frames_int16(const GenesisAudioFile *audio_file,
     }
 }
 
-static void write_frames_int32(const GenesisAudioFile *audio_file,
+static void write_frames_int32(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            float sample = frames[i * channel_count + ch];
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
             *int_ptr = (int32_t)(sample * 2147483647.0);
@@ -791,12 +792,12 @@ static void write_frames_int32(const GenesisAudioFile *audio_file,
     }
 }
 
-static void write_frames_int24(const GenesisAudioFile *audio_file,
+static void write_frames_int24(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            float sample = frames[i * channel_count + ch];
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
             // ffmpeg looks at the most significant bytes
@@ -807,12 +808,12 @@ static void write_frames_int24(const GenesisAudioFile *audio_file,
     }
 }
 
-static void write_frames_float(const GenesisAudioFile *audio_file,
+static void write_frames_float(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            float sample = frames[i * channel_count + ch];
 
             float *float_ptr = reinterpret_cast<float*>(buffer);
             *float_ptr = (float)sample;
@@ -822,12 +823,12 @@ static void write_frames_float(const GenesisAudioFile *audio_file,
     }
 }
 
-static void write_frames_double(const GenesisAudioFile *audio_file,
+static void write_frames_double(const float *frames, int channel_count,
         long start, long end, uint8_t *buffer, AVFrame *)
 {
     for (long i = start; i < end; i += 1) {
-        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
-            float sample = audio_file->channels.at(ch).samples.at(i);
+        for (int ch = 0; ch < channel_count; ch += 1) {
+            float sample = frames[i * channel_count + ch];
             double *double_ptr = reinterpret_cast<double*>(buffer);
             *double_ptr = sample;
             buffer += 8;
@@ -871,228 +872,52 @@ uint64_t channel_layout_to_ffmpeg(const SoundIoChannelLayout *channel_layout) {
 }
 
 int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
-        const char *output_filename, struct GenesisExportFormat *export_format)
+        const char *output_filename, int output_filename_len,
+        struct GenesisExportFormat *export_format)
 {
-    AVCodec *codec = export_format->codec->codec;
-    AVOutputFormat *oformat = export_format->codec->render_format->oformat;
-
-    if (!av_codec_is_encoder(codec))
-        panic("not encoder: %s\n", codec->name);
-
-    uint64_t target_channel_layout = channel_layout_to_ffmpeg(&audio_file->channel_layout);
-    uint64_t out_channel_layout = closest_supported_channel_layout(codec, target_channel_layout);
-
-    AVFormatContext *fmt_ctx = avformat_alloc_context();
-    if (!fmt_ctx)
+    GenesisAudioFileStream *afs = genesis_audio_file_stream_create(audio_file->genesis_context);
+    if (!afs) {
+        genesis_audio_file_stream_destroy(afs);
         return GenesisErrorNoMem;
-
-    int err = avio_open(&fmt_ctx->pb, output_filename, AVIO_FLAG_WRITE);
-    if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("could not open %s: %s", output_filename, buf);
     }
 
-    fmt_ctx->oformat = oformat;
+    genesis_audio_file_stream_set_sample_rate(afs, audio_file->sample_rate);
+    genesis_audio_file_stream_set_channel_layout(afs, &audio_file->channel_layout);
+    genesis_audio_file_stream_set_export_format(afs, export_format);
 
-    AVStream *stream = avformat_new_stream(fmt_ctx, codec);
-    if (!stream)
-        panic("unable to create output stream");
-
-    stream->time_base.den = export_format->sample_rate;
-    stream->time_base.num = 1;
-
-    AVCodecContext *codec_ctx = stream->codec;
-    codec_ctx->bit_rate = export_format->bit_rate;
-    bool is_planar;
-    set_codec_ctx_format(codec_ctx, export_format, &is_planar);
-    codec_ctx->sample_rate = export_format->sample_rate;
-    codec_ctx->channel_layout = out_channel_layout;
-    codec_ctx->channels = audio_file->channels.length();
-    codec_ctx->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
-
-    if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-        codec_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
-
-    err = avcodec_open2(codec_ctx, codec, NULL);
-    if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("unable to open codec: %s", buf);
-    }
-
-    // copy metadata to format context
-    av_dict_free(&fmt_ctx->metadata);
     auto it = audio_file->tags.entry_iterator();
     for (;;) {
         auto *entry = it.next();
         if (!entry)
             break;
-        av_dict_set(&fmt_ctx->metadata, entry->key.raw(), entry->value.raw(),
-                AV_DICT_IGNORE_SUFFIX);
+
+        genesis_audio_file_stream_set_tag(afs, entry->key.raw(), entry->key.length(),
+                entry->value.raw(), entry->value.length());
     }
 
-    err = avformat_write_header(fmt_ctx, NULL);
-    if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("error writing header: %s", buf);
+    int err;
+
+    if ((err = genesis_audio_file_stream_open(afs, output_filename, output_filename_len))) {
+        genesis_audio_file_stream_destroy(afs);
+        return err;
     }
 
-    AVFrame *frame = av_frame_alloc();
-    if (!frame)
-        panic("error allocating frame");
-
-    int buffer_size;
-    if (codec_ctx->frame_size) {
-        buffer_size = av_samples_get_buffer_size(NULL, codec_ctx->channels,
-            codec_ctx->frame_size, codec_ctx->sample_fmt, 0);
-        if (buffer_size < 0) {
-            char buf[256];
-            av_strerror(err, buf, sizeof(buf));
-            panic("error determining buffer size: %s", buf);
+    float frame[GENESIS_MAX_CHANNELS];
+    long frame_count = genesis_audio_file_frame_count(audio_file);
+    for (long frame_i = 0; frame_i < frame_count; frame_i += 1) {
+        for (int ch = 0; ch < audio_file->channels.length(); ch += 1) {
+            Channel *channel = &audio_file->channels.at(ch);
+            frame[ch] = channel->samples.at(frame_i);
         }
-    } else {
-        buffer_size = 16 * 1024;
-    }
-    int bytes_per_sample = av_get_bytes_per_sample(codec_ctx->sample_fmt);
-    int frame_count = buffer_size / bytes_per_sample / codec_ctx->channels;
-
-    frame->pts = 0;
-    frame->nb_samples = frame_count;
-    frame->format = codec_ctx->sample_fmt;
-    frame->channel_layout = codec_ctx->channel_layout;
-
-    uint8_t *buffer = ok_mem(allocate_nonzero<uint8_t>(buffer_size));
-
-    err = avcodec_fill_audio_frame(frame, codec_ctx->channels, codec_ctx->sample_fmt,
-            buffer, buffer_size, 0);
-    if (err < 0) {
-        char buf[256];
-        av_strerror(err, buf, sizeof(buf));
-        panic("error setting up audio frame: %s", buf);
+        genesis_audio_file_stream_write(afs, frame, 1);
     }
 
-    void (*write_frames)(const GenesisAudioFile *, long, long, uint8_t *, AVFrame *) = nullptr;
-
-    if (is_planar) {
-        switch (export_format->sample_format) {
-            case SoundIoFormatU8:
-                write_frames = write_frames_uint8_planar;
-                break;
-            case SoundIoFormatS16NE:
-                write_frames = write_frames_int16_planar;
-                break;
-            case SoundIoFormatS24NE:
-                write_frames = write_frames_int24_planar;
-                break;
-            case SoundIoFormatS32NE:
-                write_frames = write_frames_int32_planar;
-                break;
-            case SoundIoFormatFloat32NE:
-                write_frames = write_frames_float_planar;
-                break;
-            case SoundIoFormatFloat64NE:
-                write_frames = write_frames_double_planar;
-                break;
-            default:
-                panic("invalid sample format");
-        }
-    } else {
-        switch (export_format->sample_format) {
-            case SoundIoFormatU8:
-                write_frames = write_frames_uint8;
-                break;
-            case SoundIoFormatS16NE:
-                write_frames = write_frames_int16;
-                break;
-            case SoundIoFormatS24NE:
-                write_frames = write_frames_int24;
-                break;
-            case SoundIoFormatS32NE:
-                write_frames = write_frames_int32;
-                break;
-            case SoundIoFormatFloat32NE:
-                write_frames = write_frames_float;
-                break;
-            case SoundIoFormatFloat64NE:
-                write_frames = write_frames_double;
-                break;
-            default:
-                panic("invalid sample format");
-        }
-    }
-    if (!write_frames)
-        panic("invalid sample format");
-
-    long source_frame_count = audio_file->channels.at(0).samples.length();
-
-    AVPacket pkt;
-    long start = 0;
-    for (;;) {
-        av_init_packet(&pkt);
-        pkt.data = NULL; // packet data will be allocated by the encoder
-        pkt.size = 0;
-
-        long end = min(start + frame_count, source_frame_count);
-        write_frames(audio_file, start, end, buffer, frame);
-        start = end;
-
-        int got_packet = 0;
-        err = avcodec_encode_audio2(codec_ctx, &pkt, frame, &got_packet);
-        if (err < 0) {
-            char buf[256];
-            av_strerror(err, buf, sizeof(buf));
-            panic("error encoding audio frame: %s", buf);
-        }
-        if (got_packet) {
-            err = av_write_frame(fmt_ctx, &pkt);
-            if (err < 0)
-                panic("error writing frame");
-            av_free_packet(&pkt);
-        }
-        if (end == source_frame_count)
-            break;
-
-        frame->pts += frame_count;
-    }
-    for (;;) {
-        int got_packet = 0;
-        err = avcodec_encode_audio2(codec_ctx, &pkt, NULL, &got_packet);
-        if (err < 0) {
-            char buf[256];
-            av_strerror(err, buf, sizeof(buf));
-            panic("error encoding audio frame: %s", buf);
-        }
-        if (got_packet) {
-            err = av_write_frame(fmt_ctx, &pkt);
-            if (err < 0)
-                panic("error writing frame");
-            av_free_packet(&pkt);
-        } else {
-            break;
-        }
-    }
-    for (;;) {
-        err = av_write_frame(fmt_ctx, NULL);
-        if (err < 0) {
-            panic("error flushing format");
-        } else if (err == 1) {
-            break;
-        }
+    if ((err = genesis_audio_file_stream_close(afs))) {
+        genesis_audio_file_stream_destroy(afs);
+        return err;
     }
 
-    destroy(buffer, buffer_size);
-    av_frame_free(&frame);
-
-    err = av_write_trailer(fmt_ctx);
-    if (err < 0)
-        panic("error writing trailer");
-
-    avio_closep(&fmt_ctx->pb);
-    avcodec_close(codec_ctx);
-    avformat_free_context(fmt_ctx);
-
+    genesis_audio_file_stream_destroy(afs);
     return 0;
 }
 
@@ -1374,8 +1199,8 @@ static int sample_format_rank(SoundIoFormat format) {
     }
 }
 
-static int sample_rate_rank(int sample_rate) {
-    return abs(sample_rate - 44100);
+static int sample_rate_rank(int sample_rate, int target_sample_rate) {
+    return abs(sample_rate - target_sample_rate);
 }
 
 int genesis_audio_file_codec_best_sample_format(const struct GenesisAudioFileCodec *codec) {
@@ -1394,13 +1219,15 @@ int genesis_audio_file_codec_best_sample_format(const struct GenesisAudioFileCod
     return best_index;
 }
 
-int genesis_audio_file_codec_best_sample_rate(const struct GenesisAudioFileCodec *codec) {
+int genesis_audio_file_codec_best_sample_rate(const struct GenesisAudioFileCodec *codec,
+        int target_sample_rate)
+{
     int best_sample_rate = codec->sample_rate_list.at(0);
-    int best_rank = sample_rate_rank(best_sample_rate);
+    int best_rank = sample_rate_rank(best_sample_rate, target_sample_rate);
     int best_index = 0;
     for (int i = 1; i < codec->sample_rate_list.length(); i += 1) {
         int this_sample_rate = codec->sample_rate_list.at(i);
-        int this_rank = sample_rate_rank(this_sample_rate);
+        int this_rank = sample_rate_rank(this_sample_rate, target_sample_rate);
         if (this_rank < best_rank) {
             best_rank = this_rank;
             best_sample_rate = this_sample_rate;
@@ -1422,4 +1249,357 @@ int genesis_audio_file_codec_bit_rate_index(const struct GenesisAudioFileCodec *
     assert(index >= 0);
     assert(index < array_length(bit_rate_list));
     return bit_rate_list[index];
+}
+
+void genesis_audio_file_stream_destroy(struct GenesisAudioFileStream *afs) {
+    if (!afs)
+        return;
+    genesis_audio_file_stream_close(afs);
+    destroy(afs, 1);
+}
+
+struct GenesisAudioFileStream *genesis_audio_file_stream_create(struct GenesisContext *context) {
+    GenesisAudioFileStream *afs = create_zero<GenesisAudioFileStream>();
+    if (!afs)
+        return nullptr;
+
+    return afs;
+}
+
+void genesis_audio_file_stream_set_sample_rate(struct GenesisAudioFileStream *afs,
+        int sample_rate)
+{
+    afs->sample_rate = sample_rate;
+}
+
+void genesis_audio_file_stream_set_channel_layout(struct GenesisAudioFileStream *afs,
+        const struct SoundIoChannelLayout *channel_layout)
+{
+    afs->channel_layout = *channel_layout;
+}
+
+void genesis_audio_file_stream_set_tag(struct GenesisAudioFileStream *afs,
+        const char *tag_key, int tag_key_len, const char *tag_value, int tag_value_len)
+{
+    ByteBuffer key(tag_key, tag_key_len);
+    ByteBuffer value(tag_value, tag_value_len);
+    afs->tags.put(key, value);
+}
+
+void genesis_audio_file_stream_set_export_format(struct GenesisAudioFileStream *afs,
+        const GenesisExportFormat *export_format)
+{
+    afs->export_format = *export_format;
+}
+
+static int afs_avio_write_packet(void *opaque, uint8_t *buf, int buf_size) {
+    struct GenesisAudioFileStream *afs = (GenesisAudioFileStream *)opaque;
+    return fwrite(buf, 1, buf_size, afs->file);
+}
+
+static int64_t afs_avio_seek(void *opaque, int64_t offset, int whence) {
+    struct GenesisAudioFileStream *afs = (GenesisAudioFileStream *)opaque;
+    int err;
+
+    static const unsigned SEEK_SIZE = 0x10000;
+    static const unsigned SEEK_FORCE = 0x20000;
+
+    if (whence & SEEK_FORCE) {
+        // doesn't matter
+        whence -= SEEK_FORCE;
+    }
+
+    if (whence & SEEK_SIZE) {
+        long size;
+        if ((err = os_file_size(afs->file, &size))) {
+            return -1;
+        }
+        return size;
+    }
+
+    switch (whence) {
+        case SEEK_SET:
+        case SEEK_CUR:
+        case SEEK_END:
+            return fseek(afs->file, offset, whence);
+    }
+    return -1;
+}
+
+
+int genesis_audio_file_stream_open(struct GenesisAudioFileStream *afs,
+        const char *file_path, int file_path_len)
+{
+    ByteBuffer file_path_buf(file_path, file_path_len);
+    afs->file = fopen(file_path_buf.raw(), "wb");
+    if (!afs->file) {
+        genesis_audio_file_stream_close(afs);
+        return GenesisErrorFileAccess;
+    }
+
+    AVCodec *codec = afs->export_format.codec->codec;
+    AVOutputFormat *oformat = afs->export_format.codec->render_format->oformat;
+
+    if (!av_codec_is_encoder(codec))
+        panic("not encoder: %s\n", codec->name);
+
+    uint64_t target_channel_layout = channel_layout_to_ffmpeg(&afs->channel_layout);
+    uint64_t out_channel_layout = closest_supported_channel_layout(codec, target_channel_layout);
+
+    afs->fmt_ctx = avformat_alloc_context();
+    if (!afs->fmt_ctx) {
+        genesis_audio_file_stream_close(afs);
+        return GenesisErrorNoMem;
+    }
+
+    afs->avio_buffer_size = 8 * 1024;
+    afs->avio_buf = allocate_nonzero<unsigned char>(afs->avio_buffer_size);
+    if (!afs->avio_buf) {
+        genesis_audio_file_stream_close(afs);
+        return GenesisErrorNoMem;
+    }
+
+    afs->avio = avio_alloc_context(afs->avio_buf, afs->avio_buffer_size, 1, afs, nullptr,
+            afs_avio_write_packet, afs_avio_seek);
+    if (!afs->avio) {
+        genesis_audio_file_stream_close(afs);
+        return GenesisErrorNoMem;
+    }
+    afs->avio->seekable = AVIO_SEEKABLE_NORMAL;
+    afs->avio->direct = AVIO_FLAG_DIRECT;
+
+    afs->fmt_ctx->pb = afs->avio;
+
+    afs->fmt_ctx->oformat = oformat;
+
+    afs->stream = avformat_new_stream(afs->fmt_ctx, codec);
+    if (!afs->stream)
+        panic("unable to create output stream");
+
+    afs->stream->time_base.den = afs->export_format.sample_rate;
+    afs->stream->time_base.num = 1;
+
+    AVCodecContext *codec_ctx = afs->stream->codec;
+    codec_ctx->bit_rate = afs->export_format.bit_rate;
+    bool is_planar;
+    set_codec_ctx_format(codec_ctx, &afs->export_format, &is_planar);
+    codec_ctx->sample_rate = afs->export_format.sample_rate;
+    codec_ctx->channel_layout = out_channel_layout;
+    codec_ctx->channels = afs->channel_layout.channel_count;
+    codec_ctx->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+
+    if (afs->fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        codec_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
+    int err;
+    if ((err = avcodec_open2(codec_ctx, codec, NULL)) < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("unable to open codec: %s", buf);
+    }
+
+    // copy metadata to format context
+    av_dict_free(&afs->fmt_ctx->metadata);
+    auto it = afs->tags.entry_iterator();
+    for (;;) {
+        auto *entry = it.next();
+        if (!entry)
+            break;
+        av_dict_set(&afs->fmt_ctx->metadata, entry->key.raw(), entry->value.raw(),
+                AV_DICT_IGNORE_SUFFIX);
+    }
+
+    err = avformat_write_header(afs->fmt_ctx, NULL);
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("error writing header: %s", buf);
+    }
+
+    afs->frame = av_frame_alloc();
+    if (!afs->frame)
+        panic("error allocating frame");
+
+    if (codec_ctx->frame_size) {
+        afs->frame_buffer_size = av_samples_get_buffer_size(NULL, codec_ctx->channels,
+            codec_ctx->frame_size, codec_ctx->sample_fmt, 0);
+        if (afs->frame_buffer_size < 0) {
+            char buf[256];
+            av_strerror(err, buf, sizeof(buf));
+            panic("error determining buffer size: %s", buf);
+        }
+    } else {
+        afs->frame_buffer_size = 16 * 1024;
+    }
+    int bytes_per_sample = av_get_bytes_per_sample(codec_ctx->sample_fmt);
+    afs->buffer_frame_count = afs->frame_buffer_size / bytes_per_sample / codec_ctx->channels;
+
+    afs->frame->pts = 0;
+    afs->frame->nb_samples = afs->buffer_frame_count;
+    afs->frame->format = codec_ctx->sample_fmt;
+    afs->frame->channel_layout = codec_ctx->channel_layout;
+
+    afs->frame_buffer = ok_mem(allocate_nonzero<uint8_t>(afs->frame_buffer_size));
+
+    err = avcodec_fill_audio_frame(afs->frame, codec_ctx->channels, codec_ctx->sample_fmt,
+            afs->frame_buffer, afs->frame_buffer_size, 0);
+    if (err < 0) {
+        char buf[256];
+        av_strerror(err, buf, sizeof(buf));
+        panic("error setting up audio frame: %s", buf);
+    }
+
+    if (is_planar) {
+        switch (afs->export_format.sample_format) {
+            case SoundIoFormatU8:
+                afs->write_frames = write_frames_uint8_planar;
+                break;
+            case SoundIoFormatS16NE:
+                afs->write_frames = write_frames_int16_planar;
+                break;
+            case SoundIoFormatS24NE:
+                afs->write_frames = write_frames_int24_planar;
+                break;
+            case SoundIoFormatS32NE:
+                afs->write_frames = write_frames_int32_planar;
+                break;
+            case SoundIoFormatFloat32NE:
+                afs->write_frames = write_frames_float_planar;
+                break;
+            case SoundIoFormatFloat64NE:
+                afs->write_frames = write_frames_double_planar;
+                break;
+            default:
+                panic("invalid sample format");
+        }
+    } else {
+        switch (afs->export_format.sample_format) {
+            case SoundIoFormatU8:
+                afs->write_frames = write_frames_uint8;
+                break;
+            case SoundIoFormatS16NE:
+                afs->write_frames = write_frames_int16;
+                break;
+            case SoundIoFormatS24NE:
+                afs->write_frames = write_frames_int24;
+                break;
+            case SoundIoFormatS32NE:
+                afs->write_frames = write_frames_int32;
+                break;
+            case SoundIoFormatFloat32NE:
+                afs->write_frames = write_frames_float;
+                break;
+            case SoundIoFormatFloat64NE:
+                afs->write_frames = write_frames_double;
+                break;
+            default:
+                panic("invalid sample format");
+        }
+    }
+    if (!afs->write_frames)
+        panic("invalid sample format");
+
+    av_init_packet(&afs->pkt);
+    afs->pkt.data = NULL; // packet data will be allocated by the encoder
+    afs->pkt.size = 0;
+    afs->pkt_frames_left = afs->buffer_frame_count;
+
+    return 0;
+}
+
+int genesis_audio_file_stream_close(struct GenesisAudioFileStream *afs) {
+    int err;
+    if (afs->fmt_ctx) {
+        // flush the encoder
+        for (;;) {
+            int got_packet = 0;
+            err = avcodec_encode_audio2(afs->stream->codec, &afs->pkt, NULL, &got_packet);
+            if (err < 0) {
+                char buf[256];
+                av_strerror(err, buf, sizeof(buf));
+                panic("error encoding audio frame: %s", buf);
+            }
+            if (got_packet) {
+                err = av_write_frame(afs->fmt_ctx, &afs->pkt);
+                if (err < 0)
+                    panic("error writing frame");
+                av_free_packet(&afs->pkt);
+            } else {
+                break;
+            }
+        }
+        // flush AVFormatContext
+        for (;;) {
+            err = av_write_frame(afs->fmt_ctx, NULL);
+            if (err < 0) {
+                return GenesisErrorFileAccess;
+            } else if (err == 1) {
+                break;
+            }
+        }
+        if ((err = av_write_trailer(afs->fmt_ctx)) < 0) {
+            return GenesisErrorFileAccess;
+        }
+        if (afs->stream) {
+            avcodec_close(afs->stream->codec);
+            afs->stream = nullptr;
+        }
+        av_free(afs->avio);
+        afs->avio = nullptr;
+
+        destroy(afs->avio_buf, afs->avio_buffer_size);
+        afs->avio_buf = nullptr;
+
+        avformat_free_context(afs->fmt_ctx);
+        afs->fmt_ctx = nullptr;
+    }
+    if (afs->file) {
+        if (fclose(afs->file)) {
+            return GenesisErrorFileAccess;
+        }
+        afs->file = nullptr;
+    }
+
+    destroy(afs->frame_buffer, afs->frame_buffer_size);
+    afs->frame_buffer = nullptr;
+
+    av_frame_free(&afs->frame);
+    afs->frame = nullptr;
+
+    return 0;
+}
+
+int genesis_audio_file_stream_write(struct GenesisAudioFileStream *afs,
+        const float *frames, long source_frame_count)
+{
+    int channel_count = afs->channel_layout.channel_count;
+    int err;
+
+    long write_count = min((long)afs->pkt_frames_left, source_frame_count);
+    afs->write_frames(frames, channel_count, 0, write_count, afs->frame_buffer, afs->frame);
+    afs->pkt_frames_left -= write_count;
+
+    if (afs->pkt_frames_left <= 0) {
+        int got_packet = 0;
+        err = avcodec_encode_audio2(afs->stream->codec, &afs->pkt, afs->frame, &got_packet);
+        if (err < 0) {
+            char buf[256];
+            av_strerror(err, buf, sizeof(buf));
+            panic("error encoding audio frame: %s", buf);
+        }
+        if (got_packet) {
+            err = av_write_frame(afs->fmt_ctx, &afs->pkt);
+            if (err < 0)
+                panic("error writing frame");
+            av_free_packet(&afs->pkt);
+        }
+
+        afs->frame->pts += afs->buffer_frame_count;
+        av_init_packet(&afs->pkt);
+        afs->pkt.data = NULL; // packet data will be allocated by the encoder
+        afs->pkt.size = 0;
+        afs->pkt_frames_left = afs->buffer_frame_count;
+    }
+
+    return 0;
 }

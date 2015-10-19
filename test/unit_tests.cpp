@@ -330,14 +330,12 @@ static void test_basic_project_editing(void) {
     static const char *tmp_file_path = "/tmp/test_genesis_config";
     os_delete(tmp_file_path);
 
-    SettingsFile *sf = ok_mem(settings_file_open(tmp_file_path));
-
     uint256 user_id = uint256::random();
     User *user = user_create(user_id, os_get_user_name());
 
     uint256 project_id = uint256::random();
     Project *project;
-    ok_or_panic(project_create(tmp_proj_path, context, sf, project_id, user, &project));
+    ok_or_panic(project_create(context, tmp_proj_path, project_id, user, &project));
 
     assert(project->user_list.length() == 1);
     assert(project->user_list.at(0)->id == user_id);
@@ -345,7 +343,7 @@ static void test_basic_project_editing(void) {
     project_close(project);
     project = nullptr;
 
-    int err = project_open(tmp_proj_path, context, sf, user, &project);
+    int err = project_open(context, tmp_proj_path, user, &project);
     assert(err == 0);
 
     assert(project->id == project_id);
@@ -373,7 +371,7 @@ static void test_basic_project_editing(void) {
     project_close(project);
     project = nullptr;
 
-    err = project_open(tmp_proj_path, context, sf, user, &project);
+    err = project_open(context, tmp_proj_path, user, &project);
     assert(err == 0);
 
     assert(project->user_list.length() == 1);
@@ -420,7 +418,7 @@ static void test_audio_file(void) {
     format.sample_rate = 48000;
     assert(genesis_audio_file_codec_supports_sample_rate(format.codec, format.sample_rate));
 
-    genesis_audio_file_export(audio_file, tmp_file_path, &format);
+    genesis_audio_file_export(audio_file, tmp_file_path, -1, &format);
     genesis_audio_file_destroy(audio_file);
     genesis_destroy_context(context);
 

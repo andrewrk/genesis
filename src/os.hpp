@@ -43,7 +43,8 @@ struct OsTempFile {
 };
 int os_create_temp_file(const char *dir, OsTempFile *out_tmp_file);
 
-int os_flush_file(FILE *file);
+int os_file_flush(FILE *file);
+int os_file_size(FILE *file, long *out_size);
 
 int os_mkdirp(ByteBuffer path);
 ByteBuffer os_path_dirname(ByteBuffer path);

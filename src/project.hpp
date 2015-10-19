@@ -7,20 +7,11 @@
 #include "sort_key.hpp"
 #include "ordered_map_file.hpp"
 #include "event_dispatcher.hpp"
-#include "midi_hardware.hpp"
-#include "atomic_value.hpp"
-#include "atomic_double.hpp"
-#include "atomics.hpp"
 #include "device_id.hpp"
 
 class Command;
 struct AudioClipSegment;
 struct Project;
-struct SettingsFile;
-
-struct EventList {
-    List<GenesisMidiEvent> events;
-};
 
 struct AudioAsset {
     // canonical data
@@ -40,16 +31,6 @@ struct AudioClip {
 
     // prepared view of the data
     AudioAsset *audio_asset;
-
-    // transient state
-    Project *project;
-    GenesisNodeDescriptor *node_descr;
-    GenesisNode *node;
-    GenesisNodeDescriptor *event_node_descr;
-    GenesisNode *event_node;
-    GenesisNode *resample_node;
-    AtomicValue<List<GenesisMidiEvent>> events;
-    List<GenesisMidiEvent> *events_write_ptr;
 };
 
 struct Track {
@@ -186,33 +167,11 @@ struct Project {
     bool mixer_line_list_dirty;
 
     ////////// transient state
+    GenesisContext *genesis_context;
     User *active_user; // the user that is running this instance of genesis
     OrderedMapFile *omf;
     EventDispatcher events;
     ByteBuffer path; // path to the project file
-
-    GenesisContext *genesis_context;
-    SettingsFile *settings_file;
-    GenesisNodeDescriptor *resample_descr;
-    GenesisNodeDescriptor *audio_file_descr;
-    GenesisNodeDescriptor *spy_descr;
-    GenesisNodeDescriptor *mixer_descr;
-    GenesisNode *audio_file_node;
-    GenesisNode *resample_node;
-    GenesisNode *mixer_node;
-    GenesisNode *spy_node;
-    GenesisNode *playback_node;
-    GenesisAudioFile *preview_audio_file;
-    GenesisPortDescriptor *audio_file_port_descr;
-    long audio_file_frame_count;
-    long audio_file_frame_index;
-    PlayChannelContext audio_file_channel_context[GENESIS_MAX_CHANNELS];
-    bool preview_audio_file_is_asset;
-
-    double start_play_head_pos;
-    AtomicDouble play_head_pos;
-    atomic_bool is_playing;
-    atomic_flag play_head_changed_flag;
 };
 
 int project_get_next_revision(Project *project);
@@ -460,10 +419,10 @@ public:
 User *user_create(const uint256 &id, const String &name);
 void user_destroy(User *user);
 
-int project_open(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
+int project_open(GenesisContext *genesis_context, const char *path, User *user,
+        Project **out_project);
+int project_create(GenesisContext *genesis_context, const char *path, const uint256 &id,
         User *user, Project **out_project);
-int project_create(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
-        const uint256 &id, User *user, Project **out_project);
 void project_close(Project *project);
 
 void project_undo(Project *project);

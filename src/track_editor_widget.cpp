@@ -44,9 +44,10 @@ static void scroll_callback(Event, void *userdata) {
     track_editor->update_model();
 }
 
-TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, Project *project) :
+TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, AudioGraph *audio_graph) :
     Widget(gui_window),
-    project(project),
+    audio_graph(audio_graph),
+    project(audio_graph->project),
     timeline_height(24),
     track_head_width(90),
     track_height(60),
@@ -255,7 +256,7 @@ void TrackEditorWidget::update_play_head_model() {
     static const int ICON_HEIGHT = 12;
     float icon_scale_width = ICON_WIDTH / (float)play_head_icon->width;
     float icon_scale_height = ICON_HEIGHT / (float)play_head_icon->height;
-    double play_head_pos = project_play_head_pos(project);
+    double play_head_pos = audio_graph_play_head_pos(audio_graph);
     int play_head_x = whole_note_to_pixel(play_head_pos) - horiz_scroll_bar->value;
     int icon_left = play_head_x - ICON_WIDTH / 2;
     int icon_top = timeline_bottom - ICON_HEIGHT;
@@ -466,7 +467,7 @@ void TrackEditorWidget::destroy_gui_track(GuiTrack *gui_track) {
 
 void TrackEditorWidget::scrub(const MouseEvent *event) {
     double whole_note = pixel_to_whole_note(event->x + horiz_scroll_bar->value);
-    project_set_play_head(project, whole_note);
+    audio_graph_set_play_head(audio_graph, whole_note);
 }
 
 void TrackEditorWidget::on_mouse_move(const MouseEvent *event) {

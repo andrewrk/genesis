@@ -16,11 +16,31 @@ struct GenesisAudioFile {
     SoundIoChannelLayout channel_layout;
     int sample_rate;
     HashMap<ByteBuffer, ByteBuffer, ByteBuffer::hash> tags;
-
-    // private
     AVFormatContext *ic;
     AVCodecContext *codec_ctx;
     AVFrame *in_frame;
+    GenesisContext *genesis_context;
+};
+
+struct GenesisAudioFileStream {
+    SoundIoChannelLayout channel_layout;
+    int sample_rate;
+    HashMap<ByteBuffer, ByteBuffer, ByteBuffer::hash> tags;
+    GenesisExportFormat export_format;
+    void (*write_frames)(const float *frames, int channel_count,
+            long start, long end, uint8_t *buffer, AVFrame *frame);
+    FILE *file;
+    AVIOContext *avio;
+    AVFormatContext *fmt_ctx;
+    unsigned char *avio_buf;
+    uint8_t *frame_buffer;
+    int frame_buffer_size;
+    int buffer_frame_count;
+    AVFrame *frame;
+    AVStream *stream;
+    AVPacket pkt;
+    int pkt_frames_left;
+    int avio_buffer_size;
 };
 
 struct GenesisAudioFileCodec {

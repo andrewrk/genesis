@@ -68,7 +68,7 @@ static void on_playing_changed(Event, void *userdata) {
 
 static void on_sample_rate_changed(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
-    audio_graph_change_sample_rate(genesis_editor->project, genesis_editor->project->sample_rate);
+    audio_graph_change_sample_rate(genesis_editor->audio_graph, genesis_editor->project->sample_rate);
 }
 
 static void always_show_tabs_handler(void *userdata) {
@@ -90,7 +90,7 @@ static void on_flush_events(Event, void *userdata) {
         editor_window->fps_widget->set_text(fps_text);
     }
 
-    project_flush_events(genesis_editor->project);
+    audio_graph_flush_events(genesis_editor->audio_graph);
 }
 
 static void on_buffer_underrun(Event, void *userdata) {
@@ -101,13 +101,13 @@ static void on_buffer_underrun(Event, void *userdata) {
     double new_latency = latency + 0.005;
     fprintf(stderr, "recovering from stream error. latency %f -> %f\n", latency, new_latency);
 
-    project_recover_stream(genesis_editor->project, new_latency);
+    audio_graph_recover_stream(genesis_editor->audio_graph, new_latency);
 }
 
 static void on_sound_backend_disconnected(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
 
-    project_recover_sound_backend_disconnect(genesis_editor->project);
+    audio_graph_recover_sound_backend_disconnect(genesis_editor->audio_graph);
 }
 
 static void show_dock_handler(void *userdata) {
@@ -208,7 +208,7 @@ GenesisEditor::GenesisEditor() :
     if (settings_file->open_project_id != uint256::zero()) {
         ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
         ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
-        int err = project_open(proj_path.raw(), genesis_context, settings_file, user, &project);
+        int err = project_open(genesis_context, proj_path.raw(), user, &project);
         if (err) {
             fprintf(stderr, "Unable to load project: %s\n", genesis_strerror(err));
         } else {
@@ -221,7 +221,7 @@ GenesisEditor::GenesisEditor() :
         ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), id.to_string());
         ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
         ok_or_panic(os_mkdirp(proj_dir));
-        ok_or_panic(project_create(proj_path.raw(), genesis_context, settings_file, id, user, &project));
+        ok_or_panic(project_create(genesis_context, proj_path.raw(), id, user, &project));
 
         settings_file->open_project_id = id;
         settings_dirty = true;
@@ -229,7 +229,7 @@ GenesisEditor::GenesisEditor() :
 
     genesis_set_sample_rate(genesis_context, project->sample_rate);
 
-    project_set_up_audio_graph(project);
+    ok_or_panic(audio_graph_create_playback(project, genesis_context, settings_file, &audio_graph));
 
     if (settings_file->open_windows.length() == 0) {
         create_sf_open_window();
@@ -269,6 +269,7 @@ GenesisEditor::GenesisEditor() :
 }
 
 GenesisEditor::~GenesisEditor() {
+    audio_graph_destroy(audio_graph);
     project_close(project);
     user_destroy(user);
     genesis_destroy_context(genesis_context);
@@ -416,10 +417,10 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     top_bar_grid_layout->add_widget(editor_window->menu_widget, 0, 0, HAlignLeft, VAlignTop);
     top_bar_grid_layout->add_widget(fps_widget, 0, 1, HAlignRight, VAlignTop);
 
-    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window, settings_file, project);
+    ResourcesTreeWidget *resources_tree = create<ResourcesTreeWidget>(new_window, settings_file, audio_graph);
     add_dock(editor_window, resources_tree, "Resources");
 
-    TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, project);
+    TrackEditorWidget *track_editor = create<TrackEditorWidget>(new_window, audio_graph);
     add_dock(editor_window, track_editor, "Track Editor");
 
     MixerWidget *mixer = create<MixerWidget>(new_window, project);
@@ -484,7 +485,7 @@ void GenesisEditor::refresh_menu_state() {
         redo_caption = "&Redo";
     }
 
-    bool is_playing = project_is_playing(project);
+    bool is_playing = audio_graph_is_playing(audio_graph);
 
     for (int i = 0; i < windows.length(); i += 1) {
         EditorWindow *editor_window = windows.at(i);
@@ -642,17 +643,17 @@ DockablePaneWidget *GenesisEditor::find_pane(EditorPane *editor_pane, DockAreaWi
 }
 
 void GenesisEditor::toggle_playback() {
-    if (project_is_playing(project)) {
-        project_pause(project);
+    if (audio_graph_is_playing(audio_graph)) {
+        audio_graph_pause(audio_graph);
     } else {
-        project_play(project);
+        audio_graph_play(audio_graph);
     }
 }
 
 void GenesisEditor::restart_playback() {
-    project_restart_playback(project);
+    audio_graph_restart_playback(audio_graph);
 }
 
 void GenesisEditor::stop_playback() {
-    project_stop_playback(project);
+    audio_graph_stop_playback(audio_graph);
 }

@@ -22,7 +22,8 @@ static void on_selected_bit_rate_change(Event, void *userdata) {
 }
 
 static void on_render_activate(Event, void *userdata) {
-    panic("TODO");
+    RenderWidget *render_widget = (RenderWidget*)userdata;
+    render_widget->my_on_render_activate();
 }
 
 static void on_settings_output_format_changed(Event, void *userdata) {
@@ -217,4 +218,8 @@ void RenderWidget::my_on_selected_bit_rate_change() {
 
     settings_file_set_default_render_bit_rate(settings_file, render_format->render_format_type, bit_rate);
     settings_file_commit(settings_file);
+}
+
+void RenderWidget::my_on_render_activate() {
+    // TODO
 }

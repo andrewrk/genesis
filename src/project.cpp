@@ -1291,12 +1291,6 @@ static void project_sort_audio_clip_segments(Project *project) {
         track->audio_clip_segments.clear();
     }
 
-    for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
-        AudioClip *audio_clip = project->audio_clip_list.at(i);
-        audio_clip->events_write_ptr = audio_clip->events.write_begin();
-        audio_clip->events_write_ptr->clear();
-    }
-
     auto it = project->audio_clip_segments.entry_iterator();
     for (;;) {
         auto *entry = it.next();
@@ -1305,20 +1299,6 @@ static void project_sort_audio_clip_segments(Project *project) {
 
         AudioClipSegment *segment = entry->value;
         ok_or_panic(segment->track->audio_clip_segments.append(segment));
-
-        AudioClip *audio_clip = segment->audio_clip;
-        ok_or_panic(audio_clip->events_write_ptr->add_one());
-        GenesisMidiEvent *event = &audio_clip->events_write_ptr->last();
-        event->event_type = GenesisMidiEventTypeSegment;
-        event->start = segment->pos;
-        event->data.segment_data.start = segment->start;
-        event->data.segment_data.end = segment->end;
-    }
-
-    for (int i = 0; i < project->audio_clip_list.length(); i += 1) {
-        AudioClip *audio_clip = project->audio_clip_list.at(i);
-        audio_clip->events.write_end();
-        audio_clip->events_write_ptr = nullptr;
     }
 
     for (int i = 0; i < project->track_list.length(); i += 1) {
@@ -1555,11 +1535,7 @@ static int deserialize_audio_asset(Project *project, const ByteBuffer &key, cons
 }
 
 static void destroy_audio_clip(Project *project, AudioClip *audio_clip) {
-    if (audio_clip) {
-        if (audio_clip->node)
-            project_remove_node_from_audio_clip(project, audio_clip);
-        destroy(audio_clip, 1);
-    }
+    destroy(audio_clip, 1);
 }
 
 static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const ByteBuffer &value) {
@@ -1585,12 +1561,9 @@ static int deserialize_audio_clip(Project *project, const ByteBuffer &key, const
         return GenesisErrorInvalidFormat;
     }
     audio_clip->audio_asset = audio_asset_entry->value;
-    audio_clip->project = project;
 
     project->audio_clips.put(audio_clip->id, audio_clip);
     project->audio_clip_list_dirty = true;
-
-    project_add_node_to_audio_clip(project, audio_clip);
 
     return 0;
 }
@@ -1912,8 +1885,8 @@ static void project_push_command(Project *project, Command *command) {
     project->commands.put(command->id, command);
 }
 
-int project_open(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
-        User *user, Project **out_project)
+int project_open(GenesisContext *genesis_context, const char *path, User *user,
+        Project **out_project)
 {
     *out_project = nullptr;
 
@@ -1923,10 +1896,9 @@ int project_open(const char *path, GenesisContext *genesis_context, SettingsFile
         return GenesisErrorNoMem;
     }
 
+    project->genesis_context = genesis_context;
     project->path = path;
     project->active_user = user;
-    project->genesis_context = genesis_context;
-    project->settings_file = settings_file;
 
     int err = ordered_map_file_open(path, &project->omf);
     if (err) {
@@ -2083,15 +2055,17 @@ static Effect *create_default_master_send(MixerLine *mixer_line) {
 }
 
 
-int project_create(const char *path, GenesisContext *genesis_context, SettingsFile *settings_file,
-        const uint256 &id, User *user, Project **out_project)
-{
+int project_create(GenesisContext *genesis_context, const char *path, const uint256 &id,
+        User *user, Project **out_project) {
     *out_project = nullptr;
+
     Project *project = create_zero<Project>();
     if (!project) {
         project_close(project);
         return GenesisErrorNoMem;
     }
+
+    project->genesis_context = genesis_context;
 
     int err = ordered_map_file_open(path, &project->omf);
     if (err) {
@@ -2103,8 +2077,6 @@ int project_create(const char *path, GenesisContext *genesis_context, SettingsFi
     project->id = id;
     project->path = path;
     project->active_user = user;
-    project->genesis_context = genesis_context;
-    project->settings_file = settings_file;
 
     OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
 
@@ -2171,25 +2143,32 @@ int project_create(const char *path, GenesisContext *genesis_context, SettingsFi
 }
 
 void project_close(Project *project) {
-    if (project) {
-        project_tear_down_audio_graph(project);
+    if (!project)
+        return;
 
-        ordered_map_file_close(project->omf);
-        for (int i = 0; i < project->command_list.length(); i += 1) {
-            Command *cmd = project->command_list.at(i);
-            destroy(cmd, 1);
-        }
-        for (int i = 0; i < project->track_list.length(); i += 1) {
-            Track *track = project->track_list.at(i);
-            destroy(track, 1);
-        }
-        for (int i = 0; i < project->user_list.length(); i += 1) {
-            User *user = project->user_list.at(i);
-            if (user != project->active_user)
-                destroy(user, 1);
-        }
-        destroy(project, 1);
+    ordered_map_file_close(project->omf);
+    for (int i = 0; i < project->command_list.length(); i += 1) {
+        Command *cmd = project->command_list.at(i);
+        destroy(cmd, 1);
     }
+    for (int i = 0; i < project->track_list.length(); i += 1) {
+        Track *track = project->track_list.at(i);
+        destroy(track, 1);
+    }
+    for (int i = 0; i < project->user_list.length(); i += 1) {
+        User *user = project->user_list.at(i);
+        if (user != project->active_user)
+            destroy(user, 1);
+    }
+    for (int mixer_line_i = 0; mixer_line_i < project->mixer_line_list.length(); mixer_line_i += 1) {
+        MixerLine *mixer_line = project->mixer_line_list.at(mixer_line_i);
+        for (int effect_i = 0; effect_i < mixer_line->effects.length(); effect_i += 1) {
+            Effect *effect = mixer_line->effects.at(effect_i);
+            destroy(effect, 1);
+        }
+        destroy(mixer_line, 1);
+    }
+    destroy(project, 1);
 }
 
 static void trigger_undo_changed(Project *project) {
@@ -2541,15 +2520,12 @@ void AddAudioClipCommand::redo(OrderedMapFileBatch *batch) {
     audio_clip->audio_asset_id = audio_asset->id;
     audio_clip->name = name;
     audio_clip->audio_asset = audio_asset;
-    audio_clip->project = project;
 
     project->audio_clips.put(audio_clip->id, audio_clip);
     project->audio_clip_list_dirty = true;
 
     ok_or_panic(ordered_map_file_batch_put(batch,
                 create_id_key(PropKeyAudioClip, audio_clip->id), omf_buf_obj(audio_clip)));
-
-    project_add_node_to_audio_clip(project, audio_clip);
 }
 
 void AddAudioClipCommand::serialize(ByteBuffer &buf) {
