@@ -7,7 +7,7 @@
 #include "sunken_box.hpp"
 #include "event_dispatcher.hpp"
 
-class SpritesheetImage;
+struct SpritesheetImage;
 
 class ButtonWidget : public Widget {
 public:

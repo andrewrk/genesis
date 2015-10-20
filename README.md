@@ -57,17 +57,16 @@ libgenesis is programmed in a tiny subset of C++:
 
 ### Dependencies
 
+ * [libsoundio](http://libsound.io/)
  * [ALSA Library](http://www.alsa-project.org/)
  * [cmake](http://www.cmake.org/)
  * [libepoxy](https://github.com/anholt/libepoxy)
  * [freetype](http://www.freetype.org/)
  * [GLFW](http://www.glfw.org/)
  * [glm](http://glm.g-truc.net/0.9.6/index.html)
- * [FFmpeg](http://ffmpeg.org/)
- * [libjack2](http://jackaudio.org/)
+ * [ffmpeg](http://ffmpeg.org/)
  * [liblaxjson](https://github.com/andrewrk/liblaxjson)
  * [libpng](http://www.libpng.org/pub/png/libpng.html)
- * [libpulseaudio](http://www.freedesktop.org/wiki/Software/PulseAudio/)
  * [rhash](http://rhash.anz.ru/)
  * [rucksack](https://github.com/andrewrk/rucksack)
 

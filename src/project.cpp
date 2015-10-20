@@ -2188,7 +2188,7 @@ static void add_undo_for_command(Project *project, OrderedMapFileBatch *batch, C
             omf_buf_uint32(project->undo_stack_index)));
 }
 
-void project_perform_command(Command *command) {
+static void project_perform_command(Command *command) {
     Project *project = command->project;
     OrderedMapFileBatch *batch = ok_mem(ordered_map_file_batch_create(project->omf));
 

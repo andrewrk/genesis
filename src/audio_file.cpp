@@ -862,7 +862,7 @@ static uint64_t to_ffmpeg_channel_id(enum SoundIoChannelId channel_id) {
     }
 }
 
-uint64_t channel_layout_to_ffmpeg(const SoundIoChannelLayout *channel_layout) {
+static uint64_t channel_layout_to_ffmpeg(const SoundIoChannelLayout *channel_layout) {
     uint64_t result = 0;
     for (int i = 0; i < channel_layout->channel_count; i += 1) {
         SoundIoChannelId channel_id = channel_layout->channels[i];

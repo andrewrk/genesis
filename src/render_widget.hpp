@@ -8,7 +8,7 @@ struct Project;
 class TextWidget;
 class SelectWidget;
 class ButtonWidget;
-class SettingsFile;
+struct SettingsFile;
 
 class RenderWidget : public Widget {
 public:

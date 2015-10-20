@@ -554,18 +554,14 @@ int genesis_context_create(struct GenesisContext **out_context) {
     return 0;
 }
 
-void genesis_stop_all_pipelines(struct GenesisContext *context) {
-    while (context->pipelines.length()) {
-        GenesisPipeline *pipeline = context->pipelines.pop();
-        genesis_pipeline_destroy(pipeline);
-    }
-}
-
 void genesis_context_destroy(struct GenesisContext *context) {
     if (!context)
         return;
 
-    genesis_stop_all_pipelines(context);
+    while (context->pipelines.length()) {
+        GenesisPipeline *pipeline = context->pipelines.pop();
+        genesis_pipeline_destroy(pipeline);
+    }
 
     for (int i = 0; i < context->out_formats.length(); i += 1) {
         destroy(context->out_formats.at(i), 1);

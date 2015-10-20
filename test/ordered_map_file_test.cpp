@@ -80,7 +80,7 @@ static void test_simple_data(void) {
     delete_tmp_file();
 }
 
-void test_many_data(void) {
+static void test_many_data(void) {
     OrderedMapFile *omf;
     int err = ordered_map_file_open(tmp_file_path, &omf);
     assert(err == 0);

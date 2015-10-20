@@ -9,7 +9,7 @@ struct PngIo {
     long size;
 };
 
-void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length) {
+static void read_png_data(png_structp png_ptr, png_bytep data, png_size_t length) {
     PngIo *png_io = reinterpret_cast<PngIo*>(png_get_io_ptr(png_ptr));
     long new_index = png_io->index + length;
     if (new_index > png_io->size)

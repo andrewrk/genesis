@@ -125,4 +125,6 @@ struct OsMutexLocker {
 
 int os_get_current_year(void);
 
+void os_spawn_process(const char *exe, const List<ByteBuffer> &args, bool detached);
+
 #endif
