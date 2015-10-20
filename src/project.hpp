@@ -31,6 +31,9 @@ struct AudioClip {
 
     // prepared view of the data
     AudioAsset *audio_asset;
+
+    // transient data
+    void *userdata;
 };
 
 struct Track {
@@ -323,7 +326,9 @@ public:
     ~ChangeSampleRateCommand() override {}
 
     String description() const override {
-        return ByteBuffer::format("Change Sample Rate from %d to %d", old_sample_rate, new_sample_rate);
+        ByteBuffer desc;
+        desc.format("Change Sample Rate from %d to %d", old_sample_rate, new_sample_rate);
+        return desc;
     }
 
     int allocated_size() const override {
@@ -347,7 +352,9 @@ public:
     ~ChangeChannelLayoutCommand() override {}
 
     String description() const override {
-        return ByteBuffer::format("Change Channel Layout from %s to %s", old_layout.name, new_layout.name);
+        ByteBuffer desc;
+        desc.format("Change Channel Layout from %s to %s", old_layout.name, new_layout.name);
+        return desc;
     }
 
     int allocated_size() const override {
@@ -450,5 +457,8 @@ void project_get_effect_string(Project *project, Effect *effect, String &result)
 
 void project_set_sample_rate(Project *project, int sample_rate);
 void project_set_channel_layout(Project *project, const SoundIoChannelLayout *layout);
+
+double project_get_duration_whole_notes(Project *project);
+long project_get_duration_frames(Project *project);
 
 #endif

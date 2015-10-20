@@ -20,12 +20,12 @@ struct OsDirEntry {
 
 int os_init(int (*init_once)(void));
 
-ByteBuffer os_get_home_dir(void);
-ByteBuffer os_get_app_dir(void);
-ByteBuffer os_get_projects_dir(void);
-ByteBuffer os_get_app_config_dir(void);
-ByteBuffer os_get_app_config_path(void);
-ByteBuffer os_get_samples_dir(void);
+void os_get_home_dir(ByteBuffer &out);
+void os_get_app_dir(ByteBuffer &out);
+void os_get_projects_dir(ByteBuffer &out);
+void os_get_app_config_dir(ByteBuffer &out);
+void os_get_app_config_path(ByteBuffer &out);
+void os_get_samples_dir(ByteBuffer &out);
 
 uint32_t os_random_uint32(void); // 32 bits of entropy
 uint64_t os_random_uint64(void); // 64 bits of entropy
@@ -49,7 +49,7 @@ int os_file_size(FILE *file, long *out_size);
 int os_mkdirp(ByteBuffer path);
 ByteBuffer os_path_dirname(ByteBuffer path);
 ByteBuffer os_path_basename(const ByteBuffer &path);
-ByteBuffer os_path_join(ByteBuffer left, ByteBuffer right);
+void os_path_join(ByteBuffer &out, ByteBuffer left, ByteBuffer right);
 ByteBuffer os_path_extension(ByteBuffer path);
 void os_path_remove_extension(ByteBuffer &path);
 

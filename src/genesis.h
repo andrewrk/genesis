@@ -252,6 +252,9 @@ GENESIS_EXPORT void genesis_node_descriptor_set_destroy_callback(struct GenesisN
         void (*destroy)(struct GenesisNode *node));
 GENESIS_EXPORT void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_descriptor);
 
+GENESIS_EXPORT void genesis_node_descriptor_set_activate_callback(
+        struct GenesisNodeDescriptor *descr, int (*activate)(struct GenesisNode *node));
+
 // returns -1 if not found
 GENESIS_EXPORT int genesis_node_descriptor_find_port_index(
         const struct GenesisNodeDescriptor *node_descriptor, const char *name);

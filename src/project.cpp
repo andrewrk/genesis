@@ -2252,7 +2252,8 @@ int project_ensure_audio_asset_loaded(Project *project, AudioAsset *audio_asset)
         return 0;
 
     ByteBuffer project_dir = os_path_dirname(project->path);
-    ByteBuffer full_path = os_path_join(project_dir, audio_asset->path);
+    ByteBuffer full_path;
+    os_path_join(full_path, project_dir, audio_asset->path);
     return genesis_audio_file_load(project->genesis_context, full_path.raw(), &audio_asset->audio_file);
 }
 
@@ -2400,7 +2401,9 @@ void project_get_effect_string(Project *project, Effect *effect, String &out) {
                 case EffectSendTypeDevice:
                 {
                     EffectSendDevice *send_device = &send->send.device;
-                    out = ByteBuffer::format("To %s Device", device_id_str((DeviceId)send_device->device_id));
+                    ByteBuffer out_buf;
+                    out_buf.format("To %s Device", device_id_str((DeviceId)send_device->device_id));
+                    out = out_buf;
                     return;
                 }
             }
@@ -2418,6 +2421,40 @@ void project_set_sample_rate(Project *project, int sample_rate) {
 void project_set_channel_layout(Project *project, const SoundIoChannelLayout *layout) {
     ChangeChannelLayoutCommand *cmd = create<ChangeChannelLayoutCommand>(project, layout);
     project_perform_command(cmd);
+}
+
+// When you finally get around to genericizing this code, take a peek at
+// whole_notes_per_second at the top of genesis.cpp
+static const double whole_notes_per_second = 140.0 / 60.0;
+
+static double project_whole_notes_to_seconds(Project *project, double whole_notes) {
+    return whole_notes / whole_notes_per_second;
+}
+
+static long project_whole_notes_to_frames(Project *project, double whole_notes) {
+    return project->sample_rate * project_whole_notes_to_seconds(project, whole_notes);
+}
+
+static double project_frames_to_whole_notes(Project *project, long frames) {
+    double seconds = frames / (double)project->sample_rate;
+    return whole_notes_per_second * seconds;
+}
+
+double project_get_duration_whole_notes(Project *project) {
+    double last_pos = 0.0;
+    for (int track_i = 0; track_i < project->track_list.length(); track_i += 1) {
+        Track *track = project->track_list.at(track_i);
+        AudioClipSegment *last_segment = track->audio_clip_segments.last();
+        long duration_frames = last_segment->end - last_segment->start;
+        double duration_whole_notes = project_frames_to_whole_notes(project, duration_frames);
+        double end_pos = last_segment->pos + duration_whole_notes;
+        last_pos = max(last_pos, end_pos);
+    }
+    return last_pos;
+}
+
+long project_get_duration_frames(Project *project) {
+    return project_whole_notes_to_frames(project, project_get_duration_whole_notes(project));
 }
 
 AddTrackCommand::AddTrackCommand(Project *project, String name, const SortKey &sort_key) :

@@ -85,7 +85,8 @@ static void on_flush_events(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
 
     // update FPS labels
-    ByteBuffer fps_text = ByteBuffer::format("%.0f fps", genesis_editor->gui->fps);
+    ByteBuffer fps_text;
+    fps_text.format("%.0f fps", genesis_editor->gui->fps);
     for (int i = 0; i < genesis_editor->windows.length(); i += 1) {
         EditorWindow *editor_window = genesis_editor->windows.at(i);
         editor_window->fps_widget->set_text(fps_text);
@@ -140,15 +141,18 @@ GenesisEditor::GenesisEditor() :
 
     int err;
 
-    ByteBuffer config_dir = os_get_app_config_dir();
+    ByteBuffer config_dir;
+    os_get_app_config_dir(config_dir);
     if ((err = os_mkdirp(config_dir)))
         panic("unable to make genesis path: %s", genesis_strerror(err));
 
-    ByteBuffer samples_dir = os_get_samples_dir();
+    ByteBuffer samples_dir;
+    os_get_samples_dir(samples_dir);
     if ((err = os_mkdirp(samples_dir)))
         panic("unable to make samples path: %s", genesis_strerror(err));
 
-    ByteBuffer config_path = os_get_app_config_path();
+    ByteBuffer config_path;
+    os_get_app_config_path(config_path);
     settings_file = settings_file_open(config_path);
 
     resource_bundle = create<ResourceBundle>("resources.bundle");
@@ -202,10 +206,17 @@ GenesisEditor::GenesisEditor() :
 
     user = user_create(settings_file->user_id, settings_file->user_name);
 
+    ByteBuffer projects_dir;
+    os_get_projects_dir(projects_dir);
+
     bool create_new = true;
     if (settings_file->open_project_id != uint256::zero()) {
-        ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), settings_file->open_project_id.to_string());
-        ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
+
+        ByteBuffer proj_dir;
+        os_path_join(proj_dir, projects_dir, settings_file->open_project_id.to_string());
+
+        ByteBuffer proj_path;
+        os_path_join(proj_path, proj_dir, "project.gdaw");
         int err = project_open(genesis_context, proj_path.raw(), user, &project);
         if (err) {
             fprintf(stderr, "Unable to load project: %s\n", genesis_strerror(err));
@@ -216,8 +227,10 @@ GenesisEditor::GenesisEditor() :
 
     if (create_new) {
         uint256 id = uint256::random();
-        ByteBuffer proj_dir = os_path_join(os_get_projects_dir(), id.to_string());
-        ByteBuffer proj_path = os_path_join(proj_dir, "project.gdaw");
+        ByteBuffer proj_dir;
+        os_path_join(proj_dir, projects_dir, id.to_string());
+        ByteBuffer proj_path;
+        os_path_join(proj_path, proj_dir, "project.gdaw");
         ok_or_panic(os_mkdirp(proj_dir));
         ok_or_panic(project_create(genesis_context, proj_path.raw(), id, user, &project));
 

@@ -31,7 +31,6 @@ struct AudioGraph {
     Project *project;
     EventDispatcher events;
 
-    // TODO make sure this is updated when the audio clips are updated in the project
     List<AudioGraphClip*> audio_clip_list;
 
     GenesisPipeline *pipeline;
@@ -59,8 +58,10 @@ struct AudioGraph {
     ByteBuffer render_out_path;
     GenesisExportFormat render_export_format;
     GenesisAudioFileStream *render_stream;
-    long render_frame_index;
+    atomic_long render_frame_index;
     long render_frame_count;
+    atomic_flag render_updated_flag;
+    OsCond *render_cond;
 
     double start_play_head_pos;
     AtomicDouble play_head_pos;
@@ -74,6 +75,8 @@ int audio_graph_create_render(Project *project, GenesisContext *genesis_context,
         const GenesisExportFormat *export_format, const ByteBuffer &out_path,
         AudioGraph **out_audio_graph);
 void audio_graph_destroy(AudioGraph *audio_graph);
+
+void audio_graph_start_pipeline(AudioGraph *audio_graph);
 
 double audio_graph_get_latency(AudioGraph *audio_graph);
 

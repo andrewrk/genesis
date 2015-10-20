@@ -136,32 +136,46 @@ static int page_size;
 static RandomState random_state;
 static const mode_t default_dir_mode = 0777;
 
-ByteBuffer os_get_home_dir(void) {
+void os_get_home_dir(ByteBuffer &out) {
     const char *env_home_dir = getenv("HOME");
-    if (env_home_dir)
-        return env_home_dir;
+    if (env_home_dir) {
+        out = env_home_dir;
+        return;
+    }
     struct passwd *pw = getpwuid(getuid());
-    return pw->pw_dir;
+    out = pw->pw_dir;
 }
 
-ByteBuffer os_get_app_dir(void) {
-    return os_path_join(os_get_home_dir(), ".genesis");
+void os_get_app_dir(ByteBuffer &out) {
+    ByteBuffer home_dir;
+    os_get_home_dir(home_dir);
+
+    os_path_join(out, home_dir, ".genesis");
 }
 
-ByteBuffer os_get_projects_dir(void) {
-    return os_path_join(os_get_app_dir(), "projects");
+void os_get_projects_dir(ByteBuffer &out) {
+    ByteBuffer app_dir;
+    os_get_app_dir(app_dir);
+
+    os_path_join(out, app_dir, "projects");
 }
 
-ByteBuffer os_get_samples_dir(void) {
-    return os_path_join(os_get_app_dir(), "samples");
+void os_get_samples_dir(ByteBuffer &out) {
+    ByteBuffer app_dir;
+    os_get_app_dir(app_dir);
+
+    os_path_join(out, app_dir, "samples");
 }
 
-ByteBuffer os_get_app_config_dir(void) {
-    return os_get_app_dir();
+void os_get_app_config_dir(ByteBuffer &out) {
+    os_get_app_dir(out);
 }
 
-ByteBuffer os_get_app_config_path(void) {
-    return os_path_join(os_get_app_config_dir(), "config");
+void os_get_app_config_path(ByteBuffer &out) {
+    ByteBuffer app_config_dir;
+    os_get_app_config_dir(app_config_dir);
+
+    os_path_join(out, app_config_dir, "config");
 }
 
 static int get_random_seed(uint32_t *seed) {
@@ -240,7 +254,7 @@ int os_rename_clobber(const char *source, const char *dest) {
 }
 
 int os_create_temp_file(const char *dir, OsTempFile *out_tmp_file) {
-    out_tmp_file->path = os_path_join(dir, "XXXXXX");
+    os_path_join(out_tmp_file->path, dir, "XXXXXX");
     int fd = mkstemp(out_tmp_file->path.raw());
     if (fd == -1)
         return GenesisErrorFileAccess;
@@ -308,9 +322,9 @@ ByteBuffer os_path_basename(const ByteBuffer &path) {
         return "";
 }
 
-ByteBuffer os_path_join(ByteBuffer left, ByteBuffer right) {
+void os_path_join(ByteBuffer &out, ByteBuffer left, ByteBuffer right) {
     const char *fmt_str = (left.at(left.length() - 1) == '/') ? "%s%s" : "%s/%s";
-    return ByteBuffer::format(fmt_str, left.raw(), right.raw());
+    out.format(fmt_str, left.raw(), right.raw());
 }
 
 ByteBuffer os_path_extension(ByteBuffer path) {
@@ -356,7 +370,8 @@ int os_readdir(const char *dir, List<OsDirEntry*> &entries) {
     while ((ep = readdir(dp))) {
         if (strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0)
             continue;
-        ByteBuffer full_path = os_path_join(dir, ep->d_name);
+        ByteBuffer full_path;
+        os_path_join(full_path, dir, ep->d_name);
         struct stat st;
         if (stat(full_path.raw(), &st)) {
             int c_err = errno;
@@ -449,13 +464,18 @@ int os_copy_no_clobber(const char *source_path, const char *dest_dir,
         const char *prefix, const char *dest_extension,
         ByteBuffer &out_path, Sha256Hasher *hasher)
 {
-    ByteBuffer dir_plus_prefix = os_path_join(dest_dir, prefix);
+    ByteBuffer dir_plus_prefix;
+    os_path_join(dir_plus_prefix, dest_dir, prefix);
+
     ByteBuffer full_path;
     int out_fd;
     for (int counter = 0;; counter += 1) {
         full_path = dir_plus_prefix;
-        if (counter != 0)
-            full_path.append(ByteBuffer::format("%d", counter));
+        if (counter != 0) {
+            ByteBuffer counter_buf;
+            counter_buf.format("%d", counter);
+            full_path.append(counter_buf);
+        }
         full_path.append(dest_extension);
         out_fd = open(full_path.raw(), O_CREAT|O_WRONLY|O_EXCL, 0660);
         if (out_fd == -1) {

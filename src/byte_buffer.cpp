@@ -43,7 +43,7 @@ void ByteBuffer::append(const char *str, int length) {
     _buffer.at(new_length_plus_null - 1) = 0;
 }
 
-ByteBuffer ByteBuffer::format(const char *format, ...) {
+void ByteBuffer::format(const char *format, ...) {
     va_list ap, ap2;
     va_start(ap, format);
     va_copy(ap2, ap);
@@ -53,18 +53,14 @@ ByteBuffer ByteBuffer::format(const char *format, ...) {
         panic("vsnprintf error");
 
     int required_length = ret + 1;
-    ByteBuffer result;
-    if (result._buffer.resize(required_length))
-        panic("out of memory");
+    ok_or_panic(_buffer.resize(required_length));
     
-    ret = vsnprintf(result._buffer.raw(), required_length, format, ap2);
+    ret = vsnprintf(_buffer.raw(), required_length, format, ap2);
     if (ret < 0)
         panic("vsnprintf error 2");
 
     va_end(ap2);
     va_end(ap);
-
-    return result;
 }
 
 int ByteBuffer::index_of_rev(char c) const {

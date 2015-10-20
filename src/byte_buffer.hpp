@@ -28,7 +28,7 @@ public:
         return _buffer.at(index);
     }
 
-    static ByteBuffer format(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
+    void format(const char *format, ...) __attribute__ ((format (printf, 2, 3)));
 
     int length() const {
         return _buffer.length() - 1;

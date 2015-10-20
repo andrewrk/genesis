@@ -40,6 +40,7 @@ public:
     void my_on_selected_sample_format_change();
     void my_on_selected_bit_rate_change();
     void my_on_render_activate();
+    void refresh_render_jobs();
 };
 
 #endif

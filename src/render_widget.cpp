@@ -42,6 +42,11 @@ static void on_settings_bit_rate_changed(Event, void *userdata) {
     render_widget->select_settings_bit_rate();
 }
 
+static void on_render_jobs_updated(Event, void *userdata) {
+    RenderWidget *render_widget = (RenderWidget*)userdata;
+    render_widget->refresh_render_jobs();
+}
+
 RenderWidget::~RenderWidget() {
     output_format_select->events.detach_handler(EventSelectedIndexChanged, on_selected_output_format_change);
     sample_format_select->events.detach_handler(EventSelectedIndexChanged, on_selected_sample_format_change);
@@ -104,6 +109,8 @@ RenderWidget::RenderWidget(GuiWindow *gui_window, Project *project, SettingsFile
     settings_file->events.attach_handler(EventSettingsDefaultRenderBitRateChanged,
             on_settings_bit_rate_changed, this);
     select_settings_output_format();
+
+    gui->events.attach_handler(EventRenderJobsUpdated, on_render_jobs_updated, this);
 }
 
 TextWidget *RenderWidget::create_form_label(const char *text) {
@@ -152,6 +159,7 @@ void RenderWidget::select_settings_bit_rate() {
     GenesisAudioFileCodec *codec = genesis_render_format_codec(render_format);
 
     int bit_rate_count = genesis_audio_file_codec_bit_rate_count(codec);
+    ByteBuffer choice_buf;
     if (bit_rate_count) {
         int sf_bit_rate = settings_file->default_render_bit_rates[render_format->render_format_type];
 
@@ -159,7 +167,8 @@ void RenderWidget::select_settings_bit_rate() {
         bit_rate_select->clear();
         for (int i = 0; i < bit_rate_count; i += 1) {
             int bit_rate = genesis_audio_file_codec_bit_rate_index(codec, i);
-            bit_rate_select->append_choice(ByteBuffer::format("%d kbps", bit_rate));
+            choice_buf.format("%d kbps", bit_rate);
+            bit_rate_select->append_choice(choice_buf);
             if (bit_rate == sf_bit_rate)
                 best_index = i;
         }
@@ -224,7 +233,7 @@ void RenderWidget::my_on_selected_bit_rate_change() {
 void RenderWidget::my_on_render_activate() {
     RenderJob *rj = ok_mem(create_zero<RenderJob>());
     ok_or_panic(gui->render_jobs.append(rj));
-    render_job_init(rj, project, project->genesis_context);
+    render_job_init(rj, project, project->genesis_context, gui);
 
     GenesisRenderFormat *render_format = genesis_out_format_index(project->genesis_context,
             output_format_select->selected_index);
@@ -248,6 +257,9 @@ void RenderWidget::my_on_render_activate() {
 
     ByteBuffer out_path = output_file_text->text().encode();
     render_job_start(rj, &export_format, out_path);
+}
 
-    gui->events.trigger(EventRenderJobsUpdated);
+void RenderWidget::refresh_render_jobs() {
+    // TODO update the list of currently rendering jobs
+
 }

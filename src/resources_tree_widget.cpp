@@ -181,6 +181,7 @@ void ResourcesTreeWidget::draw(const glm::mat4 &projection) {
 void ResourcesTreeWidget::refresh_devices() {
     int backend_count;
     GenesisSoundBackend *audio_connections = genesis_get_sound_backends(context, &backend_count);
+    ByteBuffer text_buf;
     for (int backend_i = 0; backend_i < backend_count; backend_i += 1) {
         GenesisSoundBackend *sound_backend = &audio_connections[backend_i];
         const char *backend_name = soundio_backend_name(sound_backend->backend);
@@ -209,13 +210,15 @@ void ResourcesTreeWidget::refresh_devices() {
         if (sound_backend->connect_err) {
             input_backend_node->node_type = NodeTypeDummy;
             input_backend_node->icon_img = gui->img_exclamation_circle;
-            input_backend_node->text = ByteBuffer::format("%s (%s)", backend_name,
+            text_buf.format("%s (%s)", backend_name,
                     soundio_strerror(sound_backend->connect_err));
+            input_backend_node->text = text_buf;
 
             output_backend_node->node_type = NodeTypeDummy;
             output_backend_node->icon_img = gui->img_exclamation_circle;
-            output_backend_node->text = ByteBuffer::format("%s (%s)", backend_name,
+            text_buf.format("%s (%s)", backend_name,
                     soundio_strerror(sound_backend->connect_err));
+            output_backend_node->text = text_buf;
             continue;
         }
 
@@ -243,7 +246,8 @@ void ResourcesTreeWidget::refresh_devices() {
             }
             if (node->audio_device->probe_error) {
                 node->icon_img = gui->img_exclamation_circle;
-                text.append(ByteBuffer::format(" (%s)", soundio_strerror(node->audio_device->probe_error)));
+                text_buf.format(" (%s)", soundio_strerror(node->audio_device->probe_error));
+                text.append(text_buf);
             } else {
                 node->icon_img = gui->img_microphone;
             }
@@ -275,7 +279,8 @@ void ResourcesTreeWidget::refresh_devices() {
             }
             if (node->audio_device->probe_error) {
                 node->icon_img = gui->img_exclamation_circle;
-                text.append(ByteBuffer::format(" (%s)", soundio_strerror(node->audio_device->probe_error)));
+                text_buf.format(" (%s)", soundio_strerror(node->audio_device->probe_error));
+                text.append(text_buf);
             } else {
                 node->icon_img = gui->img_volume_up;
             }
@@ -822,9 +827,10 @@ void ResourcesTreeWidget::scan_dir_recursive(const ByteBuffer &dir, Node *parent
     if (err)
         fprintf(stderr, "Error reading %s: %s\n", dir.raw(), genesis_strerror(err));
     entries.sort<compare_is_dir_then_name>();
+    ByteBuffer full_path;
     for (int i = 0; i < entries.length(); i += 1) {
         OsDirEntry *dir_entry = entries.at(i);
-        ByteBuffer full_path = os_path_join(dir, dir_entry->name);
+        os_path_join(full_path, dir, dir_entry->name);
         if (dir_entry->is_dir) {
             Node *child = create_parent_node(parent_node, dir_entry->name.raw());
             scan_dir_recursive(full_path, child);
@@ -837,7 +843,9 @@ void ResourcesTreeWidget::scan_dir_recursive(const ByteBuffer &dir, Node *parent
 
 void ResourcesTreeWidget::scan_sample_dirs() {
     List<ByteBuffer> dirs;
-    ok_or_panic(dirs.append(os_get_samples_dir()));
+    ByteBuffer samples_dir;
+    os_get_samples_dir(samples_dir);
+    ok_or_panic(dirs.append(samples_dir));
     for (int i = 0; i < settings_file->sample_dirs.length(); i += 1) {
         ok_or_panic(dirs.append(settings_file->sample_dirs.at(i)));
     }

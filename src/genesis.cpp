@@ -8,6 +8,9 @@
 
 static const int BYTES_PER_SAMPLE = 4; // assuming float samples
 static const int EVENTS_PER_SECOND_CAPACITY = 16000;
+
+// When you finally get around to genericizing this code, take a peek at
+// project_whole_notes_to_frames and project_frames_to_whole_notes
 static const double whole_notes_per_second = 140.0 / 60.0;
 
 static int (*plugin_create_list[])(GenesisPipeline *pipeline) = {
@@ -2139,6 +2142,12 @@ void genesis_node_descriptor_set_run_callback(struct GenesisNodeDescriptor *node
         void (*run)(struct GenesisNode *node))
 {
     node_descriptor->run = run;
+}
+
+void genesis_node_descriptor_set_activate_callback(struct GenesisNodeDescriptor *node_descriptor,
+        int (*activate)(struct GenesisNode *node))
+{
+    node_descriptor->activate = activate;
 }
 
 void genesis_node_descriptor_set_seek_callback(struct GenesisNodeDescriptor *node_descriptor,

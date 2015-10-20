@@ -44,9 +44,11 @@ public:
     }
 
     ByteBuffer to_string() const {
+        ByteBuffer digit;
         ByteBuffer result;
         for (int i = 0; i < Size64; i += 1) {
-            result.append(ByteBuffer::format("%016" PRIx64, values[i]));
+            digit.format("%016" PRIx64, values[i]);
+            result.append(digit);
         }
         return result;
     }

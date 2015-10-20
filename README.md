@@ -116,7 +116,9 @@ make
 ## Roadmap
 
  0. ability to render project
+ 0. fix playback
  0. assertion failure when multithreading on
+ 0. ability to update audio graph without stopping pipeline
  0. make toggling playback and seeking the play head work
  0. start playing in the middle of an audio clip segment
  0. make a playback selection

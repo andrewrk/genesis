@@ -921,7 +921,38 @@ int genesis_audio_file_export(struct GenesisAudioFile *audio_file,
     return 0;
 }
 
+static int my_lockmgr_cb(void **mutex, enum AVLockOp op) {
+    if (!mutex)
+        return -1;
+    OsMutex *genesis_mutex;
+    switch (op) {
+        case AV_LOCK_CREATE:
+            genesis_mutex = os_mutex_create();
+            *mutex = genesis_mutex;
+            return 0;
+        case AV_LOCK_OBTAIN:
+            genesis_mutex = (OsMutex *) *mutex;
+            os_mutex_lock(genesis_mutex);
+            return 0;
+        case AV_LOCK_RELEASE:
+            genesis_mutex = (OsMutex *) *mutex;
+            os_mutex_unlock(genesis_mutex);
+            return 0;
+        case AV_LOCK_DESTROY:
+            genesis_mutex = (OsMutex *) *mutex;
+            os_mutex_destroy(genesis_mutex);
+            *mutex = nullptr;
+            return 0;
+    }
+    return -1;
+}
+
 int audio_file_init(void) {
+    int err;
+    if ((err = av_lockmgr_register(my_lockmgr_cb))) {
+        return GenesisErrorSystemResources;
+    }
+
     av_log_set_level(AV_LOG_QUIET);
     avcodec_register_all();
     av_register_all();

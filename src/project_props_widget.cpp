@@ -54,9 +54,11 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
 
     sample_rate_select = create<SelectWidget>(gui_window);
     int sample_rate_count = audio_file_sample_rate_count();
+    ByteBuffer choice_buf;
     for (int i = 0; i < sample_rate_count; i += 1) {
         int sample_rate = audio_file_sample_rate_index(i);
-        sample_rate_select->append_choice(ByteBuffer::format("%d", sample_rate));
+        choice_buf.format("%d", sample_rate);
+        sample_rate_select->append_choice(choice_buf);
     }
     sample_rate_select->events.attach_handler(EventSelectedIndexChanged, on_selected_sample_rate_change, this);
     layout.add_widget(create_form_label("Sample Rate:"), 1, 0, HAlignRight, VAlignCenter);
@@ -90,7 +92,8 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
     layout.add_widget(album_artist_text, 6, 1, HAlignLeft, VAlignCenter);
 
     TextWidget *year_text = create<TextWidget>(gui_window);
-    year_text->set_text(ByteBuffer::format("%d", project->tag_year));
+    choice_buf.format("%d", project->tag_year);
+    year_text->set_text(choice_buf);
     layout.add_widget(create_form_label("Year:"), 7, 0, HAlignRight, VAlignCenter);
     layout.add_widget(year_text, 7, 1, HAlignLeft, VAlignCenter);
 
