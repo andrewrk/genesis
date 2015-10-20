@@ -99,8 +99,8 @@ static void synth_run(struct GenesisNode *node) {
     genesis_audio_out_port_advance_write_ptr(audio_out_port, output_frame_count);
 }
 
-int create_synth_descriptor(GenesisContext *context) {
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2, "synth", "A single oscillator");
+int create_synth_descriptor(GenesisPipeline *pipeline) {
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(pipeline, 2, "synth", "A single oscillator");
     if (!node_descr) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
@@ -124,7 +124,8 @@ int create_synth_descriptor(GenesisContext *context) {
     genesis_audio_port_descriptor_set_channel_layout(audio_port,
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
 
-    genesis_audio_port_descriptor_set_sample_rate(audio_port, genesis_get_sample_rate(context), false, -1);
+    genesis_audio_port_descriptor_set_sample_rate(audio_port,
+            genesis_pipeline_get_sample_rate(pipeline), false, -1);
 
     return 0;
 }

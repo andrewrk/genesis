@@ -10,7 +10,7 @@ static const int BYTES_PER_SAMPLE = 4; // assuming float samples
 static const int EVENTS_PER_SECOND_CAPACITY = 16000;
 static const double whole_notes_per_second = 140.0 / 60.0;
 
-static int (*plugin_create_list[])(GenesisContext *context) = {
+static int (*plugin_create_list[])(GenesisPipeline *pipeline) = {
     create_synth_descriptor,
     create_delay_descriptor,
     create_resample_descriptor,
@@ -384,16 +384,16 @@ static void on_devices_change(SoundIo *soundio) {
         context->devices_change_callback(context->devices_change_callback_userdata);
 }
 
-double genesis_frames_to_whole_notes(GenesisContext *context, int frames, int frame_rate) {
+double genesis_frames_to_whole_notes(GenesisPipeline *pipeline, int frames, int frame_rate) {
     double seconds = frames / (double)frame_rate;
     return whole_notes_per_second * seconds;
 }
 
-int genesis_whole_notes_to_frames(GenesisContext *context, double whole_notes, int frame_rate) {
-    return frame_rate * genesis_whole_notes_to_seconds(context, whole_notes, frame_rate);
+int genesis_whole_notes_to_frames(GenesisPipeline *pipeline, double whole_notes, int frame_rate) {
+    return frame_rate * genesis_whole_notes_to_seconds(pipeline, whole_notes, frame_rate);
 }
 
-double genesis_whole_notes_to_seconds(GenesisContext *context, double whole_notes, int frame_rate) {
+double genesis_whole_notes_to_seconds(GenesisPipeline *pipeline, double whole_notes, int frame_rate) {
     return whole_notes / whole_notes_per_second;
 }
 
@@ -405,58 +405,121 @@ static void on_backend_disconnect(struct SoundIo *soundio, int err) {
         context->sound_backend_disconnect_callback(context->sound_backend_disconnect_userdata);
 }
 
-int genesis_create_context(struct GenesisContext **out_context) {
+void genesis_pipeline_destroy(struct GenesisPipeline *pipeline) {
+    if (!pipeline)
+        return;
+
+    genesis_pipeline_stop(pipeline);
+
+    GenesisContext *context = pipeline->context;
+    for (int i = 0; i < context->pipelines.length(); i += 1) {
+        GenesisPipeline *this_pipeline = context->pipelines.at(i);
+        if (this_pipeline == pipeline) {
+            context->pipelines.swap_remove(i);
+            break;
+        }
+    }
+
+    while (pipeline->nodes.length()) {
+        genesis_node_destroy(pipeline->nodes.at(pipeline->nodes.length() - 1));
+    }
+
+    while (pipeline->node_descriptors.length()) {
+        int last_index = pipeline->node_descriptors.length() - 1;
+        genesis_node_descriptor_destroy(pipeline->node_descriptors.at(last_index));
+    }
+    destroy(pipeline->thread_pool, pipeline->thread_pool_size);
+
+    destroy(pipeline, 1);
+}
+
+int genesis_pipeline_create(struct GenesisContext *context,
+        struct GenesisPipeline **out_pipeline)
+{
+    GenesisPipeline *pipeline = create_zero<GenesisPipeline>();
+
+    if (!pipeline) {
+        genesis_pipeline_destroy(pipeline);
+        return GenesisErrorNoMem;
+    }
+
+    pipeline->context = context;
+    pipeline->latency = 0.020; // 20ms
+    pipeline->target_sample_rate = 44100;
+    pipeline->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo);
+
+    pipeline->stream_fail_flag.test_and_set();
+
+    int concurrency = os_concurrency();
+    // subtract one to make room for GUI thread, OS, and other miscellaneous
+    // interruptions.
+    pipeline->thread_pool_size = max(1, concurrency - 1);
+    pipeline->thread_pool_size = 1; // TODO remove this debug
+    pipeline->thread_pool = allocate_zero<OsThread *>(pipeline->thread_pool_size);
+    if (!pipeline->thread_pool) {
+        genesis_pipeline_destroy(pipeline);
+        return GenesisErrorNoMem;
+    }
+
+    for (int i = 0; i < array_length(plugin_create_list); i += 1) {
+        int (*create_fn)(GenesisPipeline *) = plugin_create_list[i];
+        int err = create_fn(pipeline);
+        if (err) {
+            genesis_context_destroy(context);
+            return err;
+        }
+    }
+
+    int err;
+    if ((err = context->pipelines.append(pipeline))) {
+        genesis_pipeline_destroy(pipeline);
+        return err;
+    }
+
+    *out_pipeline = pipeline;
+
+    return 0;
+}
+
+int genesis_context_create(struct GenesisContext **out_context) {
     *out_context = nullptr;
 
     os_init(audio_file_init);
 
     GenesisContext *context = create_zero<GenesisContext>();
     if (!context) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return GenesisErrorNoMem;
     }
-    context->latency = 0.020; // 20ms
-    context->target_sample_rate = 44100;
-    context->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo);
 
     if (!(context->events_cond = os_cond_create())) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return GenesisErrorNoMem;
     }
 
     if (!(context->events_mutex = os_mutex_create())) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return GenesisErrorNoMem;
     }
 
-    int concurrency = os_concurrency();
-    // subtract one to make room for GUI thread, OS, and other miscellaneous
-    // interruptions.
-    context->thread_pool_size = max(1, concurrency - 1);
-    context->thread_pool_size = 1; // TODO remove this debug
-    context->thread_pool = allocate_zero<OsThread *>(context->thread_pool_size);
-    if (!context->thread_pool) {
-        genesis_destroy_context(context);
-        return GenesisErrorNoMem;
-    }
 
     int err = create_midi_hardware(context, "genesis", midi_events_signal, on_midi_devices_change,
             context, &context->midi_hardware);
     if (err) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return err;
     }
 
     SoundIo *token_soundio = soundio_create();
     if (!token_soundio) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return GenesisErrorNoMem;
     }
     context->sound_backend_count = soundio_backend_count(token_soundio);
     context->sound_backend_list = allocate_zero<GenesisSoundBackend>(context->sound_backend_count);
     if (!context->sound_backend_list) {
         soundio_destroy(token_soundio);
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return GenesisErrorNoMem;
     }
     for (int i = 0; i < context->sound_backend_count; i += 1) {
@@ -465,7 +528,7 @@ int genesis_create_context(struct GenesisContext **out_context) {
         sound_backend->backend = soundio_get_backend(token_soundio, i);
         sound_backend->soundio = (i == 0) ? token_soundio : soundio_create();
         if (!sound_backend->soundio) {
-            genesis_destroy_context(context);
+            genesis_context_destroy(context);
             return GenesisErrorNoMem;
         }
         sound_backend->soundio->userdata = sound_backend;
@@ -477,45 +540,33 @@ int genesis_create_context(struct GenesisContext **out_context) {
 
     err = audio_file_get_out_formats(context->out_formats);
     if (err) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return err;
     }
 
     err = audio_file_get_in_formats(context->in_formats);
     if (err) {
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return err;
     }
-
-    for (int i = 0; i < array_length(plugin_create_list); i += 1) {
-        int (*create_fn)(GenesisContext *) = plugin_create_list[i];
-        int err = create_fn(context);
-        if (err) {
-            genesis_destroy_context(context);
-            return err;
-        }
-    }
-
-    context->stream_fail_flag.test_and_set();
 
     *out_context = context;
     return 0;
 }
 
-void genesis_destroy_context(struct GenesisContext *context) {
+void genesis_stop_all_pipelines(struct GenesisContext *context) {
+    while (context->pipelines.length()) {
+        GenesisPipeline *pipeline = context->pipelines.pop();
+        genesis_pipeline_destroy(pipeline);
+    }
+}
+
+void genesis_context_destroy(struct GenesisContext *context) {
     if (!context)
         return;
 
-    genesis_stop_pipeline(context);
+    genesis_stop_all_pipelines(context);
 
-    while (context->nodes.length()) {
-        genesis_node_destroy(context->nodes.at(context->nodes.length() - 1));
-    }
-
-    while (context->node_descriptors.length()) {
-        int last_index = context->node_descriptors.length() - 1;
-        genesis_node_descriptor_destroy(context->node_descriptors.at(last_index));
-    }
     for (int i = 0; i < context->out_formats.length(); i += 1) {
         destroy(context->out_formats.at(i), 1);
     }
@@ -537,7 +588,6 @@ void genesis_destroy_context(struct GenesisContext *context) {
     os_mutex_destroy(context->events_mutex);
     os_cond_destroy(context->events_cond);
 
-    destroy(context->thread_pool, context->thread_pool_size);
 
     destroy(context, 1);
 }
@@ -550,9 +600,12 @@ void genesis_flush_events(struct GenesisContext *context) {
     }
 
     midi_hardware_flush_events(context->midi_hardware);
-    if (!context->stream_fail_flag.test_and_set()) {
-        if (context->underrun_callback)
-            context->underrun_callback(context->underrun_callback_userdata);
+    for (int i = 0; i < context->pipelines.length(); i += 1) {
+        GenesisPipeline *pipeline = context->pipelines.at(i);
+        if (!pipeline->stream_fail_flag.test_and_set()) {
+            if (pipeline->underrun_callback)
+                pipeline->underrun_callback(pipeline->underrun_callback_userdata);
+        }
     }
 }
 
@@ -577,10 +630,10 @@ void genesis_set_event_callback(struct GenesisContext *context,
 }
 
 struct GenesisNodeDescriptor *genesis_node_descriptor_find(
-        GenesisContext *context, const char *name)
+        GenesisPipeline *pipeline, const char *name)
 {
-    for (int i = 0; i < context->node_descriptors.length(); i += 1) {
-        GenesisNodeDescriptor *descr = context->node_descriptors.at(i);
+    for (int i = 0; i < pipeline->node_descriptors.length(); i += 1) {
+        GenesisNodeDescriptor *descr = pipeline->node_descriptors.at(i);
         if (strcmp(descr->name, name) == 0)
             return descr;
     }
@@ -655,8 +708,8 @@ struct GenesisNode *genesis_node_descriptor_create_node(struct GenesisNodeDescri
     }
     node->constructed = true;
 
-    int set_index = node_descriptor->context->nodes.length();
-    if (node_descriptor->context->nodes.append(node)) {
+    int set_index = node_descriptor->pipeline->nodes.length();
+    if (node_descriptor->pipeline->nodes.append(node)) {
         genesis_node_destroy(node);
         return nullptr;
     }
@@ -710,7 +763,7 @@ void genesis_node_destroy(struct GenesisNode *node) {
     if (!node)
         return;
 
-    GenesisContext *context = node->descriptor->context;
+    GenesisPipeline *pipeline = node->descriptor->pipeline;
 
     // first all disconnect methods on all ports
     if (node->ports) {
@@ -722,9 +775,9 @@ void genesis_node_destroy(struct GenesisNode *node) {
         node->descriptor->destroy(node);
 
     if (node->set_index >= 0) {
-        context->nodes.swap_remove(node->set_index);
-        if (node->set_index < context->nodes.length())
-            context->nodes.at(node->set_index)->set_index = node->set_index;
+        pipeline->nodes.swap_remove(node->set_index);
+        if (node->set_index < pipeline->nodes.length())
+            pipeline->nodes.at(node->set_index)->set_index = node->set_index;
         node->set_index = -1;
     }
 
@@ -818,7 +871,7 @@ static void run_node(GenesisNode *node) {
     node->being_processed = false;
 }
 
-static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool recursive) {
+static void queue_node_if_ready(GenesisPipeline *pipeline, GenesisNode *node, bool recursive) {
     if (node->being_processed) {
         // this node is already being processed; no point in queueing it again
         return;
@@ -849,7 +902,7 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
                 if (!full) {
                     GenesisNode *child_node = child_port->node;
                     if (recursive)
-                        queue_node_if_ready(context, child_node, true);
+                        queue_node_if_ready(pipeline, child_node, true);
                 }
             }
         }
@@ -857,7 +910,7 @@ static void queue_node_if_ready(GenesisContext *context, GenesisNode *node, bool
     if (!waiting_for_any_children && (!has_any_output || any_output_has_room)) {
         // we know that we want it enqueued. now make sure it only happens once.
         if (!node->being_processed.exchange(true))
-            context->task_queue.enqueue(node);
+            pipeline->task_queue.enqueue(node);
     }
 }
 
@@ -871,12 +924,12 @@ static void playback_node_destroy(struct GenesisNode *node) {
 
 static void playback_node_error_callback(SoundIoOutStream *outstream, int err) {
     GenesisNode *node = (GenesisNode *)outstream->userdata;
-    GenesisContext *context = node->descriptor->context;
+    GenesisPipeline *pipeline = node->descriptor->pipeline;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
 
-    if (context->pipeline_running.load() && !playback_node_context->ongoing_recovery.exchange(true)) {
-        context->stream_fail_flag.clear();
-        emit_event_ready(context);
+    if (pipeline->running.load() && !playback_node_context->ongoing_recovery.exchange(true)) {
+        pipeline->stream_fail_flag.clear();
+        emit_event_ready(pipeline->context);
     }
 }
 
@@ -913,12 +966,12 @@ static void playback_node_fill_silence(SoundIoOutStream *outstream, int frame_co
 
 static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_min, int frame_count_max) {
     GenesisNode *node = (GenesisNode *)outstream->userdata;
-    GenesisContext *context = node->descriptor->context;
+    GenesisPipeline *pipeline = node->descriptor->pipeline;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     struct SoundIoChannelArea *areas;
     int err;
 
-    if (!context->pipeline_running.load() || playback_node_context->ongoing_recovery.load()) {
+    if (!pipeline->running.load() || playback_node_context->ongoing_recovery.load()) {
         playback_node_fill_silence(outstream, frame_count_min);
         return;
     }
@@ -990,7 +1043,7 @@ static int playback_choose_best_format(PlaybackNodeContext *playback_node_contex
 
 static int playback_node_activate(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    GenesisContext *context = node->descriptor->context;
+    GenesisPipeline *pipeline = node->descriptor->pipeline;
     SoundIoDevice *device = (SoundIoDevice*)node->descriptor->userdata;
 
     playback_node_context->ongoing_recovery.store(true);
@@ -1021,7 +1074,7 @@ static int playback_node_activate(struct GenesisNode *node) {
 
     // Spend 1/4 of the latency on the device buffer and 3/4 of the latency in ring buffers for
     // nodes in the audio pipeline.
-    outstream->software_latency = context->actual_latency * 0.25;
+    outstream->software_latency = pipeline->actual_latency * 0.25;
 
     if ((err = soundio_outstream_open(outstream))) {
         playback_node_deactivate(node);
@@ -1087,12 +1140,12 @@ static void recording_node_overflow_callback(SoundIoInStream *instream) {
 
 static void recording_node_callback(SoundIoInStream *instream, int frame_count_min, int frame_count_max) {
     GenesisNode *node = (GenesisNode *)instream->userdata;
-    GenesisContext *context = node->descriptor->context;
+    GenesisPipeline *pipeline = node->descriptor->pipeline;
     RecordingNodeContext *recording_node_context = (RecordingNodeContext *)node->userdata;
     struct SoundIoChannelArea *areas;
     int err;
 
-    assert(context->pipeline_running);
+    assert(pipeline->running);
 
     GenesisPort *audio_out_port = genesis_node_port(node, 0);
     int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
@@ -1179,7 +1232,7 @@ static int recording_choose_best_format(RecordingNodeContext *recording_node_con
 }
 
 static int recording_node_create(struct GenesisNode *node) {
-    struct GenesisContext *context = node->descriptor->context;
+    struct GenesisPipeline *pipeline = node->descriptor->pipeline;
     RecordingNodeContext *recording_node_context = create_zero<RecordingNodeContext>();
     if (!recording_node_context) {
         recording_node_destroy(node);
@@ -1211,7 +1264,7 @@ static int recording_node_create(struct GenesisNode *node) {
     recording_node_context->instream->layout = audio_port->channel_layout;
     // Spend 1/4 of the latency on the device buffer and 3/4 of the latency in ring buffers for
     // nodes in the audio pipeline.
-    recording_node_context->instream->software_latency = context->latency * 0.25;
+    recording_node_context->instream->software_latency = pipeline->latency * 0.25;
 
     if ((err = soundio_instream_open(recording_node_context->instream))) {
         recording_node_destroy(node);
@@ -1234,7 +1287,7 @@ static void get_best_supported_layout(SoundIoDevice *device, SoundIoChannelLayou
     *out_layout = device->layouts[0];
 }
 
-int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
+int genesis_audio_device_create_node_descriptor(struct GenesisPipeline *pipeline,
         struct SoundIoDevice *audio_device,
         struct GenesisNodeDescriptor **out)
 {
@@ -1257,7 +1310,7 @@ int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
         return GenesisErrorNoMem;
     }
 
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1, name, description);
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(pipeline, 1, name, description);
     free(name); name = nullptr;
     free(description); description = nullptr;
 
@@ -1302,7 +1355,7 @@ int genesis_audio_device_create_node_descriptor(struct GenesisContext *context,
     if (audio_device->sample_rate_current) {
         chosen_sample_rate = audio_device->sample_rate_current;
     } else {
-        chosen_sample_rate = soundio_device_nearest_sample_rate(audio_device, context->target_sample_rate);
+        chosen_sample_rate = soundio_device_nearest_sample_rate(audio_device, pipeline->target_sample_rate);
     }
     genesis_audio_port_descriptor_set_sample_rate(audio_port, chosen_sample_rate, true, -1);
 
@@ -1366,10 +1419,10 @@ static void destroy_midi_device_node_descriptor(struct GenesisNodeDescriptor *no
 }
 
 int genesis_midi_device_create_node_descriptor(
+        struct GenesisPipeline *pipeline,
         struct GenesisMidiDevice *midi_device,
         struct GenesisNodeDescriptor **out)
 {
-    GenesisContext *context = midi_device->midi_hardware->context;
     *out = nullptr;
 
     char *name = create_formatted_str("midi-device-%s", genesis_midi_device_name(midi_device));
@@ -1381,7 +1434,7 @@ int genesis_midi_device_create_node_descriptor(
         return GenesisErrorNoMem;
     }
 
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 1, name, description);
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(pipeline, 1, name, description);
 
     if (!node_descr) {
         genesis_node_descriptor_destroy(node_descr);
@@ -1444,28 +1497,29 @@ void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descript
 }
 
 void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor) {
-    if (node_descriptor) {
-        GenesisContext *context = node_descriptor->context;
-        if (node_descriptor->set_index >= 0) {
-            context->node_descriptors.swap_remove(node_descriptor->set_index);
-            if (node_descriptor->set_index < context->node_descriptors.length())
-                context->node_descriptors.at(node_descriptor->set_index)->set_index = node_descriptor->set_index;
-            node_descriptor->set_index = -1;
-        }
+    if (!node_descriptor)
+        return;
 
-        if (node_descriptor->destroy_descriptor)
-            node_descriptor->destroy_descriptor(node_descriptor);
-
-        for (int i = 0; i < node_descriptor->port_descriptors.length(); i += 1) {
-            GenesisPortDescriptor *port_descriptor = node_descriptor->port_descriptors.at(i);
-            genesis_port_descriptor_destroy(port_descriptor);
-        }
-
-        free(node_descriptor->name);
-        free(node_descriptor->description);
-
-        destroy(node_descriptor, 1);
+    GenesisPipeline *pipeline = node_descriptor->pipeline;
+    if (node_descriptor->set_index >= 0) {
+        pipeline->node_descriptors.swap_remove(node_descriptor->set_index);
+        if (node_descriptor->set_index < pipeline->node_descriptors.length())
+            pipeline->node_descriptors.at(node_descriptor->set_index)->set_index = node_descriptor->set_index;
+        node_descriptor->set_index = -1;
     }
+
+    if (node_descriptor->destroy_descriptor)
+        node_descriptor->destroy_descriptor(node_descriptor);
+
+    for (int i = 0; i < node_descriptor->port_descriptors.length(); i += 1) {
+        GenesisPortDescriptor *port_descriptor = node_descriptor->port_descriptors.at(i);
+        genesis_port_descriptor_destroy(port_descriptor);
+    }
+
+    free(node_descriptor->name);
+    free(node_descriptor->description);
+
+    destroy(node_descriptor, 1);
 }
 
 static void resolve_channel_layout(GenesisAudioPort *audio_port) {
@@ -1497,7 +1551,7 @@ static void resolve_sample_rate(GenesisAudioPort *audio_port) {
 static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest) {
     GenesisAudioPortDescriptor *source_audio_descr = (GenesisAudioPortDescriptor *) source->port.descriptor;
     GenesisAudioPortDescriptor *dest_audio_descr = (GenesisAudioPortDescriptor *) dest->port.descriptor;
-    GenesisContext *context = source->port.node->descriptor->context;
+    GenesisPipeline *pipeline = source->port.node->descriptor->pipeline;
 
     resolve_channel_layout(source);
     resolve_channel_layout(dest);
@@ -1532,7 +1586,7 @@ static int connect_audio_ports(GenesisAudioPort *source, GenesisAudioPort *dest)
                !dest_audio_descr->sample_rate_fixed)
     {
         // anything goes. default to 48,000 Hz
-        source->sample_rate = context->target_sample_rate;
+        source->sample_rate = pipeline->target_sample_rate;
         dest->sample_rate = source->sample_rate;
     } else if (source_audio_descr->sample_rate_fixed) {
         // source is fixed, use that one
@@ -1622,8 +1676,8 @@ struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index) 
     return node->ports[port_index];
 }
 
-struct GenesisContext *genesis_node_context(struct GenesisNode *node) {
-    return node->descriptor->context;
+struct GenesisPipeline *genesis_node_pipeline(struct GenesisNode *node) {
+    return node->descriptor->pipeline;
 }
 
 struct GenesisNode *genesis_port_node(struct GenesisPort *port) {
@@ -1631,14 +1685,14 @@ struct GenesisNode *genesis_port_node(struct GenesisPort *port) {
 }
 
 struct GenesisNodeDescriptor *genesis_create_node_descriptor(
-        struct GenesisContext *context, int port_count,
+        struct GenesisPipeline *pipeline, int port_count,
         const char *name, const char *description)
 {
     GenesisNodeDescriptor *node_descr = create_zero<GenesisNodeDescriptor>();
     if (!node_descr)
         return nullptr;
     node_descr->set_index = -1;
-    node_descr->context = context;
+    node_descr->pipeline = pipeline;
 
     node_descr->name = strdup(name);
     node_descr->description = strdup(description);
@@ -1652,8 +1706,8 @@ struct GenesisNodeDescriptor *genesis_create_node_descriptor(
         return nullptr;
     }
 
-    int set_index = context->node_descriptors.length();
-    if (context->node_descriptors.append(node_descr)) {
+    int set_index = pipeline->node_descriptors.length();
+    if (pipeline->node_descriptors.append(node_descr)) {
         genesis_node_descriptor_destroy(node_descr);
         return nullptr;
     }
@@ -1696,9 +1750,9 @@ struct GenesisPortDescriptor *genesis_node_descriptor_create_port(
     return port_descr;
 }
 
-void genesis_debug_print_pipeline(GenesisContext *context) {
-    for (int i = 0; i < context->nodes.length(); i += 1) {
-        GenesisNode *node = context->nodes.at(i);
+void genesis_debug_print_pipeline(GenesisPipeline *pipeline) {
+    for (int i = 0; i < pipeline->nodes.length(); i += 1) {
+        GenesisNode *node = pipeline->nodes.at(i);
         fprintf(stderr, "node: %s\n", node->descriptor->name);
         for (int i = 0; i < node->port_count; i += 1) {
             GenesisPort *port = node->ports[i];
@@ -1778,19 +1832,19 @@ void genesis_debug_print_port_config(struct GenesisPort *port) {
 }
 
 static void pipeline_thread_run(void *userdata) {
-    GenesisContext *context = reinterpret_cast<GenesisContext*>(userdata);
+    GenesisPipeline *pipeline = reinterpret_cast<GenesisPipeline*>(userdata);
     for (;;) {
-        GenesisNode *node = context->task_queue.dequeue();
-        if (!context->pipeline_running)
+        GenesisNode *node = pipeline->task_queue.dequeue();
+        if (!pipeline->running)
             break;
 
         run_node(node);
     }
 }
 
-int genesis_start_pipeline(struct GenesisContext *context, double time) {
-    for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
-        GenesisNode *node = context->nodes.at(node_index);
+int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time) {
+    for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {
+        GenesisNode *node = pipeline->nodes.at(node_index);
         for (int port_i = 0; port_i < node->port_count; port_i += 1) {
             GenesisPort *port = node->ports[port_i];
             if (port->descriptor->port_type == GenesisPortTypeAudioOut) {
@@ -1808,43 +1862,43 @@ int genesis_start_pipeline(struct GenesisContext *context, double time) {
             node->descriptor->seek(node);
     }
 
-    return genesis_resume_pipeline(context);
+    return genesis_pipeline_resume(pipeline);
 }
 
-void genesis_stop_pipeline(struct GenesisContext *context) {
-    context->pipeline_running = false;
-    context->task_queue.wakeup_all();
-    for (int i = 0; i < context->thread_pool_size; i += 1) {
-        OsThread *thread = context->thread_pool[i];
+void genesis_pipeline_stop(struct GenesisPipeline *pipeline) {
+    pipeline->running = false;
+    pipeline->task_queue.wakeup_all();
+    for (int i = 0; i < pipeline->thread_pool_size; i += 1) {
+        OsThread *thread = pipeline->thread_pool[i];
         os_thread_destroy(thread);
-        context->thread_pool[i] = nullptr;
+        pipeline->thread_pool[i] = nullptr;
     }
-    for (int i = 0; i < context->nodes.length(); i += 1) {
-        GenesisNode *node = context->nodes.at(i);
+    for (int i = 0; i < pipeline->nodes.length(); i += 1) {
+        GenesisNode *node = pipeline->nodes.at(i);
         if (node->descriptor->deactivate)
             node->descriptor->deactivate(node);
     }
 }
 
-int genesis_resume_pipeline(struct GenesisContext *context) {
-    int err = context->task_queue.resize(context->nodes.length() + context->thread_pool_size);
+int genesis_pipeline_resume(struct GenesisPipeline *pipeline) {
+    int err = pipeline->task_queue.resize(pipeline->nodes.length() + pipeline->thread_pool_size);
     if (err) {
-        genesis_stop_pipeline(context);
+        genesis_pipeline_stop(pipeline);
         return err;
     }
 
-    context->stream_fail_flag.test_and_set();
+    pipeline->stream_fail_flag.test_and_set();
 
-    // the 0.75 is because the outstream software_latency is context->latency * 0.25
-    double desired_buffer_duration = context->latency * 0.75;
-    for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
-        GenesisNode *node = context->nodes.at(node_index);
+    // the 0.75 is because the outstream software_latency is pipeline->latency * 0.25
+    double desired_buffer_duration = pipeline->latency * 0.75;
+    for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {
+        GenesisNode *node = pipeline->nodes.at(node_index);
         desired_buffer_duration = max(node->descriptor->min_software_latency, desired_buffer_duration);
     }
-    context->actual_latency = desired_buffer_duration / 0.75;
+    pipeline->actual_latency = desired_buffer_duration / 0.75;
 
-    for (int node_index = 0; node_index < context->nodes.length(); node_index += 1) {
-        GenesisNode *node = context->nodes.at(node_index);
+    for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {
+        GenesisNode *node = pipeline->nodes.at(node_index);
         node->being_processed = false;
         for (int port_i = 0; port_i < node->port_count; port_i += 1) {
             GenesisPort *port = node->ports[port_i];
@@ -1865,7 +1919,7 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                     if ((audio_port->sample_buffer_err =
                             ring_buffer_init(&audio_port->sample_buffer, audio_port->sample_buffer_size)))
                     {
-                        genesis_stop_pipeline(context);
+                        genesis_pipeline_stop(pipeline);
                         return audio_port->sample_buffer_err;
                     }
                 }
@@ -1880,7 +1934,7 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
                     if ((events_port->event_buffer_err = ring_buffer_init(&events_port->event_buffer,
                                     min_event_buffer_size)))
                     {
-                        genesis_stop_pipeline(context);
+                        genesis_pipeline_stop(pipeline);
                         return events_port->event_buffer_err;
                     }
                 }
@@ -1888,21 +1942,21 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
         }
     }
 
-    context->pipeline_running = true;
+    pipeline->running = true;
 
-    for (int i = 0; i < context->nodes.length(); i += 1) {
-        GenesisNode *node = context->nodes.at(i);
+    for (int i = 0; i < pipeline->nodes.length(); i += 1) {
+        GenesisNode *node = pipeline->nodes.at(i);
         if (node->descriptor->activate) {
             if ((err = node->descriptor->activate(node))) {
-                genesis_stop_pipeline(context);
+                genesis_pipeline_stop(pipeline);
                 return err;
             }
         }
     }
 
-    for (int i = 0; i < context->thread_pool_size; i += 1) {
-        if ((err = os_thread_create(pipeline_thread_run, context, true, &context->thread_pool[i]))) {
-            genesis_stop_pipeline(context);
+    for (int i = 0; i < pipeline->thread_pool_size; i += 1) {
+        if ((err = os_thread_create(pipeline_thread_run, pipeline, true, &pipeline->thread_pool[i]))) {
+            genesis_pipeline_stop(pipeline);
             return err;
         }
     }
@@ -1910,42 +1964,44 @@ int genesis_resume_pipeline(struct GenesisContext *context) {
     return 0;
 }
 
-int genesis_set_latency(struct GenesisContext *context, double latency) {
+int genesis_pipeline_set_latency(struct GenesisPipeline *pipeline, double latency) {
     if (latency <= 0.0)
         return GenesisErrorInvalidParam;
     if (latency > 60.0)
         return GenesisErrorInvalidParam;
-    if (context->pipeline_running)
+    if (pipeline->running)
         return GenesisErrorInvalidState;
 
-    context->latency = latency;
+    pipeline->latency = latency;
     return 0;
 }
 
-double genesis_get_latency(struct GenesisContext *context) {
-    return context->latency;
+double genesis_pipeline_get_latency(struct GenesisPipeline *pipeline) {
+    return pipeline->latency;
 }
 
-int genesis_set_sample_rate(struct GenesisContext *context, int sample_rate) {
+int genesis_pipeline_set_sample_rate(struct GenesisPipeline *pipeline, int sample_rate) {
     if (sample_rate <= 0)
         return GenesisErrorInvalidParam;
-    if (context->pipeline_running)
+    if (pipeline->running)
         return GenesisErrorInvalidState;
 
-    context->target_sample_rate = sample_rate;
+    pipeline->target_sample_rate = sample_rate;
     return 0;
 }
 
-int genesis_get_sample_rate(struct GenesisContext *context) {
-    return context->target_sample_rate;
+int genesis_pipeline_get_sample_rate(struct GenesisPipeline *pipeline) {
+    return pipeline->target_sample_rate;
 }
 
-void genesis_set_channel_layout(struct GenesisContext *context, const struct SoundIoChannelLayout *layout) {
-    context->channel_layout = *layout;
+void genesis_pipeline_set_channel_layout(struct GenesisPipeline *pipeline,
+        const struct SoundIoChannelLayout *layout)
+{
+    pipeline->channel_layout = *layout;
 }
 
-struct SoundIoChannelLayout *genesis_get_channel_layout(struct GenesisContext *context) {
-    return &context->channel_layout;
+struct SoundIoChannelLayout *genesis_pipeline_get_channel_layout(struct GenesisPipeline *pipeline) {
+    return &pipeline->channel_layout;
 }
 
 struct GenesisNodeDescriptor *genesis_node_descriptor(struct GenesisNode *node) {
@@ -1982,7 +2038,7 @@ void genesis_audio_in_port_advance_read_ptr(GenesisPort *port, int frame_count) 
     assert(byte_count <= audio_out_port->sample_buffer_size);
     ring_buffer_advance_read_ptr(&audio_out_port->sample_buffer, byte_count);
     struct GenesisNode *child_node = audio_out_port->port.node;
-    queue_node_if_ready(child_node->descriptor->context, child_node, true);
+    queue_node_if_ready(child_node->descriptor->pipeline, child_node, true);
 }
 
 int genesis_audio_out_port_free_count(GenesisPort *port) {
@@ -2007,8 +2063,8 @@ void genesis_audio_out_port_advance_write_ptr(GenesisPort *port, int frame_count
     ring_buffer_advance_write_ptr(&audio_out_port->sample_buffer, byte_count);
     GenesisAudioPort *audio_in_port = (GenesisAudioPort *)audio_out_port->port.output_to;
     GenesisNode *other_node = audio_in_port->port.node;
-    GenesisContext *context = port->node->descriptor->context;
-    queue_node_if_ready(context, other_node, false);
+    GenesisPipeline *pipeline = port->node->descriptor->pipeline;
+    queue_node_if_ready(pipeline, other_node, false);
 }
 
 int genesis_audio_port_bytes_per_frame(struct GenesisPort *port) {
@@ -2045,7 +2101,7 @@ void genesis_events_in_port_advance_read_ptr(struct GenesisPort *port, int event
     events_out_port->time_available.add(-buf_size);
 
     struct GenesisNode *child_node = events_out_port->port.node;
-    queue_node_if_ready(child_node->descriptor->context, child_node, true);
+    queue_node_if_ready(child_node->descriptor->pipeline, child_node, true);
 }
 
 GenesisMidiEvent *genesis_events_in_port_read_ptr(GenesisPort *port) {
@@ -2074,8 +2130,8 @@ void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int eve
     GenesisEventsPort *events_in_port = (GenesisEventsPort *)events_out_port->port.output_to;
     assert(events_in_port);
     GenesisNode *other_node = events_in_port->port.node;
-    GenesisContext *context = port->node->descriptor->context;
-    queue_node_if_ready(context, other_node, false);
+    GenesisPipeline *pipeline = port->node->descriptor->pipeline;
+    queue_node_if_ready(pipeline, other_node, false);
 }
 
 struct GenesisMidiEvent *genesis_events_out_port_write_ptr(struct GenesisPort *port) {
@@ -2115,6 +2171,8 @@ int genesis_audio_port_descriptor_set_channel_layout(
         struct GenesisPortDescriptor *port_descr,
         const SoundIoChannelLayout *channel_layout, bool fixed, int other_port_index)
 {
+    assert(port_descr);
+
     if (port_descr->port_type != GenesisPortTypeAudioIn &&
         port_descr->port_type != GenesisPortTypeAudioOut)
     {
@@ -2134,6 +2192,8 @@ int genesis_audio_port_descriptor_set_sample_rate(
         struct GenesisPortDescriptor *port_descr,
         int sample_rate, bool fixed, int other_port_index)
 {
+    assert(port_descr);
+
     if (port_descr->port_type != GenesisPortTypeAudioIn &&
         port_descr->port_type != GenesisPortTypeAudioOut)
     {
@@ -2182,11 +2242,11 @@ void *genesis_node_descriptor_userdata(const struct GenesisNodeDescriptor *node_
     return node_descriptor->userdata;
 }
 
-void genesis_set_underrun_callback(struct GenesisContext *context,
+void genesis_pipeline_set_underrun_callback(struct GenesisPipeline *pipeline,
         void (*callback)(void *userdata), void *userdata)
 {
-    context->underrun_callback_userdata = userdata;
-    context->underrun_callback = callback;
+    pipeline->underrun_callback_userdata = userdata;
+    pipeline->underrun_callback = callback;
 }
 
 int genesis_default_input_device_index(struct GenesisSoundBackend *sound_backend) {

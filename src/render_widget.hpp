@@ -31,6 +31,7 @@ public:
     SelectWidget *bit_rate_select;
     ButtonWidget *render_button;
     TextWidget *bit_rate_label;
+    TextWidget *output_file_text;
     void select_settings_output_format();
     void select_settings_sample_format();
     void select_settings_bit_rate();

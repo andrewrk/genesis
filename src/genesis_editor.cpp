@@ -17,6 +17,7 @@
 #include "audio_graph.hpp"
 #include "project_props_widget.hpp"
 #include "render_widget.hpp"
+#include "render_job.hpp"
 
 static void exit_handler(void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
@@ -97,7 +98,7 @@ static void on_buffer_underrun(Event, void *userdata) {
     GenesisEditor *genesis_editor = (GenesisEditor *)userdata;
 
     // TODO tell the difference between buffer underruns and other types of errors
-    double latency = genesis_get_latency(genesis_editor->genesis_context);
+    double latency = audio_graph_get_latency(genesis_editor->audio_graph);
     double new_latency = latency + 0.005;
     fprintf(stderr, "recovering from stream error. latency %f -> %f\n", latency, new_latency);
 
@@ -152,13 +153,12 @@ GenesisEditor::GenesisEditor() :
 
     resource_bundle = create<ResourceBundle>("resources.bundle");
 
-    if ((err = genesis_create_context(&genesis_context)))
+    if ((err = genesis_context_create(&genesis_context)))
         panic("unable to create genesis context: %s", genesis_strerror(err));
 
     gui = create<Gui>(genesis_context, resource_bundle);
 
     gui->events.attach_handler(EventFlushEvents, on_flush_events, this);
-    gui->events.attach_handler(EventBufferUnderrun, on_buffer_underrun, this);
     gui->events.attach_handler(EventSoundBackendDisconnected, on_sound_backend_disconnected, this);
     gui->events.attach_handler(EventDeviceDesignationChange, on_sound_backend_disconnected, this);
 
@@ -200,8 +200,6 @@ GenesisEditor::GenesisEditor() :
         }
     }
 
-
-    genesis_set_latency(genesis_context, settings_file->latency);
     user = user_create(settings_file->user_id, settings_file->user_name);
 
     bool create_new = true;
@@ -227,9 +225,8 @@ GenesisEditor::GenesisEditor() :
         settings_dirty = true;
     }
 
-    genesis_set_sample_rate(genesis_context, project->sample_rate);
-
-    ok_or_panic(audio_graph_create_playback(project, genesis_context, settings_file, &audio_graph));
+    ok_or_panic(audio_graph_create_playback(project, genesis_context,
+                settings_file, &audio_graph));
 
     if (settings_file->open_windows.length() == 0) {
         create_sf_open_window();
@@ -264,7 +261,8 @@ GenesisEditor::GenesisEditor() :
         settings_file_commit(settings_file);
 
     project->events.attach_handler(EventProjectUndoChanged, on_undo_changed, this);
-    project->events.attach_handler(EventProjectPlayingChanged, on_playing_changed, this);
+    audio_graph->events.attach_handler(EventBufferUnderrun, on_buffer_underrun, this);
+    audio_graph->events.attach_handler(EventProjectPlayingChanged, on_playing_changed, this);
     project->events.attach_handler(EventProjectSampleRateChanged, on_sample_rate_changed, this);
 }
 
@@ -272,7 +270,7 @@ GenesisEditor::~GenesisEditor() {
     audio_graph_destroy(audio_graph);
     project_close(project);
     user_destroy(user);
-    genesis_destroy_context(genesis_context);
+    genesis_context_destroy(genesis_context);
 }
 
 void GenesisEditor::create_editor_window() {

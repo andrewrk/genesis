@@ -10,6 +10,8 @@
 #include "atomic_double.hpp"
 #include "atomics.hpp"
 
+struct GenesisPipeline;
+
 struct GenesisContext {
     GenesisSoundBackend *sound_backend_list;
     int sound_backend_count;
@@ -27,21 +29,26 @@ struct GenesisContext {
     void (*event_callback)(void *userdata);
     void *event_callback_userdata;
 
+    List<GenesisRenderFormat*> out_formats;
+    List<GenesisAudioFileFormat*> in_formats;
+
+    List<GenesisPipeline*> pipelines;
+};
+
+struct GenesisPipeline {
+    GenesisContext *context;
+
+    OsThread **thread_pool;
+    int thread_pool_size;
+
     void (*underrun_callback)(void *userdata);
     void *underrun_callback_userdata;
     atomic_flag stream_fail_flag;
 
-    List<GenesisRenderFormat*> out_formats;
-    List<GenesisAudioFileFormat*> in_formats;
-
     List<GenesisNodeDescriptor*> node_descriptors;
     List<GenesisNode*> nodes;
-
-    OsThread **thread_pool;
-    int thread_pool_size;
-    atomic_bool pipeline_running;
+    atomic_bool running;
     ThreadSafeQueue<GenesisNode *> task_queue;
-
     double latency;
     double actual_latency;
 
@@ -84,7 +91,7 @@ struct GenesisAudioPortDescriptor {
 };
 
 struct GenesisNodeDescriptor {
-    struct GenesisContext *context;
+    struct GenesisPipeline *pipeline;
     char *name;
     char *description;
     List<GenesisPortDescriptor*> port_descriptors;

@@ -5,6 +5,7 @@
 #include "spacer_widget.hpp"
 #include "button_widget.hpp"
 #include "settings_file.hpp"
+#include "render_job.hpp"
 
 static void on_selected_output_format_change(Event, void *userdata) {
     RenderWidget *render_widget = (RenderWidget*)userdata;
@@ -71,8 +72,8 @@ RenderWidget::RenderWidget(GuiWindow *gui_window, Project *project, SettingsFile
     layout.add_widget(create_form_label("Output format:"), 0, 0, HAlignRight, VAlignCenter);
     layout.add_widget(output_format_select, 0, 1, HAlignLeft, VAlignCenter);
 
-    TextWidget *output_file_text = create<TextWidget>(gui_window);
-    output_file_text->set_text("out.flac");
+    output_file_text = create<TextWidget>(gui_window);
+    output_file_text->set_text("/tmp/out.flac");
     layout.add_widget(create_form_label("Output file:"), 1, 0, HAlignRight, VAlignCenter);
     layout.add_widget(output_file_text, 1, 1, HAlignLeft, VAlignCenter);
 
@@ -221,5 +222,32 @@ void RenderWidget::my_on_selected_bit_rate_change() {
 }
 
 void RenderWidget::my_on_render_activate() {
-    // TODO
+    RenderJob *rj = ok_mem(create_zero<RenderJob>());
+    ok_or_panic(gui->render_jobs.append(rj));
+    render_job_init(rj, project, project->genesis_context);
+
+    GenesisRenderFormat *render_format = genesis_out_format_index(project->genesis_context,
+            output_format_select->selected_index);
+    GenesisAudioFileCodec *codec = genesis_render_format_codec(render_format);
+
+    SoundIoFormat sample_format = genesis_audio_file_codec_sample_format_index(codec,
+            sample_format_select->selected_index);
+
+    int bit_rate;
+    if (bit_rate_select->selected_index >= 0) {
+        bit_rate = genesis_audio_file_codec_bit_rate_index(codec, bit_rate_select->selected_index);
+    } else {
+        bit_rate = 0;
+    }
+
+    GenesisExportFormat export_format;
+    export_format.codec = codec;
+    export_format.sample_format = sample_format;
+    export_format.bit_rate = bit_rate;
+    export_format.sample_rate = project->sample_rate;
+
+    ByteBuffer out_path = output_file_text->text().encode();
+    render_job_start(rj, &export_format, out_path);
+
+    gui->events.trigger(EventRenderJobsUpdated);
 }

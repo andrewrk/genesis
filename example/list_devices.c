@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisContext *context;
-    int err = genesis_create_context(&context);
+    int err = genesis_context_create(&context);
     if (err) {
         fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
         }
     } else {
         int err = list_devices(context);
-        genesis_destroy_context(context);
+        genesis_context_destroy(context);
         return err;
     }
 }

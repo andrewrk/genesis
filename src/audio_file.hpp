@@ -28,7 +28,7 @@ struct GenesisAudioFileStream {
     HashMap<ByteBuffer, ByteBuffer, ByteBuffer::hash> tags;
     GenesisExportFormat export_format;
     void (*write_frames)(const float *frames, int channel_count,
-            long start, long end, uint8_t *buffer, AVFrame *frame);
+            int offset, int end, uint8_t *buffer, AVFrame *frame);
     FILE *file;
     AVIOContext *avio;
     AVFormatContext *fmt_ctx;
@@ -39,8 +39,10 @@ struct GenesisAudioFileStream {
     AVFrame *frame;
     AVStream *stream;
     AVPacket pkt;
-    int pkt_frames_left;
+    int pkt_offset;
     int avio_buffer_size;
+    int bytes_per_frame;
+    int bytes_per_sample;
 };
 
 struct GenesisAudioFileCodec {

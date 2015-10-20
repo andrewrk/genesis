@@ -45,13 +45,19 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisContext *context;
-    int err = genesis_create_context(&context);
+    int err = genesis_context_create(&context);
     if (err) {
         fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 
-    genesis_set_underrun_callback(context, on_underrun, NULL);
+    struct GenesisPipeline *pipeline;
+    if ((err = genesis_pipeline_create(context, &pipeline))) {
+        fprintf(stderr, "unable to create pipeline: %s\n", genesis_strerror(err));
+        return 1;
+    }
+
+    genesis_pipeline_set_underrun_callback(pipeline, on_underrun, NULL);
 
     // block until we have audio devices list
     genesis_flush_events(context);
@@ -65,7 +71,7 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(pipeline, out_device, &playback_node_descr);
     if (err) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
@@ -78,7 +84,7 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisNodeDescriptor *recording_node_descr;
-    err = genesis_audio_device_create_node_descriptor(context, in_device, &recording_node_descr);
+    err = genesis_audio_device_create_node_descriptor(pipeline, in_device, &recording_node_descr);
     if (err) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
@@ -93,7 +99,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    struct GenesisNodeDescriptor *delay_descr = genesis_node_descriptor_find(context, "delay");
+    struct GenesisNodeDescriptor *delay_descr = genesis_node_descriptor_find(pipeline, "delay");
     if (!delay_descr) {
         fprintf(stderr, "unable to find delay filter\n");
         return 1;
@@ -113,7 +119,7 @@ int main(int argc, char **argv) {
         connect_audio_nodes(delay_node, playback_node);
     }
 
-    genesis_start_pipeline(context, 0.0);
+    genesis_pipeline_start(pipeline, 0.0);
 
     for (;;)
         genesis_wait_events(context);

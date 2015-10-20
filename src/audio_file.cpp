@@ -670,11 +670,11 @@ static void set_codec_ctx_format(AVCodecContext *codec_ctx, GenesisExportFormat 
 }
 
 static void write_frames_uint8_planar(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *frame)
+        int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
     for (int ch = 0; ch < channel_count; ch += 1) {
-        uint8_t *ch_buf = frame->extended_data[ch];
-        for (long i = start; i < end; i += 1) {
+        uint8_t *ch_buf = frame->extended_data[ch] + offset;
+        for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             *ch_buf = (uint8_t)((sample * 127.5) + 127.5);
             ch_buf += 1;
@@ -683,11 +683,11 @@ static void write_frames_uint8_planar(const float *frames, int channel_count,
 }
 
 static void write_frames_int16_planar(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *frame)
+        int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
     for (int ch = 0; ch < channel_count; ch += 1) {
-        int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch]);
-        for (long i = start; i < end; i += 1) {
+        int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch] + offset);
+        for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             *ch_buf = (int16_t)(sample * 32767.0);
             ch_buf += 1;
@@ -696,11 +696,11 @@ static void write_frames_int16_planar(const float *frames, int channel_count,
 }
 
 static void write_frames_int32_planar(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *frame)
+        int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
     for (int ch = 0; ch < channel_count; ch += 1) {
-        int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
-        for (long i = start; i < end; i += 1) {
+        int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch] + offset);
+        for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             *ch_buf = (int32_t)(sample * 2147483647.0);
             ch_buf += 1;
@@ -709,11 +709,11 @@ static void write_frames_int32_planar(const float *frames, int channel_count,
 }
 
 static void write_frames_int24_planar(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *frame)
+        int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
     for (int ch = 0; ch < channel_count; ch += 1) {
-        int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch]);
-        for (long i = start; i < end; i += 1) {
+        int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch] + offset);
+        for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             // ffmpeg looks at the most significant bytes
             *ch_buf = ((int32_t)(sample * 8388607.0)) << 8;
@@ -723,11 +723,11 @@ static void write_frames_int24_planar(const float *frames, int channel_count,
 }
 
 static void write_frames_float_planar(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *frame)
+        int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
     for (int ch = 0; ch < channel_count; ch += 1) {
-        float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch]);
-        for (long i = start; i < end; i += 1) {
+        float *ch_buf = reinterpret_cast<float*>(frame->extended_data[ch] + offset);
+        for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             *ch_buf = (float)sample;
             ch_buf += 1;
@@ -736,11 +736,11 @@ static void write_frames_float_planar(const float *frames, int channel_count,
 }
 
 static void write_frames_double_planar(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *frame)
+        int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
     for (int ch = 0; ch < channel_count; ch += 1) {
-        double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch]);
-        for (long i = start; i < end; i += 1) {
+        double *ch_buf = reinterpret_cast<double*>(frame->extended_data[ch] + offset);
+        for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             *ch_buf = sample;
             ch_buf += 1;
@@ -749,9 +749,9 @@ static void write_frames_double_planar(const float *frames, int channel_count,
 }
 
 static void write_frames_uint8(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *)
+        int offset, int end, uint8_t *buffer, AVFrame *)
 {
-    for (long i = start; i < end; i += 1) {
+    for (int i = 0; i < end; i += 1) {
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
 
@@ -763,9 +763,9 @@ static void write_frames_uint8(const float *frames, int channel_count,
 }
 
 static void write_frames_int16(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *)
+        int offset, int end, uint8_t *buffer, AVFrame *)
 {
-    for (long i = start; i < end; i += 1) {
+    for (int i = 0; i < end; i += 1) {
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
 
@@ -778,9 +778,9 @@ static void write_frames_int16(const float *frames, int channel_count,
 }
 
 static void write_frames_int32(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *)
+        int offset, int end, uint8_t *buffer, AVFrame *)
 {
-    for (long i = start; i < end; i += 1) {
+    for (int i = 0; i < end; i += 1) {
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
 
@@ -793,9 +793,9 @@ static void write_frames_int32(const float *frames, int channel_count,
 }
 
 static void write_frames_int24(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *)
+        int offset, int end, uint8_t *buffer, AVFrame *)
 {
-    for (long i = start; i < end; i += 1) {
+    for (int i = 0; i < end; i += 1) {
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
 
@@ -809,9 +809,9 @@ static void write_frames_int24(const float *frames, int channel_count,
 }
 
 static void write_frames_float(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *)
+        int offset, int end, uint8_t *buffer, AVFrame *)
 {
-    for (long i = start; i < end; i += 1) {
+    for (int i = 0; i < end; i += 1) {
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
 
@@ -824,9 +824,9 @@ static void write_frames_float(const float *frames, int channel_count,
 }
 
 static void write_frames_double(const float *frames, int channel_count,
-        long start, long end, uint8_t *buffer, AVFrame *)
+        int offset, int end, uint8_t *buffer, AVFrame *)
 {
-    for (long i = start; i < end; i += 1) {
+    for (int i = 0; i < end; i += 1) {
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
             double *double_ptr = reinterpret_cast<double*>(buffer);
@@ -1141,14 +1141,14 @@ bool genesis_audio_file_codec_supports_sample_rate(
     return false;
 }
 
-struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *context) {
+struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *context, int sample_rate) {
     GenesisAudioFile *audio_file = create_zero<GenesisAudioFile>();
     if (!audio_file) {
         genesis_audio_file_destroy(audio_file);
         return nullptr;
     }
 
-    audio_file->sample_rate = genesis_get_sample_rate(context);
+    audio_file->sample_rate = sample_rate;
     audio_file->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);
     if (audio_file->channels.resize(1)) {
         genesis_audio_file_destroy(audio_file);
@@ -1499,10 +1499,13 @@ int genesis_audio_file_stream_open(struct GenesisAudioFileStream *afs,
     if (!afs->write_frames)
         panic("invalid sample format");
 
+    afs->bytes_per_sample = soundio_get_bytes_per_sample(afs->export_format.sample_format);
+    afs->bytes_per_frame = afs->bytes_per_sample * afs->channel_layout.channel_count;
+
     av_init_packet(&afs->pkt);
     afs->pkt.data = NULL; // packet data will be allocated by the encoder
     afs->pkt.size = 0;
-    afs->pkt_frames_left = afs->buffer_frame_count;
+    afs->pkt_offset = 0;
 
     return 0;
 }
@@ -1570,35 +1573,48 @@ int genesis_audio_file_stream_close(struct GenesisAudioFileStream *afs) {
 }
 
 int genesis_audio_file_stream_write(struct GenesisAudioFileStream *afs,
-        const float *frames, long source_frame_count)
+        const float *frames, int source_frame_count)
 {
     int channel_count = afs->channel_layout.channel_count;
     int err;
 
-    long write_count = min((long)afs->pkt_frames_left, source_frame_count);
-    afs->write_frames(frames, channel_count, 0, write_count, afs->frame_buffer, afs->frame);
-    afs->pkt_frames_left -= write_count;
+    int pkt_frames_left = afs->buffer_frame_count - afs->pkt_offset;
 
-    if (afs->pkt_frames_left <= 0) {
-        int got_packet = 0;
-        err = avcodec_encode_audio2(afs->stream->codec, &afs->pkt, afs->frame, &got_packet);
-        if (err < 0) {
-            char buf[256];
-            av_strerror(err, buf, sizeof(buf));
-            panic("error encoding audio frame: %s", buf);
-        }
-        if (got_packet) {
-            err = av_write_frame(afs->fmt_ctx, &afs->pkt);
-            if (err < 0)
-                panic("error writing frame");
-            av_free_packet(&afs->pkt);
-        }
+    while (source_frame_count > 0) {
+        int interleaved_byte_offset = afs->pkt_offset * afs->bytes_per_frame;
+        int planar_byte_offset = afs->pkt_offset * afs->bytes_per_sample;
+        int write_count = min(pkt_frames_left, source_frame_count);
+        afs->write_frames(frames, channel_count, planar_byte_offset,
+                write_count, afs->frame_buffer + interleaved_byte_offset, afs->frame);
+        afs->pkt_offset += write_count;
+        pkt_frames_left = afs->buffer_frame_count - afs->pkt_offset;
 
-        afs->frame->pts += afs->buffer_frame_count;
-        av_init_packet(&afs->pkt);
-        afs->pkt.data = NULL; // packet data will be allocated by the encoder
-        afs->pkt.size = 0;
-        afs->pkt_frames_left = afs->buffer_frame_count;
+        frames += write_count * channel_count;
+        source_frame_count -= write_count;
+
+
+        if (pkt_frames_left <= 0) {
+            int got_packet = 0;
+            err = avcodec_encode_audio2(afs->stream->codec, &afs->pkt, afs->frame, &got_packet);
+            if (err < 0) {
+                char buf[256];
+                av_strerror(err, buf, sizeof(buf));
+                panic("error encoding audio frame: %s", buf);
+            }
+            if (got_packet) {
+                err = av_write_frame(afs->fmt_ctx, &afs->pkt);
+                if (err < 0)
+                    panic("error writing frame");
+                av_free_packet(&afs->pkt);
+            }
+
+            afs->frame->pts += afs->buffer_frame_count;
+            av_init_packet(&afs->pkt);
+            afs->pkt.data = NULL; // packet data will be allocated by the encoder
+            afs->pkt.size = 0;
+            afs->pkt_offset = 0;
+            pkt_frames_left = afs->buffer_frame_count - afs->pkt_offset;
+        }
     }
 
     return 0;

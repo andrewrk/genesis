@@ -33,6 +33,7 @@ enum Event {
     EventSettingsDefaultRenderFormatChanged,
     EventSettingsDefaultRenderSampleFormatChanged,
     EventSettingsDefaultRenderBitRateChanged,
+    EventRenderJobsUpdated,
 };
 
 struct EventHandler {

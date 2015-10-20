@@ -69,17 +69,23 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisContext *context;
-    int err = genesis_create_context(&context);
+    int err = genesis_context_create(&context);
     if (err) {
         fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 
-    if (latency > 0.0)
-        genesis_set_latency(context, latency);
-    genesis_set_underrun_callback(context, on_underrun, NULL);
+    struct GenesisPipeline *pipeline;
+    if ((err = genesis_pipeline_create(context, &pipeline))) {
+        fprintf(stderr, "unable to create pipeline: %s\n", genesis_strerror(err));
+        return 1;
+    }
 
-    struct GenesisNodeDescriptor *synth_descr = genesis_node_descriptor_find(context, "synth");
+    if (latency > 0.0)
+        genesis_pipeline_set_latency(pipeline, latency);
+    genesis_pipeline_set_underrun_callback(pipeline, on_underrun, NULL);
+
+    struct GenesisNodeDescriptor *synth_descr = genesis_node_descriptor_find(pipeline, "synth");
     if (!synth_descr) {
         fprintf(stderr, "unable to find synth\n");
         return 1;
@@ -113,7 +119,7 @@ int main(int argc, char **argv) {
             soundio_backend_name(out_device->soundio->current_backend));
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(pipeline, out_device, &playback_node_descr);
     if (err) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
@@ -171,7 +177,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "MIDI Device: %s\n", genesis_midi_device_description(midi_device));
 
     struct GenesisNodeDescriptor *midi_node_descr;
-    err = genesis_midi_device_create_node_descriptor(midi_device, &midi_node_descr);
+    err = genesis_midi_device_create_node_descriptor(pipeline, midi_device, &midi_node_descr);
     if (err) {
         fprintf(stderr, "unable to create input node descriptor: %s\n", genesis_strerror(err));
         return 1;
@@ -214,7 +220,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if ((err = genesis_start_pipeline(context, 0.0))) {
+    if ((err = genesis_pipeline_start(pipeline, 0.0))) {
         fprintf(stderr, "unable to start audio pipeline: %s\n", genesis_strerror(err));
         return 1;
     }

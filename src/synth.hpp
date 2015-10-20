@@ -3,6 +3,6 @@
 
 #include "genesis.hpp"
 
-int create_synth_descriptor(GenesisContext *context);
+int create_synth_descriptor(GenesisPipeline *pipeline);
 
 #endif

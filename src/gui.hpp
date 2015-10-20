@@ -15,6 +15,8 @@
 #include "event_dispatcher.hpp"
 #include "drag_event.hpp"
 
+struct RenderJob;
+
 uint32_t hash_int(const int &x);
 
 class GlobalGlfwContext {
@@ -74,6 +76,7 @@ public:
     ResourceBundle *_resource_bundle;
     ByteBuffer _default_font_buffer;
 
+    List<RenderJob *> render_jobs;
 
     Spritesheet _spritesheet;
 

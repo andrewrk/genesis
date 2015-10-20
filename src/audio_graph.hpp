@@ -34,7 +34,7 @@ struct AudioGraph {
     // TODO make sure this is updated when the audio clips are updated in the project
     List<AudioGraphClip*> audio_clip_list;
 
-    GenesisContext *genesis_context;
+    GenesisPipeline *pipeline;
     SettingsFile *settings_file;
     GenesisNodeDescriptor *resample_descr;
     GenesisNodeDescriptor *spy_descr;
@@ -42,7 +42,7 @@ struct AudioGraph {
     GenesisNode *resample_node;
     GenesisNode *mixer_node;
     GenesisNode *spy_node;
-    GenesisNode *playback_node;
+    GenesisNode *master_node;
 
     long audio_file_frame_count;
     long audio_file_frame_index;
@@ -56,7 +56,6 @@ struct AudioGraph {
 
     GenesisNodeDescriptor *render_descr;
     GenesisPortDescriptor *render_port_descr;
-    GenesisNode *render_node;
     ByteBuffer render_out_path;
     GenesisExportFormat render_export_format;
     GenesisAudioFileStream *render_stream;
@@ -75,6 +74,8 @@ int audio_graph_create_render(Project *project, GenesisContext *genesis_context,
         const GenesisExportFormat *export_format, const ByteBuffer &out_path,
         AudioGraph **out_audio_graph);
 void audio_graph_destroy(AudioGraph *audio_graph);
+
+double audio_graph_get_latency(AudioGraph *audio_graph);
 
 void audio_graph_play_sample_file(AudioGraph *audio_graph, const ByteBuffer &path);
 void audio_graph_play_audio_asset(AudioGraph *audio_graph, AudioAsset *audio_asset);

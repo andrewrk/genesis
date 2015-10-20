@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "libgenesis version %s\n", genesis_version_string());
 
     struct GenesisContext *context;
-    int err = genesis_create_context(&context);
+    int err = genesis_context_create(&context);
     if (err) {
         fprintf(stderr, "unable to create genesis context: %s\n", genesis_strerror(err));
         return 1;
@@ -35,5 +35,5 @@ int main(int argc, char **argv) {
         fprintf(stdout, "  %s\n", genesis_render_format_description(format));
     }
 
-    genesis_destroy_context(context);
+    genesis_context_destroy(context);
 }

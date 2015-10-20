@@ -50,11 +50,6 @@ static void midi_device_callback(void *userdata) {
     gui->events.trigger(EventMidiDeviceChange);
 }
 
-static void underrun_callback(void *userdata) {
-    Gui *gui = (Gui *)userdata;
-    gui->events.trigger(EventBufferUnderrun);
-}
-
 Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
     _running(true),
     _focus_window(nullptr),
@@ -98,7 +93,6 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
 
     genesis_set_audio_device_callback(_genesis_context, audio_device_callback, this);
     genesis_set_midi_device_callback(_genesis_context, midi_device_callback, this);
-    genesis_set_underrun_callback(_genesis_context, underrun_callback, this);
 
     genesis_set_sound_backend_disconnect_callback(_genesis_context, sound_backend_disconnect_callback, this);
 

@@ -33,7 +33,7 @@ static int delay_create(struct GenesisNode *node) {
 static int delay_port_connect(struct GenesisPort *audio_in_port, struct GenesisPort *other_port) {
     struct GenesisNode *node = audio_in_port->node;
     struct DelayContext *delay_context = (struct DelayContext *)node->userdata;
-    struct GenesisContext *context = node->descriptor->context;
+    struct GenesisPipeline *pipeline = node->descriptor->pipeline;
 
     delay_context->channel_count = genesis_audio_port_channel_layout(audio_in_port)->channel_count;
     int new_capacity = delay_context->channel_count * MAX_DELAY_FRAMES;
@@ -48,7 +48,7 @@ static int delay_port_connect(struct GenesisPort *audio_in_port, struct GenesisP
     }
 
     delay_context->delay_length_frames = genesis_whole_notes_to_frames(
-            context, delay_context->delay_length_notes, genesis_audio_port_sample_rate(audio_in_port));
+            pipeline, delay_context->delay_length_notes, genesis_audio_port_sample_rate(audio_in_port));
 
     return 0;
 }
@@ -87,8 +87,8 @@ static void delay_run(struct GenesisNode *node) {
     genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count);
 }
 
-int create_delay_descriptor(GenesisContext *context) {
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2, "delay", "Simple delay filter.");
+int create_delay_descriptor(GenesisPipeline *pipeline) {
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(pipeline, 2, "delay", "Simple delay filter.");
     if (!node_descr) {
         genesis_node_descriptor_destroy(node_descr);
         return GenesisErrorNoMem;
@@ -109,7 +109,7 @@ int create_delay_descriptor(GenesisContext *context) {
         return GenesisErrorNoMem;
     }
 
-    int target_sample_rate = genesis_get_sample_rate(context);
+    int target_sample_rate = genesis_pipeline_get_sample_rate(pipeline);
 
     genesis_port_descriptor_set_connect_callback(audio_in_port, delay_port_connect);
 

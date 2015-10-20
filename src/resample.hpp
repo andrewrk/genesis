@@ -3,6 +3,6 @@
 
 #include "genesis.hpp"
 
-int create_resample_descriptor(GenesisContext *context);
+int create_resample_descriptor(GenesisPipeline *pipeline);
 
 #endif

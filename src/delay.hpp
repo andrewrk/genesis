@@ -3,7 +3,7 @@
 
 #include "genesis.hpp"
 
-int create_delay_descriptor(GenesisContext *context);
+int create_delay_descriptor(GenesisPipeline *pipeline);
 
 #endif
 

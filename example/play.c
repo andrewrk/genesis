@@ -144,17 +144,23 @@ int main(int argc, char **argv) {
         return usage(exe);
 
     struct GenesisContext *context;
-    int err = genesis_create_context(&context);
+    int err = genesis_context_create(&context);
     if (err) {
         fprintf(stderr, "unable to create context: %s\n", genesis_strerror(err));
         return 1;
     }
 
+    struct GenesisPipeline *pipeline;
+    if ((err = genesis_pipeline_create(context, &pipeline))) {
+        fprintf(stderr, "unable to create pipeline: %s\n", genesis_strerror(err));
+        return 1;
+    }
+
     if (latency > 0.0)
-        genesis_set_latency(context, latency);
+        genesis_pipeline_set_latency(pipeline, latency);
     if (target_sample_rate > 0)
-        genesis_set_sample_rate(context, target_sample_rate);
-    genesis_set_underrun_callback(context, on_underrun, NULL);
+        genesis_pipeline_set_sample_rate(pipeline, target_sample_rate);
+    genesis_pipeline_set_underrun_callback(pipeline, on_underrun, NULL);
 
     struct GenesisAudioFile *audio_file;
     err = genesis_audio_file_load(context, input_filename, &audio_file);
@@ -181,7 +187,7 @@ int main(int argc, char **argv) {
     }
 
     struct GenesisNodeDescriptor *playback_node_descr;
-    err = genesis_audio_device_create_node_descriptor(context, out_device, &playback_node_descr);
+    err = genesis_audio_device_create_node_descriptor(pipeline, out_device, &playback_node_descr);
     if (err) {
         fprintf(stderr, "unable to get node info for output device: %s\n", genesis_strerror(err));
         return 1;
@@ -195,7 +201,7 @@ int main(int argc, char **argv) {
 
     // create audio file player node
     struct GenesisNodeDescriptor *audio_file_node_descr = genesis_create_node_descriptor(
-            context, 1, "audio_file", "Audio file playback.");
+            pipeline, 1, "audio_file", "Audio file playback.");
     if (!audio_file_node_descr) {
         fprintf(stderr, "unable to create node descriptor\n");
         return 1;
@@ -250,7 +256,7 @@ int main(int argc, char **argv) {
         }
     }
     if (try_with_resample) {
-        struct GenesisNodeDescriptor *resample_descr = genesis_node_descriptor_find(context, "resample");
+        struct GenesisNodeDescriptor *resample_descr = genesis_node_descriptor_find(pipeline, "resample");
         if (!resample_descr) {
             fprintf(stderr, "unable to find resampler\n");
             return 1;
@@ -290,7 +296,7 @@ int main(int argc, char **argv) {
 
     soundio_device_unref(out_device);
 
-    err = genesis_start_pipeline(context, 0.0);
+    err = genesis_pipeline_start(pipeline, 0.0);
     if (err) {
         fprintf(stderr, "unable to start pipeline: %s\n", genesis_strerror(err));
         return 1;
@@ -299,8 +305,8 @@ int main(int argc, char **argv) {
     while (play_context.running)
         genesis_wait_events(context);
 
-    genesis_stop_pipeline(context);
+    genesis_pipeline_stop(pipeline);
 
     genesis_audio_file_destroy(audio_file);
-    genesis_destroy_context(context);
+    genesis_context_destroy(context);
 }

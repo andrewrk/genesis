@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
         return usage(argv[0]);
 
     struct GenesisContext *context;
-    int err = genesis_create_context(&context);
+    int err = genesis_context_create(&context);
     if (err)
         return report_error(err);
 
@@ -140,5 +140,5 @@ int main(int argc, char **argv) {
         return report_error(err);
 
     genesis_audio_file_destroy(audio_file);
-    genesis_destroy_context(context);
+    genesis_context_destroy(context);
 }

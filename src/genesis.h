@@ -70,6 +70,7 @@ enum GenesisPortType {
 };
 
 struct GenesisContext;
+struct GenesisPipeline;
 
 struct GenesisExportFormat {
     struct GenesisAudioFileCodec *codec;
@@ -107,8 +108,8 @@ struct GenesisAudioFile;
 ////////// Main Context
 GENESIS_EXPORT const char *genesis_version_string(void);
 
-GENESIS_EXPORT int genesis_create_context(struct GenesisContext **context);
-GENESIS_EXPORT void genesis_destroy_context(struct GenesisContext *context);
+GENESIS_EXPORT int genesis_context_create(struct GenesisContext **context);
+GENESIS_EXPORT void genesis_context_destroy(struct GenesisContext *context);
 
 GENESIS_EXPORT const char *genesis_strerror(int error);
 
@@ -131,15 +132,6 @@ GENESIS_EXPORT void genesis_wakeup(struct GenesisContext *context);
 GENESIS_EXPORT void genesis_set_event_callback(struct GenesisContext *context,
         void (*callback)(void *userdata), void *userdata);
 
-// set callback to be called when a buffer underrun occurs.
-// callback is always called from genesis_flush_events or genesis_wait_events
-GENESIS_EXPORT void genesis_set_underrun_callback(struct GenesisContext *context,
-        void (*callback)(void *userdata), void *userdata);
-
-
-GENESIS_EXPORT double genesis_frames_to_whole_notes(struct GenesisContext *context, int frames, int frame_rate);
-GENESIS_EXPORT int genesis_whole_notes_to_frames(struct GenesisContext *context, double whole_notes, int frame_rate);
-GENESIS_EXPORT double genesis_whole_notes_to_seconds(struct GenesisContext *context, double whole_notes, int frame_rate);
 
 
 GENESIS_EXPORT int genesis_default_input_device_index(struct GenesisSoundBackend *sound_backend);
@@ -212,24 +204,38 @@ GENESIS_EXPORT float genesis_midi_note_to_pitch(int note);
 
 
 ///////////// Pipeline
+GENESIS_EXPORT void genesis_pipeline_destroy(struct GenesisPipeline *pipeline);
+GENESIS_EXPORT int genesis_pipeline_create(struct GenesisContext *context,
+        struct GenesisPipeline **out_pipeline);
+
+// set callback to be called when a buffer underrun occurs.
+// callback is always called from genesis_flush_events or genesis_wait_events
+GENESIS_EXPORT void genesis_pipeline_set_underrun_callback(struct GenesisPipeline *pipeline,
+        void (*callback)(void *userdata), void *userdata);
+
+
+GENESIS_EXPORT double genesis_frames_to_whole_notes(struct GenesisPipeline *pipeline, int frames, int frame_rate);
+GENESIS_EXPORT int genesis_whole_notes_to_frames(struct GenesisPipeline *pipeline, double whole_notes, int frame_rate);
+GENESIS_EXPORT double genesis_whole_notes_to_seconds(struct GenesisPipeline *pipeline, double whole_notes, int frame_rate);
 
 
 GENESIS_EXPORT struct GenesisNodeDescriptor *genesis_node_descriptor_find(
-        struct GenesisContext *context, const char *name);
+        struct GenesisPipeline *pipeline, const char *name);
 GENESIS_EXPORT const char *genesis_node_descriptor_name(const struct GenesisNodeDescriptor *node_descriptor);
 GENESIS_EXPORT const char *genesis_node_descriptor_description(const struct GenesisNodeDescriptor *node_descriptor);
 
 GENESIS_EXPORT int genesis_audio_device_create_node_descriptor(
-        struct GenesisContext *context,
+        struct GenesisPipeline *pipeline,
         struct SoundIoDevice *audio_device,
         struct GenesisNodeDescriptor **out_node_descriptor);
 GENESIS_EXPORT int genesis_midi_device_create_node_descriptor(
+        struct GenesisPipeline *pipeline,
         struct GenesisMidiDevice *midi_device,
         struct GenesisNodeDescriptor **out_node_descriptor);
 
 // name and description are copied internally
 GENESIS_EXPORT struct GenesisNodeDescriptor *genesis_create_node_descriptor(
-        struct GenesisContext *context, int port_count, const char *name,
+        struct GenesisPipeline *pipeline, int port_count, const char *name,
         const char *description);
 
 GENESIS_EXPORT void genesis_node_descriptor_destroy(struct GenesisNodeDescriptor *node_descriptor);
@@ -256,7 +262,7 @@ GENESIS_EXPORT void genesis_node_destroy(struct GenesisNode *node);
 
 GENESIS_EXPORT struct GenesisPort *genesis_node_port(struct GenesisNode *node, int port_index);
 GENESIS_EXPORT struct GenesisNodeDescriptor *genesis_node_descriptor(struct GenesisNode *node);
-GENESIS_EXPORT struct GenesisContext *genesis_node_context(struct GenesisNode *node);
+GENESIS_EXPORT struct GenesisPipeline *genesis_node_pipeline(struct GenesisNode *node);
 GENESIS_EXPORT void genesis_node_disconnect_all_ports(struct GenesisNode *node);
 
 GENESIS_EXPORT int genesis_connect_ports(struct GenesisPort *source, struct GenesisPort *dest);
@@ -298,30 +304,32 @@ GENESIS_EXPORT int genesis_audio_port_descriptor_set_sample_rate(
 GENESIS_EXPORT void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descriptor);
 
 GENESIS_EXPORT void genesis_debug_print_port_config(struct GenesisPort *port);
-GENESIS_EXPORT void genesis_debug_print_pipeline(struct GenesisContext *context);
+GENESIS_EXPORT void genesis_debug_print_pipeline(struct GenesisPipeline *pipeline);
 
-GENESIS_EXPORT int genesis_start_pipeline(struct GenesisContext *context, double time);
-GENESIS_EXPORT void genesis_stop_pipeline(struct GenesisContext *context);
-GENESIS_EXPORT int genesis_resume_pipeline(struct GenesisContext *context);
+GENESIS_EXPORT int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time);
+GENESIS_EXPORT void genesis_pipeline_stop(struct GenesisPipeline *pipeline);
+GENESIS_EXPORT int genesis_pipeline_resume(struct GenesisPipeline *pipeline);
 
 // can only set this when the pipeline is stopped.
 // also if you change this, you must destroy and re-create nodes and node
 // descriptors based on audio devices
-GENESIS_EXPORT int genesis_set_latency(struct GenesisContext *context, double latency);
-GENESIS_EXPORT double genesis_get_latency(struct GenesisContext *context);
+GENESIS_EXPORT int genesis_pipeline_set_latency(struct GenesisPipeline *pipeline, double latency);
+GENESIS_EXPORT double genesis_pipeline_get_latency(struct GenesisPipeline *pipeline);
 
 // can only set this when the pipeline is stopped.
 // also if you change this, you must destroy and re-create all nodes and node
 // descriptors
-GENESIS_EXPORT int genesis_set_sample_rate(struct GenesisContext *context, int sample_rate);
-GENESIS_EXPORT int genesis_get_sample_rate(struct GenesisContext *context);
+GENESIS_EXPORT int genesis_pipeline_set_sample_rate(struct GenesisPipeline *pipeline,
+        int sample_rate);
+GENESIS_EXPORT int genesis_pipeline_get_sample_rate(struct GenesisPipeline *pipeline);
 
 // can only set this when the pipeline is stopped.
 // also if you change this, you must destroy and re-create all nodes and node
 // descriptors
-GENESIS_EXPORT void genesis_set_channel_layout(struct GenesisContext *context,
+GENESIS_EXPORT void genesis_pipeline_set_channel_layout(struct GenesisPipeline *pipeline,
         const struct SoundIoChannelLayout *layout);
-GENESIS_EXPORT struct SoundIoChannelLayout *genesis_get_channel_layout(struct GenesisContext *context);
+GENESIS_EXPORT struct SoundIoChannelLayout *genesis_pipeline_get_channel_layout(
+        struct GenesisPipeline *pipeline);
 
 // returns the number of frames available to read
 GENESIS_EXPORT int genesis_audio_in_port_fill_count(struct GenesisPort *port);
@@ -437,7 +445,8 @@ GENESIS_EXPORT int genesis_audio_file_codec_best_bit_rate(
 GENESIS_EXPORT int genesis_audio_file_load(struct GenesisContext *context,
         const char *input_filename, struct GenesisAudioFile **audio_file);
 
-GENESIS_EXPORT struct GenesisAudioFile *genesis_audio_file_create(struct GenesisContext *context);
+GENESIS_EXPORT struct GenesisAudioFile *genesis_audio_file_create(
+        struct GenesisContext *context, int sample_rate);
 GENESIS_EXPORT void genesis_audio_file_set_sample_rate(struct GenesisAudioFile *audio_file,
         int sample_rate);
 GENESIS_EXPORT int genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
@@ -476,7 +485,7 @@ GENESIS_EXPORT int genesis_audio_file_stream_close(struct GenesisAudioFileStream
 
 /// interleaved
 GENESIS_EXPORT int genesis_audio_file_stream_write(struct GenesisAudioFileStream *stream,
-        const float *frames, long frame_count);
+        const float *frames, int frame_count);
 
 
 #endif

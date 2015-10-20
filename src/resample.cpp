@@ -408,8 +408,8 @@ static void out_disconnect(struct GenesisPort *port, struct GenesisPort *other_p
     resample_context->out_connected = false;
 }
 
-int create_resample_descriptor(GenesisContext *context) {
-    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(context, 2,
+int create_resample_descriptor(GenesisPipeline *pipeline) {
+    GenesisNodeDescriptor *node_descr = genesis_create_node_descriptor(pipeline, 2,
             "resample", "Resample audio and remap channel layouts.");
 
     if (!node_descr) {
@@ -437,7 +437,7 @@ int create_resample_descriptor(GenesisContext *context) {
     genesis_port_descriptor_set_disconnect_callback(audio_in_port, in_disconnect);
     genesis_port_descriptor_set_disconnect_callback(audio_out_port, out_disconnect);
 
-    int default_sample_rate = genesis_get_sample_rate(context);
+    int default_sample_rate = genesis_pipeline_get_sample_rate(pipeline);
 
     const struct SoundIoChannelLayout *mono_layout =
         soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono);

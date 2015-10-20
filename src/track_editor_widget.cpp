@@ -298,7 +298,7 @@ void TrackEditorWidget::update_model() {
             int frame_rate = project_audio_clip_sample_rate(project, segment->audio_clip);
             int frame_count = project_audio_clip_frame_count(project, segment->audio_clip);
             double whole_note_len = genesis_frames_to_whole_notes(
-                    project->genesis_context, frame_count, frame_rate);
+                    audio_graph->pipeline, frame_count, frame_rate);
             double whole_note_end = segment->pos + whole_note_len;
 
             gui_audio_clip_segment->left = whole_note_to_pixel(segment->pos);

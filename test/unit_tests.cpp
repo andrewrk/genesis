@@ -324,7 +324,7 @@ static void test_list_sort(void) {
 
 static void test_basic_project_editing(void) {
     GenesisContext *context;
-    ok_or_panic(genesis_create_context(&context));
+    ok_or_panic(genesis_context_create(&context));
     static const char *tmp_proj_path = "/tmp/test_genesis_project.gdaw";
     os_delete(tmp_proj_path);
     static const char *tmp_file_path = "/tmp/test_genesis_config";
@@ -387,7 +387,7 @@ static void test_basic_project_editing(void) {
 
     user_destroy(user);
     os_delete(tmp_proj_path);
-    genesis_destroy_context(context);
+    genesis_context_destroy(context);
 }
 
 static void test_string_compare(void) {
@@ -403,7 +403,7 @@ static void test_audio_file(void) {
     static const char *tmp_file_path = "/tmp/test_genesis_out.flac";
 
     GenesisContext *context;
-    ok_or_panic(genesis_create_context(&context));
+    ok_or_panic(genesis_context_create(&context));
 
     GenesisAudioFile *audio_file;
     ok_or_panic(genesis_audio_file_load(context, "../test/tiny-sine.ogg", &audio_file));
@@ -420,7 +420,7 @@ static void test_audio_file(void) {
 
     genesis_audio_file_export(audio_file, tmp_file_path, -1, &format);
     genesis_audio_file_destroy(audio_file);
-    genesis_destroy_context(context);
+    genesis_context_destroy(context);
 
     os_delete(tmp_file_path);
 }
@@ -520,8 +520,8 @@ static void exec_test(struct Test *test) {
 int main(int argc, char *argv[]) {
     // Do all the one-time initialization stuff.
     GenesisContext *context;
-    ok_or_panic(genesis_create_context(&context));
-    genesis_destroy_context(context);
+    ok_or_panic(genesis_context_create(&context));
+    genesis_context_destroy(context);
 
     const char *match = nullptr;
 

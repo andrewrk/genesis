@@ -72,6 +72,7 @@ set(GENESIS_SOURCES
     "${CMAKE_SOURCE_DIR}/src/project.cpp"
     "${CMAKE_SOURCE_DIR}/src/project_props_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/random.cpp"
+    "${CMAKE_SOURCE_DIR}/src/render_job.cpp"
     "${CMAKE_SOURCE_DIR}/src/render_widget.cpp"
     "${CMAKE_SOURCE_DIR}/src/resource_bundle.cpp"
     "${CMAKE_SOURCE_DIR}/src/resources_tree_widget.cpp"
