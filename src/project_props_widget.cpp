@@ -113,6 +113,7 @@ TextWidget *ProjectPropsWidget::create_form_label(const char *text) {
     text_widget->set_background_on(false);
     text_widget->set_text(text);
     text_widget->set_auto_size(true);
+    text_widget->set_text_interaction(false);
     return text_widget;
 }
 

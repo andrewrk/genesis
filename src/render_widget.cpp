@@ -305,16 +305,7 @@ static void on_stop_btn_activate(Event, void *userdata) {
     RenderWidgetJob *rwj = (RenderWidgetJob *)userdata;
     RenderWidget *render_widget = rwj->parent;
 
-    for (int i = 0; i < render_widget->gui->render_jobs.length(); i += 1) {
-        RenderJob *rj = render_widget->gui->render_jobs.at(i);
-        if (rj == rwj->render_job) {
-            render_job_stop(rj);
-            render_job_deinit(rj);
-            render_widget->gui->render_jobs.swap_remove(i);
-            render_widget->gui->events.trigger(EventRenderJobsUpdated);
-            return;
-        }
-    }
+    render_widget->gui->remove_render_job(rwj->render_job);
 }
 
 void RenderWidget::init_render_widget_job(RenderWidgetJob *rwj) {

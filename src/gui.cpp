@@ -1,6 +1,7 @@
 #include "gui.hpp"
 #include "os.hpp"
 #include "audio_graph.hpp"
+#include "render_job.hpp"
 
 uint32_t hash_int(const int &x) {
     return (uint32_t) x;
@@ -105,6 +106,12 @@ Gui::Gui(GenesisContext *context, ResourceBundle *resource_bundle) :
 }
 
 Gui::~Gui() {
+    while (render_jobs.length()) {
+        RenderJob *rj = render_jobs.pop();
+        destroy_render_job(rj);
+    }
+
+
     os_mutex_unlock(gui_mutex);
 
     glfwDestroyCursor(cursor_default);
@@ -212,4 +219,22 @@ void Gui::end_drag() {
     drag_data = nullptr;
     dragging = false;
     drag_window = nullptr;
+}
+
+void Gui::destroy_render_job(RenderJob *rj) {
+    render_job_stop(rj);
+    render_job_deinit(rj);
+    destroy(rj, 1);
+}
+
+void Gui::remove_render_job(RenderJob *target) {
+    for (int i = 0; i < render_jobs.length(); i += 1) {
+        RenderJob *rj = render_jobs.at(i);
+        if (rj == target) {
+            destroy_render_job(rj);
+            render_jobs.swap_remove(i);
+            events.trigger(EventRenderJobsUpdated);
+            return;
+        }
+    }
 }

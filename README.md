@@ -115,9 +115,9 @@ make
 
 ## Roadmap
 
- 0. fix playback
  0. assertion failure when multithreading on
  0. rendering multiple jobs at once caused segfault?
+ 0. fix playback
  0. UI spacing on render jobs is weirdo
  0. ability to update audio graph without stopping pipeline
  0. make toggling playback and seeking the play head work

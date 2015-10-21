@@ -1,8 +1,7 @@
 #ifndef GENESIS_RENDER_JOB
 #define GENESIS_RENDER_JOB
 
-#include "project.hpp"
-
+struct Project;
 struct AudioGraph;
 struct GenesisContext;
 class Gui;

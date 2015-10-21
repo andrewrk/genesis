@@ -47,6 +47,9 @@ public:
     void start_drag(GuiWindow *gui_window, const MouseEvent *event, DragData *drag_data);
     void end_drag();
 
+    void remove_render_job(RenderJob *rj);
+    void destroy_render_job(RenderJob *rj);
+
     OsMutex *gui_mutex;
 
 
