@@ -115,8 +115,6 @@ make
 
 ## Roadmap
 
- 0. fix synth demo not working
- 0. fix render not working very well - audio is glitchy
  0. fix playback
  0. assertion failure when multithreading on
  0. rendering multiple jobs at once caused segfault?

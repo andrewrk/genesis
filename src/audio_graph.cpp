@@ -292,6 +292,7 @@ static void render_node_run(struct GenesisNode *node) {
     float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
     GenesisAudioFileStream *afs = ag->render_stream;
 
+
     int frames_left = ag->render_frame_count - ag->render_frame_index;
     int write_count = min(input_frame_count, frames_left);
 
@@ -413,7 +414,9 @@ void audio_graph_start_pipeline(AudioGraph *ag) {
         GenesisPort *audio_in_port = genesis_node_port(ag->mixer_node, next_mixer_port++);
 
         if ((err = genesis_connect_ports(audio_out_port, audio_in_port))) {
-            if (err == GenesisErrorIncompatibleChannelLayouts || err == GenesisErrorIncompatibleSampleRates) {
+            if (err == GenesisErrorIncompatibleChannelLayouts ||
+                err == GenesisErrorIncompatibleSampleRates)
+            {
                 ag->resample_node = ok_mem(genesis_node_descriptor_create_node(ag->resample_descr));
                 ok_or_panic(genesis_connect_audio_nodes(ag->audio_file_node, ag->resample_node));
 
@@ -436,7 +439,9 @@ void audio_graph_start_pipeline(AudioGraph *ag) {
         GenesisPort *audio_in_port = genesis_node_port(ag->mixer_node, next_mixer_port++);
 
         if ((err = genesis_connect_ports(audio_out_port, audio_in_port))) {
-            if (err == GenesisErrorIncompatibleChannelLayouts || err == GenesisErrorIncompatibleSampleRates) {
+            if (err == GenesisErrorIncompatibleChannelLayouts ||
+                err == GenesisErrorIncompatibleSampleRates)
+            {
                 clip->resample_node = ok_mem(genesis_node_descriptor_create_node(ag->resample_descr));
                 ok_or_panic(genesis_connect_audio_nodes(clip->node, clip->resample_node));
 
@@ -819,6 +824,10 @@ int audio_graph_create_render(Project *project, GenesisContext *genesis_context,
             ag->render_descr, 0, GenesisPortTypeAudioIn, "audio_in");
     if (!ag->render_port_descr)
         panic("unable to create render port descriptor");
+    genesis_audio_port_descriptor_set_channel_layout(ag->render_port_descr,
+            &project->channel_layout, true, -1);
+    genesis_audio_port_descriptor_set_sample_rate(ag->render_port_descr,
+            export_format->sample_rate, true, -1);
 
     ag->master_node = ok_mem(genesis_node_descriptor_create_node(ag->render_descr));
 
