@@ -1874,6 +1874,7 @@ void genesis_pipeline_stop(struct GenesisPipeline *pipeline) {
     }
     for (int i = 0; i < pipeline->nodes.length(); i += 1) {
         GenesisNode *node = pipeline->nodes.at(i);
+        assert(node->descriptor->pipeline);
         if (node->descriptor->deactivate)
             node->descriptor->deactivate(node);
     }

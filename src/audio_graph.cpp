@@ -868,16 +868,16 @@ static void audio_graph_clip_destroy(AudioGraphClip *clip) {
         return;
 
     if (clip->event_node)
-        destroy(clip->event_node, 1);
+        genesis_node_destroy(clip->event_node);
 
     if (clip->event_node_descr)
-        destroy(clip->event_node_descr, 1);
+        genesis_node_descriptor_destroy(clip->event_node_descr);
 
     if (clip->node)
-        destroy(clip->node, 1);
+        genesis_node_destroy(clip->node);
 
     if (clip->node_descr)
-        destroy(clip->node_descr, 1);
+        genesis_node_descriptor_destroy(clip->node_descr);
 
     destroy(clip, 1);
 }
