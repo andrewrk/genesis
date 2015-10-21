@@ -58,3 +58,8 @@ bool render_job_is_complete(RenderJob *rj) {
     assert(rj);
     return rj->is_complete;
 }
+
+void render_job_flush_events(RenderJob *rj) {
+    if (rj->audio_graph)
+        audio_graph_flush_events(rj->audio_graph);
+}

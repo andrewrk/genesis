@@ -12,6 +12,7 @@ Widget::Widget(GuiWindow *gui_window) :
     height(100),
     is_visible(true)
 {
+    layout_row = -1;
 }
 
 Widget::~Widget() {

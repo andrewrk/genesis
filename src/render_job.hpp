@@ -24,4 +24,6 @@ float render_job_progress(RenderJob *rj);
 void render_job_stop(RenderJob *rj);
 bool render_job_is_complete(RenderJob *rj);
 
+void render_job_flush_events(RenderJob *rj);
+
 #endif

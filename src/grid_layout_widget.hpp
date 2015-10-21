@@ -37,6 +37,7 @@ public:
     void draw(const glm::mat4 &projection) override;
     void add_widget(Widget *widget, int row, int col, HAlign h_align, VAlign v_align);
     void remove_widget(Widget *widget) override;
+    void remove_all_widgets();
 
     int min_width() const override;
     int max_width() const override;

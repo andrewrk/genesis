@@ -25,6 +25,23 @@ void GridLayoutWidget::add_widget(Widget *widget, int row, int col, HAlign h_ali
     on_size_hints_changed();
 }
 
+void GridLayoutWidget::remove_all_widgets() {
+    for (int row = 0; row < rows(); row += 1) {
+        for (int col = 0; col < cols(); col += 1) {
+            Cell *cell = &cells.at(row).at(col);
+            if (!cell->widget)
+                continue;
+
+            cell->widget->layout_row = -1;
+            cell->widget->parent_widget = nullptr;
+            cell->widget = nullptr;
+        }
+    }
+
+    reduce_size();
+    on_size_hints_changed();
+}
+
 void GridLayoutWidget::remove_widget(Widget *widget) {
     if (widget->layout_row == -1)
         return;
@@ -33,6 +50,7 @@ void GridLayoutWidget::remove_widget(Widget *widget) {
     cell->widget = nullptr;
 
     widget->layout_row = -1;
+    widget->parent_widget = nullptr;
     reduce_size();
     on_size_hints_changed();
 }
@@ -144,10 +162,11 @@ void GridLayoutWidget::reduce_size() {
         if (!all_cols_empty)
             break;
     }
-    int row_shave_size = (last_row - row) + all_cols_empty;
-    if (row_shave_size > 0) {
-        ok_or_panic(cells.resize(rows() - row_shave_size));
-    }
+    int new_row_count = max(0, row + 1);
+    ok_or_panic(cells.resize(new_row_count));
+
+    if (!new_row_count)
+        return;
 
     int last_col = cells.at(0).length() - 1;
     bool all_rows_empty = true;
@@ -163,12 +182,10 @@ void GridLayoutWidget::reduce_size() {
         if (!all_rows_empty)
             break;
     }
-    int col_shave_size = (last_col - col) + all_rows_empty;
-    if (col_shave_size > 0) {
-        for (int row = 0; row < rows(); row += 1) {
-            List<Cell> *r = &cells.at(row);
-            ok_or_panic(r->resize(r->length() - col_shave_size));
-        }
+    int new_col_count = max(0, col + 1);
+    for (int row = 0; row < rows(); row += 1) {
+        List<Cell> *r = &cells.at(row);
+        ok_or_panic(r->resize(new_col_count));
     }
 }
 

@@ -93,6 +93,11 @@ static void on_flush_events(Event, void *userdata) {
     }
 
     audio_graph_flush_events(genesis_editor->audio_graph);
+
+    for (int i = 0; i < genesis_editor->gui->render_jobs.length(); i += 1) {
+        RenderJob *rj = genesis_editor->gui->render_jobs.at(i);
+        render_job_flush_events(rj);
+    }
 }
 
 static void on_buffer_underrun(Event, void *userdata) {
