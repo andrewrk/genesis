@@ -92,7 +92,5 @@ GenesisAudioFileCodec *audio_file_guess_audio_file_codec(
 
 uint64_t channel_layout_to_libav(const SoundIoChannelLayout *channel_layout);
 
-int audio_file_sample_rate_count(void);
-int audio_file_sample_rate_index(int index);
 
 #endif

@@ -457,7 +457,7 @@ int genesis_pipeline_create(struct GenesisContext *context,
     // subtract one to make room for GUI thread, OS, and other miscellaneous
     // interruptions.
     pipeline->thread_pool_size = max(1, concurrency - 1);
-    pipeline->thread_pool_size = 1; // TODO remove this debug
+    //pipeline->thread_pool_size = 1; // TODO remove this debug
     pipeline->thread_pool = allocate_zero<OsThread *>(pipeline->thread_pool_size);
     if (!pipeline->thread_pool) {
         genesis_pipeline_destroy(pipeline);

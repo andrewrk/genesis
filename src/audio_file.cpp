@@ -1210,11 +1210,11 @@ int genesis_audio_file_set_channel_layout(struct GenesisAudioFile *audio_file,
     return 0;
 }
 
-int audio_file_sample_rate_count(void) {
+int genesis_audio_file_sample_rate_count(void) {
     return array_length(sample_rate_list);
 }
 
-int audio_file_sample_rate_index(int index) {
+int genesis_audio_file_sample_rate_index(int index) {
     assert(index >= 0);
     assert(index < array_length(sample_rate_list));
     return sample_rate_list[index];

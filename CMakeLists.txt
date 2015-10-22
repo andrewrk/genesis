@@ -247,8 +247,8 @@ endif()
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
 
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Werror -pedantic -fsanitize=address -fno-omit-frame-pointer")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror -pedantic -fsanitize=address -fno-omit-frame-pointer")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Werror -pedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror -pedantic")
 
 
 set(LIB_CFLAGS "-std=c++11 -fno-exceptions -fno-rtti -fvisibility=hidden -Wall -Werror=strict-prototypes -Werror=old-style-definition -Werror=missing-prototypes -Wno-c99-extensions")
@@ -367,13 +367,12 @@ add_custom_target(rucksack_bundle ALL
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-add_executable(genesis ${GENESIS_SOURCES} ${LIBGENESIS_SOURCES} ${UNICODE_HPP})
+add_executable(genesis ${GENESIS_SOURCES} ${UNICODE_HPP})
 set_target_properties(genesis PROPERTIES
     LINKER_LANGUAGE CXX
     COMPILE_FLAGS ${LIB_CFLAGS}
 )
-target_link_libraries(genesis
-    asan
+target_link_libraries(genesis libgenesis_shared
     ${FREETYPE_LIBRARY}
     ${PNG_LIBRARY}
     ${RUCKSACK_LIBRARY}

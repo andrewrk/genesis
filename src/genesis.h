@@ -445,6 +445,9 @@ GENESIS_EXPORT int genesis_audio_file_codec_best_bit_rate(
 
 ////////////////// Audio File
 
+GENESIS_EXPORT int genesis_audio_file_sample_rate_count(void);
+GENESIS_EXPORT int genesis_audio_file_sample_rate_index(int index);
+
 GENESIS_EXPORT int genesis_audio_file_load(struct GenesisContext *context,
         const char *input_filename, struct GenesisAudioFile **audio_file);
 

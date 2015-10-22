@@ -17,7 +17,7 @@ static void on_channel_layout_changed(Event, void *userdata) {
 
 static void on_selected_sample_rate_change(Event, void *userdata) {
     ProjectPropsWidget *project_props_widget = (ProjectPropsWidget *)userdata;
-    int sample_rate = audio_file_sample_rate_index(project_props_widget->sample_rate_select->selected_index);
+    int sample_rate = genesis_audio_file_sample_rate_index(project_props_widget->sample_rate_select->selected_index);
     project_set_sample_rate(project_props_widget->project, sample_rate);
 }
 
@@ -53,10 +53,10 @@ ProjectPropsWidget::ProjectPropsWidget(GuiWindow *gui_window, Project *project) 
     layout.add_widget(channel_layout_select, 0, 1, HAlignLeft, VAlignCenter);
 
     sample_rate_select = create<SelectWidget>(gui_window);
-    int sample_rate_count = audio_file_sample_rate_count();
+    int sample_rate_count = genesis_audio_file_sample_rate_count();
     ByteBuffer choice_buf;
     for (int i = 0; i < sample_rate_count; i += 1) {
-        int sample_rate = audio_file_sample_rate_index(i);
+        int sample_rate = genesis_audio_file_sample_rate_index(i);
         choice_buf.format("%d", sample_rate);
         sample_rate_select->append_choice(choice_buf);
     }
@@ -135,9 +135,9 @@ void ProjectPropsWidget::on_mouse_move(const MouseEvent *ev) {
 }
 
 void ProjectPropsWidget::select_project_sample_rate() {
-    int sample_rate_count = audio_file_sample_rate_count();
+    int sample_rate_count = genesis_audio_file_sample_rate_count();
     for (int i = 0; i < sample_rate_count; i += 1) {
-        int sample_rate = audio_file_sample_rate_index(i);
+        int sample_rate = genesis_audio_file_sample_rate_index(i);
         if (project->sample_rate == sample_rate) {
             sample_rate_select->select_index(i);
             return;
