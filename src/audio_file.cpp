@@ -96,6 +96,9 @@ static const int bit_rate_list[] = {
     320,
 };
 
+static const float int24_min = -8388608.0f;
+static const float int24_max = 8388607.0f;
+
 static int import_frame_uint8(const AVFrame *avframe, GenesisAudioFile *audio_file) {
     uint8_t *ptr = avframe->extended_data[0];
     double min = 0.0;
@@ -676,7 +679,7 @@ static void write_frames_uint8_planar(const float *frames, int channel_count,
         uint8_t *ch_buf = frame->extended_data[ch] + offset;
         for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
-            *ch_buf = (uint8_t)((sample * 127.5) + 127.5);
+            *ch_buf = (uint8_t)clamp(0.0f, (sample * 127.5f) + 127.5f, (float)UINT8_MAX);
             ch_buf += 1;
         }
     }
@@ -689,7 +692,7 @@ static void write_frames_int16_planar(const float *frames, int channel_count,
         int16_t *ch_buf = reinterpret_cast<int16_t*>(frame->extended_data[ch] + offset);
         for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
-            *ch_buf = (int16_t)(sample * 32767.0);
+            *ch_buf = (int16_t)clamp((float)INT16_MIN, sample * 32767.0f, (float)INT16_MAX);
             ch_buf += 1;
         }
     }
@@ -702,7 +705,7 @@ static void write_frames_int32_planar(const float *frames, int channel_count,
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch] + offset);
         for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
-            *ch_buf = (int32_t)(sample * 2147483647.0);
+            *ch_buf = (int32_t)clamp((double)INT32_MIN, sample * 2147483647.0, (double)INT32_MAX);
             ch_buf += 1;
         }
     }
@@ -711,12 +714,13 @@ static void write_frames_int32_planar(const float *frames, int channel_count,
 static void write_frames_int24_planar(const float *frames, int channel_count,
         int offset, int end, uint8_t *buffer, AVFrame *frame)
 {
+
     for (int ch = 0; ch < channel_count; ch += 1) {
         int32_t *ch_buf = reinterpret_cast<int32_t*>(frame->extended_data[ch] + offset);
         for (int i = 0; i < end; i += 1) {
             float sample = frames[i * channel_count + ch];
             // ffmpeg looks at the most significant bytes
-            *ch_buf = ((int32_t)(sample * 8388607.0)) << 8;
+            *ch_buf = ((int32_t)clamp(int24_min, sample * 8388607.0f, int24_max)) << 8;
             ch_buf += 1;
         }
     }
@@ -755,7 +759,7 @@ static void write_frames_uint8(const float *frames, int channel_count,
         for (int ch = 0; ch < channel_count; ch += 1) {
             float sample = frames[i * channel_count + ch];
 
-            *buffer = (uint8_t)((sample * 127.5) + 127.5);
+            *buffer = (uint8_t)clamp(0.0f, (sample * 127.5f) + 127.5f, (float)UINT8_MAX);
 
             buffer += 1;
         }
@@ -770,7 +774,7 @@ static void write_frames_int16(const float *frames, int channel_count,
             float sample = frames[i * channel_count + ch];
 
             int16_t *int_ptr = reinterpret_cast<int16_t*>(buffer);
-            *int_ptr = (int16_t)(sample * 32767.0);
+            *int_ptr = (int16_t)clamp((float)INT16_MIN, sample * 32767.0f, (float)INT16_MAX);
 
             buffer += 2;
         }
@@ -785,7 +789,7 @@ static void write_frames_int32(const float *frames, int channel_count,
             float sample = frames[i * channel_count + ch];
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
-            *int_ptr = (int32_t)(sample * 2147483647.0);
+            *int_ptr = (int32_t)clamp((double)INT32_MIN, sample * 2147483647.0, (double)INT32_MAX);
 
             buffer += 4;
         }
@@ -801,7 +805,7 @@ static void write_frames_int24(const float *frames, int channel_count,
 
             int32_t *int_ptr = reinterpret_cast<int32_t*>(buffer);
             // ffmpeg looks at the most significant bytes
-            *int_ptr = ((int32_t)(sample * 8388607.0) << 8);
+            *int_ptr = ((int32_t)clamp(int24_min, sample * 8388607.0f, int24_max) << 8);
 
             buffer += 4;
         }
