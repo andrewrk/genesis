@@ -178,7 +178,7 @@ void RenderWidget::select_settings_bit_rate() {
         bit_rate_select->clear();
         for (int i = 0; i < bit_rate_count; i += 1) {
             int bit_rate = genesis_audio_file_codec_bit_rate_index(codec, i);
-            choice_buf.format("%d kbps", bit_rate);
+            choice_buf.format("%d kbps", bit_rate / 1000);
             bit_rate_select->append_choice(choice_buf);
             if (bit_rate == sf_bit_rate)
                 best_index = i;

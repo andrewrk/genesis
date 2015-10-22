@@ -89,11 +89,11 @@ static const RenderFormat prioritized_render_formats[] = {
 };
 
 static const int bit_rate_list[] = {
-    128,
-    160,
-    192,
-    256,
-    320,
+    128000,
+    160000,
+    192000,
+    256000,
+    320000,
 };
 
 static const float int24_min = -8388608.0f;

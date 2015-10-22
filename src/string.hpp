@@ -37,7 +37,7 @@ public:
     static const int max_codepoint = 0x1fffff;
     void append(uint32_t c) {
         if (c > max_codepoint)
-            panic("codepoint out of range");
+            panic("codepoint out of UTF-8 range");
         ok_or_panic(_chars.append(c));
     }
     void append(String s);
