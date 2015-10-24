@@ -217,38 +217,6 @@ static void audio_clip_event_node_run(struct GenesisNode *node) {
     genesis_events_out_port_advance_write_ptr(events_out_port, event_index, event_time_requested);
 }
 
-static void spy_node_run(struct GenesisNode *node) {
-    const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
-    struct AudioGraph *ag = (struct AudioGraph *)genesis_node_descriptor_userdata(node_descriptor);
-    struct GenesisPipeline *pipeline = ag->pipeline;
-    struct GenesisPort *audio_in_port = genesis_node_port(node, 0);
-    struct GenesisPort *audio_out_port = genesis_node_port(node, 1);
-
-    int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
-    int output_frame_count = genesis_audio_out_port_free_count(audio_out_port);
-    int bytes_per_frame = genesis_audio_port_bytes_per_frame(audio_in_port);
-
-    int frame_count = min(input_frame_count, output_frame_count);
-
-    memcpy(genesis_audio_out_port_write_ptr(audio_out_port),
-           genesis_audio_in_port_read_ptr(audio_in_port),
-           frame_count * bytes_per_frame);
-
-    genesis_audio_out_port_advance_write_ptr(audio_out_port, frame_count);
-    genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count);
-
-    if (ag->is_playing) {
-        int frame_rate = genesis_audio_port_sample_rate(audio_out_port);
-        double prev_play_head_pos = ag->play_head_pos.load();
-        int frame_at_start = genesis_whole_notes_to_frames(pipeline, prev_play_head_pos, frame_rate);
-        int frame_at_end = frame_at_start + frame_count;
-        double new_play_head_pos = genesis_frames_to_whole_notes(pipeline, frame_at_end, frame_rate);
-        double delta = new_play_head_pos - prev_play_head_pos;
-        ag->play_head_pos.add(delta);
-        ag->play_head_changed_flag.clear();
-    }
-}
-
 static void audio_file_node_run(struct GenesisNode *node) {
     const struct GenesisNodeDescriptor *node_descriptor = genesis_node_descriptor(node);
     struct AudioGraph *ag = (struct AudioGraph *)genesis_node_descriptor_userdata(node_descriptor);
@@ -399,8 +367,7 @@ void audio_graph_start_pipeline(AudioGraph *ag) {
     ok_or_panic(create_mixer_descriptor(ag->pipeline, mix_port_count, &ag->mixer_descr));
     ag->mixer_node = ok_mem(genesis_node_descriptor_create_node(ag->mixer_descr));
 
-    ok_or_panic(genesis_connect_audio_nodes(ag->spy_node, ag->master_node));
-    ok_or_panic(genesis_connect_audio_nodes(ag->mixer_node, ag->spy_node));
+    ok_or_panic(genesis_connect_audio_nodes(ag->mixer_node, ag->master_node));
 
     // We start on mixer port index 1 because index 0 is the audio out. Index 1 is
     // the first audio in.
@@ -715,8 +682,6 @@ static AudioGraph *audio_graph_create_common(Project *project, GenesisContext *g
     GenesisPipeline *pipeline;
     ok_or_panic(genesis_pipeline_create(genesis_context, &pipeline));
 
-    int target_sample_rate = project->sample_rate;
-
     genesis_pipeline_set_latency(pipeline, latency);
     genesis_pipeline_set_sample_rate(pipeline, project->sample_rate);
     genesis_pipeline_set_channel_layout(pipeline, &project->channel_layout);
@@ -732,27 +697,6 @@ static AudioGraph *audio_graph_create_common(Project *project, GenesisContext *g
     ag->resample_descr = genesis_node_descriptor_find(ag->pipeline, "resample");
     if (!ag->resample_descr)
         panic("unable to find resampler");
-
-    ag->spy_descr = genesis_create_node_descriptor(ag->pipeline,
-            2, "spy", "Spy on the master channel.");
-    if (!ag->spy_descr)
-        panic("unable to create spy node descriptor");
-    genesis_node_descriptor_set_userdata(ag->spy_descr, ag);
-    genesis_node_descriptor_set_run_callback(ag->spy_descr, spy_node_run);
-    GenesisPortDescriptor *spy_in_port = genesis_node_descriptor_create_port(
-            ag->spy_descr, 0, GenesisPortTypeAudioIn, "audio_in");
-    GenesisPortDescriptor *spy_out_port = genesis_node_descriptor_create_port(
-            ag->spy_descr, 1, GenesisPortTypeAudioOut, "audio_out");
-
-    genesis_audio_port_descriptor_set_channel_layout(spy_in_port,
-        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), true, 1);
-    genesis_audio_port_descriptor_set_sample_rate(spy_in_port, target_sample_rate, true, 1);
-
-    genesis_audio_port_descriptor_set_channel_layout(spy_out_port,
-        soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdMono), false, -1);
-    genesis_audio_port_descriptor_set_sample_rate(spy_out_port, target_sample_rate, false, -1);
-
-    ag->spy_node = ok_mem(genesis_node_descriptor_create_node(ag->spy_descr));
 
     genesis_pipeline_set_underrun_callback(pipeline, underrun_callback, ag);
 

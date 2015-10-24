@@ -36,11 +36,9 @@ struct AudioGraph {
     GenesisPipeline *pipeline;
     SettingsFile *settings_file;
     GenesisNodeDescriptor *resample_descr;
-    GenesisNodeDescriptor *spy_descr;
     GenesisNodeDescriptor *mixer_descr;
     GenesisNode *resample_node;
     GenesisNode *mixer_node;
-    GenesisNode *spy_node;
     GenesisNode *master_node;
 
     long audio_file_frame_count;

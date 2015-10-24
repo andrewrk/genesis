@@ -426,6 +426,7 @@ message("\n"
     "Installation Summary\n"
     "--------------------\n"
     "* Install Directory            : ${CMAKE_INSTALL_PREFIX}\n"
+    "* Build Type                   : ${CMAKE_BUILD_TYPE}\n"
 )
 
 message(
