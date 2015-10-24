@@ -117,7 +117,7 @@ static void resample_run(struct GenesisNode *node) {
 
     long over_actual_input_end = over_input_end - half_window_size;
 
-    if (over_actual_input_end < over_output_start)
+    if (over_actual_input_end <= over_output_start)
         return;
 
     long over_actual_output_end = min(over_output_end, over_actual_input_end);
@@ -126,7 +126,9 @@ static void resample_run(struct GenesisNode *node) {
 
     // actual output frame count in output sample rate coordinates
     int out_frame_count = over_out_count / resample_context->downsample_factor;
-    assert(out_frame_count > 0);
+    assert(out_frame_count >= 0);
+    if (out_frame_count == 0)
+        return;
 
     int in_frame_count = over_out_count / resample_context->upsample_factor;
 
