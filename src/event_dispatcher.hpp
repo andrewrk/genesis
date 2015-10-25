@@ -19,8 +19,6 @@ enum Event {
     EventProjectAudioAssetsChanged,
     EventProjectAudioClipsChanged,
     EventProjectAudioClipSegmentsChanged,
-    EventProjectPlayHeadChanged,
-    EventProjectPlayingChanged,
     EventProjectMixerLinesChanged,
     EventProjectEffectsChanged,
     EventBufferUnderrun,
@@ -34,6 +32,8 @@ enum Event {
     EventSettingsDefaultRenderSampleFormatChanged,
     EventSettingsDefaultRenderBitRateChanged,
     EventRenderJobsUpdated,
+    EventAudioGraphPlayHeadChanged,
+    EventAudioGraphPlayingChanged,
 };
 
 struct EventHandler {

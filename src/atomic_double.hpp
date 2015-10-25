@@ -21,6 +21,10 @@ public:
         return _value.load();
     }
 
+    double exchange(double new_value) {
+        return _value.exchange(new_value);
+    }
+
 private:
     atomic<double> _value;
 };

@@ -37,7 +37,7 @@ void render_job_start(RenderJob *rj, const GenesisExportFormat *export_format,
     audio_graph_create_render(rj->project, rj->genesis_context, export_format, out_path,
             &rj->audio_graph);
 
-    rj->audio_graph->events.attach_handler(EventRenderJobsUpdated, on_render_job_updated, rj);
+    rj->audio_graph->events.attach_handler(EventAudioGraphPlayHeadChanged, on_render_job_updated, rj);
 
     audio_graph_start_pipeline(rj->audio_graph);
 }

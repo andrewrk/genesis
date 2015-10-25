@@ -88,13 +88,14 @@ TrackEditorWidget::TrackEditorWidget(GuiWindow *gui_window, AudioGraph *audio_gr
 
     project->events.attach_handler(EventProjectTracksChanged, on_tracks_changed, this);
     project->events.attach_handler(EventProjectAudioClipSegmentsChanged, on_tracks_changed, this);
-    project->events.attach_handler(EventProjectPlayHeadChanged, on_play_head_changed, this);
+    audio_graph->events.attach_handler(EventAudioGraphPlayHeadChanged, on_play_head_changed, this);
     vert_scroll_bar->events.attach_handler(EventScrollValueChange, scroll_callback, this);
     horiz_scroll_bar->events.attach_handler(EventScrollValueChange, scroll_callback, this);
 }
 
 TrackEditorWidget::~TrackEditorWidget() {
     project->events.detach_handler(EventProjectTracksChanged, on_tracks_changed);
+    audio_graph->events.detach_handler(EventAudioGraphPlayHeadChanged, on_tracks_changed);
 
     destroy(vert_scroll_bar, 1);
     destroy(horiz_scroll_bar, 1);

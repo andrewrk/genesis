@@ -115,14 +115,17 @@ make
 
 ## Roadmap
 
- 0. fix playback
- 0. assertion failure when multithreading on
- 0. rendering multiple jobs at once caused segfault?
+ 0. audio graph seeking should cause a seek for all nodes
+    * do not create or destroy any threads
+    * do not create or destroy any ring buffers / memory
+    * do not create or destroy any nodes, ports, descriptors, etc
+    * wait for all nodes to finish processing
+    * then all nodes get a seek
+    * reset all the ring buffer indexes
+ 0. assertion failure / memory corruption when multithreading on?
  0. rendering multiple jobs freezes with multithreading on
  0. UI spacing on render jobs is weirdo
  0. ability to update audio graph without stopping pipeline
- 0. make toggling playback and seeking the play head work
- 0. start playing in the middle of an audio clip segment
  0. make a playback selection
  0. make sure recording works and is stable
  0. sequencer / piano roll

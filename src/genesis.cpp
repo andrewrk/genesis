@@ -26,6 +26,9 @@ struct PlaybackNodeContext {
     void (*write_sample)(char *ptr, float sample);
     atomic_bool ongoing_recovery;
     bool stream_started;
+    AtomicDouble latency;
+    atomic_long offset;
+    atomic_flag reset_offset_flag;
 };
 
 struct RecordingNodeContext {
@@ -50,9 +53,7 @@ static void swap_endian(char *ptr) {
 
 static void write_sample_s16ne(char *ptr, float sample) {
     int16_t *buf = (int16_t *)ptr;
-    float range = (float)INT16_MAX - (float)INT16_MIN;
-    float val = sample * range / 2.0f;
-    *buf = val;
+    *buf = (int16_t)clamp((float)INT16_MIN, sample * 32767.0f, (float)INT16_MAX);
 }
 
 static void read_sample_s16ne(char *ptr, float *sample) {
@@ -94,9 +95,7 @@ static void read_sample_u16fe(char *ptr, float *sample) {
 
 static void write_sample_s32ne(char *ptr, float sample) {
     int32_t *buf = (int32_t *)ptr;
-    float range = (float)INT32_MAX - (float)INT32_MIN;
-    float val = sample * range / 2.0;
-    *buf = val;
+    *buf = (int32_t)clamp((double)INT32_MIN, sample * 2147483647.0, (double)INT32_MAX);
 }
 
 static void read_sample_s32ne(char *ptr, float *sample) {
@@ -457,7 +456,7 @@ int genesis_pipeline_create(struct GenesisContext *context,
     // subtract one to make room for GUI thread, OS, and other miscellaneous
     // interruptions.
     pipeline->thread_pool_size = max(1, concurrency - 1);
-    //pipeline->thread_pool_size = 1; // TODO remove this debug
+    pipeline->thread_pool_size = 1; // TODO remove this debug
     pipeline->thread_pool = allocate_zero<OsThread *>(pipeline->thread_pool_size);
     if (!pipeline->thread_pool) {
         genesis_pipeline_destroy(pipeline);
@@ -913,6 +912,21 @@ static void queue_node_if_ready(GenesisPipeline *pipeline, GenesisNode *node, bo
     }
 }
 
+double genesis_node_playback_latency(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    return playback_node_context->latency.load();
+}
+
+void genesis_node_playback_reset_offset(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    playback_node_context->reset_offset_flag.clear();
+}
+
+long genesis_node_playback_offset(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    return playback_node_context->offset.load();
+}
+
 static void playback_node_destroy(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     if (playback_node_context) {
@@ -963,7 +977,9 @@ static void playback_node_fill_silence(SoundIoOutStream *outstream, int frame_co
     }
 }
 
-static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_min, int frame_count_max) {
+static void playback_node_callback(SoundIoOutStream *outstream,
+        int frame_count_min, int frame_count_max)
+{
     GenesisNode *node = (GenesisNode *)outstream->userdata;
     GenesisPipeline *pipeline = node->descriptor->pipeline;
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
@@ -1014,6 +1030,18 @@ static void playback_node_callback(SoundIoOutStream *outstream, int frame_count_
         frames_left -= frame_count;
     }
 
+    double latency;
+    if ((err = soundio_outstream_get_latency(outstream, &latency))) {
+        playback_node_error_callback(outstream, err);
+        return;
+    }
+    playback_node_context->latency.store(latency);
+
+    if (!playback_node_context->reset_offset_flag.test_and_set()) {
+        playback_node_context->offset.store(frame_count_max);
+    } else {
+        playback_node_context->offset += frame_count_max;
+    }
     genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count_max);
 }
 
@@ -1111,6 +1139,8 @@ static int playback_node_create(struct GenesisNode *node) {
         return GenesisErrorNoMem;
     }
     node->userdata = playback_node_context;
+    playback_node_context->offset.store(0);
+    playback_node_context->reset_offset_flag.test_and_set();
 
     return 0;
 }
@@ -1118,6 +1148,7 @@ static int playback_node_create(struct GenesisNode *node) {
 static void playback_node_seek(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     playback_node_context->ongoing_recovery.store(true);
+    playback_node_context->reset_offset_flag.test_and_set();
     if (playback_node_context->outstream) {
         soundio_outstream_pause(playback_node_context->outstream, 1);
         soundio_outstream_clear_buffer(playback_node_context->outstream);
@@ -1964,6 +1995,11 @@ int genesis_pipeline_resume(struct GenesisPipeline *pipeline) {
     return 0;
 }
 
+bool genesis_pipeline_is_running(struct GenesisPipeline *pipeline) {
+    assert(pipeline);
+    return pipeline->running;
+}
+
 int genesis_pipeline_set_latency(struct GenesisPipeline *pipeline, double latency) {
     if (latency <= 0.0)
         return GenesisErrorInvalidParam;
@@ -2393,3 +2429,4 @@ struct SoundIoDevice *genesis_find_input_device(struct GenesisContext *context,
 
     return nullptr;
 }
+

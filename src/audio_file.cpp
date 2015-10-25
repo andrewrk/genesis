@@ -1117,7 +1117,7 @@ struct GenesisAudioFileIterator genesis_audio_file_iterator(
         audio_file,
         start_frame_index,
         frame_count,
-        audio_file->channels.at(channel_index).samples.raw(),
+        audio_file->channels.at(channel_index).samples.raw() + start_frame_index,
     };
 }
 

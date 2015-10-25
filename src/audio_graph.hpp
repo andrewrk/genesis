@@ -58,11 +58,10 @@ struct AudioGraph {
     GenesisAudioFileStream *render_stream;
     atomic_long render_frame_index;
     long render_frame_count;
-    atomic_flag render_updated_flag;
     OsCond *render_cond;
 
     double start_play_head_pos;
-    AtomicDouble play_head_pos;
+    double play_head_pos;
     atomic_bool is_playing;
     atomic_flag play_head_changed_flag;
 };

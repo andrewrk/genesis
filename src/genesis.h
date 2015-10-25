@@ -273,6 +273,13 @@ GENESIS_EXPORT void genesis_disconnect_ports(struct GenesisPort *source, struct 
 // shortcut for connecting audio nodes. calls genesis_connect_ports internally
 GENESIS_EXPORT int genesis_connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest);
 
+/// `playback_node` must be a node created with ::genesis_audio_device_create_node_descriptor
+/// Returns the latency in seconds.
+GENESIS_EXPORT double genesis_node_playback_latency(struct GenesisNode *playback_node);
+GENESIS_EXPORT void genesis_node_playback_reset_offset(struct GenesisNode *playback_node);
+GENESIS_EXPORT long genesis_node_playback_offset(struct GenesisNode *playback_node);
+
+
 
 GENESIS_EXPORT struct GenesisNode *genesis_port_node(struct GenesisPort *port);
 
@@ -312,6 +319,8 @@ GENESIS_EXPORT void genesis_debug_print_pipeline(struct GenesisPipeline *pipelin
 GENESIS_EXPORT int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time);
 GENESIS_EXPORT void genesis_pipeline_stop(struct GenesisPipeline *pipeline);
 GENESIS_EXPORT int genesis_pipeline_resume(struct GenesisPipeline *pipeline);
+
+GENESIS_EXPORT bool genesis_pipeline_is_running(struct GenesisPipeline *pipeline);
 
 // can only set this when the pipeline is stopped.
 // also if you change this, you must destroy and re-create nodes and node

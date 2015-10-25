@@ -280,7 +280,7 @@ GenesisEditor::GenesisEditor() :
 
     project->events.attach_handler(EventProjectUndoChanged, on_undo_changed, this);
     audio_graph->events.attach_handler(EventBufferUnderrun, on_buffer_underrun, this);
-    audio_graph->events.attach_handler(EventProjectPlayingChanged, on_playing_changed, this);
+    audio_graph->events.attach_handler(EventAudioGraphPlayingChanged, on_playing_changed, this);
     project->events.attach_handler(EventProjectSampleRateChanged, on_sample_rate_changed, this);
 }
 
