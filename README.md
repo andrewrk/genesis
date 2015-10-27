@@ -115,13 +115,16 @@ make
 
 ## Roadmap
 
+ 0. sequencer / piano roll
+
+
+
  0. assertion failure / memory corruption when multithreading on?
  0. rendering multiple jobs freezes with multithreading on
  0. UI spacing on render jobs is weirdo
  0. ability to update audio graph without stopping pipeline
  0. make a playback selection
  0. make sure recording works and is stable
- 0. sequencer / piano roll
  0. drag samples directly to track editor
  0. audio clip segment: display waveform
  0. audio clip segment: drag to move

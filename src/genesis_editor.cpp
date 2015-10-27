@@ -13,7 +13,7 @@
 #include "text_widget.hpp"
 #include "tab_widget.hpp"
 #include "mixer_widget.hpp"
-#include "piano_roll_widget.hpp"
+#include "sequencer_widget.hpp"
 #include "audio_graph.hpp"
 #include "project_props_widget.hpp"
 #include "render_widget.hpp"
@@ -442,8 +442,8 @@ void GenesisEditor::create_window(SettingsFileOpenWindow *sf_open_window) {
     MixerWidget *mixer = create<MixerWidget>(new_window, project);
     add_dock(editor_window, mixer, "Mixer");
 
-    PianoRollWidget *piano_roll = create<PianoRollWidget>(new_window, project);
-    add_dock(editor_window, piano_roll, "Piano Roll");
+    SequencerWidget *sequencer = create<SequencerWidget>(new_window, project);
+    add_dock(editor_window, sequencer, "Sequencer");
 
     ProjectPropsWidget *project_props = create<ProjectPropsWidget>(new_window, project);
     add_dock(editor_window, project_props, "Project");
