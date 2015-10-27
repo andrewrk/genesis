@@ -432,6 +432,9 @@ void genesis_pipeline_destroy(struct GenesisPipeline *pipeline) {
     }
     destroy(pipeline->thread_pool, pipeline->thread_pool_size);
 
+    os_cond_destroy(pipeline->pause_master_cond);
+    os_mutex_destroy(pipeline->pause_mutex);
+
     destroy(pipeline, 1);
 }
 
@@ -450,7 +453,20 @@ int genesis_pipeline_create(struct GenesisContext *context,
     pipeline->target_sample_rate = 44100;
     pipeline->channel_layout = *soundio_channel_layout_get_builtin(SoundIoChannelLayoutIdStereo);
 
+    pipeline->running.store(false);
+    pipeline->paused.store(0);
     pipeline->stream_fail_flag.test_and_set();
+    pipeline->threads_paused.store(0);
+
+    if (!(pipeline->pause_master_cond = os_cond_create())) {
+        genesis_pipeline_destroy(pipeline);
+        return GenesisErrorNoMem;
+    }
+
+    if (!(pipeline->pause_mutex = os_mutex_create())) {
+        genesis_pipeline_destroy(pipeline);
+        return GenesisErrorNoMem;
+    }
 
     int concurrency = os_concurrency();
     // subtract one to make room for GUI thread, OS, and other miscellaneous
@@ -863,12 +879,6 @@ static void get_port_status(GenesisPort *port, bool *empty, bool *full) {
     panic("invalid port type");
 }
 
-static void run_node(GenesisNode *node) {
-    const GenesisNodeDescriptor *node_descriptor = node->descriptor;
-    node_descriptor->run(node);
-    node->being_processed = false;
-}
-
 static void queue_node_if_ready(GenesisPipeline *pipeline, GenesisNode *node, bool recursive) {
     if (node->being_processed) {
         // this node is already being processed; no point in queueing it again
@@ -915,11 +925,6 @@ static void queue_node_if_ready(GenesisPipeline *pipeline, GenesisNode *node, bo
 double genesis_node_playback_latency(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     return playback_node_context->latency.load();
-}
-
-void genesis_node_playback_reset_offset(struct GenesisNode *node) {
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    playback_node_context->reset_offset_flag.clear();
 }
 
 long genesis_node_playback_offset(struct GenesisNode *node) {
@@ -1108,9 +1113,6 @@ static int playback_node_activate(struct GenesisNode *node) {
         return GenesisErrorOpeningAudioHardware;
     }
 
-    // ask for audio frames
-    genesis_audio_in_port_advance_read_ptr(&audio_port->port, 0);
-
     return 0;
 }
 
@@ -1123,8 +1125,12 @@ static void playback_node_run(struct GenesisNode *node) {
         int input_capacity = genesis_audio_in_port_capacity(audio_in_port);
 
         if (input_frame_count == input_capacity) {
-            if (!playback_node_context->stream_started) {
-                playback_node_context->ongoing_recovery.store(false);
+            playback_node_context->ongoing_recovery.store(false);
+            playback_node_context->reset_offset_flag.clear();
+            playback_node_context->offset.store(0);
+            if (playback_node_context->stream_started) {
+                soundio_outstream_pause(playback_node_context->outstream, false);
+            } else {
                 soundio_outstream_start(playback_node_context->outstream);
                 playback_node_context->stream_started = true;
             }
@@ -1148,9 +1154,8 @@ static int playback_node_create(struct GenesisNode *node) {
 static void playback_node_seek(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
     playback_node_context->ongoing_recovery.store(true);
-    playback_node_context->reset_offset_flag.test_and_set();
     if (playback_node_context->outstream) {
-        soundio_outstream_pause(playback_node_context->outstream, 1);
+        soundio_outstream_pause(playback_node_context->outstream, true);
         soundio_outstream_clear_buffer(playback_node_context->outstream);
     }
 }
@@ -1396,6 +1401,8 @@ int genesis_audio_device_create_node_descriptor(struct GenesisPipeline *pipeline
         get_best_supported_layout(audio_device, &layout);
     }
     genesis_audio_port_descriptor_set_channel_layout(audio_port, &layout, true, -1);
+
+    genesis_audio_port_descriptor_set_is_sink(audio_port, true);
 
     *out = node_descr;
     return 0;
@@ -1840,6 +1847,7 @@ static void debug_print_audio_port_config(GenesisAudioPort *port) {
     fprintf(stderr, "audio port: %s\n", port->port.descriptor->name);
     fprintf(stderr, "sample rate: %s %d\n", sample_rate_fixed, port->sample_rate);
     fprintf(stderr, "channel_layout: %s ", chan_layout_fixed);
+    fprintf(stderr, "is_sink: %d ", audio_descr->is_sink);
     genesis_debug_print_channel_layout(&port->channel_layout);
 }
 
@@ -1865,14 +1873,70 @@ static void pipeline_thread_run(void *userdata) {
     GenesisPipeline *pipeline = reinterpret_cast<GenesisPipeline*>(userdata);
     for (;;) {
         GenesisNode *node = pipeline->task_queue.dequeue();
-        if (!pipeline->running)
-            break;
+        if (!pipeline->running) {
+            if (pipeline->paused.load() != 1)
+                break;
+            if (pipeline->threads_paused.fetch_add(1) == pipeline->thread_pool_size - 1) {
+                os_mutex_lock(pipeline->pause_mutex);
+                os_cond_signal(pipeline->pause_master_cond, pipeline->pause_mutex);
+                os_mutex_unlock(pipeline->pause_mutex);
+            }
+            while (pipeline->paused.load() == 1) {
+                os_futex_wait(reinterpret_cast<int*>(&pipeline->paused), 1);
+            }
+            pipeline->threads_paused -= 1;
+            continue;
+        }
 
-        run_node(node);
+        const GenesisNodeDescriptor *node_descriptor = node->descriptor;
+        node_descriptor->run(node);
+        node->being_processed.store(false);
     }
 }
 
 int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time) {
+    genesis_pipeline_seek(pipeline, time);
+
+    int err;
+    if ((err = genesis_pipeline_resume(pipeline))) {
+        genesis_pipeline_stop(pipeline);
+        return err;
+    }
+
+    for (int i = 0; i < pipeline->nodes.length(); i += 1) {
+        GenesisNode *node = pipeline->nodes.at(i);
+        if (node->descriptor->activate) {
+            if ((err = node->descriptor->activate(node))) {
+                genesis_pipeline_stop(pipeline);
+                return err;
+            }
+        }
+    }
+
+    for (int i = 0; i < pipeline->thread_pool_size; i += 1) {
+        if ((err = os_thread_create(pipeline_thread_run, pipeline, true, &pipeline->thread_pool[i]))) {
+            genesis_pipeline_stop(pipeline);
+            return err;
+        }
+    }
+
+
+    return 0;
+}
+
+void genesis_pipeline_pause(struct GenesisPipeline *pipeline) {
+    pipeline->paused.store(1);
+    pipeline->running.store(false);
+    pipeline->task_queue.wakeup_all();
+
+    os_mutex_lock(pipeline->pause_mutex);
+    while (pipeline->threads_paused.load() < pipeline->thread_pool_size) {
+        os_cond_wait(pipeline->pause_master_cond, pipeline->pause_mutex);
+    }
+    os_mutex_unlock(pipeline->pause_mutex);
+}
+
+void genesis_pipeline_seek(struct GenesisPipeline *pipeline, double time) {
     for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {
         GenesisNode *node = pipeline->nodes.at(node_index);
         for (int port_i = 0; port_i < node->port_count; port_i += 1) {
@@ -1891,8 +1955,6 @@ int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time) {
         if (node->descriptor->seek)
             node->descriptor->seek(node);
     }
-
-    return genesis_pipeline_resume(pipeline);
 }
 
 void genesis_pipeline_stop(struct GenesisPipeline *pipeline) {
@@ -1973,22 +2035,24 @@ int genesis_pipeline_resume(struct GenesisPipeline *pipeline) {
         }
     }
 
-    pipeline->running = true;
+    pipeline->running.store(true);
+    pipeline->paused.store(0);
 
-    for (int i = 0; i < pipeline->nodes.length(); i += 1) {
-        GenesisNode *node = pipeline->nodes.at(i);
-        if (node->descriptor->activate) {
-            if ((err = node->descriptor->activate(node))) {
-                genesis_pipeline_stop(pipeline);
-                return err;
+    os_futex_wake(reinterpret_cast<int*>(&pipeline->paused), pipeline->thread_pool_size);
+
+    // Iterate over the ports which are sinks and ask for frames.
+    for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {
+        GenesisNode *node = pipeline->nodes.at(node_index);
+        for (int port_i = 0; port_i < node->port_count; port_i += 1) {
+            GenesisPort *port = node->ports[port_i];
+            if (port->descriptor->port_type == GenesisPortTypeAudioIn) {
+                GenesisAudioPort *audio_port = reinterpret_cast<GenesisAudioPort*>(port);
+                GenesisAudioPortDescriptor *audio_port_descr =
+                    (GenesisAudioPortDescriptor *)port->descriptor;
+                if (audio_port_descr->is_sink) {
+                    genesis_audio_in_port_advance_read_ptr(&audio_port->port, 0);
+                }
             }
-        }
-    }
-
-    for (int i = 0; i < pipeline->thread_pool_size; i += 1) {
-        if ((err = os_thread_create(pipeline_thread_run, pipeline, true, &pipeline->thread_pool[i]))) {
-            genesis_pipeline_stop(pipeline);
-            return err;
         }
     }
 
@@ -2250,6 +2314,20 @@ int genesis_audio_port_descriptor_set_sample_rate(
 
     return 0;
 }
+
+void genesis_audio_port_descriptor_set_is_sink(
+        struct GenesisPortDescriptor *port_descr, bool is_sink)
+{
+    assert(port_descr);
+
+    assert(port_descr->port_type == GenesisPortTypeAudioIn ||
+           port_descr->port_type == GenesisPortTypeAudioOut);
+
+    GenesisAudioPortDescriptor *audio_port_descr = (GenesisAudioPortDescriptor *)port_descr;
+
+    audio_port_descr->is_sink = is_sink;
+}
+
 
 int genesis_connect_audio_nodes(struct GenesisNode *source, struct GenesisNode *dest) {
     int audio_out_port_index = genesis_node_descriptor_find_port_index(source->descriptor, "audio_out");

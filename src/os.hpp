@@ -89,8 +89,11 @@ void os_cond_destroy(struct OsCond *cond);
 // pass NULL, a mutex will be created and locked/unlocked for you. On systems
 // that do not use mutexes for conditions, no mutex handling is necessary. If
 // you already have a locked mutex available, pass it; this will be better on
-// systems that use mutexes for conditions.
+// systems that use mutexes for conditions. Wakes at least one thread waiting
+// on cond.
 void os_cond_signal(struct OsCond *cond, struct OsMutex *locked_mutex);
+// Wakes all threads waiting on cond.
+void os_cond_broadcast(struct OsCond *cond, struct OsMutex *locked_mutex);
 void os_cond_timed_wait(struct OsCond *cond, struct OsMutex *locked_mutex, double seconds);
 void os_cond_wait(struct OsCond *cond, struct OsMutex *locked_mutex);
 
@@ -126,5 +129,8 @@ struct OsMutexLocker {
 int os_get_current_year(void);
 
 void os_spawn_process(const char *exe, const List<ByteBuffer> &args, bool detached);
+
+int os_futex_wait(int *address, int val);
+int os_futex_wake(int *address, int count);
 
 #endif

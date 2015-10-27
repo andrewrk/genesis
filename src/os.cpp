@@ -4,6 +4,9 @@
 #include "error.h"
 #include "warning.hpp"
 
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#include <sys/errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -801,6 +804,28 @@ void os_cond_destroy(struct OsCond *cond) {
     free(cond);
 }
 
+void os_cond_broadcast(struct OsCond *cond, struct OsMutex *locked_mutex) {
+#if defined(GENESIS_OS_WINDOWS)
+    if (locked_mutex) {
+        WakeAllConditionVariable(&cond->id);
+    } else {
+        EnterCriticalSection(&cond->default_cs_id);
+        WakeAllConditionVariable(&cond->id);
+        LeaveCriticalSection(&cond->default_cs_id);
+    }
+#elif defined(GENESIS_OS_KQUEUE)
+#error unimplemented
+#else
+    if (locked_mutex) {
+        assert_no_err(pthread_cond_broadcast(&cond->id));
+    } else {
+        assert_no_err(pthread_mutex_lock(&cond->default_mutex_id));
+        assert_no_err(pthread_cond_broadcast(&cond->id));
+        assert_no_err(pthread_mutex_unlock(&cond->default_mutex_id));
+    }
+#endif
+}
+
 void os_cond_signal(struct OsCond *cond,
         struct OsMutex *locked_mutex)
 {
@@ -1180,4 +1205,17 @@ int os_get_current_year(void) {
     time_t t = time(nullptr);
     struct tm *gmt = gmtime(&t);
     return gmt->tm_year + 1900;
+}
+
+
+static int futex(int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2, int val3) {
+    return syscall(SYS_futex, uaddr, op, val, timeout, uaddr2, val3);
+}
+
+int os_futex_wait(int *address, int val) {
+    return futex(address, FUTEX_WAIT, val, nullptr, nullptr, 0) ? errno : 0;
+}
+
+int os_futex_wake(int *address, int count) {
+    return futex(address, FUTEX_WAKE, count, nullptr, nullptr, 0) ? errno : 0;
 }

@@ -276,7 +276,6 @@ GENESIS_EXPORT int genesis_connect_audio_nodes(struct GenesisNode *source, struc
 /// `playback_node` must be a node created with ::genesis_audio_device_create_node_descriptor
 /// Returns the latency in seconds.
 GENESIS_EXPORT double genesis_node_playback_latency(struct GenesisNode *playback_node);
-GENESIS_EXPORT void genesis_node_playback_reset_offset(struct GenesisNode *playback_node);
 GENESIS_EXPORT long genesis_node_playback_offset(struct GenesisNode *playback_node);
 
 
@@ -296,7 +295,6 @@ GENESIS_EXPORT void genesis_port_descriptor_set_disconnect_callback(
         struct GenesisPortDescriptor *port_descr,
         void (*disconnect)(struct GenesisPort *port, struct GenesisPort *other_port));
 
-
 // if fixed is true then other_port_index is the index
 // of the other port that it is the same as, or -1 if it is fixed
 // to the value of channel_layout
@@ -311,6 +309,13 @@ GENESIS_EXPORT int genesis_audio_port_descriptor_set_sample_rate(
         struct GenesisPortDescriptor *audio_port_descr,
         int sample_rate, bool fixed, int other_port_index);
 
+
+/// Set this to true if we should kick off the audio graph by running
+/// nodes attached to this port.
+GENESIS_EXPORT void genesis_audio_port_descriptor_set_is_sink(
+        struct GenesisPortDescriptor *port_descr, bool is_sink);
+
+
 GENESIS_EXPORT void genesis_port_descriptor_destroy(struct GenesisPortDescriptor *port_descriptor);
 
 GENESIS_EXPORT void genesis_debug_print_port_config(struct GenesisPort *port);
@@ -318,7 +323,10 @@ GENESIS_EXPORT void genesis_debug_print_pipeline(struct GenesisPipeline *pipelin
 
 GENESIS_EXPORT int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time);
 GENESIS_EXPORT void genesis_pipeline_stop(struct GenesisPipeline *pipeline);
+GENESIS_EXPORT void genesis_pipeline_pause(struct GenesisPipeline *pipeline);
 GENESIS_EXPORT int genesis_pipeline_resume(struct GenesisPipeline *pipeline);
+/// Must be called only when pipeline is paused or stopped.
+GENESIS_EXPORT void genesis_pipeline_seek(struct GenesisPipeline *pipeline, double time);
 
 GENESIS_EXPORT bool genesis_pipeline_is_running(struct GenesisPipeline *pipeline);
 

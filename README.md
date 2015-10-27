@@ -115,13 +115,6 @@ make
 
 ## Roadmap
 
- 0. audio graph seeking should cause a seek for all nodes
-    * do not create or destroy any threads
-    * do not create or destroy any ring buffers / memory
-    * do not create or destroy any nodes, ports, descriptors, etc
-    * wait for all nodes to finish processing
-    * then all nodes get a seek
-    * reset all the ring buffer indexes
  0. assertion failure / memory corruption when multithreading on?
  0. rendering multiple jobs freezes with multithreading on
  0. UI spacing on render jobs is weirdo

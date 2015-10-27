@@ -40,6 +40,9 @@ struct GenesisPipeline {
 
     OsThread **thread_pool;
     int thread_pool_size;
+    atomic_int threads_paused;
+    OsMutex *pause_mutex;
+    OsCond *pause_master_cond;
 
     void (*underrun_callback)(void *userdata);
     void *underrun_callback_userdata;
@@ -48,6 +51,7 @@ struct GenesisPipeline {
     List<GenesisNodeDescriptor*> node_descriptors;
     List<GenesisNode*> nodes;
     atomic_bool running;
+    atomic_int paused;
     ThreadSafeQueue<GenesisNode *> task_queue;
     double latency;
     double actual_latency;
@@ -88,6 +92,10 @@ struct GenesisAudioPortDescriptor {
     // to the value of sample_rate
     int same_sample_rate_index;
     int sample_rate;
+
+    // Set this to true if we should kick off the audio graph by running
+    // nodes attached to this port.
+    bool is_sink;
 };
 
 struct GenesisNodeDescriptor {
