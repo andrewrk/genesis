@@ -35,7 +35,11 @@ void ring_buffer_advance_read_ptr(struct RingBuffer *rb, int count) {
 }
 
 int ring_buffer_fill_count(struct RingBuffer *rb) {
-    int count = rb->write_offset - rb->read_offset;
+    // Whichever offset we load first might have a smaller value. So we load
+    // the read_offset first.
+    long read_offset = rb->read_offset.load();
+    long write_offset = rb->write_offset.load();
+    int count = write_offset - read_offset;
     assert(count >= 0);
     assert(count <= rb->capacity);
     return count;

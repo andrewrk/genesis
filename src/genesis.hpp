@@ -109,6 +109,8 @@ struct GenesisNodeDescriptor {
     void (*seek)(struct GenesisNode *node);
     int (*activate)(struct GenesisNode *node);
     void (*deactivate)(struct GenesisNode *node);
+    void (*pause)(struct GenesisNode *node);
+    void (*unpause)(struct GenesisNode *node);
     int set_index;
     double min_software_latency;
 

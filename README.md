@@ -115,6 +115,7 @@ make
 
 ## Roadmap
 
+ 0. playback is not quite right
  0. assertion failure / memory corruption when multithreading on?
  0. rendering multiple jobs freezes with multithreading on
  0. UI spacing on render jobs is weirdo

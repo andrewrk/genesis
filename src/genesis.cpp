@@ -29,6 +29,7 @@ struct PlaybackNodeContext {
     AtomicDouble latency;
     atomic_long offset;
     atomic_bool reset_offset_flag;
+    atomic_int achieved_silence_path;
 };
 
 struct RecordingNodeContext {
@@ -990,6 +991,21 @@ static void playback_node_fill_silence(SoundIoOutStream *outstream, int frame_co
     }
 }
 
+static void playback_node_pause(GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+
+    // Don't return from this function until playback_node_callback is for sure
+    // hitting the `playback_node_fill_silence` path.
+    while (playback_node_context->achieved_silence_path.load() == 0) {
+        os_futex_wait(reinterpret_cast<int *>(&playback_node_context->achieved_silence_path), 0);
+    }
+}
+
+static void playback_node_unpause(GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    playback_node_context->achieved_silence_path.store(0);
+}
+
 static void playback_node_callback(SoundIoOutStream *outstream,
         int frame_count_min, int frame_count_max)
 {
@@ -1000,6 +1016,9 @@ static void playback_node_callback(SoundIoOutStream *outstream,
     int err;
 
     if (!pipeline->running.load() || playback_node_context->ongoing_recovery.load()) {
+        if (playback_node_context->achieved_silence_path.exchange(1) == 0) {
+            os_futex_wake(reinterpret_cast<int*>(&playback_node_context->achieved_silence_path), 1);
+        }
         playback_node_fill_silence(outstream, frame_count_min);
         return;
     }
@@ -1381,6 +1400,8 @@ int genesis_audio_device_create_node_descriptor(struct GenesisPipeline *pipeline
     if (audio_device->aim == SoundIoDeviceAimOutput) {
         node_descr->activate = playback_node_activate;
         node_descr->deactivate = playback_node_deactivate;
+        node_descr->pause = playback_node_pause;
+        node_descr->unpause = playback_node_unpause;
         node_descr->run = playback_node_run;
         node_descr->create = playback_node_create;
         node_descr->destroy = playback_node_destroy;
@@ -1884,6 +1905,11 @@ static void pipeline_thread_run(void *userdata) {
         if (!pipeline->running) {
             if (pipeline->paused.load() != 1)
                 break;
+
+            const GenesisNodeDescriptor *node_descriptor = node->descriptor;
+            if (node_descriptor->pause)
+                node_descriptor->pause(node);
+
             if (pipeline->threads_paused.fetch_add(1) == pipeline->thread_pool_size - 1) {
                 os_mutex_lock(pipeline->pause_mutex);
                 os_cond_signal(pipeline->pause_master_cond, pipeline->pause_mutex);
@@ -1892,6 +1918,8 @@ static void pipeline_thread_run(void *userdata) {
             while (pipeline->paused.load() == 1) {
                 os_futex_wait(reinterpret_cast<int*>(&pipeline->paused), 1);
             }
+            if (node_descriptor->unpause)
+                node_descriptor->unpause(node);
             pipeline->threads_paused -= 1;
             continue;
         }
@@ -1957,6 +1985,8 @@ void genesis_pipeline_seek(struct GenesisPipeline *pipeline, double time) {
                 GenesisEventsPort *events_port = reinterpret_cast<GenesisEventsPort*>(port);
                 if (!events_port->event_buffer_err)
                     ring_buffer_clear(&events_port->event_buffer);
+                events_port->time_available.store(0.0);
+                events_port->time_requested.store(0.0);
             }
         }
         node->timestamp = time;
@@ -2229,7 +2259,9 @@ void genesis_events_out_port_free_count(struct GenesisPort *port,
     *time_requested = events_out_port->time_requested.load();
 }
 
-void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int event_count, double buf_size) {
+void genesis_events_out_port_advance_write_ptr(struct GenesisPort *port, int event_count,
+        double buf_size)
+{
     struct GenesisEventsPort *events_out_port = (struct GenesisEventsPort *) port;
     ring_buffer_advance_write_ptr(&events_out_port->event_buffer, event_count * sizeof(GenesisMidiEvent));
     events_out_port->time_requested.add(-buf_size);
