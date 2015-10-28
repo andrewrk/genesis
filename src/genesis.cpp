@@ -432,8 +432,6 @@ void genesis_pipeline_destroy(struct GenesisPipeline *pipeline) {
     }
     destroy(pipeline->thread_pool, pipeline->thread_pool_size);
 
-    os_cond_destroy(pipeline->pause_master_cond);
-    os_mutex_destroy(pipeline->pause_mutex);
 
     destroy(pipeline, 1);
 }
@@ -457,16 +455,6 @@ int genesis_pipeline_create(struct GenesisContext *context,
     pipeline->paused.store(0);
     pipeline->stream_fail_flag.test_and_set();
     pipeline->threads_paused.store(0);
-
-    if (!(pipeline->pause_master_cond = os_cond_create())) {
-        genesis_pipeline_destroy(pipeline);
-        return GenesisErrorNoMem;
-    }
-
-    if (!(pipeline->pause_mutex = os_mutex_create())) {
-        genesis_pipeline_destroy(pipeline);
-        return GenesisErrorNoMem;
-    }
 
     int concurrency = os_concurrency();
     // subtract one to make room for GUI thread, OS, and other miscellaneous
@@ -956,6 +944,9 @@ static void playback_node_error_callback(SoundIoOutStream *outstream, int err) {
 
     if (pipeline->running.load() && !playback_node_context->ongoing_recovery.exchange(true)) {
         pipeline->stream_fail_flag.clear();
+        if (playback_node_context->achieved_silence_path.exchange(1) == 0) {
+            os_futex_wake(reinterpret_cast<int*>(&playback_node_context->achieved_silence_path), 1);
+        }
         emit_event_ready(pipeline->context);
     }
 }
@@ -1001,11 +992,6 @@ static void playback_node_pause(GenesisNode *node) {
     }
 }
 
-static void playback_node_unpause(GenesisNode *node) {
-    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    playback_node_context->achieved_silence_path.store(0);
-}
-
 static void playback_node_callback(SoundIoOutStream *outstream,
         int frame_count_min, int frame_count_max)
 {
@@ -1025,6 +1011,7 @@ static void playback_node_callback(SoundIoOutStream *outstream,
 
     GenesisPort *audio_in_port = genesis_node_port(node, 0);
     int input_frame_count = genesis_audio_in_port_fill_count(audio_in_port);
+
     float *in_buf = genesis_audio_in_port_read_ptr(audio_in_port);
     const struct SoundIoChannelLayout *layout = &outstream->layout;
 
@@ -1074,6 +1061,7 @@ static void playback_node_callback(SoundIoOutStream *outstream,
     } else {
         playback_node_context->offset += frame_count_max;
     }
+
     genesis_audio_in_port_advance_read_ptr(audio_in_port, frame_count_max);
 }
 
@@ -1155,6 +1143,7 @@ static void playback_node_run(struct GenesisNode *node) {
             playback_node_context->ongoing_recovery.store(false);
             playback_node_context->reset_offset_flag.store(true);
             playback_node_context->offset.store(0);
+            playback_node_context->achieved_silence_path.store(0);
             if (playback_node_context->stream_started) {
                 soundio_outstream_pause(playback_node_context->outstream, false);
             } else {
@@ -1401,7 +1390,6 @@ int genesis_audio_device_create_node_descriptor(struct GenesisPipeline *pipeline
         node_descr->activate = playback_node_activate;
         node_descr->deactivate = playback_node_deactivate;
         node_descr->pause = playback_node_pause;
-        node_descr->unpause = playback_node_unpause;
         node_descr->run = playback_node_run;
         node_descr->create = playback_node_create;
         node_descr->destroy = playback_node_destroy;
@@ -1903,23 +1891,17 @@ static void pipeline_thread_run(void *userdata) {
     for (;;) {
         GenesisNode *node = pipeline->task_queue.dequeue();
         if (!pipeline->running) {
+            // Note: node is not valid inside this block.
             if (pipeline->paused.load() != 1)
                 break;
 
-            const GenesisNodeDescriptor *node_descriptor = node->descriptor;
-            if (node_descriptor->pause)
-                node_descriptor->pause(node);
-
-            if (pipeline->threads_paused.fetch_add(1) == pipeline->thread_pool_size - 1) {
-                os_mutex_lock(pipeline->pause_mutex);
-                os_cond_signal(pipeline->pause_master_cond, pipeline->pause_mutex);
-                os_mutex_unlock(pipeline->pause_mutex);
+            int old_threads_paused = pipeline->threads_paused.fetch_add(1);
+            if (old_threads_paused + 1 == pipeline->thread_pool_size) {
+                os_futex_wake(reinterpret_cast<int*>(&pipeline->threads_paused), 1);
             }
             while (pipeline->paused.load() == 1) {
                 os_futex_wait(reinterpret_cast<int*>(&pipeline->paused), 1);
             }
-            if (node_descriptor->unpause)
-                node_descriptor->unpause(node);
             pipeline->threads_paused -= 1;
             continue;
         }
@@ -1932,6 +1914,8 @@ static void pipeline_thread_run(void *userdata) {
 
 int genesis_pipeline_start(struct GenesisPipeline *pipeline, double time) {
     genesis_pipeline_seek(pipeline, time);
+
+    pipeline->stream_fail_flag.test_and_set();
 
     int err;
     if ((err = genesis_pipeline_resume(pipeline))) {
@@ -1965,11 +1949,18 @@ void genesis_pipeline_pause(struct GenesisPipeline *pipeline) {
     pipeline->running.store(false);
     pipeline->task_queue.wakeup_all();
 
-    os_mutex_lock(pipeline->pause_mutex);
-    while (pipeline->threads_paused.load() < pipeline->thread_pool_size) {
-        os_cond_wait(pipeline->pause_master_cond, pipeline->pause_mutex);
+    for (;;) {
+        int threads_paused = pipeline->threads_paused.load();
+        if (threads_paused == pipeline->thread_pool_size)
+            break;
+        os_futex_wait(reinterpret_cast<int*>(&pipeline->threads_paused), threads_paused);
     }
-    os_mutex_unlock(pipeline->pause_mutex);
+
+    for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {
+        GenesisNode *node = pipeline->nodes.at(node_index);
+        if (node->descriptor->pause)
+            node->descriptor->pause(node);
+    }
 }
 
 void genesis_pipeline_seek(struct GenesisPipeline *pipeline, double time) {
@@ -1996,8 +1987,15 @@ void genesis_pipeline_seek(struct GenesisPipeline *pipeline, double time) {
 }
 
 void genesis_pipeline_stop(struct GenesisPipeline *pipeline) {
-    pipeline->running = false;
+    pipeline->running.store(false);
+    pipeline->paused.store(0);
     pipeline->task_queue.wakeup_all();
+
+    int threads_paused = pipeline->threads_paused.load();
+    if (threads_paused > 0) {
+        os_futex_wake(reinterpret_cast<int*>(&pipeline->paused), threads_paused);
+    }
+
     for (int i = 0; i < pipeline->thread_pool_size; i += 1) {
         OsThread *thread = pipeline->thread_pool[i];
         os_thread_destroy(thread);
@@ -2017,8 +2015,6 @@ int genesis_pipeline_resume(struct GenesisPipeline *pipeline) {
         genesis_pipeline_stop(pipeline);
         return err;
     }
-
-    pipeline->stream_fail_flag.test_and_set();
 
     // the 0.75 is because the outstream software_latency is pipeline->latency * 0.25
     double desired_buffer_duration = pipeline->latency * 0.75;
@@ -2076,7 +2072,10 @@ int genesis_pipeline_resume(struct GenesisPipeline *pipeline) {
     pipeline->running.store(true);
     pipeline->paused.store(0);
 
-    os_futex_wake(reinterpret_cast<int*>(&pipeline->paused), pipeline->thread_pool_size);
+    int threads_paused = pipeline->threads_paused.load();
+    if (threads_paused > 0) {
+        os_futex_wake(reinterpret_cast<int*>(&pipeline->paused), threads_paused);
+    }
 
     // Iterate over the ports which are sinks and ask for frames.
     for (int node_index = 0; node_index < pipeline->nodes.length(); node_index += 1) {

@@ -21,7 +21,7 @@ char *ring_buffer_write_ptr(struct RingBuffer *rb) {
 }
 
 void ring_buffer_advance_write_ptr(struct RingBuffer *rb, int count) {
-    rb->write_offset += count;
+    rb->write_offset.fetch_add(count);
     assert(ring_buffer_fill_count(rb) >= 0);
 }
 
@@ -30,7 +30,7 @@ char *ring_buffer_read_ptr(struct RingBuffer *rb) {
 }
 
 void ring_buffer_advance_read_ptr(struct RingBuffer *rb, int count) {
-    rb->read_offset += count;
+    rb->read_offset.fetch_add(count);
     assert(ring_buffer_fill_count(rb) >= 0);
 }
 

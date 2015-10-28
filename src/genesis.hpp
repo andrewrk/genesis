@@ -41,8 +41,6 @@ struct GenesisPipeline {
     OsThread **thread_pool;
     int thread_pool_size;
     atomic_int threads_paused;
-    OsMutex *pause_mutex;
-    OsCond *pause_master_cond;
 
     void (*underrun_callback)(void *userdata);
     void *underrun_callback_userdata;
@@ -110,7 +108,6 @@ struct GenesisNodeDescriptor {
     int (*activate)(struct GenesisNode *node);
     void (*deactivate)(struct GenesisNode *node);
     void (*pause)(struct GenesisNode *node);
-    void (*unpause)(struct GenesisNode *node);
     int set_index;
     double min_software_latency;
 
