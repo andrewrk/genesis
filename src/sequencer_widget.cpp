@@ -18,16 +18,22 @@
 */
 static const char *note_names[] = {
     "A",
+    "A#",
     "B",
     "C",
+    "C#",
     "D",
+    "D#",
     "E",
     "F",
+    "F#",
     "G",
+    "G#",
 };
 
-static const int begin_note_index = -4 * 7;
-static const int end_note_index =  4 * 7;
+static const int semitones_per_octave = 12;
+static const int begin_note_index = -4 * semitones_per_octave;
+static const int end_note_index =  4 * semitones_per_octave;
 
 static void scroll_callback(Event, void *userdata) {
     SequencerWidget *sequencer_widget = (SequencerWidget *)userdata;
@@ -159,11 +165,11 @@ void SequencerWidget::deinit_grid_row(SequencerWidgetGridRow *grid_row) {
 }
 
 void SequencerWidget::get_note_index_text(int offset, String &text) {
-    int note_name_index = euclidean_mod(offset, 7);
+    int note_name_index = euclidean_mod(offset, semitones_per_octave);
     assert(note_name_index >= 0);
     assert(note_name_index < array_length(note_names));
     const char *note_name = note_names[note_name_index];
-    int note_number = (offset - begin_note_index) / 7;
+    int note_number = (offset - begin_note_index) / semitones_per_octave;
 
     ByteBuffer buf;
     buf.format("%s %d", note_name, note_number);
