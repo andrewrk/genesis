@@ -28,7 +28,7 @@ struct PlaybackNodeContext {
     bool stream_started;
     AtomicDouble latency;
     atomic_long offset;
-    atomic_flag reset_offset_flag;
+    atomic_bool reset_offset_flag;
 };
 
 struct RecordingNodeContext {
@@ -176,10 +176,10 @@ static void read_sample_u32fe(char *ptr, float *sample) {
 }
 
 static void write_sample_s24ne(char *ptr, float sample) {
+    static const float int24_min = -8388608.0f;
+    static const float int24_max = 8388607.0f;
     int32_t *buf = (int32_t *)ptr;
-    float range = 16777216.0f;
-    float val = sample * range / 2.0;
-    *buf = val;
+    *buf = (int32_t)clamp(int24_min, sample * 8388607.0f, int24_max);
 }
 
 static void read_sample_s24ne(char *ptr, float *sample) {
@@ -234,8 +234,7 @@ static void read_sample_s8(char *ptr, float *sample) {
 
 static void write_sample_u8(char *ptr, float sample) {
     uint8_t *buf = (uint8_t *)ptr;
-    float val = sample * (1.0f + (float)UINT8_MAX);
-    *buf = val;
+    *buf = (uint8_t)clamp(0.0f, (sample * 127.5f) + 127.5f, (float)UINT8_MAX);
 }
 
 static void read_sample_u8(char *ptr, float *sample) {
@@ -929,7 +928,16 @@ double genesis_node_playback_latency(struct GenesisNode *node) {
 
 long genesis_node_playback_offset(struct GenesisNode *node) {
     PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
-    return playback_node_context->offset.load();
+    if (playback_node_context->reset_offset_flag.load()) {
+        return 0;
+    } else {
+        return playback_node_context->offset.load();
+    }
+}
+
+void genesis_node_playback_reset_offset(struct GenesisNode *node) {
+    PlaybackNodeContext *playback_node_context = (PlaybackNodeContext*)node->userdata;
+    playback_node_context->reset_offset_flag.store(true);
 }
 
 static void playback_node_destroy(struct GenesisNode *node) {
@@ -1042,7 +1050,7 @@ static void playback_node_callback(SoundIoOutStream *outstream,
     }
     playback_node_context->latency.store(latency);
 
-    if (!playback_node_context->reset_offset_flag.test_and_set()) {
+    if (playback_node_context->reset_offset_flag.exchange(false)) {
         playback_node_context->offset.store(frame_count_max);
     } else {
         playback_node_context->offset += frame_count_max;
@@ -1126,7 +1134,7 @@ static void playback_node_run(struct GenesisNode *node) {
 
         if (input_frame_count == input_capacity) {
             playback_node_context->ongoing_recovery.store(false);
-            playback_node_context->reset_offset_flag.clear();
+            playback_node_context->reset_offset_flag.store(true);
             playback_node_context->offset.store(0);
             if (playback_node_context->stream_started) {
                 soundio_outstream_pause(playback_node_context->outstream, false);
@@ -1146,7 +1154,7 @@ static int playback_node_create(struct GenesisNode *node) {
     }
     node->userdata = playback_node_context;
     playback_node_context->offset.store(0);
-    playback_node_context->reset_offset_flag.test_and_set();
+    playback_node_context->reset_offset_flag.store(false);
 
     return 0;
 }

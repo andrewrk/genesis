@@ -75,6 +75,7 @@ static void audio_clip_node_seek(struct GenesisNode *node) {
 static void audio_clip_node_run(struct GenesisNode *node) {
     struct AudioClipNodeContext *context = (struct AudioClipNodeContext*)node->userdata;
     struct GenesisPipeline *pipeline = genesis_node_pipeline(node);
+    AudioGraph *ag = context->clip->audio_graph;
     struct GenesisPort *audio_out_port = genesis_node_port(node, 0);
     struct GenesisPort *events_in_port = genesis_node_port(node, 1);
 
@@ -140,32 +141,34 @@ static void audio_clip_node_run(struct GenesisNode *node) {
     // set everything to silence and then we'll add samples in
     memset(out_buf, 0, frame_count * bytes_per_frame);
 
-    for (int voice_i = 0; voice_i < AUDIO_CLIP_POLYPHONY; voice_i += 1) {
-        AudioClipVoice *voice = &context->voices[voice_i];
-        if (!voice->active)
-            continue;
+    if (ag->is_playing.load()) {
+        for (int voice_i = 0; voice_i < AUDIO_CLIP_POLYPHONY; voice_i += 1) {
+            AudioClipVoice *voice = &context->voices[voice_i];
+            if (!voice->active)
+                continue;
 
-        int out_frame_count = min(frame_count, frame_count - voice->frames_until_start);
-        int audio_file_frames_left = voice->frame_end - voice->frame_index;
-        int frames_to_advance = min(out_frame_count, audio_file_frames_left);
-        for (int ch = 0; ch < channel_count; ch += 1) {
-            struct AudioClipNodeChannel *channel = &voice->channels[ch];
-            for (int frame_offset = 0; frame_offset < frames_to_advance; frame_offset += 1) {
-                if (channel->offset >= channel->iter.end) {
-                    genesis_audio_file_iterator_next(&channel->iter);
-                    channel->offset = 0;
+            int out_frame_count = min(frame_count, frame_count - voice->frames_until_start);
+            int audio_file_frames_left = voice->frame_end - voice->frame_index;
+            int frames_to_advance = min(out_frame_count, audio_file_frames_left);
+            for (int ch = 0; ch < channel_count; ch += 1) {
+                struct AudioClipNodeChannel *channel = &voice->channels[ch];
+                for (int frame_offset = 0; frame_offset < frames_to_advance; frame_offset += 1) {
+                    if (channel->offset >= channel->iter.end) {
+                        genesis_audio_file_iterator_next(&channel->iter);
+                        channel->offset = 0;
+                    }
+
+                    int out_frame_index = voice->frames_until_start + frame_offset;
+                    int out_sample_index = out_frame_index * channel_count + ch;
+                    out_buf[out_sample_index] += channel->iter.ptr[channel->offset];
+                    channel->offset += 1;
                 }
-
-                int out_frame_index = voice->frames_until_start + frame_offset;
-                int out_sample_index = out_frame_index * channel_count + ch;
-                out_buf[out_sample_index] += channel->iter.ptr[channel->offset];
-                channel->offset += 1;
             }
+            voice->frame_index += frames_to_advance;
+            voice->frames_until_start = 0;
+            if (frames_to_advance == audio_file_frames_left)
+                voice->active = false;
         }
-        voice->frame_index += frames_to_advance;
-        voice->frames_until_start = 0;
-        if (frames_to_advance == audio_file_frames_left)
-            voice->active = false;
     }
 
     context->frame_pos += frame_count;
@@ -199,7 +202,6 @@ static void audio_clip_event_node_seek(struct GenesisNode *node) {
 static void audio_clip_event_node_run(struct GenesisNode *node) {
     AudioClipEventNodeContext *context = (AudioClipEventNodeContext*)node->userdata;
     AudioGraphClip *clip = context->clip;
-    AudioGraph *ag = clip->audio_graph;
     struct GenesisPort *events_out_port = genesis_node_port(node, 0);
 
     int event_count;
@@ -210,21 +212,19 @@ static void audio_clip_event_node_run(struct GenesisNode *node) {
     double end_pos = context->pos + event_time_requested;
 
     int event_index = 0;
-    if (ag->is_playing) {
-        List<GenesisMidiEvent> *event_list = clip->events.get_read_ptr();
-        for (int i = 0; i < event_list->length(); i += 1) {
-            GenesisMidiEvent *event = &event_list->at(i);
-            if ((event->start >= context->pos || context->detect_ongoing_notes) &&
-                    event->start < end_pos)
-            {
-                *event_buf = *event;
-                event_buf += 1;
-                event_index += 1;
+    List<GenesisMidiEvent> *event_list = clip->events.get_read_ptr();
+    for (int i = 0; i < event_list->length(); i += 1) {
+        GenesisMidiEvent *event = &event_list->at(i);
+        if ((event->start >= context->pos || context->detect_ongoing_notes) &&
+                event->start < end_pos)
+        {
+            *event_buf = *event;
+            event_buf += 1;
+            event_index += 1;
 
-                if (event_index >= event_count) {
-                    event_time_requested = event->start - context->pos;
-                    break;
-                }
+            if (event_index >= event_count) {
+                event_time_requested = event->start - context->pos;
+                break;
             }
         }
     }
@@ -942,6 +942,8 @@ void audio_graph_pause(AudioGraph *ag) {
 void audio_graph_play(AudioGraph *ag) {
     if (ag->is_playing.exchange(true))
         return;
+    assert(!ag->render_stream);
+    genesis_node_playback_reset_offset(ag->master_node);
     audio_graph_start_pipeline(ag);
     ag->events.trigger(EventAudioGraphPlayingChanged);
 }

@@ -277,6 +277,7 @@ GENESIS_EXPORT int genesis_connect_audio_nodes(struct GenesisNode *source, struc
 /// Returns the latency in seconds.
 GENESIS_EXPORT double genesis_node_playback_latency(struct GenesisNode *playback_node);
 GENESIS_EXPORT long genesis_node_playback_offset(struct GenesisNode *playback_node);
+GENESIS_EXPORT void genesis_node_playback_reset_offset(struct GenesisNode *playback_node);
 
 
 
