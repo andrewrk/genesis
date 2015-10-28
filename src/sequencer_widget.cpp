@@ -117,9 +117,8 @@ void SequencerWidget::update_model() {
     // Iterate over all the notes. If a note is visible, then prepare to display it.
     int next_grid_row = 0;
     for (int note_index = begin_note_index; note_index < end_note_index; note_index += 1) {
-        // TODO low note index corresponds to low pitch but graphically we want it to correspond
-        // to high pitch
-        int absolute_row_index = note_index - begin_note_index;
+        int absolute_row_index = (end_note_index - begin_note_index) -
+            (note_index - begin_note_index) - 1;
         int row_top = timeline_bottom + absolute_row_index * grid_cell_height - vert_scroll_bar->value;
         int row_bottom = row_top + grid_cell_height;
 
