@@ -501,7 +501,7 @@ int genesis_audio_file_load(struct GenesisContext *context,
             return GenesisErrorDecodingAudio;
         }
         int negative_err = decode_frame(audio_file, &pkt, audio_file->codec_ctx, audio_file->in_frame, import_frame);
-        av_free_packet(&pkt);
+        av_packet_unref(&pkt);
         if (negative_err == -GenesisErrorDecodingAudio) {
             // ignore decoding errors and try the next frame
             continue;
@@ -1561,7 +1561,7 @@ int genesis_audio_file_stream_close(struct GenesisAudioFileStream *afs) {
                 err = av_write_frame(afs->fmt_ctx, &afs->pkt);
                 if (err < 0)
                     panic("error writing frame");
-                av_free_packet(&afs->pkt);
+                av_packet_unref(&afs->pkt);
             } else {
                 break;
             }
@@ -1640,7 +1640,7 @@ int genesis_audio_file_stream_write(struct GenesisAudioFileStream *afs,
                 err = av_write_frame(afs->fmt_ctx, &afs->pkt);
                 if (err < 0)
                     panic("error writing frame");
-                av_free_packet(&afs->pkt);
+                av_packet_unref(&afs->pkt);
             }
 
             afs->frame->pts += afs->buffer_frame_count;
