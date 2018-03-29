@@ -8,7 +8,7 @@ Genesis aims to make music creation collaborative, global, free, and open source
 
 Genesis is not ready for serious users yet. If you're excited about the project,
 follow the [development blog](http://genesisdaw.org/) or sustain development
-with [financial support](https://salt.bountysource.com/teams/gdaw).
+with [financial support](http://andrewkelley.me/donate).
 
 ## Status
 
